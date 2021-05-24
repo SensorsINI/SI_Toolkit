@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow import keras
-from Modeling.SI_Toolkit.TF.TF_Functions.Network import create_rnn_instance
+from SI_Toolkit.TF.TF_Functions.Network import create_rnn_instance
 
 import yaml
 config = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
