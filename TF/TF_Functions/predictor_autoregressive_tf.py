@@ -46,14 +46,15 @@ from SI_Toolkit.load_and_normalize import *
 import numpy as np
 
 from types import SimpleNamespace
+import yaml
 
 from CartPole.state_utilities import STATE_VARIABLES, cartpole_state_varnames_to_indices, cartpole_state_varname_to_index
 import tensorflow as tf
 
-# NET_NAME = 'Dense-6IN-16H1-16H2-5OUT-0'
-NET_NAME = 'GRU-6IN-16H1-16H2-5OUT-0'
+config = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
 
-PATH_TO_MODELS = './SI_Toolkit/TF/Models/'
+NET_NAME = config['modeling']['NET_NAME']
+PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
 
 class predictor_autoregressive_tf:
     def __init__(self, horizon=None, batch_size=None, net_name=None):

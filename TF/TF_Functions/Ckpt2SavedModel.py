@@ -2,8 +2,11 @@ import tensorflow as tf
 from tensorflow import keras
 from Modeling.SI_Toolkit.TF.TF_Functions.Network import create_rnn_instance
 
-RNN_FULL_NAME = 'GRU-6IN-64H1-64H2-5OUT-0'
-RNN_PATH = './save_tf/'
+import yaml
+config = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
+
+RNN_FULL_NAME = config['modeling']['RNN_FULL_NAME']
+RNN_PATH = config['modeling']['RNN_PATH']
 SAVEPATH = RNN_PATH + RNN_FULL_NAME + '/1/'
 
 # Create rnn instance and update lists of input, outputs and its name (if pretraind net loaded)
