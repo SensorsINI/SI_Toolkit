@@ -159,7 +159,7 @@ class Dataset(keras.utils.Sequence):
 
 
 
-
+# FIXME: Not working now
 from CartPole.state_utilities import create_cartpole_state, cartpole_state_varname_to_index
 from Predictores.predictor_ideal import predictor_ideal
 class DatasetRandom(keras.utils.Sequence):

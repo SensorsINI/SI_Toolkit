@@ -79,7 +79,11 @@ def load_data(list_of_paths_to_datafiles=None):
     sleep(0.1)
     for file_number in trange(len(list_of_paths_to_datafiles)):
         filepath = list_of_paths_to_datafiles[file_number]
-        df = pd.read_csv(filepath, comment='#', dtype=np.float32)
+
+        # Read column names from file
+        # FIXME: This is a quick fix to exclude column in CartPole recording which cannot be converted to float32
+        cols = list(pd.read_csv(filepath, comment='#', nrows=1))
+        df = pd.read_csv(filepath, comment='#', dtype=np.float32, usecols =[i for i in cols if i != 'measurement'])
         all_dfs.append(df)
 
     return all_dfs
