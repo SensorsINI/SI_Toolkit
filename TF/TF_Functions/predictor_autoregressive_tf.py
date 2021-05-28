@@ -47,7 +47,7 @@ import numpy as np
 
 from types import SimpleNamespace
 
-from CartPole.state_utilities import STATE_VARIABLES, cartpole_state_varnames_to_indices, cartpole_state_varname_to_index
+from CartPole.state_utilities import STATE_VARIABLES_REDUCED, STATE_INDICES_REDUCED
 import tensorflow as tf
 
 # NET_NAME = 'Dense-6IN-16H1-16H2-5OUT-0'
@@ -83,7 +83,7 @@ class predictor_autoregressive_tf:
 
         self.prediction_denorm = None # Set to True or False in setup, determines if output should be denormalized
 
-        self.output_array = np.zeros([self.batch_size, self.horizon+1, len(STATE_VARIABLES)+1], dtype=np.float32)
+        self.output_array = np.zeros([self.batch_size, self.horizon+1, len(STATE_VARIABLES_REDUCED)+1], dtype=np.float32)
         Q_type = tf.TensorSpec((self.horizon,), tf.float32)
 
         initial_input_type = tf.TensorSpec((len(self.net_info.inputs)-1,), tf.float32)
@@ -111,7 +111,7 @@ class predictor_autoregressive_tf:
 
         self.output_array[..., 0, :-1] = initial_state
 
-        initial_input_net_without_Q = initial_state[..., cartpole_state_varnames_to_indices(self.net_info.inputs[1:])]
+        initial_input_net_without_Q = initial_state[..., [STATE_INDICES_REDUCED.get(key) for key in self.net_info.inputs[1:]]]
         self.net_initial_input_without_Q = normalize_numpy_array(initial_input_net_without_Q, self.net_info.inputs[1:], self.normalization_info)
 
         # [1:] excludes Q which is not included in initial_state_normed
@@ -142,21 +142,21 @@ class predictor_autoregressive_tf:
         # First version let us assume net returns all state except for angle
 
         # Denormalize
-        self.output_array[..., 1:, cartpole_state_varnames_to_indices(self.net_info.outputs)] = \
+        self.output_array[..., 1:, [STATE_INDICES_REDUCED.get(key) for key in self.net_info.outputs]] = \
             denormalize_numpy_array(net_outputs.numpy(), self.net_info.outputs, self.normalization_info)
 
         # Augment
         if 'angle' not in self.net_info.outputs:
-            self.output_array[..., cartpole_state_varname_to_index('angle')] = \
+            self.output_array[..., STATE_INDICES_REDUCED['angle']] = \
                 np.arctan2(
-                    self.output_array[..., cartpole_state_varname_to_index('angle_sin')],
-                    self.output_array[..., cartpole_state_varname_to_index('angle_cos')])
+                    self.output_array[..., STATE_INDICES_REDUCED['angle_sin']],
+                    self.output_array[..., STATE_INDICES_REDUCED['angle_cos']])
         if 'angle_sin' not in self.net_info.outputs:
-            self.output_array[..., cartpole_state_varname_to_index('angle_sin')] =\
-                np.sin(self.output_array[..., cartpole_state_varname_to_index('angle')])
+            self.output_array[..., STATE_INDICES_REDUCED['angle_sin']] =\
+                np.sin(self.output_array[..., STATE_INDICES_REDUCED['angle']])
         if 'angle_cos' not in self.net_info.outputs:
-            self.output_array[..., cartpole_state_varname_to_index('angle_cos')] =\
-                np.sin(self.output_array[..., cartpole_state_varname_to_index('angle')])
+            self.output_array[..., STATE_INDICES_REDUCED['angle_cos']] =\
+                np.sin(self.output_array[..., STATE_INDICES_REDUCED['angle']])
 
         return self.output_array
 
@@ -233,7 +233,7 @@ class predictor_autoregressive_tf:
         else:
             # print('I used normal setter!')
             self._horizon = value
-            # self.output_array = np.zeros([self.horizon + 1, self.batch_size, len(STATE_VARIABLES) + 1],
+            # self.output_array = np.zeros([self.horizon + 1, self.batch_size, len(STATE_VARIABLES_REDUCED) + 1],
             #                              dtype=np.float32)
             #
             # Q_type = tf.TensorSpec((self.horizon,), tf.float32)
