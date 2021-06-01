@@ -6,18 +6,40 @@ Created on Fri Jun 19 08:29:29 2020
 """
 
 import argparse
-from CartPole.state_utilities import STATE_VARIABLES_REDUCED, STATE_VARIABLES
+import numpy as np
 
 PATH_TO_MODELS = './SI_Toolkit/TF/Models/'
 
-features = list(STATE_VARIABLES_REDUCED)
 
-tests = ['GRU-6IN-16H1-16H2-5OUT-0', 'Dense-6IN-16H1-16H2-5OUT-0', 'Euler-predictor']  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
+# TODO: For consistency features should be "state inputs" probably. Think about it once more before implementing
+# For CartPole
+features = list(np.sort(
+    ['angle',
+     'angleD',
+     'angle_cos',
+     'angle_sin',
+     'position',
+     'positionD',
+     ]
+))
+
+# For l2race
+# features = list(['x1','x2','x3','x4','x5','x6','x7'])
+
+# For CartPole
+control_inputs = ['Q']
+
+# For l2race
+# control_inputs = ['u1', 'u2']
+
+
+tests = ['GRU-6IN-16H1-16H2-5OUT-1', 'Dense-6IN-16H1-16H2-5OUT-1', 'Euler-predictor']  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
 norm_infos = ['./SI_Toolkit/NormalizationInfo/' + 'Dataset-1-norm.csv']*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
 dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for which ground truth value exists), for neural network has no effect
 titles = tests  # Titles of tests to be printed in GUI
 
 TEST_FILE = ['./ExperimentRecordings/Dataset-1/Test/Test.csv']
+TEST_FILE = ['./ExperimentRecordings/PCP-1/Test/Dance-Test-cartpole-2021-05-26-17-17-13.csv']
 
 PATH_TO_NORMALIZATION_INFO = './SI_Toolkit/NormalizationInfo/' + 'Dataset-1-norm.csv'
 
@@ -35,7 +57,9 @@ def args():
     parser.add_argument('--dt_euler', default=dt_euler,
                         help='List of timestep lengths for Euler experiments')
     parser.add_argument('--features', default=features,
-                        help='List of features which can be plotted in GUI')
+                        help='List of features (= state_inputs) which can be plotted in GUI')
+    parser.add_argument('--control_inputs', default=control_inputs,
+                        help='List of control inputs')
     parser.add_argument('--titles', default=titles,
                         help='List of titles of tests.')
 
