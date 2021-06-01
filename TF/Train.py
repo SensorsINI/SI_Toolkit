@@ -25,7 +25,8 @@ from SI_Toolkit.TF.Parameters import args
 # Custom functions
 from SI_Toolkit.TF.TF_Functions.Initialization import set_seed, create_full_name, create_log_file, get_net_and_norm_info
 from SI_Toolkit.TF.TF_Functions.Loss import loss_msr_sequence_customizable
-from SI_Toolkit.TF.TF_Functions.Dataset import Dataset, DatasetRandom
+from SI_Toolkit.TF.TF_Functions.Dataset import Dataset
+# from SI_Toolkit.TF.TF_Functions.Dataset import DatasetRandom
 from SI_Toolkit.load_and_normalize import load_data, normalize_df, \
     get_sampling_interval_from_datafile, get_paths_to_datafiles
 
@@ -83,11 +84,12 @@ def train_network(nni_parameters=None):
     # region Load data and prepare datasets
 
     if a.on_fly_data_generation:
+        ...
         # TODO DatasetRandom should have normalization info too...
         # TODO It should be possible only to provide here the dt as in norm info
-        train_set = DatasetRandom(a, inputs_list=net_info.inputs, outputs_list=net_info.outputs, number_of_batches=1000)
-        validation_set = DatasetRandom(a, inputs_list=net_info.inputs, outputs_list=net_info.outputs,
-                                       number_of_batches=10)
+        # train_set = DatasetRandom(a, inputs_list=net_info.inputs, outputs_list=net_info.outputs, number_of_batches=1000)
+        # validation_set = DatasetRandom(a, inputs_list=net_info.inputs, outputs_list=net_info.outputs,
+        #                                number_of_batches=10)
 
     else:
 
