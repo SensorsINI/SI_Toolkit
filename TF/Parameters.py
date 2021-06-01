@@ -10,7 +10,7 @@ Created on Fri Jun 19 08:29:29 2020
 import argparse
 import glob
 
-net_name = 'Dense-16H1-16H2'
+net_name = 'Dense-32H1-32H2'
 
 # Path to trained models and their logs
 PATH_TO_MODELS = './SI_Toolkit/TF/Models/'
@@ -29,8 +29,8 @@ TEST_FILES = './ExperimentRecordings/Dataset-1/Test/'
 # region Set inputs and outputs
 
 # For training closed loop dynamics model
-inputs = ['Q', 'angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
-outputs = ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
+inputs = [ 'u1', 'u2', 'x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7'] #TODO
+outputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
 
 # For training open loop dynamics model
 # inputs = ['position', 'positionD', 'angle_sin', 'angle_cos', 'angleD']
@@ -88,7 +88,7 @@ def args():
 
     # Training parameters
     parser.add_argument('--num_epochs', default=20, type=int, help='Number of epochs of training')
-    parser.add_argument('--batch_size', default=256, type=int, help='Size of a batch')
+    parser.add_argument('--batch_size', default=4, type=int, help='Size of a batch')
     parser.add_argument('--seed', default=1873, type=int, help='Set seed for reproducibility')
     parser.add_argument('--lr', default=1.0e-3, type=float, help='Learning rate')
 
@@ -104,10 +104,11 @@ def args():
 
     args = parser.parse_args()
 
+    # Sort control inputs seperately from state
     # Make sure that the provided lists of inputs and outputs are in alphabetical order
-    if args.inputs is not None:
-        args.inputs = sorted(args.inputs)
-    if args.outputs is not None:
-        args.outputs = sorted(args.outputs)
+    # if args.inputs is not None:
+    #     args.inputs = sorted(args.inputs)
+    # if args.outputs is not None:
+    #     args.outputs = sorted(args.outputs)
     return args
 

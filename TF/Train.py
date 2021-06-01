@@ -94,6 +94,8 @@ def train_network(nni_parameters=None):
         paths_to_datafiles_training = get_paths_to_datafiles(a.training_files)
         paths_to_datafiles_validation = get_paths_to_datafiles(a.validation_files)
 
+        print("Net info", net_info)
+
         for path in paths_to_datafiles_training + paths_to_datafiles_validation:
             dt_sampling = get_sampling_interval_from_datafile(path)
             if abs(net_info.sampling_interval - dt_sampling) > 1.0e-5:
@@ -181,6 +183,11 @@ def train_network(nni_parameters=None):
     callbacks_for_training.append(csv_logger)
 
     # endregion
+    # print("TrainingDataset ", training_dataset.labels)
+    # print("TrainingDataset ", training_dataset.data)
+    # print("validation_dataset ", validation_dataset.labels)
+    # print("validation_dataset ", validation_dataset.data)
+    
 
     history = net.fit(
         training_dataset,
@@ -190,6 +197,7 @@ def train_network(nni_parameters=None):
         validation_data=validation_dataset,
         callbacks=callbacks_for_training,
     )
+
 
     # region Save final weights as checkpoint
     net.save_weights(net_info.path_to_net + net_info.net_full_name + '.ckpt')

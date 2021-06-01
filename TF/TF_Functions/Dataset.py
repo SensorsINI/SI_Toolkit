@@ -30,13 +30,13 @@ class Dataset(keras.utils.Sequence):
         self.time_axes = []
 
         for df in dfs:
-            self.time_axes.append(df['time'])
+            # self.time_axes.append(df['time'])
             self.data.append(df[self.inputs])
             self.labels.append(df[self.outputs])
 
         self.args = args
 
-        self.exp_len = None
+        self.exp_len = 20
         self.warm_up_len = self.args.wash_out_len
         self.df_lengths = []
         self.df_lengths_cs = []
@@ -72,7 +72,9 @@ class Dataset(keras.utils.Sequence):
                     self.df_lengths_cs.append(self.df_lengths[0])
                 else:
                     self.df_lengths_cs.append(self.df_lengths_cs[-1] + self.df_lengths[-1])
-            self.number_of_samples = self.df_lengths_cs[-1]
+            print("self.df_lengths_cs", self.df_lengths_cs)
+         
+            self.number_of_samples = 939 #self.df_lengths_cs[-1]
 
         else:
             self.number_of_samples = self.data.shape[0] - self.exp_len-1
@@ -137,13 +139,16 @@ class Dataset(keras.utils.Sequence):
         features_batch = []
         targets_batch = []
         sample_idx = self.indexes[self.batch_size * idx_batch: self.batch_size * (idx_batch + 1)]
+ 
+   
         for i in sample_idx:
             features, targets = self.get_series(i)
             features_batch.append(features)
             targets_batch.append(targets)
         features_batch = np.stack(features_batch)
         targets_batch = np.stack(targets_batch)
-
+        
+     
         return features_batch, targets_batch
 
     def get_experiment(self, idx=None):
@@ -160,8 +165,7 @@ class Dataset(keras.utils.Sequence):
 
 
 
-from CartPole.state_utilities import create_cartpole_state, cartpole_state_varname_to_index
-from Predictores.predictor_ideal import predictor_ideal
+
 class DatasetRandom(keras.utils.Sequence):
     def __init__(self,
                  args=None,
@@ -222,7 +226,7 @@ class DatasetRandom(keras.utils.Sequence):
         initial_state['position'] = [s[cartpole_state_varname_to_index('position')]]
         initial_state['positionD'] = [s[cartpole_state_varname_to_index('positionD')]]
 
-        Predictor = predictor_ideal((self.exp_len+1) * 5, 0.02) # This results in exp_len+2 timesteps
+        Predictor = predictor_ideal((self.exp_len+1) * 5, 0.2) # This results in exp_len+2 timesteps
         Predictor.setup(initial_state=initial_state, prediction_denorm=False)
 
         Q = np.random.uniform(low=-1, high=1, size=self.exp_len+1)

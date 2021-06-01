@@ -6,13 +6,13 @@ Created on Fri Jun 19 08:29:29 2020
 """
 
 import argparse
-from CartPole.state_utilities import STATE_VARIABLES_REDUCED, STATE_VARIABLES
 
 PATH_TO_MODELS = './SI_Toolkit/TF/Models/'
 
-features = list(STATE_VARIABLES_REDUCED)
-
-tests = ['GRU-6IN-16H1-16H2-5OUT-0', 'Dense-6IN-16H1-16H2-5OUT-0', 'Euler-predictor']  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
+features = list(['x1','x2','x3','x4','x5','x6','x7'])
+#'GRU-6IN-16H1-16H2-5OUT-0', 
+# 'Dense-9IN-16H1-16H2-7OUT-0',
+tests = [ 'Dense-9IN-32H1-32H2-7OUT-6','Euler-predictor']  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
 norm_infos = ['./SI_Toolkit/NormalizationInfo/' + 'Dataset-1-norm.csv']*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
 dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for which ground truth value exists), for neural network has no effect
 titles = tests  # Titles of tests to be printed in GUI
@@ -41,10 +41,10 @@ def args():
 
     parser.add_argument('--path_to_models', default=PATH_TO_MODELS, type=str,
                         help='Path to the NN trained models ')
-    parser.add_argument('--test_len', default=500, type=int,
+    parser.add_argument('--test_len', default=80, type=int,
                         help='For graphical testing only test_len samples from first test file is taken.')
-    parser.add_argument('--test_start_idx', default=100, type=int, help='Indicates from which point data from test file should be taken.')
-    parser.add_argument('--test_max_horizon', default=40, type=int,
+    parser.add_argument('--test_start_idx', default=0, type=int, help='Indicates from which point data from test file should be taken.')
+    parser.add_argument('--test_max_horizon', default=20, type=int,
                         help='Indicates prediction horizon for testing.')
 
     args = parser.parse_args()

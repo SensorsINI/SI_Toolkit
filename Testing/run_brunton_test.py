@@ -4,8 +4,8 @@ from SI_Toolkit.Testing.preprocess_for_brunton import preprocess_for_brunton
 
 # Custom functions
 # from Modeling.Testing.get_prediction_TF import get_data_for_gui_TF
-from SI_Toolkit_ApplicationSpecificFiles.get_prediction_TF_predictor import get_data_for_gui_TF
 from SI_Toolkit_ApplicationSpecificFiles.get_prediction_from_euler import get_prediction_for_testing_gui_from_euler
+from SI_Toolkit_ApplicationSpecificFiles.get_prediction_TF_predictor import get_data_for_gui_TF
 
 from SI_Toolkit.Testing.Brunton_GUI import run_test_gui
 
@@ -18,16 +18,27 @@ def run_brunton_test():
 
     dataset, time_axis, dataset_sampling_dt, ground_truth = preprocess_for_brunton(a)
 
+    # print("Run brunton test")
+    # print("dataset",dataset)
+    # print("dataset",dataset.shape)
+    # print("dataset_sampling_dt",dataset_sampling_dt)
+    # print("dataset_sampling_dt",dataset_sampling_dt)
+
+ 
+
     predictions_list = []
     for test_idx in range(len(a.tests)):
         if a.tests[test_idx] == 'Euler':
             predictions = get_prediction_for_testing_gui_from_euler(a, dataset, dataset_sampling_dt, dt_sampling_by_dt_fine=10)
+            predictions_list.append(predictions)
         elif a.tests[test_idx] == 'Euler-predictor':
             predictions = get_prediction_for_testing_gui_from_euler(a, dataset, dataset_sampling_dt, dt_sampling_by_dt_fine=10)
+            predictions_list.append(predictions)
         else: # Assume this is a neural_network test:
             predictions = get_data_for_gui_TF(a, dataset, net_name=a.tests[test_idx])
+            predictions_list.append(predictions)
+            # print("Not yet my problem")
 
-        predictions_list.append(predictions)
 
     run_test_gui(a.features, a.titles,
                  ground_truth, predictions_list, time_axis,
