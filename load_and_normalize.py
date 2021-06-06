@@ -41,26 +41,37 @@ def get_paths_to_datafiles(paths_to_data_information):
     and try to find list of paths in it.
     """
 
+    list_of_paths_to_datafiles = []
+
+    def list_of_paths_from_norminfo():
+
+        with open(paths_to_data_information, 'r') as cmt_file:  # open file
+            reached_path_list = False
+            for line in cmt_file:  # read each line
+                if reached_path_list:
+                    if line == '#':  # Empty line means we reached end of path list
+                        break
+                    path = line[len('#     '):]  # remove first '#     '
+                    list_of_paths_to_datafiles.append(path)
+
+                # After this line paths are listed
+                if line == '# Data files used to calculate normalization information:':
+                    reached_path_list = True
+
+
     if isinstance(paths_to_data_information, list):
-        # Assume that list of paths is already provided
-        list_of_paths_to_datafiles = paths_to_data_information
+        for path in paths_to_data_information:
+            if path[-4:] == '.csv':
+                list_of_paths_to_datafiles.append(path)
+            else:
+                # Assume that path to folder was provided
+                folder_content = glob.glob(path + '*.csv')
+                list_of_paths_to_datafiles += folder_content
 
     elif isinstance(paths_to_data_information, str):
         if paths_to_data_information[-4:] == '.csv':
             # Get list of paths from normalization_information
-            list_of_paths_to_datafiles = []
-            with open(list_of_paths_to_datafiles, 'r') as cmt_file:  # open file
-                reached_path_list = False
-                for line in cmt_file:  # read each line
-                    if reached_path_list:
-                        if line == '#':  # Empty line means we reached end of path list
-                            break
-                        path = line[len('#     '):]  # remove first '#     '
-                        list_of_paths_to_datafiles.append(path)
-
-                    # After this line paths are listed
-                    if line == '# Data files used to calculate normalization information:':
-                        reached_path_list = True
+            list_of_paths_from_norminfo(paths_to_data_information)
         else:
             # Assume that path to folder was provided
             list_of_paths_to_datafiles = glob.glob(paths_to_data_information + '*.csv')
@@ -80,9 +91,13 @@ def load_data(list_of_paths_to_datafiles=None):
 
         # Read column names from file
         # FIXME: This is a quick fix to exclude column in CartPole recording which cannot be converted to float32
-        cols = list(pd.read_csv(filepath, comment='#', nrows=1))
-        df = pd.read_csv(filepath, comment='#', dtype=np.float32, usecols =[i for i in cols if i != 'measurement'])
+        # cols = list(pd.read_csv(filepath, comment='#', nrows=1))
+        # df = pd.read_csv(filepath, comment='#', dtype=np.float32, usecols =[i for i in cols if i != 'measurement'])
+        df = pd.read_csv(filepath, comment='#')
+        cols = df.columns
         all_dfs.append(df)
+        # Change to float32 wherever numeric column
+        df[cols] = df[cols].apply(pd.to_numeric, errors='ignore', downcast='float')
 
     return all_dfs
 
@@ -439,6 +454,7 @@ def normalize_numpy_array(denormalized_array,
 
 
 if __name__ == '__main__':
-    folder_with_data_to_calculate_norm_info = './ExperimentRecordings/Dataset-1/Train/'
+    # folder_with_data_to_calculate_norm_info = './ExperimentRecordings/Dataset-2/Train/'
+    folder_with_data_to_calculate_norm_info = './ExperimentRecordings/PCP-1/Train/'
 
     calculate_normalization_info(folder_with_data_to_calculate_norm_info)
