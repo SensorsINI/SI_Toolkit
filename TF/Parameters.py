@@ -8,21 +8,27 @@ Created on Fri Jun 19 08:29:29 2020
 
 
 import argparse
-import glob
 
-net_name = 'Dense-16H1-16H2'
-
+# net_name = 'GRU-6IN-16H1-16H2-5OUT-0'
+net_name = 'Dense-6IN-16H1-16H2-5OUT-0'
+# net_name = 'Dense-16H1-16H2'
 # Path to trained models and their logs
 PATH_TO_MODELS = './SI_Toolkit/TF/Models/'
 
 PATH_TO_NORMALIZATION_INFO = './SI_Toolkit/NormalizationInfo/' + 'Dataset-1-norm.csv'
 
 # The following paths to dictionaries may be replaced by the list of paths to data files.
-TRAINING_FILES = './ExperimentRecordings/Dataset-1/Train/'
-VALIDATION_FILES = './ExperimentRecordings/Dataset-1/Validate/'
-TEST_FILES = './ExperimentRecordings/Dataset-1/Test/'
+# TRAINING_FILES = './ExperimentRecordings/Dataset-1/Train/'
+# VALIDATION_FILES = './ExperimentRecordings/Dataset-1/Validate/'
+# TEST_FILES = './ExperimentRecordings/Dataset-1/Test/'
 
+# TRAINING_FILES = './ExperimentRecordings/Dataset-2/Train/'
+# VALIDATION_FILES = './ExperimentRecordings/Dataset-2/Validate/'
+# TEST_FILES = './ExperimentRecordings/Dataset-2/Test/'
 
+TRAINING_FILES = ['./ExperimentRecordings/Dataset-1/Train/', './ExperimentRecordings/Dataset-2/Train/']
+VALIDATION_FILES = ['./ExperimentRecordings/Dataset-1/Validate/', './ExperimentRecordings/Dataset-2/Validate/']
+TEST_FILES = ['./ExperimentRecordings/Dataset-1/Test/', './ExperimentRecordings/Dataset-2/Test/']
 
 
 
