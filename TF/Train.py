@@ -24,7 +24,7 @@ from SI_Toolkit.TF.Parameters import args
 
 # Custom functions
 from SI_Toolkit.TF.TF_Functions.Initialization import set_seed, create_full_name, create_log_file, get_net_and_norm_info
-from SI_Toolkit.TF.TF_Functions.Loss import loss_msr_sequence_customizable
+from SI_Toolkit.TF.TF_Functions.Loss import loss_msr_sequence_customizable, loss_msr_sequence_customizable_relative
 from SI_Toolkit.TF.TF_Functions.Dataset import Dataset
 # from SI_Toolkit.TF.TF_Functions.Dataset import DatasetRandom
 from SI_Toolkit.load_and_normalize import load_data, normalize_df, \
@@ -201,7 +201,9 @@ def train_network(nni_parameters=None):
     plt.figure()
     plt.plot(history.history['loss'], label='train')
     plt.plot(history.history['val_loss'], label='test')
+    plt.yscale('log')
     plt.legend()
+    plt.savefig(net_info.path_to_net + 'training_curve' + '.png')
     plt.show()
     # endregion
 
