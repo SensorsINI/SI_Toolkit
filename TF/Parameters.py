@@ -4,41 +4,29 @@ Created on Fri Jun 19 08:29:29 2020
 
 @author: Marcin
 """
-
-
-
 import argparse
 import glob
+import yaml, os
 
-net_name = 'Dense-16H1-16H2'
+config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+
+net_name = config['modeling']['NET_NAME']
 
 # Path to trained models and their logs
-PATH_TO_MODELS = './SI_Toolkit/TF/Models/'
+PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
 
-PATH_TO_NORMALIZATION_INFO = './SI_Toolkit/NormalizationInfo/' + 'Dataset-1-norm.csv'
+PATH_TO_NORMALIZATION_INFO = config['modeling']['PATH_TO_NORMALIZATION_INFO']
 
 # The following paths to dictionaries may be replaced by the list of paths to data files.
-TRAINING_FILES = './ExperimentRecordings/Dataset-1/Train/'
-VALIDATION_FILES = './ExperimentRecordings/Dataset-1/Validate/'
-TEST_FILES = './ExperimentRecordings/Dataset-1/Test/'
-
-
-
+TRAINING_FILES = config['modeling']['TRAINING_FILES']
+VALIDATION_FILES = config['modeling']['VALIDATION_FILES']
+TEST_FILES = config['modeling']['TEST_FILES']
 
 
 # region Set inputs and outputs
 
-# For training closed loop dynamics model
-inputs = ['Q', 'angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
-outputs = ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
-
-# For training open loop dynamics model
-# inputs = ['position', 'positionD', 'angle_sin', 'angle_cos', 'angleD']
-# outputs = inputs_list
-
-# For training of RNN imitating MPC
-# inputs = ['position', 'positionD', 'angle', 'angleD', 'target_position']
-# outputs = ['Q']
+inputs = config['training_default']['inputs']
+outputs = config['training_default']['outputs']
 
 # endregion
 

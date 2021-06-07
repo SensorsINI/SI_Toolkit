@@ -8,19 +8,19 @@ Created on Fri Jun 19 08:29:29 2020
 import argparse
 from CartPole.state_utilities import STATE_VARIABLES_REDUCED, STATE_VARIABLES
 
-import yaml
-config = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
+import yaml, os
+config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
 PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
 
 features = list(STATE_VARIABLES_REDUCED)
 
-tests = ['GRU-6IN-16H1-16H2-5OUT-0', 'Dense-6IN-16H1-16H2-5OUT-0', 'Euler-predictor']  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
+tests = config['testing']['tests']
 norm_infos = [config['modeling']['PATH_TO_NORMALIZATION_INFO']]*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
 dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for which ground truth value exists), for neural network has no effect
 titles = tests  # Titles of tests to be printed in GUI
 
-TEST_FILE = ['./ExperimentRecordings/Dataset-1/Test/Test.csv']
+TEST_FILE = config['testing']['TEST_FILE']
 
 PATH_TO_NORMALIZATION_INFO = config['modeling']['PATH_TO_NORMALIZATION_INFO']
 

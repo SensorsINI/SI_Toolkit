@@ -46,12 +46,12 @@ from SI_Toolkit.load_and_normalize import *
 import numpy as np
 
 from types import SimpleNamespace
-import yaml
+import yaml, os
 
 from CartPole.state_utilities import STATE_VARIABLES, cartpole_state_varnames_to_indices, cartpole_state_varname_to_index
 import tensorflow as tf
 
-config = yaml.load(open('config.yml', 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
 NET_NAME = config['modeling']['NET_NAME']
 PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']

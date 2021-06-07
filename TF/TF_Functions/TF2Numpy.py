@@ -9,7 +9,7 @@ from tensorflow.python.ops import gen_math_ops
 
 # These imports should be left
 import numpy as np
-from Modeling.SI_Toolkit.TF.TF_Functions.Network import create_rnn_instance
+from SI_Toolkit.TF.TF_Functions.Network import create_rnn_instance
 
 
 # Take care there is also other GRU implementation in TensorFlow
@@ -154,11 +154,11 @@ def create_rnn_instance_numpy(net_template):
     return myNN_np(layers_dicts)
 
 
-RNN_FULL_NAME = 'GRU-6IN-64H1-64H2-5OUT-0'  # DT = 0.1s for this net
-# RNN_PATH = './save_tf/long_3_55/'
-RNN_PATH = './save_tf/'
-# RNN_PATH = './controllers/nets/mpc_on_rnn_tf/'
-PREDICTION_FEATURES_NAMES = ['angle_cos', 'angle_sin', 'angleD', 'position', 'positionD']
+import yaml, os
+config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+RNN_FULL_NAME = config['modeling']['RNN_FULL_NAME']  # DT = 0.1s for this net
+RNN_PATH = config['modeling']['RNN_PATH']
+PREDICTION_FEATURES_NAMES = config['modeling']['PREDICTION_FEATURES_NAMES']
 
 if __name__ == '__main__':
     prediction_features_names = PREDICTION_FEATURES_NAMES
