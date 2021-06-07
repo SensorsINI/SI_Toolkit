@@ -74,7 +74,7 @@ class Dataset(keras.utils.Sequence):
                     self.df_lengths_cs.append(self.df_lengths_cs[-1] + self.df_lengths[-1])
             print("self.df_lengths_cs", self.df_lengths_cs)
          
-            self.number_of_samples = 939 #self.df_lengths_cs[-1]
+            self.number_of_samples = self.df_lengths_cs[-1]
 
         else:
             self.number_of_samples = self.data.shape[0] - self.exp_len-1
@@ -107,6 +107,7 @@ class Dataset(keras.utils.Sequence):
         Requires the self.data to be a list of pandas dataframes
         """
         # Find index of the dataset in self.data and index of the starting point in this dataset
+        # print("self.df_lengths_cs",self.df_lengths_cs)
         idx_data_set = next(i for i, v in enumerate(self.df_lengths_cs) if v > idx)
         if idx_data_set == 0:
             pass

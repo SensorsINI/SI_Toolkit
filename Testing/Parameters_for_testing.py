@@ -9,10 +9,10 @@ import argparse
 
 PATH_TO_MODELS = './SI_Toolkit/TF/Models/'
 
-features = list(['x1','x2','x3','x4','x5','x6','x7'])
+features = list(['dx','dy','x3','x4','x5','x6','x7'])
 #'GRU-6IN-16H1-16H2-5OUT-0', 
 # 'Dense-9IN-16H1-16H2-7OUT-0',
-tests = [ 'Dense-9IN-32H1-32H2-7OUT-6','Euler-predictor']  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
+tests = [ 'Dense-9IN-128H1-128H2-64H3-7OUT-0',]  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
 norm_infos = ['./SI_Toolkit/NormalizationInfo/' + 'Dataset-1-norm.csv']*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
 dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for which ground truth value exists), for neural network has no effect
 titles = tests  # Titles of tests to be printed in GUI
