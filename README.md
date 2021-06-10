@@ -9,7 +9,7 @@ Use this repository to train neural networks on dynamical systems.
 2. Load Training Data and Normalize it
   - Set `folder_with_data_to_calculate_norm_info` in `config.yml`
   - Then run:
-  ```Python
+  ```bash
   python3 -m SI_Toolkit.load_and_normalize
   ```
   - This creates a new file in `SI_Toolkit/NormalizationInfo/`
