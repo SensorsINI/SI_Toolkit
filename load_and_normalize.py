@@ -454,7 +454,8 @@ def normalize_numpy_array(denormalized_array,
 
 
 if __name__ == '__main__':
-    # folder_with_data_to_calculate_norm_info = './ExperimentRecordings/Dataset-2/Train/'
-    folder_with_data_to_calculate_norm_info = './ExperimentRecordings/PCP-1/Train/'
+    import yaml, os
+    config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+    folder_with_data_to_calculate_norm_info = config["normalization"]["folder_with_data_to_calculate_norm_info"]
 
     calculate_normalization_info(folder_with_data_to_calculate_norm_info)

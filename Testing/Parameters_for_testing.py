@@ -15,7 +15,7 @@ PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
 
 
 tests = config['testing']['tests']
-norm_infos = [config['modeling']['PATH_TO_NORMALIZATION_INFO']]*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
+norm_infos = [config['testing']['PATH_TO_NORMALIZATION_INFO']]*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
 dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for which ground truth value exists), for neural network has no effect
 titles = tests  # Titles of tests to be printed in GUI
 
@@ -41,9 +41,9 @@ control_inputs = ['Q']
 # For l2race
 # control_inputs = ['u1', 'u2']
 
-TEST_FILE = ['./ExperimentRecordings/PCP-1/Test/Dance-Test-cartpole-2021-05-26-17-17-13.csv']
+# TEST_FILE = ['./ExperimentRecordings/PCP-1/Test/Dance-Test-cartpole-2021-05-26-17-17-13.csv']
 
-PATH_TO_NORMALIZATION_INFO = config['modeling']['PATH_TO_NORMALIZATION_INFO']
+# PATH_TO_NORMALIZATION_INFO = config['modeling']['PATH_TO_NORMALIZATION_INFO']
 
 
 def args():
