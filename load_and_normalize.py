@@ -12,8 +12,6 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import csv
 
-from types import SimpleNamespace
-
 try:
     # Use gitpython to get a current revision number and use it in description of experimental data
     from git import Repo
@@ -43,26 +41,37 @@ def get_paths_to_datafiles(paths_to_data_information):
     and try to find list of paths in it.
     """
 
+    list_of_paths_to_datafiles = []
+
+    def list_of_paths_from_norminfo():
+
+        with open(paths_to_data_information, 'r') as cmt_file:  # open file
+            reached_path_list = False
+            for line in cmt_file:  # read each line
+                if reached_path_list:
+                    if line == '#':  # Empty line means we reached end of path list
+                        break
+                    path = line[len('#     '):]  # remove first '#     '
+                    list_of_paths_to_datafiles.append(path)
+
+                # After this line paths are listed
+                if line == '# Data files used to calculate normalization information:':
+                    reached_path_list = True
+
+
     if isinstance(paths_to_data_information, list):
-        # Assume that list of paths is already provided
-        list_of_paths_to_datafiles = paths_to_data_information
+        for path in paths_to_data_information:
+            if path[-4:] == '.csv':
+                list_of_paths_to_datafiles.append(path)
+            else:
+                # Assume that path to folder was provided
+                folder_content = glob.glob(path + '*.csv')
+                list_of_paths_to_datafiles += folder_content
 
     elif isinstance(paths_to_data_information, str):
         if paths_to_data_information[-4:] == '.csv':
             # Get list of paths from normalization_information
-            list_of_paths_to_datafiles = []
-            with open(list_of_paths_to_datafiles, 'r') as cmt_file:  # open file
-                reached_path_list = False
-                for line in cmt_file:  # read each line
-                    if reached_path_list:
-                        if line == '#':  # Empty line means we reached end of path list
-                            break
-                        path = line[len('#     '):]  # remove first '#     '
-                        list_of_paths_to_datafiles.append(path)
-
-                    # After this line paths are listed
-                    if line == '# Data files used to calculate normalization information:':
-                        reached_path_list = True
+            list_of_paths_from_norminfo(paths_to_data_information)
         else:
             # Assume that path to folder was provided
             list_of_paths_to_datafiles = glob.glob(paths_to_data_information + '*.csv')
@@ -79,8 +88,16 @@ def load_data(list_of_paths_to_datafiles=None):
     sleep(0.1)
     for file_number in trange(len(list_of_paths_to_datafiles)):
         filepath = list_of_paths_to_datafiles[file_number]
-        df = pd.read_csv(filepath, comment='#', dtype=np.float32)
+
+        # Read column names from file
+        # FIXME: This is a quick fix to exclude column in CartPole recording which cannot be converted to float32
+        # cols = list(pd.read_csv(filepath, comment='#', nrows=1))
+        # df = pd.read_csv(filepath, comment='#', dtype=np.float32, usecols =[i for i in cols if i != 'measurement'])
+        df = pd.read_csv(filepath, comment='#')
+        cols = df.columns
         all_dfs.append(df)
+        # Change to float32 wherever numeric column
+        df[cols] = df[cols].apply(pd.to_numeric, errors='ignore', downcast='float')
 
     return all_dfs
 
@@ -112,70 +129,6 @@ def get_sampling_interval_from_normalization_info(path_to_normalization_info):
                 else:
                     dt_save = float(dt_information[:-2])
                 return dt_save
-
-
-def load_cartpole_parameters(dataset_path):
-    p = SimpleNamespace()
-
-    # region Get information about the pretrained network from the associated txt file
-    with open(dataset_path) as f:
-        reader = csv.reader(f)
-        updated_features = 0
-        for line in reader:
-            line = line[0]
-            if line[:len('# m: ')] == '# m: ':
-                p.m = float(line[len('# m: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# M: ')] == '# M: ':
-                p.M = float(line[len('# M: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# L: ')] == '# L: ':
-                p.L = float(line[len('# L: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# u_max: ')] == '# u_max: ':
-                p.u_max = float(line[len('# u_max: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# M_fric: ')] == '# M_fric: ':
-                p.M_fric = float(line[len('# M_fric: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# J_fric: ')] == '# J_fric: ':
-                p.J_fric = float(line[len('# J_fric: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# v_max: ')] == '# v_max: ':
-                p.v_max = float(line[len('# v_max: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# TrackHalfLength: ')] == '# TrackHalfLength: ':
-                p.TrackHalfLength = float(line[len('# TrackHalfLength: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# controlDisturbance: ')] == '# controlDisturbance: ':
-                p.controlDisturbance = float(line[len('# controlDisturbance: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# sensorNoise: ')] == '# sensorNoise: ':
-                p.sensorNoise = float(line[len('# sensorNoise: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# g: ')] == '# g: ':
-                p.g = float(line[len('# g: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-            if line[:len('# k: ')] == '# k: ':
-                p.k = float(line[len('# k: '):].rstrip("\n"))
-                updated_features += 1
-                continue
-
-            if updated_features == 12:
-                break
-
-    return p
 
 
 def calculate_normalization_info(paths_to_data_information=None, plot_histograms=True):
@@ -501,6 +454,7 @@ def normalize_numpy_array(denormalized_array,
 
 
 if __name__ == '__main__':
-    folder_with_data_to_calculate_norm_info = './ExperimentRecordings/Dataset-1/Train/'
+    # folder_with_data_to_calculate_norm_info = './ExperimentRecordings/Dataset-2/Train/'
+    folder_with_data_to_calculate_norm_info = './ExperimentRecordings/PCP-1/Train/'
 
     calculate_normalization_info(folder_with_data_to_calculate_norm_info)

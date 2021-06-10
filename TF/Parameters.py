@@ -12,6 +12,9 @@ config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=y
 
 net_name = config['modeling']['NET_NAME']
 
+# net_name = 'GRU-6IN-16H1-16H2-5OUT-0'
+# net_name = 'Dense-6IN-16H1-16H2-5OUT-0'
+# net_name = 'Dense-16H1-16H2'
 # Path to trained models and their logs
 PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
 
@@ -25,14 +28,15 @@ TEST_FILES = config['modeling']['TEST_FILES']
 
 # region Set inputs and outputs
 
-inputs = config['training_default']['inputs']
+control_inputs = config['training_default']['control_inputs']
+state_inputs = config['training_default']['state_inputs']
 outputs = config['training_default']['outputs']
 
-# endregion
+# For l2race
+# control_inputs = ['u1', 'u2']
+# state_inputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
+# outputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
 
-# region Set which features are fed in closed loop (testing only)
-closed_loop_list = outputs
-# closed_loop_list = []
 # endregion
 
 def args():
@@ -55,12 +59,12 @@ def args():
                         help='File name of the recording to be used for validating the RNN'
                              'e.g. oval_easy_test.csv ')
 
-    parser.add_argument('--inputs', default=inputs,
-                        help='List of inputs to RNN')
+    parser.add_argument('--control_inputs', default=control_inputs,
+                        help='List of control inputs to neural network')
+    parser.add_argument('--state_inputs', default=state_inputs,
+                        help='List of state inputs to neural network')
     parser.add_argument('--outputs', default=outputs,
-                        help='List of outputs from RNN')
-    parser.add_argument('--close_loop_for', default=closed_loop_list,
-                        help='In RNN forward function this features will be fed beck from output to input')
+                        help='List of outputs from neural network')
 
     # Only valid for graphical testing:
     parser.add_argument('--test_len', default=50, type=int,
@@ -76,7 +80,7 @@ def args():
 
     # Training parameters
     parser.add_argument('--num_epochs', default=20, type=int, help='Number of epochs of training')
-    parser.add_argument('--batch_size', default=256, type=int, help='Size of a batch')
+    parser.add_argument('--batch_size', default=16, type=int, help='Size of a batch')
     parser.add_argument('--seed', default=1873, type=int, help='Set seed for reproducibility')
     parser.add_argument('--lr', default=1.0e-3, type=float, help='Learning rate')
 
@@ -93,8 +97,22 @@ def args():
     args = parser.parse_args()
 
     # Make sure that the provided lists of inputs and outputs are in alphabetical order
-    if args.inputs is not None:
-        args.inputs = sorted(args.inputs)
+
+    if args.control_inputs is not None:
+        args.control_inputs = sorted(args.control_inputs)
+
+    if args.state_inputs is not None:
+        args.state_inputs = sorted(args.state_inputs)
+
+    if args.control_inputs is not None and args.state_inputs is not None:
+        args.inputs = args.control_inputs+args.state_inputs
+    elif args.control_inputs is not None:
+        args.inputs = args.control_inputs
+    elif args.state_inputs is not None:
+        args.inputs = args.state_inputs
+    else:
+        args.inputs = None
+
     if args.outputs is not None:
         args.outputs = sorted(args.outputs)
     return args

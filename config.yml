@@ -25,7 +25,8 @@ modeling:
 
 training_default:
   # For training closed loop dynamics model:
-  inputs: ['Q', 'angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
+  control_inputs: ['Q']
+  state_inputs: ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
   outputs: ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
   # For training open loop dynamics model:
   # inputs = ['position', 'positionD', 'angle_sin', 'angle_cos', 'angleD']
