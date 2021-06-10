@@ -40,7 +40,7 @@ outputs = config['training_default']['outputs']
 # endregion
 
 def args():
-    parser = argparse.ArgumentParser(description='Train a GRU network.')
+    parser = argparse.ArgumentParser(description='Train a GRU network.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # Defining the model
     parser.add_argument('--net_name', default=net_name, type=str,
