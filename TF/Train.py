@@ -200,7 +200,7 @@ def train_network(nni_parameters=None):
     # region Plot loss change during training
     plt.figure()
     plt.plot(history.history['loss'], label='train')
-    plt.plot(history.history['val_loss'], label='test')
+    plt.plot(history.history['val_loss'], label='validation')
     plt.yscale('log')
     plt.legend()
     plt.savefig(net_info.path_to_net + 'training_curve' + '.png')
