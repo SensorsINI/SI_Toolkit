@@ -54,7 +54,7 @@ def args():
                         help='File name of the recording to be used for validating the RNN'
                              'e.g. oval_easy_test.csv ')
     parser.add_argument('--tests', default=tests,
-                        help='List of tests whcih should be performed')
+                        help='List of tests which should be performed')
     parser.add_argument('--norm_infos', default=norm_infos,
                         help='List of norm_infos for neural nets')
     parser.add_argument('--dt_euler', default=dt_euler,
