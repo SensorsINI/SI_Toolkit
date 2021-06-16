@@ -292,7 +292,8 @@ class MainWindow(QMainWindow):
                        horizon=self.horizon,
                        show_all=self.show_all,
                        downsample=self.downsample)
-
+        
+        self.fig.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.canvas.draw()
 
 
@@ -348,5 +349,4 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                         marker='.', linestyle = '')
 
     # axs.set_ylim(y_lim)
-
     plt.show()
