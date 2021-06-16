@@ -31,6 +31,7 @@ features = list(np.sort(
      'positionD',
      ]
 ))
+features_units = [' (deg)', ' (deg/s)', '', '', ' (m)', ' (m/s)']
 
 # For l2race
 # features = list(['x1','x2','x3','x4','x5','x6','x7'])
@@ -47,7 +48,7 @@ control_inputs = ['Q']
 
 
 def args():
-    parser = argparse.ArgumentParser(description='Parameters for Brunton GUI')
+    parser = argparse.ArgumentParser(description='Parameters for Brunton GUI', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # Only valid for graphical testing:
     parser.add_argument('--test_file', default=TEST_FILE, type=str,
                         help='File name of the recording to be used for validating the RNN'
