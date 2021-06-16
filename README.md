@@ -16,10 +16,11 @@ Use this repository to train neural networks on dynamical systems.
   ```
   - This creates a new normalization file in `SI_Toolkit/NormalizationInfo/`
 3. Train Network
+  - Split experiment recording files into subfolders `Train`, `Validate`, `Test` within `./ExperimentRecordings/Dataset-1/` (currently done manually).
   - Type `python3 -m SI_Toolkit.TF.Train -h` to view all arguments that can be passed to training script
   - You will want to specify a `--net_name` (see help message to see how to do that)
   - Specify the `--path_to_normalization_info` to be the CSV file created in step 2.
-  - Training creates a new folder with the network name in `SI_Toolkit/Tf/Model/` which contains
+  - Training creates a new folder with the network name in `SI_Toolkit/TF/Model/` which contains
     - Save checkpoints
     - A `.txt` file to preserve all the params used for training
     - A `.csv` file and plot to document the training progress / loss curves
@@ -31,4 +32,4 @@ Use this repository to train neural networks on dynamical systems.
     - `TEST_FILE`: An experiment run to compare observations and predictions on. Specify any list of CSVs generated in 1.
 5. Run simulator with trained network model
   - Specify `NET_NAME` in config -> this is the network used in `predictor_autoregressive.py`
-  - When using the CartPoleSimulator repo as system: In the CartPoleSimulator config, specify "NeuralNetwork" as predictor type
+  - When using the CartPoleSimulator repo as system: In the CartPoleSimulator config, specify `"NeuralNet"` as predictor type
