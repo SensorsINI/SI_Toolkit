@@ -14,8 +14,8 @@ modeling:
   PREDICTION_FEATURES_NAMES: ['angle_cos', 'angle_sin', 'angleD', 'position', 'positionD']
 
 normalization:
-  folder_with_data_to_calculate_norm_info: './ExperimentRecordings/Dataset-1/Train/'
-  folder_with_data_to_calculate_norm_info: './ExperimentRecordings/PCP-1/Train/'
+  # PATH HAS TO END WITH A SOLIDUS ("/") CHARACTER
+  folder_with_data_to_calculate_norm_info: './ExperimentRecordings/Dataset-13/Train/'
 
 training_default:
   # For training closed loop dynamics model:
