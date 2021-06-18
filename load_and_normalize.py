@@ -20,8 +20,8 @@ except:
 
 from SI_Toolkit_ApplicationSpecificFiles.user_defined_normalization_correction import apply_user_defined_normalization_correction
 
+
 PATH_TO_NORMALIZATION_INFO = './SI_Toolkit/NormalizationInfo/'
-PATH_TO_EXPERIMENT_RECORDINGS = './ExperimentRecordings/Train/'  # Path where the experiments data is stored
 normalization_rounding_decimals = 5
 
 
