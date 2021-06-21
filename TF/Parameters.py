@@ -4,49 +4,33 @@ Created on Fri Jun 19 08:29:29 2020
 
 @author: Marcin
 """
-
-
-
 import argparse
+import glob
+import yaml, os
+
+config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+
+net_name = config['modeling']['NET_NAME']
 
 # net_name = 'GRU-6IN-16H1-16H2-5OUT-0'
-net_name = 'Dense-6IN-16H1-16H2-5OUT-0'
+# net_name = 'Dense-6IN-16H1-16H2-5OUT-0'
 # net_name = 'Dense-16H1-16H2'
 # Path to trained models and their logs
-PATH_TO_MODELS = './SI_Toolkit/TF/Models/'
+PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
 
-PATH_TO_NORMALIZATION_INFO = './SI_Toolkit/NormalizationInfo/' + 'Dataset-1-norm.csv'
+PATH_TO_NORMALIZATION_INFO = config['modeling']['PATH_TO_NORMALIZATION_INFO']
 
 # The following paths to dictionaries may be replaced by the list of paths to data files.
-# TRAINING_FILES = './ExperimentRecordings/Dataset-1/Train/'
-# VALIDATION_FILES = './ExperimentRecordings/Dataset-1/Validate/'
-# TEST_FILES = './ExperimentRecordings/Dataset-1/Test/'
-
-# TRAINING_FILES = './ExperimentRecordings/Dataset-2/Train/'
-# VALIDATION_FILES = './ExperimentRecordings/Dataset-2/Validate/'
-# TEST_FILES = './ExperimentRecordings/Dataset-2/Test/'
-
-TRAINING_FILES = ['./ExperimentRecordings/Dataset-1/Train/', './ExperimentRecordings/Dataset-2/Train/']
-VALIDATION_FILES = ['./ExperimentRecordings/Dataset-1/Validate/', './ExperimentRecordings/Dataset-2/Validate/']
-TEST_FILES = ['./ExperimentRecordings/Dataset-1/Test/', './ExperimentRecordings/Dataset-2/Test/']
-
+TRAINING_FILES = config['modeling']['TRAINING_FILES']
+VALIDATION_FILES = config['modeling']['VALIDATION_FILES']
+TEST_FILES = config['modeling']['TEST_FILES']
 
 
 # region Set inputs and outputs
 
-# For training closed loop dynamics model
-# For CartPole
-control_inputs = ['Q']
-state_inputs = ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
-outputs = ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
-
-# For training open loop dynamics model
-# inputs = ['position', 'positionD', 'angle_sin', 'angle_cos', 'angleD']
-# outputs = inputs_list
-
-# For training of RNN imitating MPC
-# inputs = ['position', 'positionD', 'angle', 'angleD', 'target_position']
-# outputs = ['Q']
+control_inputs = config['training_default']['control_inputs']
+state_inputs = config['training_default']['state_inputs']
+outputs = config['training_default']['outputs']
 
 # For l2race
 # control_inputs = ['u1', 'u2']
@@ -56,7 +40,7 @@ outputs = ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
 # endregion
 
 def args():
-    parser = argparse.ArgumentParser(description='Train a GRU network.')
+    parser = argparse.ArgumentParser(description='Train a GRU network.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
     # Defining the model
     parser.add_argument('--net_name', default=net_name, type=str,

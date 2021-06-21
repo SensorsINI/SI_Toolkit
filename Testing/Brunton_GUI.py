@@ -46,12 +46,12 @@ cmap = colors.LinearSegmentedColormap('custom', cdict)
 
 # endregion
 
-def run_test_gui(featurs, titles, ground_truth, predictions_list, time_axis):
+def run_test_gui(features, titles, ground_truth, predictions_list, time_axis):
     # Creat an instance of PyQt5 application
     # Every PyQt5 application has to contain this line
     app = QApplication(sys.argv)
     # Create an instance of the GUI window.
-    window = MainWindow(featurs, titles, ground_truth, predictions_list, time_axis)
+    window = MainWindow(features, titles, ground_truth, predictions_list, time_axis)
     window.show()
     # Next line hands the control over to Python GUI
     app.exec_()
@@ -292,7 +292,8 @@ class MainWindow(QMainWindow):
                        horizon=self.horizon,
                        show_all=self.show_all,
                        downsample=self.downsample)
-
+        
+        self.fig.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.canvas.draw()
 
 
@@ -348,5 +349,4 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                         marker='.', linestyle = '')
 
     # axs.set_ylim(y_lim)
-
     plt.show()
