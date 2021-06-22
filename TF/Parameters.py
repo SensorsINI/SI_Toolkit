@@ -19,6 +19,8 @@ net_name = config['modeling']['NET_NAME']
 PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
 
 PATH_TO_NORMALIZATION_INFO = config['modeling']['PATH_TO_NORMALIZATION_INFO']
+if PATH_TO_NORMALIZATION_INFO == 'None':
+    PATH_TO_NORMALIZATION_INFO = None
 
 # The following paths to dictionaries may be replaced by the list of paths to data files.
 TRAINING_FILES = config['modeling']['TRAINING_FILES']

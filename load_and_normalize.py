@@ -298,7 +298,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
     # endregion
 
-    return df_norm_info
+    return df_norm_info, csv_filepath
 
 
 def load_normalization_info(path_to_normalization_info):

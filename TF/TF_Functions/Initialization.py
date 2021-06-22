@@ -15,8 +15,9 @@ except:
     pass
 
 from SI_Toolkit.TF.TF_Functions.Network import compose_net_from_net_name, load_pretrained_net_weights
-from SI_Toolkit.load_and_normalize import load_normalization_info, get_sampling_interval_from_normalization_info
+from SI_Toolkit.load_and_normalize import load_normalization_info, get_sampling_interval_from_normalization_info, calculate_normalization_info
 
+from shutil import copy as shutil_copy
 
 # Set seeds everywhere required to make results reproducible
 def set_seed(args):
@@ -51,6 +52,7 @@ def get_net_and_norm_info(a,
         time_series_length = a.wash_out_len+a.post_wash_out_len
     # endregion
 
+    normalization_info = None
 
     # region Load/create rnn instance, its log and normalization
 
@@ -221,7 +223,12 @@ def get_net_and_norm_info(a,
         # endregion
 
         # region Save the path to associated normalization file to net_info
-        net_info.path_to_normalization_info = a.path_to_normalization_info
+        if a.path_to_normalization_info is not None:
+            net_info.path_to_normalization_info = a.path_to_normalization_info
+        else:
+            _, net_info.path_to_normalization_info = calculate_normalization_info(a.training_files, plot_histograms=False)
+
+
         # endregion
 
         net_info.parent_net_name = 'Network trained from scratch'
@@ -328,3 +335,7 @@ def create_log_file(net_info, a):
         f.write(a.training_files)
 
     f.close()
+
+
+def copy_norm_info_into_model_folder(net_info, path_to_models):
+    shutil_copy(net_info.path_to_normalization_info, path_to_models + net_info.net_full_name)

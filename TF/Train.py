@@ -23,7 +23,8 @@ from warnings import warn as warning
 from SI_Toolkit.TF.Parameters import args
 
 # Custom functions
-from SI_Toolkit.TF.TF_Functions.Initialization import set_seed, create_full_name, create_log_file, get_net_and_norm_info
+from SI_Toolkit.TF.TF_Functions.Initialization import set_seed, create_full_name, create_log_file, \
+    get_net_and_norm_info, copy_norm_info_into_model_folder
 from SI_Toolkit.TF.TF_Functions.Loss import loss_msr_sequence_customizable, loss_msr_sequence_customizable_relative
 from SI_Toolkit.TF.TF_Functions.Dataset import Dataset
 # from SI_Toolkit.TF.TF_Functions.Dataset import DatasetRandom
@@ -71,7 +72,7 @@ def train_network(nni_parameters=None):
 
     # Create new full name for the pretrained net
     create_full_name(net_info, a.path_to_models)
-
+    copy_norm_info_into_model_folder(net_info, a.path_to_models)
     # а is an "argument"
     # It must contain:
     # path to models
