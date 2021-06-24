@@ -24,7 +24,7 @@ from SI_Toolkit.TF.Parameters import args
 
 # Custom functions
 from SI_Toolkit.TF.TF_Functions.Initialization import set_seed, create_full_name, create_log_file, \
-    get_net_and_norm_info, copy_norm_info_into_model_folder
+    get_net, get_norm_info_for_net
 from SI_Toolkit.TF.TF_Functions.Loss import loss_msr_sequence_customizable, loss_msr_sequence_customizable_relative
 from SI_Toolkit.TF.TF_Functions.Dataset import Dataset
 # from SI_Toolkit.TF.TF_Functions.Dataset import DatasetRandom
@@ -63,16 +63,16 @@ def train_network(nni_parameters=None):
         pass
     # endregion
 
-    net, net_info, normalization_info = get_net_and_norm_info(a)
+    net, net_info = get_net(a)
 
     # Create a copy of the network suitable for inference (stateful and with sequence length one)
-    net_for_inference, net_for_inference_info, normalization_info = \
-        get_net_and_norm_info(a, time_series_length=a.test_len,
-                              batch_size=1, stateful=True)
+    net_for_inference, net_for_inference_info = \
+        get_net(a, time_series_length=a.test_len,
+                batch_size=1, stateful=True)
 
     # Create new full name for the pretrained net
     create_full_name(net_info, a.path_to_models)
-    copy_norm_info_into_model_folder(net_info, a.path_to_models)
+    normalization_info = get_norm_info_for_net(net_info, files_for_normalization=a.training_files)
     # а is an "argument"
     # It must contain:
     # path to models

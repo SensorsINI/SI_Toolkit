@@ -39,7 +39,7 @@ Using predictor:
 #   Updating it more often will lead to false results.
 
 # "Command line" parameters
-from SI_Toolkit.TF.TF_Functions.Initialization import get_net_and_norm_info
+from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
 from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states
 from SI_Toolkit.load_and_normalize import *
 
@@ -71,10 +71,11 @@ class predictor_autoregressive_tf:
             a.net_name = net_name
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
-        self.net, self.net_info, self.normalization_info = \
-            get_net_and_norm_info(a, time_series_length=1,
-                                  batch_size=self.batch_size, stateful=True)
+        self.net, self.net_info = \
+            get_net(a, time_series_length=1,
+                    batch_size=self.batch_size, stateful=True)
 
+        self.normalization_info = get_norm_info_for_net(self.net_info)
 
         # Make a prediction
 

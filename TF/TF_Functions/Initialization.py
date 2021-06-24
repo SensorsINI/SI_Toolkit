@@ -8,6 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 from datetime import datetime
+
 try:
     # Use gitpython to get a current revision number and use it in description of experimental data
     from git import Repo
@@ -15,9 +16,11 @@ except:
     pass
 
 from SI_Toolkit.TF.TF_Functions.Network import compose_net_from_net_name, load_pretrained_net_weights
-from SI_Toolkit.load_and_normalize import load_normalization_info, get_sampling_interval_from_normalization_info, calculate_normalization_info
+from SI_Toolkit.load_and_normalize import load_normalization_info, get_sampling_interval_from_normalization_info, \
+    calculate_normalization_info
 
 from shutil import copy as shutil_copy
+
 
 # Set seeds everywhere required to make results reproducible
 def set_seed(args):
@@ -27,12 +30,12 @@ def set_seed(args):
     tf.random.set_seed(seed)
 
 
-def get_net_and_norm_info(a,
-                          # If any of arguments provided it overwrite what is given in a
-                          time_series_length=None,
-                          batch_size=None,
-                          stateful=False
-                          ):
+def get_net(a,
+            # If any of arguments provided it overwrite what is given in a
+            time_series_length=None,
+            batch_size=None,
+            stateful=False
+            ):
     """
     A quite big (too big?) chunk of creating a network, its associated net_info variable
     and loading associated normalization info.
@@ -49,16 +52,13 @@ def get_net_and_norm_info(a,
 
     # region If length of timeseries to be fed into net not provided get it as a sum: wash_out_len + post_wash_out_len
     if time_series_length is None:
-        time_series_length = a.wash_out_len+a.post_wash_out_len
+        time_series_length = a.wash_out_len + a.post_wash_out_len
     # endregion
-
-    normalization_info = None
 
     # region Load/create rnn instance, its log and normalization
 
     # Check if the last part of the name is a sole number
     # If yes user provided full name and this RNN should be loaded
-
 
     last_part_of_net_name = a.net_name.split('-')[-1]
     net_name_is_a_full_name = all(c in "0123456789" for c in last_part_of_net_name)
@@ -90,7 +90,7 @@ def get_net_and_norm_info(a,
             print('Loading a pretrained network with the full name: {}'.format(parent_net_name))
             print('')
 
-            #endregion
+            # endregion
 
             # region Ensure that needed txt file are present in the indicated folder
             # They might be missing e.g. if a previous training session was terminated prematurely
@@ -98,8 +98,8 @@ def get_net_and_norm_info(a,
             txt_path = a.path_to_models + parent_net_name + '/' + txt_filename
             if not os.path.isfile(txt_path):
                 txt_not_found_str = 'The corresponding .txt file is missing' \
-                                     '(information about inputs and outputs) at the location {}'\
-                                     .format(txt_path)
+                                    '(information about inputs and outputs) at the location {}' \
+                    .format(txt_path)
                 if a.net_name == 'last':
                     print(txt_not_found_str)
                     print('I delete the corresponding folder and try to search again')
@@ -159,8 +159,8 @@ def get_net_and_norm_info(a,
             ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filename
             if not os.path.isfile(ckpt_path + '.index'):
                 ckpt_not_found_str = 'The corresponding .ckpt file is missing' \
-                                      '(information about weights and biases) at the location {}'\
-                                      .format(ckpt_path)
+                                     '(information about weights and biases) at the location {}' \
+                    .format(ckpt_path)
                 if a.net_name == 'last':
                     print(ckpt_not_found_str)
                     print('I delete the corresponding folder and try to search again')
@@ -226,21 +226,12 @@ def get_net_and_norm_info(a,
         if a.path_to_normalization_info is not None:
             net_info.path_to_normalization_info = a.path_to_normalization_info
         else:
-            _, net_info.path_to_normalization_info = calculate_normalization_info(a.training_files, plot_histograms=False)
-
+            net_info.path_to_normalization_info = None
 
         # endregion
 
         net_info.parent_net_name = 'Network trained from scratch'
 
-    # endregion
-
-    # region Load normalization info
-    normalization_info = load_normalization_info(net_info.path_to_normalization_info)
-    # endregion
-
-    # region Get sampling interval from normalization info
-    net_info.sampling_interval = get_sampling_interval_from_normalization_info(net_info.path_to_normalization_info)
     # endregion
 
     # region Save wash-out length to net_info
@@ -250,7 +241,40 @@ def get_net_and_norm_info(a,
         print('Wash out not defined.')
     # endregion
 
-    return net, net_info, normalization_info
+    return net, net_info
+
+
+def get_norm_info_for_net(net_info, files_for_normalization=None):
+    if net_info.parent_net_name == 'Network trained from scratch':
+        # In this case I can either calculate a new normalization info based on training data
+        if net_info.path_to_normalization_info is None:
+            if files_for_normalization is None:
+                raise ValueError('You have to provide either normalization info or data files based in which it should be calculated.')
+            normalization_info, net_info.path_to_normalization_info = calculate_normalization_info(files_for_normalization,
+                                                                                                   plot_histograms=False,
+                                                                                                   user_correction=False,
+                                                                                                   path_to_norm_info=net_info.path_to_net)
+        else:
+            normalization_info = load_normalization_info(net_info.path_to_normalization_info)
+            shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
+            net_info.path_to_normalization_info = net_info.path_to_net + os.path.basename(net_info.path_to_normalization_info)
+    else:
+        # In this case (retraining) we need to provide a normalization info.
+        # This normalization info should in general come from the folder of retrained network,
+        #  however it is also compatible with older version of the program with normalization info placed in a different folder
+        if net_info.path_to_normalization_info is None:
+            raise ValueError('You must provide normalization info for retraining existing network')
+        normalization_info = load_normalization_info(net_info.path_to_normalization_info)
+        shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
+        net_info.path_to_normalization_info = net_info.path_to_net + os.path.basename(
+            net_info.path_to_normalization_info)
+
+    # region Get sampling interval from normalization info
+    # TODO: this does not really fits here put is too small for me to create separate function
+    net_info.sampling_interval = get_sampling_interval_from_normalization_info(net_info.path_to_normalization_info)
+    # endregion
+
+    return normalization_info
 
 
 def create_full_name(net_info, path_to_models):
@@ -278,8 +302,8 @@ def create_full_name(net_info, path_to_models):
     net_info.net_full_name = net_full_name
     net_info.path_to_net = path_to_dir + '/'
 
-def create_log_file(net_info, a):
 
+def create_log_file(net_info, a):
     date_now = datetime.now().strftime('%Y-%m-%d')
     time_now = datetime.now().strftime('%H:%M:%S')
     try:
@@ -335,7 +359,3 @@ def create_log_file(net_info, a):
         f.write(a.training_files)
 
     f.close()
-
-
-def copy_norm_info_into_model_folder(net_info, path_to_models):
-    shutil_copy(net_info.path_to_normalization_info, path_to_models + net_info.net_full_name)

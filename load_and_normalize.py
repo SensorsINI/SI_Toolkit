@@ -131,7 +131,7 @@ def get_sampling_interval_from_normalization_info(path_to_normalization_info):
                 return dt_save
 
 
-def calculate_normalization_info(paths_to_data_information=None, plot_histograms=True):
+def calculate_normalization_info(paths_to_data_information=None, plot_histograms=True, user_correction=True, path_to_norm_info=None):
     """
     This function creates csv file with information about dataset statistics which may be used for normalization.
     The statistics are calculated from provided datafiles
@@ -207,7 +207,8 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
     # User defined normalization values:
 
-    df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
+    if user_correction:
+        df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
 
     if df_norm_info.equals(df_norm_info_from_data):
         modified = 'No'
@@ -240,7 +241,10 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # region Write the .csv file
     date_now = datetime.now().strftime('%Y-%m-%d')
     time_now = datetime.now().strftime('%H-%M-%S')
-    csv_filepath = PATH_TO_NORMALIZATION_INFO + 'NI_' + date_now + '_' + time_now + '.csv'
+    if path_to_norm_info is None:
+        csv_filepath = PATH_TO_NORMALIZATION_INFO + 'NI_' + date_now + '_' + time_now + '.csv'
+    else:
+        csv_filepath = path_to_norm_info + 'NI_' + date_now + '_' + time_now + '.csv'
 
     with open(csv_filepath, "a") as outfile:
         writer = csv.writer(outfile)
