@@ -43,12 +43,13 @@ from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for
 from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states
 from SI_Toolkit.load_and_normalize import *
 
+from SI_Toolkit_ApplicationSpecificFiles.predictor_tf_customization import augment_predictor_output, STATE_INDICES, STATE_VARIABLES, CONTROL_INPUTS
+
 import numpy as np
 
 from types import SimpleNamespace
 import yaml, os
 
-from CartPole.state_utilities import STATE_VARIABLES, STATE_INDICES
 import tensorflow as tf
 
 config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
@@ -81,17 +82,18 @@ class predictor_autoregressive_tf:
 
         self.rnn_internal_states = get_internal_states(self.net)
 
-        self.net_initial_input_without_Q = np.zeros([len(self.net_info.inputs) - 1], dtype=np.float32)
+        self.net_initial_input_without_Q = np.zeros([len(self.net_info.inputs) - len(CONTROL_INPUTS)], dtype=np.float32)
 
         self.prediction_denorm = None # Set to True or False in setup, determines if output should be denormalized
 
-        self.output_array = np.zeros([self.batch_size, self.horizon+1, len(STATE_VARIABLES)+1], dtype=np.float32)
+        self.output_array = np.zeros([self.batch_size, self.horizon+1, len(STATE_VARIABLES)+len(CONTROL_INPUTS)], dtype=np.float32)
         Q_type = tf.TensorSpec((self.horizon,), tf.float32)
 
         initial_input_type = tf.TensorSpec((len(self.net_info.inputs)-1,), tf.float32)
 
         net_input_type = tf.TensorSpec((self.batch_size, len(self.net_info.inputs)), tf.float32)
 
+        self.output_array_single_step = np.zeros([self.batch_size, 2, len(STATE_VARIABLES)+1], dtype=np.float32)
 
 
         # Retracing tensorflow functions
@@ -127,40 +129,29 @@ class predictor_autoregressive_tf:
 
         # print('Setup done')
 
-    def predict(self, Q) -> np.array:
-        # print('Prediction started')
-        # load internal RNN state
+    def predict(self, Q, single_step=False) -> np.array:
 
-        self.output_array[..., :-1, -1] = Q
+        if single_step:
+            output_array = self.output_array_single_step
+        else:
+            output_array = self.output_array
 
+        output_array[..., :-1, -1] = Q
+
+        # load internal RNN state if applies
         load_internal_states(self.net, self.rnn_internal_states)
-        # t0 = timeit.default_timer()
-        net_outputs = self.iterate_net(Q)
-        # t1 = timeit.default_timer()
-        # iterate_t = (t1-t0)/self.horizon
-        # print('Iterate {} us/eval'.format(iterate_t * 1.0e6))
-        # compose the pandas output DF
-        # Later: if necessary add sin, cos, derivatives
-        # First version let us assume net returns all state except for angle
+
+        net_outputs = self.iterate_net(Q, single_step=single_step)
 
         # Denormalize
-        self.output_array[..., 1:, [STATE_INDICES.get(key) for key in self.net_info.outputs]] = \
+        output_array[..., 1:, [STATE_INDICES.get(key) for key in self.net_info.outputs]] = \
             denormalize_numpy_array(net_outputs.numpy(), self.net_info.outputs, self.normalization_info)
 
         # Augment
-        if 'angle' not in self.net_info.outputs:
-            self.output_array[..., STATE_INDICES['angle']] = \
-                np.arctan2(
-                    self.output_array[..., STATE_INDICES['angle_sin']],
-                    self.output_array[..., STATE_INDICES['angle_cos']])
-        if 'angle_sin' not in self.net_info.outputs:
-            self.output_array[..., STATE_INDICES['angle_sin']] =\
-                np.sin(self.output_array[..., STATE_INDICES['angle']])
-        if 'angle_cos' not in self.net_info.outputs:
-            self.output_array[..., STATE_INDICES['angle_cos']] =\
-                np.sin(self.output_array[..., STATE_INDICES['angle']])
+        augment_predictor_output(output_array, self.net_info)
 
-        return self.output_array
+        return output_array
+
 
     # @tf.function
     def update_internal_state(self, Q0):
@@ -181,17 +172,17 @@ class predictor_autoregressive_tf:
         self.rnn_internal_states = get_internal_states(self.net)
 
     # @tf.function
-    def iterate_net_f(self, Q):
-        # print('retracing iterate_net_f')
-        # Iterate over RNN -
-        # net_input = tf.zeros(shape=(1, 1, len(self.net_info.inputs),), dtype=tf.float32)
-        # net_output = tf.zeros(shape=(1,len(self.net_outputs_names)), dtype=tf.float32)
-        net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
-        net_output = tf.zeros(shape=(len(self.net_info.outputs)), dtype=tf.float32)
-        # Q_current = tf.zeros(shape=(1,), dtype=tf.float32)
+    def iterate_net_f(self, Q, single_step=False):
 
-        # net_inout = net_inout.write(0, tf.reshape(initial_input, [1, len(initial_input)]))
-        for i in tf.range(0, self.horizon):
+        if single_step:
+            horizon = 1
+        else:
+            horizon = self.horizon
+
+        net_outputs = tf.TensorArray(tf.float32, size=horizon)
+        net_output = tf.zeros(shape=(len(self.net_info.outputs)), dtype=tf.float32)
+
+        for i in tf.range(0, horizon):
             Q_current = Q[..., i]
             Q_current = (tf.reshape(Q_current, [-1, 1]))
             if i == 0:

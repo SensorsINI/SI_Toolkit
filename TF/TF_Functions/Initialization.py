@@ -191,6 +191,8 @@ def get_net(a,
             # This is the full name of pretrained net. A new full name will be given if the training is resumed
             net_info.net_full_name = net_full_name
 
+            net_info.path_to_net = a.path_to_models + parent_net_name
+
             # region Make a single call on an zero array to make the console output clean
             # (just aesthetic effect to throw possible warning here and not at the beginning of training)
 
@@ -231,6 +233,7 @@ def get_net(a,
         # endregion
 
         net_info.parent_net_name = 'Network trained from scratch'
+        net_info.path_to_net = None  # Folder for net not yer created
 
     # endregion
 
@@ -266,8 +269,8 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
             raise ValueError('You must provide normalization info for retraining existing network')
         normalization_info = load_normalization_info(net_info.path_to_normalization_info)
         shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
-        net_info.path_to_normalization_info = net_info.path_to_net + os.path.basename(
-            net_info.path_to_normalization_info)
+        net_info.path_to_normalization_info = os.path.join(net_info.path_to_net, os.path.basename(
+            net_info.path_to_normalization_info))
 
     # region Get sampling interval from normalization info
     # TODO: this does not really fits here put is too small for me to create separate function
