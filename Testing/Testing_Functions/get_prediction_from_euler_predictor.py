@@ -2,7 +2,7 @@ import numpy as np
 
 from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES
 
-from Predictores.predictor_ideal import predictor_ideal
+from SI_Toolkit_ApplicationSpecificFiles.predictor_ideal import predictor_ideal
 
 DEFAULT_SAMPLING_INTERVAL = 0.02  # s, Corresponds to our lab cartpole
 def get_prediction_from_euler_predictor(a, dataset, dt_sampling, dt_sampling_by_dt_fine=1):
