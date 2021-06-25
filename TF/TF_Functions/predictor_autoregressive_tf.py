@@ -43,7 +43,7 @@ from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for
 from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states
 from SI_Toolkit.load_and_normalize import *
 
-from SI_Toolkit_ApplicationSpecificFiles.predictor_tf_customization import augment_predictor_output, STATE_INDICES, STATE_VARIABLES, CONTROL_INPUTS
+from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import augment_predictor_output, STATE_INDICES, STATE_VARIABLES, CONTROL_INPUTS
 
 import numpy as np
 
@@ -54,7 +54,6 @@ import tensorflow as tf
 
 config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
-NET_NAME = config['modeling']['NET_NAME']
 PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
 
 class predictor_autoregressive_tf:
@@ -66,10 +65,7 @@ class predictor_autoregressive_tf:
         self.horizon = horizon
         a.path_to_models = PATH_TO_MODELS
 
-        if net_name is None:
-            a.net_name = NET_NAME
-        else:
-            a.net_name = net_name
+        a.net_name = net_name
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
         self.net, self.net_info = \
