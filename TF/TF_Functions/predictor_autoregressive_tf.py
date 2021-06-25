@@ -62,7 +62,7 @@ class predictor_autoregressive_tf:
 
         a = SimpleNamespace()
         self.batch_size = batch_size
-        self._horizon = None # Helper variable for horizon settoer
+        self._horizon = None  # Helper variable for horizon settoer
         self.horizon = horizon
         a.path_to_models = PATH_TO_MODELS
 
@@ -91,7 +91,7 @@ class predictor_autoregressive_tf:
 
         initial_input_type = tf.TensorSpec((len(self.net_info.inputs)-1,), tf.float32)
 
-        net_input_type = tf.TensorSpec((self.batch_size, len(self.net_info.inputs)), tf.float32)
+        net_input_type = tf.TensorSpec((self.batch_size, 1, len(self.net_info.inputs)), tf.float32)
 
         self.output_array_single_step = np.zeros([self.batch_size, 2, len(STATE_VARIABLES)+1], dtype=np.float32)
 
@@ -186,21 +186,14 @@ class predictor_autoregressive_tf:
             Q_current = Q[..., i]
             Q_current = (tf.reshape(Q_current, [-1, 1]))
             if i == 0:
-                if self.net_info.net_type == 'Dense':
-                    net_input = tf.concat([Q_current, self.net_initial_input_without_Q_TF], axis=1)
-                else:
                     net_input = (tf.reshape(tf.concat([Q_current, self.net_initial_input_without_Q_TF], axis=1), [-1, 1, len(self.net_info.inputs)]))
             else:
-                if self.net_info.net_type == 'Dense':
-                    net_input = tf.concat([Q_current, net_output], axis=1)
-                else:
                     net_input = tf.reshape(tf.concat([Q_current, net_output], axis=1), [-1, 1, len(self.net_info.inputs)])
             # net_output = self.net(net_input)
             net_output = self.evaluate_net(net_input)
             #tf.print(net_output)
 
-            if self.net_info.net_type != 'Dense':
-                net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
+            net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
 
             net_outputs = net_outputs.write(i, net_output)
             # tf.print(net_inout.read(i+1))
