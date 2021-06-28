@@ -6,7 +6,7 @@ modeling:
 
 normalization:
   # PATH HAS TO END WITH A SOLIDUS ("/") CHARACTER
-  path_to_experiment: 'Experiment-6/'
+  path_to_experiment: 'Experiment-9/'
   PATH_TO_EXPERIMENT_RECORDINGS: './SI_Toolkit_ApplicationSpecificFiles/Experiments/'  # Path where the experiments data is stored
 
 training_default:
