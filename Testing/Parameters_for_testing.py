@@ -11,15 +11,18 @@ import numpy as np
 import yaml, os
 config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
-PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
-
+PATH_TO_MODELS = config["normalization"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['normalization']['path_to_experiment'] + "Models/"
 
 tests = config['testing']['tests']
-norm_infos = [config['testing']['PATH_TO_NORMALIZATION_INFO']]*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
+
+PATH_TO_NORMALIZATION_INFO = config["normalization"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['normalization']['path_to_experiment'] + "NormalizationInfo/"
+PATH_TO_NORMALIZATION_INFO += os.listdir(PATH_TO_NORMALIZATION_INFO)[0]
+norm_infos = [PATH_TO_NORMALIZATION_INFO]*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
+
 dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for which ground truth value exists), for neural network has no effect
 titles = tests  # Titles of tests to be printed in GUI
 
-TEST_FILE = config['testing']['TEST_FILE']
+TEST_FILE = [config["normalization"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['normalization']['path_to_experiment'] + "Recordings/Test/" + config['testing']['TEST_FILE']]
 # TODO: For consistency features should be "state inputs" probably. Think about it once more before implementing
 # For CartPole
 features = list(np.sort(

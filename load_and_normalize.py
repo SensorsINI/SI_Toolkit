@@ -20,8 +20,11 @@ except:
 
 from SI_Toolkit_ApplicationSpecificFiles.user_defined_normalization_correction import apply_user_defined_normalization_correction
 
+import yaml, os
+config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
-PATH_TO_NORMALIZATION_INFO = './SI_Toolkit/NormalizationInfo/'
+
+PATH_TO_NORMALIZATION_INFO = config["normalization"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config["normalization"]["path_to_experiment"] + 'NormalizationInfo/'
 normalization_rounding_decimals = 5
 
 
@@ -458,8 +461,6 @@ def normalize_numpy_array(denormalized_array,
 
 
 if __name__ == '__main__':
-    import yaml, os
-    config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
-    folder_with_data_to_calculate_norm_info = config["normalization"]["folder_with_data_to_calculate_norm_info"]
+    folder_with_data_to_calculate_norm_info = config["normalization"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config["normalization"]["path_to_experiment"] + "Recordings/Train/"
 
     calculate_normalization_info(folder_with_data_to_calculate_norm_info)
