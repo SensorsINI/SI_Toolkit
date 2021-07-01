@@ -3,7 +3,10 @@ from matplotlib import colors
 
 from tqdm import trange
 
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES
+try:
+    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES
+except ModuleNotFoundError:
+    print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
 from SI_Toolkit.TF.TF_Functions.predictor_autoregressive_tf import predictor_autoregressive_tf
 

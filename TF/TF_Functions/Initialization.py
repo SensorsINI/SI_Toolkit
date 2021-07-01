@@ -274,7 +274,11 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
 
     # region Get sampling interval from normalization info
     # TODO: this does not really fits here put is too small for me to create separate function
-    net_info.sampling_interval = get_sampling_interval_from_normalization_info(net_info.path_to_normalization_info)
+    try:
+        net_info.sampling_interval = get_sampling_interval_from_normalization_info(net_info.path_to_normalization_info)
+    except ValueError:
+        net_info.sampling_interval = None
+        print('sampling_interval unknown')
     # endregion
 
     return normalization_info

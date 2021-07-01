@@ -1,3 +1,7 @@
+"""
+FIXME: Not functioning now!
+"""
+
 # These are RNN functions as used in tensorflow
 
 # These imports should be deleted after development process is concluded
@@ -155,9 +159,9 @@ def create_rnn_instance_numpy(net_template):
 
 
 import yaml, os
-config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
-RNN_FULL_NAME = config['modeling']['RNN_FULL_NAME']  # DT = 0.1s for this net
-RNN_PATH = config['modeling']['RNN_PATH']
+config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+RNN_FULL_NAME = 'GRU-6IN-16H1-16H2-5OUT-0'
+RNN_PATH = './save_tf/'
 PREDICTION_FEATURES_NAMES = config['modeling']['PREDICTION_FEATURES_NAMES']
 
 if __name__ == '__main__':

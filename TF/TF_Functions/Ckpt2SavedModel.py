@@ -1,12 +1,14 @@
+"""
+FIXME: Not functioning now!
+"""
 import tensorflow as tf
 from tensorflow import keras
 from SI_Toolkit.TF.TF_Functions.Network import create_rnn_instance
 
-import yaml, os
-config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+import os
 
-RNN_FULL_NAME = config['modeling']['RNN_FULL_NAME']
-RNN_PATH = config['modeling']['RNN_PATH']
+RNN_FULL_NAME = 'GRU-6IN-16H1-16H2-5OUT-0'
+RNN_PATH = './save_tf/'
 SAVEPATH = os.path.join(RNN_PATH, RNN_FULL_NAME, '1', '')
 
 # Create rnn instance and update lists of input, outputs and its name (if pretraind net loaded)

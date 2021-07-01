@@ -9,7 +9,7 @@ import argparse
 import numpy as np
 
 import yaml, os
-config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
 PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
 

@@ -1,7 +1,6 @@
 modeling:
   NET_NAME: 'GRU-6IN-16H1-16H2-5OUT-0'
   PATH_TO_MODELS: './SI_Toolkit/TF/Models/'
-  RNN_FULL_NAME: 'GRU-64H1-64H2'
   RNN_PATH: './save_tf/'
   PATH_TO_NORMALIZATION_INFO:   'None'  # './SI_Toolkit/NormalizationInfo/Dataset-1-norm.csv'
   TRAINING_FILES: './ExperimentRecordings/Dataset-1/Train/'

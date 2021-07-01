@@ -18,8 +18,10 @@ try:
 except:
     pass
 
-from SI_Toolkit_ApplicationSpecificFiles.user_defined_normalization_correction import apply_user_defined_normalization_correction
-
+try:
+    from SI_Toolkit_ApplicationSpecificFiles_Template.user_defined_normalization_correction import apply_user_defined_normalization_correction
+except:
+    print('SI_Toolkit_ApplicationSpecificFiles not created yet')
 
 PATH_TO_NORMALIZATION_INFO = './SI_Toolkit/NormalizationInfo/'
 normalization_rounding_decimals = 5
@@ -159,10 +161,13 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
     tol = 1.0e-6
     sampling_interval_str = '# Sampling interval of data used to calculate normalization: '
-    if np.all(abs(dts_save - dt_save) < tol):
-        sampling_interval_str += '{} s'.format(dt_save)
-    else:
-        sampling_interval_str += 'Not constant!'
+    try:
+        if np.all(abs(dts_save - dt_save) < tol):
+            sampling_interval_str += '{} s'.format(dt_save)
+        else:
+            sampling_interval_str += 'Not constant!'
+    except TypeError:
+        print('Save interval unknown.')
 
     # endregion
 
@@ -459,7 +464,7 @@ def normalize_numpy_array(denormalized_array,
 
 if __name__ == '__main__':
     import yaml, os
-    config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+    config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
     folder_with_data_to_calculate_norm_info = config["normalization"]["folder_with_data_to_calculate_norm_info"]
 
     calculate_normalization_info(folder_with_data_to_calculate_norm_info)
