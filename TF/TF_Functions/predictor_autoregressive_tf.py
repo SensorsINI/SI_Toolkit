@@ -44,7 +44,7 @@ from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_interna
 from SI_Toolkit.load_and_normalize import *
 
 try:
-    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES
+    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS, augment_predictor_output
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
@@ -57,7 +57,8 @@ import tensorflow as tf
 
 config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
-PATH_TO_MODELS = config['modeling']['PATH_TO_MODELS']
+NET_NAME = config['modeling']['NET_NAME']
+PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "Models/"
 
 class predictor_autoregressive_tf:
     def __init__(self, horizon=None, batch_size=None, net_name=None):

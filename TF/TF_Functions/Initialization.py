@@ -268,7 +268,8 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
         if net_info.path_to_normalization_info is None:
             raise ValueError('You must provide normalization info for retraining existing network')
         normalization_info = load_normalization_info(net_info.path_to_normalization_info)
-        shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
+        try: shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
+        except: pass
         net_info.path_to_normalization_info = os.path.join(net_info.path_to_net, os.path.basename(
             net_info.path_to_normalization_info))
 

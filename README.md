@@ -6,17 +6,17 @@ Use this repository to train neural networks on dynamical systems.
 1. Collect Training Data
   - Run a data generation script on your simulation environment.
   - Example: run_data_generator in CartPoleSimulator
-  - For example, create a folder `./ExperimentRecordings/Dataset-1/`
+  - For example, create a folder `./Experiment_Recordings/Dataset-1/`
 2. Load Training Data and Normalize it
   - Set `folder_with_data_to_calculate_norm_info` in `config.yml`
-    - In our example: Set to `./ExperimentRecordings/Dataset-1/`
+    - In our example: Set to `./Experiment_Recordings/Dataset-1/`
   - Then run:
   ```bash
   python3 -m SI_Toolkit.load_and_normalize
   ```
   - This creates a new normalization file in `SI_Toolkit/NormalizationInfo/`
 3. Train Network
-  - Split experiment recording files into subfolders `Train`, `Validate`, `Test` within `./ExperimentRecordings/Dataset-1/` (currently done manually).
+  - Split experiment recording files into subfolders `Train`, `Validate`, `Test` within `./Experiment_Recordings/Dataset-1/` (currently done manually).
   - Type `python3 -m SI_Toolkit.TF.Train -h` to view all arguments that can be passed to training script
   - You will want to specify a `--net_name` (see help message to see how to do that)
   - Specify the `--path_to_normalization_info` to be the CSV file created in step 2.

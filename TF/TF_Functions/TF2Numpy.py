@@ -160,8 +160,8 @@ def create_rnn_instance_numpy(net_template):
 
 import yaml, os
 config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
-RNN_FULL_NAME = 'GRU-6IN-16H1-16H2-5OUT-0'
-RNN_PATH = './save_tf/'
+RNN_FULL_NAME = config['modeling']['RNN_FULL_NAME']  # DT = 0.1s for this net
+RNN_PATH = config['modeling']['RNN_PATH']
 PREDICTION_FEATURES_NAMES = config['modeling']['PREDICTION_FEATURES_NAMES']
 
 if __name__ == '__main__':
