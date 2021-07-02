@@ -28,16 +28,9 @@ def run_brunton_test():
 
     predictions_list = []
     for test_idx in range(len(a.tests)):
-        if a.tests[test_idx] == 'Euler':
-            predictions = get_prediction_for_testing_gui_from_euler(a, dataset, dataset_sampling_dt, dt_sampling_by_dt_fine=10)
-            predictions_list.append(predictions)
-        elif a.tests[test_idx] == 'Euler-predictor':
-            predictions = get_prediction_for_testing_gui_from_euler(a, dataset, dataset_sampling_dt, dt_sampling_by_dt_fine=10)
-            predictions_list.append(predictions)
-        else: # Assume this is a neural_network test:
-            predictions = get_data_for_gui_TF(a, dataset, net_name=a.tests[test_idx])
-            predictions_list.append(predictions)
-            # print("Not yet my problem")
+        predictor = a.tests[test_idx]
+        predictions = get_prediction_for_testing_gui_from_euler(a, dataset, dataset_sampling_dt, predictor = predictor, dt_sampling_by_dt_fine=10 )
+        predictions_list.append(predictions)
 
 
     run_test_gui(a.features, a.titles,
