@@ -1,3 +1,7 @@
+"""
+FIXME: Not functioning now!
+"""
+
 # These are RNN functions as used in tensorflow
 
 # These imports should be deleted after development process is concluded

@@ -43,7 +43,10 @@ from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for
 from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states
 from SI_Toolkit.load_and_normalize import *
 
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import augment_predictor_output, STATE_INDICES, STATE_VARIABLES, CONTROL_INPUTS
+try:
+    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES
+except ModuleNotFoundError:
+    print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
 import numpy as np
 

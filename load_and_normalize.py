@@ -18,7 +18,10 @@ try:
 except:
     pass
 
-from SI_Toolkit_ApplicationSpecificFiles.user_defined_normalization_correction import apply_user_defined_normalization_correction
+try:
+    from SI_Toolkit_ApplicationSpecificFiles.user_defined_normalization_correction import apply_user_defined_normalization_correction
+except:
+    print('SI_Toolkit_ApplicationSpecificFiles not created yet')
 
 import yaml, os
 config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
@@ -162,10 +165,13 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
     tol = 1.0e-6
     sampling_interval_str = '# Sampling interval of data used to calculate normalization: '
-    if np.all(abs(dts_save - dt_save) < tol):
-        sampling_interval_str += '{} s'.format(dt_save)
-    else:
-        sampling_interval_str += 'Not constant!'
+    try:
+        if np.all(abs(dts_save - dt_save) < tol):
+            sampling_interval_str += '{} s'.format(dt_save)
+        else:
+            sampling_interval_str += 'Not constant!'
+    except TypeError:
+        print('Save interval unknown.')
 
     # endregion
 
