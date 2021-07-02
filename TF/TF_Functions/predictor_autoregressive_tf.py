@@ -52,10 +52,10 @@ import yaml, os
 
 import tensorflow as tf
 
-config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
 NET_NAME = config['modeling']['NET_NAME']
-PATH_TO_MODELS = config["normalization"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['normalization']['path_to_experiment'] + "Models/"
+PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "Models/"
 
 class predictor_autoregressive_tf:
     def __init__(self, horizon=None, batch_size=None, net_name=None):

@@ -3,7 +3,7 @@ from tensorflow import keras
 from SI_Toolkit.TF.TF_Functions.Network import create_rnn_instance
 
 import yaml, os
-config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
 RNN_FULL_NAME = config['modeling']['RNN_FULL_NAME']
 RNN_PATH = config['modeling']['RNN_PATH']

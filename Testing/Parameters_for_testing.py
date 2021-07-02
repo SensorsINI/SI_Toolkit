@@ -9,20 +9,20 @@ import argparse
 import numpy as np
 
 import yaml, os
-config = yaml.load(open(os.path.join('SI_Toolkit', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
-PATH_TO_MODELS = config["normalization"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['normalization']['path_to_experiment'] + "Models/"
+PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "Models/"
 
 tests = config['testing']['tests']
 
-PATH_TO_NORMALIZATION_INFO = config["normalization"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['normalization']['path_to_experiment'] + "NormalizationInfo/"
+PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "NormalizationInfo/"
 PATH_TO_NORMALIZATION_INFO += os.listdir(PATH_TO_NORMALIZATION_INFO)[0]
 norm_infos = [PATH_TO_NORMALIZATION_INFO]*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
 
 dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for which ground truth value exists), for neural network has no effect
 titles = tests  # Titles of tests to be printed in GUI
 
-TEST_FILE = [config["normalization"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['normalization']['path_to_experiment'] + "Recordings/Test/" + config['testing']['TEST_FILE']]
+TEST_FILE = [config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "Recordings/Test/" + config['testing']['TEST_FILE']]
 # TODO: For consistency features should be "state inputs" probably. Think about it once more before implementing
 # For CartPole
 features = list(np.sort(
@@ -45,7 +45,7 @@ control_inputs = ['Q']
 # For l2race
 # control_inputs = ['u1', 'u2']
 
-# TEST_FILE = ['./ExperimentRecordings/PCP-1/Test/Dance-Test-cartpole-2021-05-26-17-17-13.csv']
+# TEST_FILE = ['./Experiment_Recordings/PCP-1/Test/Dance-Test-cartpole-2021-05-26-17-17-13.csv']
 
 # PATH_TO_NORMALIZATION_INFO = config['modeling']['PATH_TO_NORMALIZATION_INFO']
 
