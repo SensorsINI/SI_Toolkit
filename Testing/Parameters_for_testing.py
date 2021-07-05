@@ -10,17 +10,13 @@ import argparse
 PATH_TO_MODELS = "./SI_Toolkit/TF/Models/"
 
 features = list(["x1", "x2", "x3", "x4", "x5", "x6", "x7"])
-#'GRU-6IN-16H1-16H2-5OUT-0',
-# 'Dense-9IN-16H1-16H2-7OUT-0',
-# tests = [ 'euler', 'Dense-128-256-256-128_delta','Dense-128-256-128_augumented','Dense-128-256-128_delta', 'odeint']  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
-# tests = [ 'euler', "Dense-128-128-128", "Dense-128-128-128-n", "Dense-128-128-128-d", "Dense-128-128-128-nd"]  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
+
 tests = [
     "euler",
-    "VEHICLE_1_20",
+    "Dense-128-128-128-128-invariant-10",
+    "Dense-128-128-128-128-invariant-10-16",
     "Dense-128-128-128-128-uniform-20",
-    "Dense-128-128-128-128-uniform-20-2",
-    "Dense-128-128-128-128-uniform-40-2",
-    "Dense-128-128-128-128-uniform-40-3",
+    "Dense-128-128-128-128-invariant-20-16"
 ]  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
 norm_infos = ["./SI_Toolkit/NormalizationInfo/" + "Dataset-1-norm.csv"] * len(
     tests
