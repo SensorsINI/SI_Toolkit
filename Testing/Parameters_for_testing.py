@@ -71,7 +71,7 @@ def args():
 
     parser.add_argument('--path_to_models', default=PATH_TO_MODELS, type=str,
                         help='Path to the NN trained models ')
-    parser.add_argument('--test_len', default=300, type=int,
+    parser.add_argument('--test_len', default="max",
                         help='For graphical testing only test_len samples from first test file is taken.')
     parser.add_argument('--test_start_idx', default=0, type=int, help='Indicates from which point data from test file should be taken.')
     parser.add_argument('--test_max_horizon', default=40, type=int,
