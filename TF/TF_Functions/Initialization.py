@@ -155,12 +155,22 @@ def get_net(a,
                                                       batch_size=batch_size, stateful=stateful)
 
             # region Load weights from checkpoint file
-            ckpt_filename = parent_net_name + '.ckpt'
-            ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filename
-            if not os.path.isfile(ckpt_path + '.index'):
+            ckpt_filenames = [parent_net_name + '.ckpt', 'ckpt.ckpt'] # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
+            ckpt_found = False
+
+            ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filenames[0]
+            if os.path.isfile(ckpt_path + '.index'):
+                ckpt_found = True
+            if not ckpt_found:
+                ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filenames[1]
+                if os.path.isfile(ckpt_path + '.index'):
+                    ckpt_found = True
+            if not ckpt_found:
                 ckpt_not_found_str = 'The corresponding .ckpt file is missing' \
-                                     '(information about weights and biases) at the location {}' \
-                    .format(ckpt_path)
+                                     '(information about weights and biases). \n' \
+                                     'it was not found neither at the location {} nor at {}' \
+                    .format(a.path_to_models + parent_net_name + '/' + ckpt_filenames[0], ckpt_path)
+
                 if a.net_name == 'last':
                     print(ckpt_not_found_str)
                     print('I delete the corresponding folder and try to search again')

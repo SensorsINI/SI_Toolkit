@@ -168,7 +168,7 @@ def train_network(nni_parameters=None):
     callbacks_for_training.append(plot_predictions_callback)
 
     model_checkpoint_callback = keras.callbacks.ModelCheckpoint(
-        filepath=net_info.path_to_net + net_info.net_full_name + '.ckpt',
+        filepath=net_info.path_to_net + 'ckpt' + '.ckpt',
         save_weights_only=True,
         monitor='val_loss',
         mode='auto',
@@ -201,7 +201,7 @@ def train_network(nni_parameters=None):
     )
 
     # region Save final weights as checkpoint
-    net.save_weights(net_info.path_to_net + net_info.net_full_name + '.ckpt')
+    net.save_weights(net_info.path_to_net + 'ckpt' + '.ckpt')
     # endregion
 
     # region Plot loss change during training
