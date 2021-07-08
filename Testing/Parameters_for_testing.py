@@ -13,10 +13,8 @@ features = list(["x1", "x2", "x3", "x4", "x5", "x6", "x7"])
 
 tests = [
     "euler",
-    "Dense-128-128-128-128-invariant-10",
-    "Dense-128-128-128-128-invariant-10-16",
-    "Dense-128-128-128-128-uniform-20",
-    "Dense-128-128-128-128-invariant-20-16"
+    "Dense-128-128-128-128-large",
+    "Dense-128-128-128-128-small",
 ]  # May be 'Euler', Euler-predictor, name of network or None = 'Dense-16H1-16H2'
 norm_infos = ["./SI_Toolkit/NormalizationInfo/" + "Dataset-1-norm.csv"] * len(
     tests
@@ -24,7 +22,7 @@ norm_infos = ["./SI_Toolkit/NormalizationInfo/" + "Dataset-1-norm.csv"] * len(
 dt_euler = [0.002] * len(
     tests
 )  # Timestep of Euler (printed are only values, for which ground truth value exists), for neural network has no effect
-titles = tests  # Titles of tests to be printed in GUI
+titles =  tests  # Titles of tests to be printed in GUI
 
 TEST_FILE = ["./ExperimentRecordings/Dataset-1/Test/Test.csv"]
 

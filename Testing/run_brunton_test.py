@@ -3,10 +3,8 @@ from SI_Toolkit.Testing.Parameters_for_testing import args
 from SI_Toolkit.Testing.preprocess_for_brunton import preprocess_for_brunton
 from SI_Toolkit.Testing.Brunton_GUI import run_test_gui
 
-# Custom functions
-# from Modeling.Testing.get_prediction_TF import get_data_for_gui_TF
+# Predictors fron controller
 from SI_Toolkit_ApplicationSpecificFiles.get_prediction_from_controller import get_prediction_for_testing_gui_from_controller
-from SI_Toolkit_ApplicationSpecificFiles.get_prediction_TF_predictor import get_data_for_gui_TF
 
 
 print('')
