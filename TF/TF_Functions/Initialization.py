@@ -367,13 +367,13 @@ def create_log_file(net_info, a):
         for path in a.validation_files:
             f.write('     ' + path + '\n')
     else:
-        f.write(a.training_files)
+        f.write(a.validation_files)
 
     f.write('\n\nTEST_FILES:\n')
     if type(a.test_files) is list:
         for path in a.test_files:
             f.write('     ' + path + '\n')
     else:
-        f.write(a.training_files)
+        f.write(a.test_files)
 
     f.close()
