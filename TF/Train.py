@@ -178,9 +178,9 @@ def train_network(nni_parameters=None):
 
     reduce_lr = keras.callbacks.ReduceLROnPlateau(
         monitor='val_loss',
-        factor=0.2,
+        factor=0.1,
         patience=1,
-        min_lr=0.0001,
+        min_lr=1.0e-4,
         verbose=2
     )
 
