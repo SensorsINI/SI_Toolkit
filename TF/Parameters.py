@@ -76,14 +76,14 @@ def args():
 
     # Training only:
     parser.add_argument('--wash_out_len', default=10, type=int, help='Number of timesteps for a wash-out sequence')
-    parser.add_argument('--post_wash_out_len', default=50, type=int,
+    parser.add_argument('--post_wash_out_len', default=20, type=int,
                         help='Number of timesteps after wash-out sequence (this is used to calculate loss)')
 
     # Training parameters
-    parser.add_argument('--num_epochs', default=20, type=int, help='Number of epochs of training')
-    parser.add_argument('--batch_size', default=16, type=int, help='Size of a batch')
+    parser.add_argument('--num_epochs', default=10, type=int, help='Number of epochs of training')
+    parser.add_argument('--batch_size', default=32, type=int, help='Size of a batch')
     parser.add_argument('--seed', default=1873, type=int, help='Set seed for reproducibility')
-    parser.add_argument('--lr', default=1.0e-3, type=float, help='Learning rate')
+    parser.add_argument('--lr', default=1.0e-2, type=float, help='Learning rate')
 
     parser.add_argument('--path_to_models', default=PATH_TO_MODELS, type=str,
                         help='Path where to save/ from where to load models')
