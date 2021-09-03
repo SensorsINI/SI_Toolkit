@@ -16,15 +16,15 @@ net_name = config['modeling']['NET_NAME']
 # net_name = 'Dense-6IN-16H1-16H2-5OUT-0'
 # net_name = 'Dense-16H1-16H2'
 # Path to trained models and their logs
-PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "Models/"
+PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
 
-PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "NormalizationInfo/"
+PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "NormalizationInfo/"
 PATH_TO_NORMALIZATION_INFO += os.listdir(PATH_TO_NORMALIZATION_INFO)[0]
 
 # The following paths to dictionaries may be replaced by the list of paths to data files.
-TRAINING_FILES = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "/Recordings/Train/"
-VALIDATION_FILES = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "/Recordings/Validate/"
-TEST_FILES = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "/Recordings/Test/"
+TRAINING_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "/Recordings/Train/"
+VALIDATION_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "/Recordings/Validate/"
+TEST_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "/Recordings/Test/"
 
 
 # region Set inputs and outputs

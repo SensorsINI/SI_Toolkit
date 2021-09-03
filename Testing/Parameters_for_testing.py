@@ -11,18 +11,20 @@ import numpy as np
 import yaml, os
 config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
-PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "Models/"
+PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
 
 tests = config['testing']['tests']
 
-PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "NormalizationInfo/"
+PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "NormalizationInfo/"
 PATH_TO_NORMALIZATION_INFO += os.listdir(PATH_TO_NORMALIZATION_INFO)[0]
 norm_infos = [PATH_TO_NORMALIZATION_INFO]*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
 
 dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for which ground truth value exists), for neural network has no effect
 titles = tests  # Titles of tests to be printed in GUI
 
-TEST_FILE = [config["paths"]["PATH_TO_EXPERIMENT_RECORDINGS"] + config['paths']['path_to_experiment'] + "Recordings/Test/" + config['testing']['TEST_FILE']]
+TEST_FILE = config['testing']['TEST_FILE']
+default_locations_for_testfile = [config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Recordings/Test/"]
+
 # TODO: For consistency features should be "state inputs" probably. Think about it once more before implementing
 # For CartPole
 features = list(np.sort(
@@ -55,6 +57,9 @@ def args():
     # Only valid for graphical testing:
     parser.add_argument('--test_file', default=TEST_FILE, type=str,
                         help='File name of the recording to be used for validating the RNN'
+                             'e.g. oval_easy_test.csv ')
+    parser.add_argument('--default_locations_for_testfile', default=default_locations_for_testfile, type=str,
+                        help='Where to search for test file if only name and not the path specified'
                              'e.g. oval_easy_test.csv ')
     parser.add_argument('--tests', default=tests,
                         help='List of tests which should be performed')

@@ -1,11 +1,12 @@
 from SI_Toolkit.load_and_normalize import \
-    load_data, get_sampling_interval_from_datafile
+    load_data, get_sampling_interval_from_datafile, get_full_paths_to_csvs
 
 
 
 def preprocess_for_brunton(a):
     # Get dataset:
-    test_dfs = load_data(a.test_file)
+    path_to_testfile = get_full_paths_to_csvs(default_locations=a.default_locations_for_testfile, csv_names=a.test_file)
+    test_dfs = load_data(path_to_testfile)
     if a.test_len == 'max':
         a.test_len = len(test_dfs[
                              0]) - a.test_max_horizon - a.test_start_idx  # You could have +1; then, for last prediction you don not have ground truth to compare with, but you can still calculate it.
@@ -13,7 +14,7 @@ def preprocess_for_brunton(a):
     dataset.reset_index(drop=True, inplace=True)
 
     # Get sampling interval
-    dataset_sampling_dt = get_sampling_interval_from_datafile(a.test_file[0])
+    dataset_sampling_dt = get_sampling_interval_from_datafile(path_to_testfile[0])
     if dataset_sampling_dt is None:
         raise ValueError ('No information about sampling interval found')
 
