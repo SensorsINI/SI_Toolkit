@@ -1,7 +1,7 @@
 from SI_Toolkit.load_and_normalize import \
     load_data, get_sampling_interval_from_datafile, get_full_paths_to_csvs
 
-
+from SI_Toolkit_ApplicationSpecificFiles.noise import add_noise
 
 def preprocess_for_brunton(a):
     # Get dataset:
@@ -17,6 +17,12 @@ def preprocess_for_brunton(a):
     dataset_sampling_dt = get_sampling_interval_from_datafile(path_to_testfile[0])
     if dataset_sampling_dt is None:
         raise ValueError ('No information about sampling interval found')
+
+    # # Add noise to position, angle
+    # if a.noise == 'add_noise':
+    #     add_noise(dataset, a.noise_level)
+
+
 
     time_axis = dataset['time'].to_numpy()[:a.test_len]
     ground_truth_features = a.features+a.control_inputs
