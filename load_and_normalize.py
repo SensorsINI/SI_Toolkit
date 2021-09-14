@@ -81,7 +81,11 @@ def get_paths_to_datafiles(paths_to_data_information):
             list_of_paths_from_norminfo(paths_to_data_information)
         else:
             # Assume that path to folder was provided
-            list_of_paths_to_datafiles = glob.glob(paths_to_data_information + '*.csv')
+            for dirpath, dirnames, filenames in os.walk(paths_to_data_information):
+                for filename in [f for f in filenames if f.endswith(".csv")]:
+                    list_of_paths_to_datafiles.append(os.path.join(dirpath, filename))
+
+            # list_of_paths_to_datafiles = glob.glob(paths_to_data_information + '*.csv')
     else:
         raise TypeError('Unsupported type of input argument to get_paths_to_datafiles')
 
