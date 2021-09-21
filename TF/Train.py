@@ -236,6 +236,8 @@ if __name__ == '__main__':
     import os.path
     import time
 
+    print('Path to experiment {}'.format(a.path_to_models))
+
     # The following lines help to determine if the file on Google Colab was updated
     file = os.path.realpath(__file__)
     print("Training script last modified: %s" % time.ctime(os.path.getmtime(file)))
