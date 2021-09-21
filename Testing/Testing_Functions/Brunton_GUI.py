@@ -27,6 +27,12 @@ from matplotlib import colors
 # Other imports for GUI
 import sys
 
+try:
+    # pass
+    from SI_Toolkit_ApplicationSpecificFiles.brunton_widget_extensions import get_feature_label, convert_units_inplace
+except ModuleNotFoundError or ImportError:
+    pass
+
 # endregion
 
 # region Set color map for the plots
@@ -73,6 +79,19 @@ class MainWindow(QMainWindow):
         self.ground_truth = ground_truth
         self.predictions_list = predictions_list
         self.time_axis = time_axis
+
+        try:
+            convert_units_inplace(self.ground_truth, self.predictions_list, self.features)
+        except NameError:
+            print('Function for units conversion not available.')
+
+        self.features_labels_dict = {}
+        try:
+            for feature in self.features:
+                self.features_labels_dict[feature] = get_feature_label(feature)
+        except NameError:
+            for feature in self.features:
+                self.features_labels_dict[feature] = feature
 
         self.dataset = predictions_list[0]
 
@@ -200,7 +219,7 @@ class MainWindow(QMainWindow):
         # region -- Combobox: Select feature to plot
         l_cb.addWidget(QLabel('Feature to plot:'))
         self.cb_select_feature = QComboBox()
-        self.cb_select_feature.addItems(self.features)
+        self.cb_select_feature.addItems(self.features_labels_dict.values())
         self.cb_select_feature.currentIndexChanged.connect(self.cb_select_feature_f)
         self.cb_select_feature.setCurrentText(self.features[0])
         l_cb.addWidget(self.cb_select_feature)
@@ -264,7 +283,8 @@ class MainWindow(QMainWindow):
         self.redraw_canvas()
 
     def cb_select_feature_f(self):
-        self.feature_to_display = self.cb_select_feature.currentText()
+        feature_label_to_display = self.cb_select_feature.currentText()
+        self.feature_to_display = list(self.features_labels_dict.keys())[list(self.features_labels_dict.values()).index(feature_label_to_display)]
         self.redraw_canvas()
 
     # The actions which has to be taken to properly terminate the application
@@ -324,7 +344,13 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
     axs.plot(time_axis, ground_truth[:, feature_idx], 'k:', markersize=12, label='Ground Truth')
     y_lim = axs.get_ylim()
     prediction_distance = []
-    axs.set_ylabel(feature_to_display, fontsize=18)
+
+    try:
+        y_label = get_feature_label(feature_to_display)
+    except NameError:
+        y_label = feature_to_display
+
+    axs.set_ylabel(y_label, fontsize=18)
     axs.set_xlabel('Time [s]', fontsize=18)
     for i in range(horizon):
 
