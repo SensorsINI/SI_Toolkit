@@ -51,8 +51,14 @@ control_inputs = ['Q']
 
 # PATH_TO_NORMALIZATION_INFO = config['modeling']['PATH_TO_NORMALIZATION_INFO']
 
-NOISE = config['testing']['NOISE']
-NOISE_LEVEL = config['testing']['NOISE_LEVEL']
+# NOISE = config['testing']['NOISE']
+# NOISE_LEVEL = config['testing']['NOISE_LEVEL']
+
+
+NOISE = 0
+NOISE_LEVEL = 0.0
+
+TEST_LEN = "max"
 
 def args():
     parser = argparse.ArgumentParser(description='Parameters for Brunton GUI', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -82,9 +88,9 @@ def args():
 
     parser.add_argument('--path_to_models', default=PATH_TO_MODELS, type=str,
                         help='Path to the NN trained models ')
-    parser.add_argument('--test_len', default="max",
+    parser.add_argument('--test_len', default=TEST_LEN,
                         help='For graphical testing only test_len samples from first test file is taken.')
-    parser.add_argument('--test_start_idx', default=0, type=int, help='Indicates from which point data from test file should be taken.')
+    parser.add_argument('--test_start_idx', default=100, type=int, help='Indicates from which point data from test file should be taken.')
     parser.add_argument('--test_max_horizon', default=40, type=int,
                         help='Indicates prediction horizon for testing.')
 
