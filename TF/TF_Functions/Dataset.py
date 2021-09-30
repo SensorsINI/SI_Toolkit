@@ -159,7 +159,7 @@ class Dataset(keras.utils.Sequence):
 
 # FIXME: Not working now, also it is for the moment written just for CartPole, not general
 # from CartPole.state_utilities import create_cartpole_state, cartpole_state_varname_to_index
-# from Predictores.predictor_ideal import predictor_ideal
+# from Predictores.predictor_ODE import predictor_ODE
 # class DatasetRandom(keras.utils.Sequence):
 #     def __init__(self,
 #                  args=None,
@@ -220,7 +220,7 @@ class Dataset(keras.utils.Sequence):
 #         initial_state['position'] = [s[cartpole_state_varname_to_index('position')]]
 #         initial_state['positionD'] = [s[cartpole_state_varname_to_index('positionD')]]
 #
-#         Predictor = predictor_ideal((self.exp_len+1) * 5, 0.02) # This results in exp_len+2 timesteps
+#         Predictor = predictor_ODE((self.exp_len+1) * 5, 0.02) # This results in exp_len+2 timesteps
 #         Predictor.setup(initial_state=initial_state, prediction_denorm=False)
 #
 #         Q = np.random.uniform(low=-1, high=1, size=self.exp_len+1)
