@@ -51,13 +51,6 @@ control_inputs = ['Q']
 
 # PATH_TO_NORMALIZATION_INFO = config['modeling']['PATH_TO_NORMALIZATION_INFO']
 
-# NOISE = config['testing']['NOISE']
-# NOISE_LEVEL = config['testing']['NOISE_LEVEL']
-
-
-NOISE = 0
-NOISE_LEVEL = 0.0
-
 TEST_LEN = "max"
 
 def args():
@@ -71,10 +64,6 @@ def args():
                              'e.g. oval_easy_test.csv ')
     parser.add_argument('--tests', default=tests,
                         help='List of tests which should be performed')
-    parser.add_argument('--noise', default=NOISE,
-                        help='True if the noise should be included in state')
-    parser.add_argument('--noise_level', default=NOISE_LEVEL,
-                        help='how much noise to add to each state component and control input')
     parser.add_argument('--norm_infos', default=norm_infos,
                         help='List of norm_infos for neural nets')
     parser.add_argument('--dt_euler', default=dt_euler,
