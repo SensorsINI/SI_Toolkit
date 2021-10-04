@@ -1,7 +1,5 @@
 import tensorflow.keras as keras
 import numpy as np
-import pandas as pd
-import copy
 
 
 class Dataset(keras.utils.Sequence):
@@ -157,8 +155,8 @@ class Dataset(keras.utils.Sequence):
 
 
 
-# FIXME: Not working now, also it is for the moment written just for CartPole, not general
-# from CartPole.state_utilities import create_cartpole_state, cartpole_state_varname_to_index
+# # FIXME: Not working now, also it is for the moment written just for CartPole, not general
+# from CartPole.state_utilities import create_cartpole_state, ANGLE_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
 # from Predictores.predictor_ODE import predictor_ODE
 # class DatasetRandom(keras.utils.Sequence):
 #     def __init__(self,
@@ -198,27 +196,27 @@ class Dataset(keras.utils.Sequence):
 #         """
 #         s = create_cartpole_state()
 #
-#         s[cartpole_state_varname_to_index('position')] = np.random.uniform(low=-50.0,
+#         s[POSITION_IDX] = np.random.uniform(low=-50.0,
 #                                               high=50.0)
 #
-#         s[cartpole_state_varname_to_index('positionD')] = np.random.uniform(low=-12.0,
+#         s[POSITIOND_IDX] = np.random.uniform(low=-12.0,
 #                                                high=12.0)
 #
-#         s[cartpole_state_varname_to_index('angle')] = np.random.uniform(low=-np.pi,
+#         s[ANGLE_IDX] = np.random.uniform(low=-np.pi,
 #                                            high= np.pi)
 #
-#         s[cartpole_state_varname_to_index('angleD')] = np.random.uniform(low=-3.0 * np.pi,
+#         s[ANGLED_IDX] = np.random.uniform(low=-3.0 * np.pi,
 #                                             high=3.0 * np.pi)
 #
 #         initial_state = pd.DataFrame(0, index=np.arange(1),
 #                                           columns=['angle_cos', 'angle_sin', 'angleD', 'position',
 #                                                    'positionD'])
 #
-#         initial_state['angle_cos'] = [np.cos(s[cartpole_state_varname_to_index('angle')])]
-#         initial_state['angle_sin'] = [np.sin(s[cartpole_state_varname_to_index('angle')])]
-#         initial_state['angleD'] = [s[cartpole_state_varname_to_index('angleD')]]
-#         initial_state['position'] = [s[cartpole_state_varname_to_index('position')]]
-#         initial_state['positionD'] = [s[cartpole_state_varname_to_index('positionD')]]
+#         initial_state['angle_cos'] = [np.cos(s[ANGLE_IDX])]
+#         initial_state['angle_sin'] = [np.sin(s[ANGLE_IDX])]
+#         initial_state['angleD'] = [s[ANGLED_IDX]]
+#         initial_state['position'] = [s[POSITION_IDX]]
+#         initial_state['positionD'] = [s[POSITIOND_IDX]]
 #
 #         Predictor = predictor_ODE((self.exp_len+1) * 5, 0.02) # This results in exp_len+2 timesteps
 #         Predictor.setup(initial_state=initial_state, prediction_denorm=False)
@@ -272,4 +270,4 @@ class Dataset(keras.utils.Sequence):
 #         targets_batch = np.stack(targets_batch)
 #
 #         return features_batch, targets_batch
-
+#
