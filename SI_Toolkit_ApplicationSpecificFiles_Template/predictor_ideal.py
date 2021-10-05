@@ -1,6 +1,6 @@
 import numpy as np
 
-class predictor_ODE:
+class predictor_ideal:
     def __init__(self, horizon, dt, intermediate_steps=1):
         pass
 
