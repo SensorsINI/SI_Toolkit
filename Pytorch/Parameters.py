@@ -31,6 +31,7 @@ TEST_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['pa
 
 control_inputs = config['training_default']['control_inputs']
 state_inputs = config['training_default']['state_inputs']
+setpoint_inputs = config['training_default']['setpoint_inputs']
 outputs = config['training_default']['outputs']
 
 # For l2race
@@ -64,6 +65,8 @@ def args():
                         help='List of control inputs to neural network')
     parser.add_argument('--state_inputs', default=state_inputs,
                         help='List of state inputs to neural network')
+    parser.add_argument('--setpoint_inputs', default=setpoint_inputs,
+                        help='List of setpoint inputs to neural network')
     parser.add_argument('--outputs', default=outputs,
                         help='List of outputs from neural network')
 
@@ -108,14 +111,10 @@ def args():
     if args.state_inputs is not None:
         args.state_inputs = sorted(args.state_inputs)
 
-    if args.control_inputs is not None and args.state_inputs is not None:
-        args.inputs = args.control_inputs+args.state_inputs
-    elif args.control_inputs is not None:
-        args.inputs = args.control_inputs
-    elif args.state_inputs is not None:
-        args.inputs = args.state_inputs
-    else:
-        args.inputs = None
+    if args.setpoint_inputs is not None:
+        args.setpoint_inputs = sorted(args.setpoint_inputs)
+
+    args.inputs = args.control_inputs + args.state_inputs + args.setpoint_inputs
 
     if args.outputs is not None:
         args.outputs = sorted(args.outputs)
