@@ -138,11 +138,15 @@ def train_network(nni_parameters=None):
     # endregion
 
     net.compile(
-        loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
-                                            post_wash_out_len=a.post_wash_out_len,
-                                            discount_factor=1.0),
+        loss="mse",
         optimizer=keras.optimizers.Adam(0.001)
     )
+    # net.compile(
+    #     loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
+    #                                         post_wash_out_len=a.post_wash_out_len,
+    #                                         discount_factor=1.0),
+    #     optimizer=keras.optimizers.Adam(0.001)
+    # )
     net.summary()
     # endregion
 
