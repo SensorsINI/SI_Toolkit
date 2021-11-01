@@ -63,7 +63,7 @@ def compose_net_from_net_name(net_name,
     # Either dense...
     if net_type == 'Dense':
         net.add(tf.keras.Input(shape=(time_series_length, len(inputs_list))))
-        for i in range(h_number - 1):
+        for i in range(h_number):
             net.add(layer_type(
                 units=h_size[i], activation='tanh', batch_size=batch_size
             ))
