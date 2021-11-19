@@ -109,10 +109,10 @@ def train_network(nni_parameters=None):
 
         training_dfs = load_data(paths_to_datafiles_training)
         training_dfs_norm = normalize_df(training_dfs, normalization_info)
-        DataSelectorInstance = DataSelector(a)
-        DataSelectorInstance.load_data_into_selector(training_dfs_norm)
-        training_dataset = DataSelectorInstance.return_dataset_for_training(shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
-        # training_dataset = Dataset(training_dfs_norm, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
+        # DataSelectorInstance = DataSelector(a)
+        # DataSelectorInstance.load_data_into_selector(training_dfs_norm)
+        # training_dataset = DataSelectorInstance.return_dataset_for_training(shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
+        training_dataset = Dataset(training_dfs_norm, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
 
 
         validation_dfs = load_data(paths_to_datafiles_validation)
