@@ -78,9 +78,9 @@ def args():
                         help='Indicates prediction horizon for testing.')
 
     # Training only:
-    parser.add_argument('--wash_out_len', default=10, type=int, help='Number of timesteps for a wash-out sequence')
-    parser.add_argument('--post_wash_out_len', default=20, type=int,
-                        help='Number of timesteps after wash-out sequence (this is used to calculate loss)')
+    parser.add_argument('--wash_out_len', default=0, type=int, help='Number of timesteps for a wash-out sequence, min is 0')
+    parser.add_argument('--post_wash_out_len', default=1, type=int,
+                        help='Number of timesteps after wash-out sequence (this is used to calculate loss), min is 1')
 
     # Training parameters
     parser.add_argument('--num_epochs', default=20, type=int, help='Number of epochs of training')
@@ -101,6 +101,9 @@ def args():
     args = parser.parse_args()
 
     # Make sure that the provided lists of inputs and outputs are in alphabetical order
+
+    if args.post_wash_out_len < 1:
+        raise ValueError('post_wash_out_len, the part relevant for loss calculation must be at least 1, also for dense network')
 
     if args.control_inputs is not None:
         args.control_inputs = sorted(args.control_inputs)

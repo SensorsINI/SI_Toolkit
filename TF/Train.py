@@ -31,6 +31,7 @@ from SI_Toolkit.TF.TF_Functions.Dataset import Dataset
 from SI_Toolkit.load_and_normalize import load_data, normalize_df, \
     get_sampling_interval_from_datafile, get_paths_to_datafiles
 
+from SI_Toolkit.DataSelector import DataSelector
 # region Import and print "command line" arguments
 print('')
 a = args()  # 'a' like arguments
@@ -107,11 +108,14 @@ def train_network(nni_parameters=None):
                 print('Sampling interval unknown.')
 
         training_dfs = load_data(paths_to_datafiles_training)
-        validation_dfs = load_data(paths_to_datafiles_validation)
-
         training_dfs_norm = normalize_df(training_dfs, normalization_info)
-        training_dataset = Dataset(training_dfs_norm, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
+        DataSelectorInstance = DataSelector(a)
+        DataSelectorInstance.load_data_into_selector(training_dfs_norm)
+        training_dataset = DataSelectorInstance.return_dataset_for_training(shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
+        # training_dataset = Dataset(training_dfs_norm, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
 
+
+        validation_dfs = load_data(paths_to_datafiles_validation)
         validation_dfs_norm = normalize_df(validation_dfs, normalization_info)
         validation_dataset = Dataset(validation_dfs_norm, a, shuffle=True, inputs=net_info.inputs,
                                      outputs=net_info.outputs)
