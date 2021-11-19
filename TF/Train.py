@@ -31,7 +31,10 @@ from SI_Toolkit.TF.TF_Functions.Dataset import Dataset
 from SI_Toolkit.load_and_normalize import load_data, normalize_df, \
     get_sampling_interval_from_datafile, get_paths_to_datafiles
 
-from SI_Toolkit.DataSelector import DataSelector
+try:
+    from SI_Toolkit_ApplicationSpecificFiles.DataSelector import DataSelector
+except:
+    print('No DataSelector found.')
 # region Import and print "command line" arguments
 print('')
 a = args()  # 'a' like arguments
