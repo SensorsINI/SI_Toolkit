@@ -199,7 +199,7 @@ def load_data(list_of_paths_to_datafiles=None):
     sleep(0.1)
     for file_number in trange(len(list_of_paths_to_datafiles)):
         filepath = list_of_paths_to_datafiles[file_number]
-        print(filepath)
+        # print(filepath)
         # Read column names from file
         df = pd.read_csv(filepath, comment='#')
 
