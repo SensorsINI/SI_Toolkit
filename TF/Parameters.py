@@ -78,8 +78,8 @@ def args():
                         help='Indicates prediction horizon for testing.')
 
     # Training only:
-    parser.add_argument('--wash_out_len', default=0, type=int, help='Number of timesteps for a wash-out sequence, min is 0')
-    parser.add_argument('--post_wash_out_len', default=1, type=int,
+    parser.add_argument('--wash_out_len', default=10, type=int, help='Number of timesteps for a wash-out sequence, min is 0')
+    parser.add_argument('--post_wash_out_len', default=20, type=int,
                         help='Number of timesteps after wash-out sequence (this is used to calculate loss), min is 1')
 
     # Training parameters
