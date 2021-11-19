@@ -56,11 +56,12 @@ def run_test_gui(features, titles, ground_truth, predictions_list, time_axis):
     # Creat an instance of PyQt5 application
     # Every PyQt5 application has to contain this line
     app = QApplication(sys.argv)
+    app.setQuitOnLastWindowClosed(True);
     # Create an instance of the GUI window.
     window = MainWindow(features, titles, ground_truth, predictions_list, time_axis)
     window.show()
     # Next line hands the control over to Python GUI
-    app.exec_()
+    sys.exit(app.exec_())
 
 # Class implementing the main window of CartPole GUI
 class MainWindow(QMainWindow):
