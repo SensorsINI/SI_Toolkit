@@ -56,6 +56,9 @@ import yaml, os
 
 import tensorflow as tf
 
+from globals import *
+import time as global_time
+
 config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
 NET_NAME = config['modeling']['NET_NAME']
@@ -73,7 +76,39 @@ class predictor_autoregressive_tf:
         a.net_name = net_name
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
-        self.net, self.net_info = get_net(a, time_series_length=1, batch_size=self.batch_size, stateful=True)
+        self.net, self.net_info = get_net(a, time_series_length=1, batch_size=self.batch_size, stateful=True, unroll=False)
+
+        #iterate_net = tf.keras.Sequential()
+
+        #for i in range(self.horizon):
+        #    iterate_net.add(tf.keras.layers.GRU(units=32, batch_input_shape=(self.batch_size, 1, 6), return_sequences=True, stateful=True))
+        #    iterate_net.add(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True))
+        #    iterate_net.add(tf.keras.layers.Dense(units=5))
+
+        #for i, layer in enumerate(iterate_net.layers):
+        #    layer.set_weights(self.net.layers[i % 3].get_weights())
+
+        #iterate_net.summary()
+        #self.evaluate_net = evaluate_net
+
+        # def iterate_model(batch_size, horizon, weights):
+        #     input = tf.keras.layers.Input(shape=(self.batch_size, 1, 6))
+        #
+        #     gru_0 = tf.keras.layers.GRU(units=32, batch_input_shape=(self.batch_size, 1, 6), return_sequences=True, stateful=True)
+        #     gru_1 = tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True)
+        #     dense = tf.keras.layers.Dense(units=5)
+        #
+        #     for i in self.horizon:
+        #
+        #
+        #     similarity_ab = similarity_layer([taste_a, taste_b])
+        #     similarity_ac = similarity_layer([taste_a, taste_c])
+        #
+        #     output = tf.keras.activations.sigmoid(similarity_ab - similarity_ac)
+        #
+        #     return tf.keras.Model(inputs=input, outputs=[output])
+        #
+        # iterate_net = iterate_model(batch_size=self.batch_size, horizon=self.horizon, weights=[l.get_weights() for l in self.net.layers])
 
         self.normalization_info = get_norm_info_for_net(self.net_info)
 
@@ -88,7 +123,6 @@ class predictor_autoregressive_tf:
         self.output_array = np.zeros([self.batch_size, self.horizon+1, len(STATE_VARIABLES)+len(CONTROL_INPUTS)], dtype=np.float32)
 
         self.output_array_single_step = np.zeros([self.batch_size, 2, len(STATE_VARIABLES)+1], dtype=np.float32)
-
 
         # Retracing tensorflow functions
         try:
@@ -107,6 +141,9 @@ class predictor_autoregressive_tf:
         except Exception as e:
             print(e)
             self.iterate_net = self.iterate_net_f
+
+        #self.net.compile()
+        #self.net.save('model_single_layer.hdf5')
 
         print('Init done')
 
@@ -138,16 +175,23 @@ class predictor_autoregressive_tf:
         output_array[..., :-1, -1] = Q
 
         # load internal RNN state if applies
+        start = global_time.time()
         load_internal_states(self.net, self.rnn_internal_states)
+        performance_measurement[4] = global_time.time() - start
 
         Q = tf.convert_to_tensor(Q)
-       # start = time.time()
-        net_outputs = self.iterate_net(Q=Q, initial_input=self.net_initial_input_without_Q_TF, single_step=False)
-       # print("iterate net:", time.time() - start)
 
+        start = global_time.time()
+        tf.profiler.experimental.start('tf_logs')
+        net_outputs = self.iterate_net(Q=Q, initial_input=self.net_initial_input_without_Q_TF)
+        tf.profiler.experimental.stop()
+        performance_measurement[3] = global_time.time() - start
+
+        start = global_time.time()
         # Denormalize
         output_array[..., 1:, [STATE_INDICES.get(key) for key in self.net_info.outputs]] = denormalize_numpy_array(net_outputs.numpy(), self.net_info.outputs, self.normalization_info)
 
+        performance_measurement[5] = global_time.time() - start
         # Augment
         augment_predictor_output(output_array, self.net_info)
 
@@ -171,41 +215,60 @@ class predictor_autoregressive_tf:
 
         self.rnn_internal_states = get_internal_states(self.net)
 
-    @tf.function
-    def iterate_net_f(self, Q, initial_input, single_step=False):
+    @tf.function(experimental_compile=False)
+    def iterate_net_f_new(self, Q, initial_input):
+        batch_size = Q.shape[0]
+        horizon = Q.shape[1]
+        states = initial_input.shape[1]
 
-        if single_step:
-            horizon = 1
-        else:
-            horizon = self.horizon
-
-        net_outputs = tf.TensorArray(tf.float32, size=horizon)
-        net_output = tf.zeros(shape=initial_input.shape, dtype=tf.float32)
-
-       # print(Q.shape, initial_input.shape)
+        net_outputs = tf.zeros(shape=(batch_size, horizon, states), dtype=tf.float32)
+        net_output = tf.zeros(shape=(batch_size, states), dtype=tf.float32)
 
         for i in tf.range(0, horizon):
-            Q_current = tf.reshape(Q[..., i], [-1, 1])
-            #print(Q_current.shape)
+            Q_current = tf.reshape(Q[:, i], [-1, 1])
 
             if i == 0:
-                net_input = (tf.reshape(tf.concat([Q_current, initial_input], axis=1), [-1, 1, len(self.net_info.inputs)]))
+                net_input = (
+                    tf.reshape(tf.concat([Q_current, initial_input], axis=1), [-1, 1, states+1]))
             else:
-                net_input = tf.reshape(tf.concat([Q_current, net_output], axis=1), [-1, 1, len(self.net_info.inputs)])
+                net_input = tf.reshape(tf.concat([Q_current, net_output], axis=1), [-1, 1, states+1])
 
-            #print(net_input.shape)
             net_output = self.evaluate_net(net_input)
-            #print(net_output.shape)
+            net_output = tf.reshape(net_output, [-1, states])
+            net_outputs[:, i, :] = net_output
 
+        net_outputs = tf.transpose(net_outputs, perm=[1, 0, 2])
+        return net_outputs
+
+    @tf.function(experimental_compile=True)
+    def iterate_net_f(self, Q, initial_input):
+        batch_size = Q.shape[0]
+        horizon = Q.shape[1]
+        states = initial_input.shape[1]
+
+        net_input = tf.zeros(shape=(batch_size, states+1), dtype=tf.float32)
+        net_outputs = tf.TensorArray(tf.float32, size=horizon, dynamic_size=False)
+        net_output = tf.zeros(shape=(batch_size, states), dtype=tf.float32)
+        Q_current = tf.zeros(shape=(batch_size, 1), dtype=tf.float32)
+        Q = tf.transpose(Q)
+
+
+        for i in tf.range(50):
+            Q_current = tf.expand_dims(Q[i], axis=1)
+
+            if i == 0:
+                net_input = tf.expand_dims(tf.concat([Q_current, initial_input], axis=1), axis=1)
+            else:
+                net_input = tf.expand_dims(tf.concat([Q_current, net_output], axis=1), axis=1)
+
+            net_output = self.evaluate_net(net_input)
             net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
-            #print(net_output.shape)
-
             net_outputs = net_outputs.write(i, net_output)
 
         net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
-        return net_outputs
+        return tf.zeros(shape=(batch_size, horizon, states), dtype=tf.float32)
 
-    @tf.function
+    @tf.function(experimental_compile=False)
     def evaluate_net_f(self, net_input):
         net_output = self.net(net_input)
         return net_output

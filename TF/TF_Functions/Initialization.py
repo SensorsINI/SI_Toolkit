@@ -34,7 +34,8 @@ def get_net(a,
             # If any of arguments provided it overwrite what is given in a
             time_series_length=None,
             batch_size=None,
-            stateful=False
+            stateful=False,
+            unroll=False
             ):
     """
     A quite big (too big?) chunk of creating a network, its associated net_info variable
@@ -152,7 +153,7 @@ def get_net(a,
             # Recreate network architecture
             net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
                                                       time_series_length=time_series_length,
-                                                      batch_size=batch_size, stateful=stateful)
+                                                      batch_size=batch_size, stateful=stateful, unroll=unroll)
 
             # region Load weights from checkpoint file
             ckpt_filenames = [parent_net_name + '.ckpt', 'ckpt.ckpt'] # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
