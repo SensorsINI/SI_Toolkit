@@ -538,6 +538,7 @@ def denormalize_numpy_array(normalized_array,
     return denormalized_array
 
 
+
 def normalize_numpy_array(denormalized_array,
                           features,
                           normalization_info,

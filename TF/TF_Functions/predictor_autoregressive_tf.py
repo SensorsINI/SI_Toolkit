@@ -69,7 +69,7 @@ class predictor_autoregressive_tf:
         a.path_to_models = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
         a.net_name = net_name
         self.net, self.net_info = get_net(a, time_series_length=1, batch_size=batch_size, stateful=True, unroll=False)
-        self.normalization_info = get_norm_info_for_net(self.net_info)
+        self.normalization_info = get_norm_info_for_net(self.net_info)[self.net_info.outputs]
 
         # Network sizes
         self.batch_size = batch_size
@@ -78,15 +78,40 @@ class predictor_autoregressive_tf:
         self.control_length = len(CONTROL_INPUTS)
         self.state_length = self.net_input_length - self.control_length
 
-
         # Helpers
         self.default_internal_states = get_internal_states(self.net)
         self.output_array = np.zeros([self.batch_size, self.horizon+1, len(STATE_VARIABLES)+self.control_length], dtype=np.float32)
         self.state_indices_list = [STATE_INDICES.get(key) for key in self.net_info.outputs]
 
-    # Setup (0.9ms)
+        # Denormalization
+        # normalized = 2 * min
+        # denormalized = (normalized + 1) / 2 *  (max-min) + min = normalized * (max-min) / 2 + (max-min) / 2 + min = normalized * (max-min) / 2 + (max+min) / 2
+        min = tf.convert_to_tensor(self.normalization_info.loc['min'].to_numpy(), dtype=tf.float32)
+        max = tf.convert_to_tensor(self.normalization_info.loc['max'].to_numpy(), dtype=tf.float32)
+        #self.normalization_offset = tf.ones(shape=(self.batch_size, self.horizon, self.state_length)) * (max+min) / 2
+        #self.normalization_scale = tf.ones(shape=(self.batch_size, self.horizon, self.state_length)) * (max-min) / 2
+        self.denormalization_offset = tf.ones(shape=(self.batch_size, self.horizon, self.state_length)) * (max+min) / 2
+        self.denormalization_scale = tf.ones(shape=(self.batch_size, self.horizon, self.state_length)) * (max-min) / 2
+
+
+        #elif normalization_type == 'minmax_sym':
+        #    normalized_array[..., feature_idx] = -1.0 + 2.0 * (
+        #            (denormalized_array[..., feature_idx]-normalization_info.at['min', features[feature_idx]])
+        #            /
+        #            (normalization_info.at['max', features[feature_idx]] - normalization_info.at['min', features[feature_idx]])
+        #    )
+
+
     def setup(self, initial_state: np.array, prediction_denorm=True):
-        self.output_array[..., 0, :-self.control_length] = initial_state
+        self.initial_state = initial_state
+
+    def predict(self, Q, single_step=False) -> np.array:
+        return self.predict_tf(tf.convert_to_tensor(self.initial_state), tf.convert_to_tensor(Q))
+
+    # Predict (14.1ms)
+    def predict_tf(self, initial_state, Q):
+        initial_state = initial_state.numpy()
+        self.output_array[:, 0, :-self.control_length] = initial_state
 
         initial_input_net_without_Q = initial_state[..., [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]]]
         self.net_initial_input_without_Q = normalize_numpy_array(initial_input_net_without_Q, self.net_info.inputs[len(CONTROL_INPUTS):], self.normalization_info)
@@ -96,32 +121,30 @@ class predictor_autoregressive_tf:
         self.net_initial_input_without_Q_TF = tf.convert_to_tensor(self.net_initial_input_without_Q, tf.float32)
         self.net_initial_input_without_Q_TF = tf.reshape(self.net_initial_input_without_Q_TF, [-1, len(self.net_info.inputs[1:])])
 
-    # Predict (14.1ms)
-    def predict(self, Q, single_step=False) -> np.array:
         output_array = self.output_array
 
-        # Assignment (0.289ms)
-        output_array[..., :-1, -1] = Q
+        # Assignment (0.29ms)
+        output_array[..., :-1, -1] = Q.numpy()
 
         # load internal RNN state (0.85ms)
         load_internal_states(self.net, self.default_internal_states)
 
-        # Convert (0.062ms)
-        Q = tf.convert_to_tensor(Q)
+        # Convert (0.06ms)
 
-        # Run NN (3.3ms)
+        # Run NN (2.9ms)
         start = global_time.time()
         net_outputs = self.iterate_net(Q=Q, initial_input=self.net_initial_input_without_Q_TF)
         performance_measurement[3] = global_time.time() - start
 
-        # Denormalize (7.9ms)
+        # Update Output (5.2ms)
         start = global_time.time()
-        #output_array[..., 1:, [STATE_INDICES.get(key) for key in self.net_info.outputs]] = denormalize_numpy_array(net_outputs.numpy(), self.net_info.outputs, self.normalization_info)
         output_array[..., 1:, self.state_indices_list] = net_outputs.numpy()
         performance_measurement[4] = global_time.time() - start
 
-        # Augment (0.93ms)
+        # Augment (2.0ms)
+        start = global_time.time()
         augment_predictor_output(output_array, self.net_info)
+        performance_measurement[5] = global_time.time() - start
 
         return output_array
 
@@ -143,11 +166,9 @@ class predictor_autoregressive_tf:
 
     @tf.function(experimental_compile=True)
     def iterate_net(self, Q, initial_input):
-        states = initial_input.shape[1]
-
         Q_current = tf.zeros(shape=(self.batch_size, self.control_length), dtype=tf.float32)
-        net_input = tf.zeros(shape=(self.batch_size, states+self.control_length), dtype=tf.float32)
-        net_output = tf.zeros(shape=(self.batch_size, states), dtype=tf.float32)
+        net_input = tf.zeros(shape=(self.batch_size, self.state_length+self.control_length), dtype=tf.float32)
+        net_output = tf.zeros(shape=(self.batch_size, self.state_length), dtype=tf.float32)
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon, dynamic_size=False)
 
         Q = tf.transpose(Q)
@@ -164,7 +185,13 @@ class predictor_autoregressive_tf:
             net_output = tf.squeeze(net_output, axis=1)
             net_outputs = net_outputs.write(i, net_output)
 
-        return tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
+        # Stacking
+        output = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
+
+        # Denormalization
+        output = self.denormalization_offset + self.denormalization_scale * output
+
+        return output
 
     @tf.function(experimental_compile=True)
     def evaluate_net(self, net_input):
