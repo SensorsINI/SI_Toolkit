@@ -184,7 +184,7 @@ class predictor_autoregressive_tf:
 
         Q = tf.transpose(Q)
 
-        for i in tf.range(50):
+        for i in tf.range(horizon):
             Q_current = tf.expand_dims(Q[i], axis=1)
 
             if i == 0:
