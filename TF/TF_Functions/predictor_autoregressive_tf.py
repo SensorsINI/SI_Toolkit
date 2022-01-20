@@ -171,7 +171,7 @@ class predictor_autoregressive_tf:
 
         self.rnn_internal_states = get_internal_states(self.net)
 
-    # @tf.function
+    @tf.function(experimental_compile=True)
     def iterate_net_f(self, Q, single_step=False):
 
         if single_step:
@@ -182,9 +182,11 @@ class predictor_autoregressive_tf:
         net_outputs = tf.TensorArray(tf.float32, size=horizon)
         net_output = tf.zeros(shape=(len(self.net_info.outputs)), dtype=tf.float32)
 
-        for i in tf.range(0, horizon):
-            Q_current = Q[..., i]
-            Q_current = (tf.reshape(Q_current, [-1, 1]))
+        Q = tf.transpose(Q)
+
+        for i in tf.range(50):
+            Q_current = tf.expand_dims(Q[i], axis=1)
+
             if i == 0:
                     net_input = (tf.reshape(tf.concat([Q_current, self.net_initial_input_without_Q_TF], axis=1), [-1, 1, len(self.net_info.inputs)]))
             else:
