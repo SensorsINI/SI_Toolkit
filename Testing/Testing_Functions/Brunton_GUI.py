@@ -31,7 +31,8 @@ try:
     # pass
     from SI_Toolkit_ApplicationSpecificFiles.brunton_widget_extensions import get_feature_label, convert_units_inplace
 except ModuleNotFoundError or ImportError:
-    pass
+    print('Application specific extension to Brunton widget not found.')
+    raise ImportError
 
 # endregion
 

@@ -180,7 +180,7 @@ class predictor_autoregressive_tf:
             horizon = self.horizon
 
         net_outputs = tf.TensorArray(tf.float32, size=horizon)
-        net_output = tf.zeros(shape=(len(self.net_info.outputs)), dtype=tf.float32)
+        net_output = tf.zeros(shape=self.net_initial_input_without_Q_TF.shape, dtype=tf.float32)
 
         Q = tf.transpose(Q)
 
