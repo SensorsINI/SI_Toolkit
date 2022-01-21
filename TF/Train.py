@@ -145,7 +145,7 @@ def train_network(nni_parameters=None):
     # endregion
 
     net.compile(
-        loss="mse",
+        loss=loss_msr_sequence_customizable(a.wash_out_len, a.post_wash_out_len),
         optimizer=keras.optimizers.Adam(0.001)
     )
     # net.compile(
@@ -189,9 +189,9 @@ def train_network(nni_parameters=None):
 
     reduce_lr = keras.callbacks.ReduceLROnPlateau(
         monitor='val_loss',
-        factor=0.1,
-        patience=1,
-        min_lr=1.0e-4,
+        factor=0.5,
+        patience=2,
+        min_lr=1.0e-6,
         verbose=2
     )
 
