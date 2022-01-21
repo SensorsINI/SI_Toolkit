@@ -31,7 +31,7 @@ def loss_msr_sequence_customizable(wash_out_len, post_wash_out_len, discount_fac
 
     return loss_msr_sequence
 
-
+# Tries to take relative instead of absolute error - I don't think it worked
 def loss_msr_sequence_customizable_relative(wash_out_len, post_wash_out_len, discount_factor=0.9):
     # Calculate discount vector
     discount_vector = np.ones(shape=post_wash_out_len)
