@@ -102,12 +102,12 @@ class predictor_autoregressive_tf:
         except:
             self.evaluate_net = self.evaluate_net_f
 
-        # try:
-        self.iterate_net = self.iterate_net_f.get_concrete_function(Q=Q_type,
-                                                                        net_initial_input_without_Q_TF=initial_input_type)
-        # except:
-        #     print('Retracing failed!')
-        # self.iterate_net = self.iterate_net_f
+        try:
+            self.iterate_net = self.iterate_net_f.get_concrete_function(Q=Q_type,
+                                                                            net_initial_input_without_Q_TF=initial_input_type)
+        except:
+            print('Retracing failed!')
+            self.iterate_net = self.iterate_net_f
 
         print('Init done')
 
