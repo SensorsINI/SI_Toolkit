@@ -171,8 +171,8 @@ class predictor_autoregressive_tf:
 
         self.rnn_internal_states = get_internal_states(self.net)
 
-    # @tf.function(experimental_compile=True)
-    @tf.function
+    @tf.function(experimental_compile=True)
+    # @tf.function
     def iterate_net_f(self, Q, net_initial_input_without_Q_TF):
 
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
