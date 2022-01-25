@@ -105,9 +105,7 @@ def compose_net_from_net_name(net_name,
 def get_internal_states(net):
     states_list = []
     for layer in net.layers:
-        if (('gru' in layer.name) or
-                ('lstm' in layer.name) or
-                ('rnn' in layer.name)):
+        if (('gru' in layer.name) or ('lstm' in layer.name) or ('rnn' in layer.name)):
             single_states = []
             for single_state in layer.states:
                 captured_single_state = copy.deepcopy(single_state).numpy()
@@ -152,8 +150,5 @@ def my_reset_states(layer, states=None):
 
 def load_internal_states(net, states):
     for layer, state in zip(net.layers, states):
-        if (('gru' in layer.name) or
-                ('lstm' in layer.name) or
-                ('rnn' in layer.name)):
+        if (('gru' in layer.name) or ('lstm' in layer.name) or ('rnn' in layer.name)):
             layer.reset_states(state[0])
-            # my_reset_states(layer, state[0])

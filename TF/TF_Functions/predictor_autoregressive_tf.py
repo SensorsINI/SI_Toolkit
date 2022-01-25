@@ -35,19 +35,10 @@ Using predictor:
             
 """
 
-#TODO: for the moment it is not possible to update RNN more often than mpc dt
-#   Updating it more often will lead to false results.
-
 # "Command line" parameters
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states
 from SI_Toolkit.load_and_normalize import *
-
-try:
-    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS, augment_predictor_output
-except ModuleNotFoundError:
-    print('SI_Toolkit_ApplicationSpecificFiles not yet created')
-
+from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS, augment_predictor_output
 from types import SimpleNamespace
 import yaml
 import os
@@ -71,10 +62,7 @@ class predictor_autoregressive_tf:
             # Network sizes
             self.control_length = len(CONTROL_INPUTS)
             self.state_length =len(STATE_VARIABLES)
-
             self.state_indices_list = [STATE_INDICES.get(key) for key in STATE_VARIABLES]
-
-            self.output_array = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES) + self.control_length], dtype=np.float32)
         else:
             # Neural Network
             config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
@@ -90,85 +78,101 @@ class predictor_autoregressive_tf:
             self.state_length = self.net_input_length - self.control_length
 
             # Helpers
-            self.default_internal_states = get_internal_states(self.net)
-            self.output_array = np.zeros([self.batch_size, self.horizon+1, len(STATE_VARIABLES)+self.control_length], dtype=np.float32)
             self.state_indices_list = [STATE_INDICES.get(key) for key in self.net_info.outputs]
 
-            # Denormalization
-            # normalized = 2 * (denormalize - min) / (max-min) - 1 = denormalized * 2 / (max-min) - 2 * min / (max-min) - 1
+            # De/Normalization:
+            # normalized = 2 * (denormalize - min) / (max-min) - 1 = denormalized * 2 / (max-min) - 2 * min / (max-min) - 1 = denormalized * 2 / (max-min) -
             # denormalized = (normalized + 1) / 2 *  (max-min) + min = normalized * (max-min) / 2 + (max-min) / 2 + min = normalized * (max-min) / 2 + (max+min) / 2
             min = tf.convert_to_tensor(self.normalization_info.loc['min'].to_numpy(), dtype=tf.float32)
             max = tf.convert_to_tensor(self.normalization_info.loc['max'].to_numpy(), dtype=tf.float32)
-            #self.normalization_offset = tf.ones(shape=(self.batch_size, self.state_length)) * -2 * tf.math.divide(min, max-min) - tf.ones(shape=(self.batch_size, self.state_length))
-            #self.normalization_scale = tf.ones(shape=(self.batch_size, self.state_length)) * 2 * tf.math.reciprocal(max-min)
+            self.normalization_offset = -2 * tf.ones(shape=(self.batch_size, self.state_length)) * tf.math.divide(min, max-min) - tf.ones(shape=(self.batch_size, self.state_length))
+            self.normalization_scale = 2 * tf.ones(shape=(self.batch_size, self.state_length)) * tf.math.reciprocal(max-min)
             self.denormalization_offset = tf.ones(shape=(self.batch_size, self.horizon, self.state_length)) * (max+min) / 2
             self.denormalization_scale = tf.ones(shape=(self.batch_size, self.horizon, self.state_length)) * (max-min) / 2
-            #print(self.normalization_info)
-            #print(self.normalization_scale)
-            #print(self.normalization_offset)
-            #print(self.denormalization_scale)
-            #print(self.denormalization_offset)
 
-            #elif normalization_type == 'minmax_sym':
-            #    normalized_array[..., feature_idx] = -1.0 + 2.0 * (
-            #            (denormalized_array[..., feature_idx]-normalization_info.at['min', features[feature_idx]])
-            #            /
-            #            (normalization_info.at['max', features[feature_idx]] - normalization_info.at['min', features[feature_idx]])
-            #
+            # RNN States
+            self.gru_layers = [layer for layer in self.net.layers if (('gru' in layer.name) or ('lstm' in layer.name) or ('rnn' in layer.name))]
+            self.num_gru_layers = len(self.gru_layers)
+            self.rnn_internal_states = [tf.zeros(shape=(self.batch_size, layer.units)) for layer in self.gru_layers]
+            self.Q_prev = tf.convert_to_tensor(0, dtype=tf.float32)
 
-    def setup(self, initial_state: np.array, prediction_denorm=True):
+    # TODO: replace everywhere with predict_tf
+    # This version is in-efficient since it copies all batches to GPU
+    def setup(self, initial_state, prediction_denorm=True):
         self.initial_input = initial_state
 
-    def predict(self, Q, single_step=False) -> np.array:
-        self.initial_state = self.initial_input[:, self.state_indices_list]
+    # TODO: replace everywhere with predict_tf
+    # This version is in-efficient since it copies all batches to GPU
+    def predict(self, Q, single_step=False):
+        # Predict TF
+        net_output = self.predict_tf(tf.convert_to_tensor(self.initial_input[0,...], dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32))
 
+        # Prepare Deprecated Output
         output_array = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES) + self.control_length], dtype=np.float32)
         output_array[:, 0, :-self.control_length] = self.initial_input
         output_array[..., :-1, -1] = Q
-
-        # Normalization
-        if self.net_name != 'EulerTF':
-            self.initial_state = normalize_numpy_array(self.initial_state, self.net_info.inputs[len(CONTROL_INPUTS):], self.normalization_info)
-
-        # load internal RNN state (0.85ms)
-        if self.net_name != 'EulerTF':
-            load_internal_states(self.net, self.default_internal_states)
-
-        # Network
-        net_output = self.predict_tf(tf.convert_to_tensor(self.initial_state[0,...], dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32))
-        output_array[..., 1:, self.state_indices_list] = net_output.numpy()
-
-        # Augment (2.0ms)
-        if self.net_name != 'EulerTF':
-            augment_predictor_output(output_array, self.net_info)
+        output_array[:, 1:, :6] = net_output.numpy()
 
         return output_array
 
-    # Predict (14.1ms)
+    # Predict (Euler: 6.8ms, RNN:10.5ms)
+    @tf.function(experimental_compile=True)
     def predict_tf(self, initial_state, Q):
+        # Select States
+        if self.net_name != 'EulerTF':
+            initial_state = tf.gather(initial_state, self.state_indices_list, axis=0)
+
         self.initial_state_tf = tf.tile(tf.expand_dims(initial_state, axis=0), [self.batch_size, 1])
 
-        # Run NN (2.9ms)
+        # Normalization
+        if self.net_name != 'EulerTF':
+            self.initial_state_tf = self.normalization_offset + tf.math.multiply(self.normalization_scale, self.initial_state_tf)
+
+        # Run Last Input for RNN States
+        if self.net_name != 'EulerTF':
+            # Apply Last Input
+            Q0 = tf.tile(tf.expand_dims(tf.expand_dims(self.Q_prev, axis=0), axis=0), [self.batch_size, 1])
+            net_input = tf.reshape(tf.concat([Q0, self.initial_state_tf], axis=1), [-1, 1, len(self.net_info.inputs)])
+            self.net(net_input)
+
+            # Get RNN States
+            for j in range(self.num_gru_layers):
+                self.rnn_internal_states[j] = tf.identity(self.gru_layers[j].states[0])
+
+        # Run Iterations (Euler:ms, RNN:ms)
+        start = global_time.time()
         net_outputs = self.iterate_net(initial_state=self.initial_state_tf, Q=Q)
+        performance_measurement[1] = global_time.time() - start
+
+        # Denormalization
+        if self.net_name != 'EulerTF':
+            net_outputs = self.denormalization_offset + tf.math.multiply(self.denormalization_scale, net_outputs)
+
+        # Augmentation
+        if self.net_name != 'EulerTF':
+            # Network Output: angleD, angle_cos, angle_sin, position, positionD
+            # Return: angle, angleD, angle_cos, angle_sin, position, positionD
+            net_outputs = tf.stack([tf.math.atan2(net_outputs[...,2], net_outputs[...,1]), net_outputs[...,0], net_outputs[...,1], net_outputs[...,2], net_outputs[...,3], net_outputs[...,4]], axis=2)
+
+        # Reset RNN States
+        if self.net_name != 'EulerTF':
+            # Set RNN States
+            for j in range(self.num_gru_layers):
+                self.gru_layers[j].states[0].assign(self.rnn_internal_states[j])
 
         return net_outputs
 
-    def update_internal_state(self, Q0):
+    def update_internal_state_tf(self, Q0):
+        self.Q_prev = Q0
+
+    # TODO: replace everywhere with update_internal_state_tf
+    # This version is in-efficient since it copies all batches to GPU
+    def update_internal_state(self, Q):
         if self.net_name != 'EulerTF':
-            # load internal RNN state
-            load_internal_states(self.net, self.default_internal_states)
-
-            # Run current input through network
-            Q0 = tf.squeeze(tf.convert_to_tensor(Q0, dtype=tf.float32))
-            Q0 = tf.reshape(Q0, [-1, 1])
-            if self.net_info.net_type == 'Dense':
-                net_input = tf.concat([Q0, self.initial_state_tf], axis=1)
+            if tf.is_tensor(Q):
+                self.update_internal_state_tf(tf.convert_to_tensor(Q[0,...], dtype=tf.float32))
             else:
-                net_input = (tf.reshape(tf.concat([Q0, self.initial_state_tf], axis=1), [-1, 1, len(self.net_info.inputs)]))
-
-            self.evaluate_net(net_input)
-
-            self.default_internal_states = get_internal_states(self.net)
+                self.update_internal_state_tf(tf.convert_to_tensor(Q, dtype=tf.float32))
 
     @tf.function(experimental_compile=True)
     def iterate_net(self, Q, initial_state):
@@ -176,11 +180,7 @@ class predictor_autoregressive_tf:
         net_input = tf.zeros(shape=(self.batch_size, self.state_length+self.control_length), dtype=tf.float32)
         net_output = tf.zeros(shape=(self.batch_size, self.state_length), dtype=tf.float32)
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon, dynamic_size=False)
-
         Q = tf.transpose(Q)
-
-        # Normalization
-        #initial_state = self.normalization_offset + tf.math.multiply(self.normalization_scale, initial_state)
 
         for i in tf.range(self.horizon):
             Q_current = tf.expand_dims(Q[i], axis=1)
@@ -191,7 +191,7 @@ class predictor_autoregressive_tf:
                 net_input = tf.concat([Q_current, net_output], axis=1)
 
             if self.net_name != 'EulerTF':
-                net_output = self.evaluate_net(tf.expand_dims(net_input, axis=1))
+                net_output = self.net(tf.expand_dims(net_input, axis=1))
                 net_output = tf.squeeze(net_output, axis=1)
             else:
                 net_output = self.euler_net(net_input)
@@ -201,15 +201,7 @@ class predictor_autoregressive_tf:
         # Stacking
         output = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
 
-        # Denormalization
-        if self.net_name != 'EulerTF':
-            output = self.denormalization_offset + tf.math.multiply(self.denormalization_scale, output)
-
         return output
-
-    @tf.function(experimental_compile=True)
-    def evaluate_net(self, net_input):
-        return self.net(net_input)
 
     @tf.function(experimental_compile=True)
     def cartpole_ode(self, x, Q):
