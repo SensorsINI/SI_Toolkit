@@ -6,7 +6,7 @@ import numpy as np
 from types import SimpleNamespace
 
 import tensorflow as tf
-import tensorflow.keras as keras
+#import tensorflow.keras as keras
 
 def load_pretrained_net_weights(net, ckpt_path):
     """
@@ -47,16 +47,16 @@ def compose_net_from_net_name(net_name,
 
     if 'GRU' in names:
         net_type = 'GRU'
-        layer_type = keras.layers.GRU
+        layer_type = tf.keras.layers.GRU
     elif 'LSTM' in names:
         net_type = 'LSTM'
-        layer_type = keras.layers.LSTM
+        layer_type = tf.keras.layers.LSTM
     elif 'Dense' in names:
         net_type = 'Dense'
-        layer_type = keras.layers.Dense
+        layer_type = tf.keras.layers.Dense
     else:
         net_type = 'RNN-Basic'
-        layer_type = keras.layers.SimpleRNN
+        layer_type = tf.keras.layers.SimpleRNN
 
     net = tf.keras.Sequential()
 
@@ -87,7 +87,7 @@ def compose_net_from_net_name(net_name,
             ))
 
     # net.add(keras.layers.Dense(units=len(outputs_list), activation='tanh'))
-    net.add(keras.layers.Dense(units=len(outputs_list)))
+    net.add(tf.keras.layers.Dense(units=len(outputs_list)))
 
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
           .format(net_type, len(h_size), ', '.join(map(str, h_size))))
