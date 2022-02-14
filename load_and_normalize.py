@@ -5,6 +5,7 @@ from time import sleep
 
 import glob
 import os
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 
 import matplotlib.pyplot as plt
 
