@@ -341,7 +341,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
 
     # Brunton Plot
     if axs is None:
-        fig, axs = plt.subplots(1, 2, figsize=(18, 10), sharex=True)
+        fig, axs = plt.subplots(1, 1, figsize=(18, 10), sharex=True)
 
     axs.plot(time_axis, ground_truth[:, feature_idx], 'k:', label='Ground Truth', marker='.', markersize=2, linewidth=0.5)
     y_lim = axs.get_ylim()
