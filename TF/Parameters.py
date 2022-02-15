@@ -79,12 +79,12 @@ def args():
 
     # Training only:
     parser.add_argument('--wash_out_len', default=10, type=int, help='Number of timesteps for a wash-out sequence, min is 0')
-    parser.add_argument('--post_wash_out_len', default=2, type=int,
+    parser.add_argument('--post_wash_out_len', default=20, type=int,
                         help='Number of timesteps after wash-out sequence (this is used to calculate loss), min is 1')
 
     # Training parameters
-    parser.add_argument('--num_epochs', default=10, type=int, help='Number of epochs of training')
-    parser.add_argument('--batch_size', default=16, type=int, help='Size of a batch')
+    parser.add_argument('--num_epochs', default=20, type=int, help='Number of epochs of training')
+    parser.add_argument('--batch_size', default=64, type=int, help='Size of a batch')
     parser.add_argument('--seed', default=1873, type=int, help='Set seed for reproducibility')
     parser.add_argument('--lr', default=1.0e-2, type=float, help='Learning rate')
 
