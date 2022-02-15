@@ -43,21 +43,19 @@ from types import SimpleNamespace
 import yaml
 import os
 import tensorflow as tf
-from globals import *
 import time as global_time
 from others.p_globals import (
     k, M, m, g, J_fric, M_fric, L, v_max, u_max, controlDisturbance, controlBias, TrackHalfLength
 )
 
 class predictor_autoregressive_tf:
-    def __init__(self, horizon=None, batch_size=None, net_name=None, dt=0.02, intermediate_steps=10, use_runge_kutta=False, normalization=True):
+    def __init__(self, horizon=None, batch_size=None, net_name=None, dt=0.02, intermediate_steps=10, normalization=True):
         self.net_name = net_name
         self.net_type = net_name
         self.batch_size = batch_size
         self.horizon = horizon
         self.dt = dt
         self.intermediate_steps = intermediate_steps
-        self.use_runge_kutta = use_runge_kutta
         self.normalization = normalization
 
         if net_name == 'EulerTF':
@@ -169,9 +167,7 @@ class predictor_autoregressive_tf:
                 self.rnn_internal_states[j] = tf.identity(self.gru_layers[j].states[0])
 
         # Run Iterations (Euler:ms, RNN:ms)
-        start = global_time.time()
         net_outputs = self.iterate_net(initial_state=self.initial_state_tf, Q=Q)
-        performance_measurement[1] = global_time.time() - start
 
         # Denormalization
         if self.net_name != 'EulerTF':
@@ -279,15 +275,6 @@ class predictor_autoregressive_tf:
         return x + derivative*h
 
     @tf.function(experimental_compile=True)
-    def runge_kutta(self, x, Q, h):
-        k1 = self.cartpole_ode(x, Q)
-        k2 = self.cartpole_ode(x + 0.5*k1*h, Q)
-        k3 = self.cartpole_ode(x + 0.5*k2*h, Q)
-        k4 = self.cartpole_ode(x + k3*h, Q)
-
-        return x + k1*h/6 + k2*h/3 + k3*h/3 + k4*h/6
-
-    @tf.function(experimental_compile=True)
     def angle_wrapping(self, x):
         return tf.math.atan2(tf.math.sin(x), tf.math.cos(x))
 
@@ -300,10 +287,7 @@ class predictor_autoregressive_tf:
         self.t_step = tf.constant(self.dt / self.intermediate_steps, dtype=tf.float32)
 
         for i in range(self.intermediate_steps):
-            if self.use_runge_kutta:
-                x = self.runge_kutta(x, Q, self.t_step)
-            else:
-                x = self.euler(x, Q, self.t_step)
+            x = self.euler(x, Q, self.t_step)
 
         # Output Order [angle, angleD, angle_cos, angle_sin, position, positionD]
         return tf.stack([self.angle_wrapping(x[:, 0]), x[:, 1], tf.math.cos(x[:,0]), tf.math.sin(x[:,0]), x[:, 2], x[:, 3]], axis=1)
