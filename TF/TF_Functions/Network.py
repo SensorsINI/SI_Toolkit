@@ -6,7 +6,6 @@ import numpy as np
 from types import SimpleNamespace
 
 import tensorflow as tf
-#import tensorflow.keras as keras
 
 def load_pretrained_net_weights(net, ckpt_path):
     """
@@ -83,7 +82,7 @@ def compose_net_from_net_name(net_name,
                 stateful=stateful
             ))
 
-    # net.add(keras.layers.Dense(units=len(outputs_list), activation='tanh'))
+    # net.add(tf.keras.layers.Dense(units=len(outputs_list), activation='tanh'))
     net.add(tf.keras.layers.Dense(units=len(outputs_list)))
 
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
@@ -120,7 +119,7 @@ from tensorflow.python.keras import backend as K
 from tensorflow.python.util import nest
 from tensorflow.python.framework import tensor_shape
 
-
+# Not sure if this function is working
 def my_reset_states(layer, states=None):
     spec_shape = None
 
