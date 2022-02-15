@@ -14,8 +14,7 @@ def preprocess_for_brunton(a):
                                 'a.default_locations_for_testfile is {}, \n'
                                 'a.test_file is {}'.format(path_to_testfile, a.default_locations_for_testfile, a.test_file))
     if a.test_len == 'max':
-        a.test_len = len(test_dfs[
-                             0]) - a.test_max_horizon - a.test_start_idx  # You could have +1; then, for last prediction you don not have ground truth to compare with, but you can still calculate it.
+        a.test_len = len(test_dfs[0]) - a.test_max_horizon - a.test_start_idx  # You could have +1; then, for last prediction you don not have ground truth to compare with, but you can still calculate it.
     dataset = test_dfs[0].iloc[a.test_start_idx:a.test_start_idx + a.test_len + a.test_max_horizon, :]
     dataset.reset_index(drop=True, inplace=True)
 
