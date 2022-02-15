@@ -26,8 +26,7 @@ def compose_net_from_net_name(net_name,
                               outputs_list,
                               time_series_length,
                               batch_size=None,
-                              stateful=False,
-                              unroll=False):
+                              stateful=False):
 
     # Get the information about network architecture from the network name
     # Split the names into "LSTM/GRU", "128H1", "64H2" etc.
@@ -74,16 +73,14 @@ def compose_net_from_net_name(net_name,
             units=h_size[0],
             batch_input_shape=(batch_size, time_series_length, len(inputs_list)),
             return_sequences=True,
-            stateful=stateful,
-            unroll=unroll
+            stateful=stateful
         ))
         # Define following layers
         for i in range(1, len(h_size)):
             net.add(layer_type(
                 units=h_size[i],
                 return_sequences=True,
-                stateful=stateful,
-                unroll=unroll
+                stateful=stateful
             ))
 
     # net.add(keras.layers.Dense(units=len(outputs_list), activation='tanh'))
@@ -105,7 +102,9 @@ def compose_net_from_net_name(net_name,
 def get_internal_states(net):
     states_list = []
     for layer in net.layers:
-        if (('gru' in layer.name) or ('lstm' in layer.name) or ('rnn' in layer.name)):
+        if (('gru' in layer.name) or
+                ('lstm' in layer.name) or
+                ('rnn' in layer.name)):
             single_states = []
             for single_state in layer.states:
                 captured_single_state = copy.deepcopy(single_state).numpy()
@@ -150,5 +149,7 @@ def my_reset_states(layer, states=None):
 
 def load_internal_states(net, states):
     for layer, state in zip(net.layers, states):
-        if (('gru' in layer.name) or ('lstm' in layer.name) or ('rnn' in layer.name)):
+        if (('gru' in layer.name) or
+                ('lstm' in layer.name) or
+                ('rnn' in layer.name)):
             layer.reset_states(state[0])
