@@ -97,18 +97,19 @@ class predictor_autoregressive_tf:
 
 
         # Retracing tensorflow functions
-        try:
-            self.evaluate_net = self.evaluate_net_f.get_concrete_function(net_input=net_input_type)
-        except:
-            self.evaluate_net = self.evaluate_net_f
+        # try:
+        #     self.evaluate_net = self.evaluate_net_f.get_concrete_function(net_input=net_input_type)
+        # except:
+        #     self.evaluate_net = self.evaluate_net_f
+        #
+        # try:
+        #     self.iterate_net = self.iterate_net_f.get_concrete_function(Q=Q_type,
+        #                                                                     net_initial_input_without_Q_TF=initial_input_type)
+        # except:
+        #     print('Retracing failed!')
+        #     self.iterate_net = self.iterate_net_f
 
-        try:
-            self.iterate_net = self.iterate_net_f.get_concrete_function(Q=Q_type,
-                                                                            net_initial_input_without_Q_TF=initial_input_type)
-        except:
-            print('Retracing failed!')
-            self.iterate_net = self.iterate_net_f
-
+        self.iterate_net = self.iterate_net_f
         print('Init done')
 
     def setup(self, initial_state: np.array, prediction_denorm=True):
@@ -172,7 +173,6 @@ class predictor_autoregressive_tf:
         self.rnn_internal_states = get_internal_states(self.net)
 
     @tf.function(experimental_compile=True)
-    # @tf.function
     def iterate_net_f(self, Q, net_initial_input_without_Q_TF):
 
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
@@ -188,7 +188,7 @@ class predictor_autoregressive_tf:
             else:
                     net_input = tf.reshape(tf.concat([Q_current, net_output], axis=1), [-1, 1, len(self.net_info.inputs)])
             # net_output = self.net(net_input)
-            net_output = self.evaluate_net(net_input)
+            net_output = self.net(net_input)
             #tf.print(net_output)
 
             net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
@@ -198,43 +198,3 @@ class predictor_autoregressive_tf:
         # print(net_inout)
         net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
         return net_outputs
-
-    @tf.function
-    def evaluate_net_f(self, net_input):
-        # print('retracing evaluate_net_f')
-        net_output = self.net(net_input)
-        return net_output
-
-    @property
-    def horizon(self):
-        return self._horizon
-
-    @horizon.setter
-    def horizon(self, value):
-        if self._horizon is None:
-            # print('I used initialization setter!')
-            self._horizon = value
-        else:
-            # print('I used normal setter!')
-            self._horizon = value
-            # self.output_array = np.zeros([self.horizon + 1, self.batch_size, len(STATE_VARIABLES) + 1],
-            #                              dtype=np.float32)
-            #
-            # Q_type = tf.TensorSpec((self.horizon,), tf.float32)
-            #
-            # initial_input_type = tf.TensorSpec((len(self.net_info.inputs) - 1,), tf.float32)
-            #
-            # net_input_type = tf.TensorSpec((self.batch_size, len(self.net_info.inputs)), tf.float32)
-            #
-            # # Retracing tensorflow functions
-            # try:
-            #     self.evaluate_net = self.evaluate_net_f.get_concrete_function(net_input=net_input_type)
-            # except:
-            #     self.evaluate_net = self.evaluate_net_f
-            #
-            # try:
-            #     self.iterate_net = self.iterate_net_f.get_concrete_function(Q=Q_type,
-            #                                                                 initial_input=initial_input_type)
-            #     print(self.iterate_net)
-            # except:
-            #     self.iterate_net = self.iterate_net_f
