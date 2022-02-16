@@ -58,6 +58,9 @@ class predictor_autoregressive_tf:
         self.intermediate_steps = intermediate_steps
         self.normalization = normalization
 
+        self.initial_state_tf = None
+        self.prev_initial_state_tf = None
+
         if net_name == 'EulerTF':
             # Network sizes
             self.control_length = len(CONTROL_INPUTS)
@@ -152,7 +155,7 @@ class predictor_autoregressive_tf:
             self.initial_state_tf = self.normalization_offset + tf.math.multiply(self.normalization_scale, self.initial_state_tf)
 
         # Run Last Input for RNN States
-        if self.net_type == 'GRU':
+        if self.net_type == 'GRU' and self.prev_initial_state_tf is not None:
             # Set RNN States
             for j in range(self.num_gru_layers):
                 self.gru_layers[j].states[0].assign(self.rnn_internal_states[j])
@@ -168,6 +171,7 @@ class predictor_autoregressive_tf:
 
         # Run Iterations (Euler:ms, RNN:ms)
         net_outputs = self.iterate_net(initial_state=self.initial_state_tf, Q=Q)
+        self.prev_initial_state_tf = tf.identity(self.initial_state_tf)
 
         # Denormalization
         if self.net_name != 'EulerTF':
