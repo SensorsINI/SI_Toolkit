@@ -87,29 +87,9 @@ class predictor_autoregressive_tf:
         self.prediction_denorm = None # Set to True or False in setup, determines if output should be denormalized
 
         self.output_array = np.zeros([self.batch_size, self.horizon+1, len(STATE_VARIABLES)+len(CONTROL_INPUTS)], dtype=np.float32)
-        Q_type = tf.TensorSpec((self.batch_size, self.horizon), tf.float32)
-
-        initial_input_type = tf.TensorSpec((self.batch_size, len(self.net_info.outputs),), tf.float32)
-
-        net_input_type = tf.TensorSpec((self.batch_size, 1, len(self.net_info.inputs)), tf.float32)
 
         self.output_array_single_step = np.zeros([self.batch_size, 2, len(STATE_VARIABLES)+1], dtype=np.float32)
 
-
-        # Retracing tensorflow functions
-        # try:
-        #     self.evaluate_net = self.evaluate_net_f.get_concrete_function(net_input=net_input_type)
-        # except:
-        #     self.evaluate_net = self.evaluate_net_f
-        #
-        # try:
-        #     self.iterate_net = self.iterate_net_f.get_concrete_function(Q=Q_type,
-        #                                                                     net_initial_input_without_Q_TF=initial_input_type)
-        # except:
-        #     print('Retracing failed!')
-        #     self.iterate_net = self.iterate_net_f
-
-        self.iterate_net = self.iterate_net_f
         print('Init done')
 
     def setup(self, initial_state: np.array, prediction_denorm=True):
@@ -173,7 +153,7 @@ class predictor_autoregressive_tf:
         self.rnn_internal_states = get_internal_states(self.net)
 
     @tf.function(experimental_compile=True)
-    def iterate_net_f(self, Q, net_initial_input_without_Q_TF):
+    def iterate_net(self, Q, net_initial_input_without_Q_TF):
 
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
         net_output = tf.zeros(shape=(self.batch_size, len(self.net_info.outputs)), dtype=tf.float32)
