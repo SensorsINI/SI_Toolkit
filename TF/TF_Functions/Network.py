@@ -98,6 +98,7 @@ def compose_net_from_net_name(net_name,
     return net, net_info
 
 
+@tf.function(experimental_compile=True)
 def get_internal_states(net):
     states_list = []
     for layer in net.layers:
@@ -106,7 +107,7 @@ def get_internal_states(net):
                 ('rnn' in layer.name)):
             single_states = []
             for single_state in layer.states:
-                captured_single_state = copy.deepcopy(single_state).numpy()
+                captured_single_state = tf.identity(single_state)
                 single_states.append(captured_single_state)
 
             states_list.append(single_states)
@@ -115,40 +116,10 @@ def get_internal_states(net):
     return states_list
 
 
-from tensorflow.python.keras import backend as K
-from tensorflow.python.util import nest
-from tensorflow.python.framework import tensor_shape
-
-# Not sure if this function is working
-def my_reset_states(layer, states=None):
-    spec_shape = None
-
-    if layer.input_spec is not None:
-        spec_shape = nest.flatten(layer.input_spec[0])[0].shape
-
-    if spec_shape is None:
-        batch_size = None
-    else:
-        batch_size = spec_shape[1] if layer.time_major else spec_shape[0]
-
-    if states is None:
-        for state, size in zip(nest.flatten(layer.states),
-                               nest.flatten(layer.cell.state_size)):
-            K.set_value(state, np.zeros([batch_size] +
-                                        tensor_shape.as_shape(size).as_list()))
-    else:
-        flat_states = nest.flatten(layer.states)
-        flat_input_states = nest.flatten(states)
-        set_value_tuples = []
-        for i, (value, state) in enumerate(zip(flat_input_states,
-                                               flat_states)):
-            set_value_tuples.append((state, value))
-        K.batch_set_value(set_value_tuples)
-
-
+@tf.function(experimental_compile=True)
 def load_internal_states(net, states):
     for layer, state in zip(net.layers, states):
         if (('gru' in layer.name) or
                 ('lstm' in layer.name) or
                 ('rnn' in layer.name)):
-            layer.reset_states(state[0])
+            layer.states[0].assign(state[0])
