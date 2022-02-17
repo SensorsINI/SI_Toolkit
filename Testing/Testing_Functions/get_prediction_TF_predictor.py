@@ -8,7 +8,7 @@ try:
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
-from SI_Toolkit.TF.TF_Functions.predictor_autoregressive_tf import predictor_autoregressive_tf
+from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
 
 # This import mus go before pyplot so also before our scripts
 from matplotlib import use, get_backend
