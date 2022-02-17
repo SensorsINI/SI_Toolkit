@@ -54,6 +54,8 @@ import yaml
 
 import tensorflow as tf
 
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
+
 config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
 
 NET_NAME = config['modeling']['NET_NAME']
