@@ -14,7 +14,7 @@ def get_prediction_from_euler_predictor(a, dataset, dt_sampling, intermediate_st
 
     predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt_sampling, intermediate_steps=intermediate_steps)
 
-    predictor.setup(initial_state=states_0, prediction_denorm=True)
+    predictor.setup(initial_state=states_0)
     output_array = predictor.predict(Q_array)  # Should be shape=(a.test_max_horizon, a.test_len, len(outputs))
     output_array = output_array[..., [STATE_INDICES.get(key) for key in a.features]+[-1]]
 
