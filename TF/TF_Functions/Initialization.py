@@ -248,10 +248,10 @@ def get_net(a,
     # endregion
 
     # region Save wash-out length to net_info
-    # try:
-    #     net_info.wash_out_len = a.wash_out_len
-    # except AttributeError:
-    #     print('Wash out not defined.')
+    try:
+         net_info.wash_out_len = a.wash_out_len
+    except AttributeError:
+         print('Wash out not defined.')
     # endregion
 
     return net, net_info
