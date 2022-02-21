@@ -101,14 +101,15 @@ def train_network(nni_parameters=None):
         paths_to_datafiles_training = get_paths_to_datafiles(a.training_files)
         paths_to_datafiles_validation = get_paths_to_datafiles(a.validation_files)
 
-        for path in paths_to_datafiles_training + paths_to_datafiles_validation:
-            try:
-                dt_sampling = get_sampling_interval_from_datafile(path)
-                if abs(net_info.sampling_interval - dt_sampling) > 1.0e-5:
-                    warning('A difference between network sampling interval and save interval of data file {} detected'
-                            .format(path))
-            except TypeError:
-                print('Sampling interval unknown.')
+        # check if sampling intervals of all training and validation recordings match
+        # for path in paths_to_datafiles_training + paths_to_datafiles_validation:
+        #     try:
+        #         dt_sampling = get_sampling_interval_from_datafile(path)
+        #         if abs(net_info.sampling_interval - dt_sampling) > 1.0e-5:
+        #             warning('A difference between network sampling interval and save interval of data file {} detected'
+        #                     .format(path))
+        #     except TypeError:
+        #         print('Sampling interval unknown.')
 
         training_dfs = load_data(paths_to_datafiles_training)
         training_dfs_norm = normalize_df(training_dfs, normalization_info)
@@ -131,15 +132,15 @@ def train_network(nni_parameters=None):
     test_dfs = load_data(paths_to_datafiles_test)
     test_dfs_norm = normalize_df(test_dfs, normalization_info)
     test_set = Dataset(test_dfs_norm, a, shuffle=False, inputs=net_info.inputs, outputs=net_info.outputs)
-    # Check the sampling interval for test file
-    for path in paths_to_datafiles_test:
-        try:
-            dt_sampling = get_sampling_interval_from_datafile(path)
-            if abs(net_info.sampling_interval - dt_sampling) > 1.0e-5:
-                warning('A difference between network sampling interval and save interval of data file {} detected'
-                        .format(path))
-        except TypeError:
-            print('Sampling interval unknown')
+    # check if sampling intervals of all test recordings match
+    # for path in paths_to_datafiles_test:
+    #     try:
+    #         dt_sampling = get_sampling_interval_from_datafile(path)
+    #         if abs(net_info.sampling_interval - dt_sampling) > 1.0e-5:
+    #             warning('A difference between network sampling interval and save interval of data file {} detected'
+    #                     .format(path))
+    #     except TypeError:
+    #         print('Sampling interval unknown')
     # endregion
 
     # endregion

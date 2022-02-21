@@ -285,11 +285,11 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
 
     # region Get sampling interval from normalization info
     # TODO: this does not really fits here put is too small for me to create separate function
-    try:
-        net_info.sampling_interval = get_sampling_interval_from_normalization_info(net_info.path_to_normalization_info)
-    except ValueError:
-        net_info.sampling_interval = None
-        print('sampling_interval unknown')
+    # try:
+    #     net_info.sampling_interval = get_sampling_interval_from_normalization_info(net_info.path_to_normalization_info)
+    # except ValueError:
+    #     net_info.sampling_interval = None
+    #     print('sampling_interval unknown')
     # endregion
 
     return normalization_info
@@ -348,8 +348,8 @@ def create_log_file(net_info, a):
     f.write(net_info.net_type)
     f.write('\n\nNORMALIZATION:\n')
     f.write(net_info.path_to_normalization_info)
-    f.write('\n\nSAMPLING INTERVAL:\n')
-    f.write('{} s'.format(net_info.sampling_interval))
+    # f.write('\n\nSAMPLING INTERVAL:\n')
+    # f.write('{} s'.format(net_info.sampling_interval))
     f.write('\n\nPARENT NET:\n')
     f.write(net_info.parent_net_name)
     f.write('\n\nWASH OUT LENGTH:\n')
