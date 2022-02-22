@@ -24,7 +24,7 @@ dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for
 titles = tests  # Titles of tests to be printed in GUI
 
 TEST_FILE = config_testing['testing']['TEST_FILE']
-default_locations_for_testfile = [config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Recordings/Test/"]
+default_locations_for_testfile = [config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config_training['paths']['path_to_experiment'] + "Recordings/Test/"]
 
 # TODO: For consistency features should be "state inputs" probably. Think about it once more before implementing
 # For CartPole

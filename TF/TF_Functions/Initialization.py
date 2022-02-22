@@ -16,8 +16,7 @@ except:
     pass
 
 from SI_Toolkit.TF.TF_Functions.Network import compose_net_from_net_name, load_pretrained_net_weights
-from SI_Toolkit.load_and_normalize import load_normalization_info, get_sampling_interval_from_normalization_info, \
-    calculate_normalization_info
+from SI_Toolkit.load_and_normalize import load_normalization_info, calculate_normalization_info
 
 from shutil import copy as shutil_copy
 
