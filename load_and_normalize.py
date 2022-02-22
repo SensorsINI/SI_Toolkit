@@ -227,18 +227,18 @@ def get_sampling_interval_from_datafile(path_to_datafile):
 
 # This function returns the saving interval of datafile
 # Used to ensure that datafiles used for training save data with the same frequency
-def get_sampling_interval_from_normalization_info(path_to_normalization_info):
-    preceding_text = '# Sampling interval of data used to calculate normalization: '
-    with open(path_to_normalization_info, 'r') as cmt_file:  # open file
-        for line in cmt_file:  # read each line
-            if line[0:len(preceding_text)] == preceding_text:
-                dt_information = line[len(preceding_text):]
-                if dt_information == 'Not constant!':
-                    print('The normalization information was calculated with data with varying sampling frequency.')
-                    dt_save = None
-                else:
-                    dt_save = float(dt_information[:-2])
-                return dt_save
+# def get_sampling_interval_from_normalization_info(path_to_normalization_info):
+#     preceding_text = '# Sampling interval of data used to calculate normalization: '
+#     with open(path_to_normalization_info, 'r') as cmt_file:  # open file
+#        for line in cmt_file:  # read each line
+#             if line[0:len(preceding_text)] == preceding_text:
+#                 dt_information = line[len(preceding_text):]
+#                 if dt_information == 'Not constant!':
+#                     print('The normalization information was calculated with data with varying sampling frequency.')
+#                     dt_save = None
+#                 else:
+#                     dt_save = float(dt_information[:-2])
+#                 return dt_save
 
 
 def calculate_normalization_info(paths_to_data_information=None, plot_histograms=True, user_correction=True, path_to_norm_info=None):
@@ -260,22 +260,22 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
     # region Check if all datafile have the same sampling interval
 
-    dts_save = []
-    dt_save = None
-    for path in list_of_paths_to_datafiles:
-        dt_save = get_sampling_interval_from_datafile(path)
-        dts_save.append(dt_save)
-    dts_save = np.array(dt_save)
+    # dts_save = []
+    # dt_save = None
+    # for path in list_of_paths_to_datafiles:
+    #     dt_save = get_sampling_interval_from_datafile(path)
+    #     dts_save.append(dt_save)
+    # dts_save = np.array(dt_save)
 
-    tol = 1.0e-6
-    sampling_interval_str = '# Sampling interval of data used to calculate normalization: '
-    try:
-        if np.all(abs(dts_save - dt_save) < tol):
-            sampling_interval_str += '{} s'.format(dt_save)
-        else:
-            sampling_interval_str += 'Not constant!'
-    except TypeError:
-        print('Save interval unknown.')
+    # tol = 1.0e-6
+    # sampling_interval_str = '# Sampling interval of data used to calculate normalization: '
+    # try:
+    #     if np.all(abs(dts_save - dt_save) < tol):
+    #         sampling_interval_str += '{} s'.format(dt_save)
+    #     else:
+    #         sampling_interval_str += 'Not constant!'
+    # except TypeError:
+    #     print('Save interval unknown.')
 
     # endregion
 
@@ -372,11 +372,11 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
         writer.writerow(['# ' + 'Done with git-revision: {}'
                         .format(git_revision)])
 
-        writer.writerow(['#'])
+        # writer.writerow(['#'])
 
-        writer.writerow([sampling_interval_str])
+        # writer.writerow([sampling_interval_str])
 
-        writer.writerow(['#'])
+        # writer.writerow(['#'])
 
         writer.writerow(['# Data files used to calculate normalization information:'])
         for path in list_of_paths_to_datafiles:
