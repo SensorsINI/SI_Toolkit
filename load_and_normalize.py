@@ -25,7 +25,7 @@ except:
 
 import yaml, os
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
 
 
 PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + 'NormalizationInfo/'

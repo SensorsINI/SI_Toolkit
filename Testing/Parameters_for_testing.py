@@ -9,40 +9,33 @@ import argparse
 import numpy as np
 
 import yaml, os
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+config_training = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
+config_testing = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
 
-PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
+PATH_TO_MODELS = config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config_training['paths']['path_to_experiment'] + "Models/"
 
-tests = config['testing']['tests']
+tests = config_testing['testing']['tests']
 
-PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "NormalizationInfo/"
+PATH_TO_NORMALIZATION_INFO = config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config_training['paths']['path_to_experiment'] + "NormalizationInfo/"
 PATH_TO_NORMALIZATION_INFO += os.listdir(PATH_TO_NORMALIZATION_INFO)[0]
 norm_infos = [PATH_TO_NORMALIZATION_INFO]*len(tests) # Norm info for each test, for Euler has no effect, can be None or whatever
 
 dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for which ground truth value exists), for neural network has no effect
 titles = tests  # Titles of tests to be printed in GUI
 
-TEST_FILE = config['testing']['TEST_FILE']
-default_locations_for_testfile = [config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Recordings/Test/"]
+TEST_FILE = config_testing['testing']['TEST_FILE']
+default_locations_for_testfile = [config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Recordings/Test/"]
 
 # TODO: For consistency features should be "state inputs" probably. Think about it once more before implementing
 # For CartPole
-features = list(np.sort(
-    ['angle',
-     'angleD',
-     'angle_cos',
-     'angle_sin',
-     'position',
-     'positionD',
-     ]
-))
-features_units = [' (deg)', ' (deg/s)', '', '', ' (m)', ' (m/s)']
+features = list(np.sort(config_training['training_default']['state_inputs']))
+# features_units = [' (deg)', ' (deg/s)', '', '', ' (m)', ' (m/s)']
 
 # For l2race
 # features = list(['x1','x2','x3','x4','x5','x6','x7'])
 
 # For CartPole
-control_inputs = ['Q']
+control_inputs = config_training['training_default']['control_inputs']
 
 # For l2race
 # control_inputs = ['u1', 'u2']
