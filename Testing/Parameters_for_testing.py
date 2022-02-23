@@ -24,6 +24,9 @@ dt_euler = [0.002]*len(tests)  # Timestep of Euler (printed are only values, for
 titles = tests  # Titles of tests to be printed in GUI
 
 TEST_FILE = config_testing['testing']['TEST_FILE']
+MAX_HORIZON = config_testing['testing']['MAX_HORIZON']
+START_IDX = config_testing['testing']['START_IDX']
+
 default_locations_for_testfile = [config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config_training['paths']['path_to_experiment'] + "Recordings/Test/"]
 
 # TODO: For consistency features should be "state inputs" probably. Think about it once more before implementing
@@ -72,8 +75,8 @@ def args():
                         help='Path to the NN trained models ')
     parser.add_argument('--test_len', default=TEST_LEN,
                         help='For graphical testing only test_len samples from first test file is taken.')
-    parser.add_argument('--test_start_idx', default=0, type=int, help='Indicates from which point data from test file should be taken.')
-    parser.add_argument('--test_max_horizon', default=50, type=int,
+    parser.add_argument('--test_start_idx', default=START_IDX, type=int, help='Indicates from which point data from test file should be taken.')
+    parser.add_argument('--test_max_horizon', default=MAX_HORIZON, type=int,
                         help='Indicates prediction horizon for testing.')
 
     args = parser.parse_args()
