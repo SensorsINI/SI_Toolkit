@@ -90,8 +90,7 @@ class predictor_autoregressive_tf:
 
     def setup(self, initial_state: np.array, prediction_denorm=True):
 
-        self.output_array[..., 0, :-1] = initial_state
-
+        self.output_array[..., 0, :-len(CONTROL_INPUTS)] = initial_state
         initial_input_net_without_Q = initial_state[
             ..., [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]]]
         self.net_initial_input_without_Q = normalize_numpy_array(initial_input_net_without_Q,
@@ -100,14 +99,13 @@ class predictor_autoregressive_tf:
 
         self.net_initial_input_without_Q_TF = tf.convert_to_tensor(self.net_initial_input_without_Q, tf.float32)
         self.net_initial_input_without_Q_TF = tf.reshape(self.net_initial_input_without_Q_TF,
-                                                         [-1, len(self.net_info.inputs[1:])])
+                                                         [-1, len(self.net_info.inputs[len(CONTROL_INPUTS):])])
 
 
     def predict(self, Q) -> np.array:
 
         output_array = self.output_array
-
-        output_array[..., :-1, -1] = Q
+        output_array[..., :-1, -len(CONTROL_INPUTS):] = Q
 
         # load internal RNN state if applies
         load_internal_states(self.net, self.rnn_internal_states)
@@ -129,10 +127,11 @@ class predictor_autoregressive_tf:
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
         net_output = tf.zeros(shape=(self.batch_size, len(self.net_info.outputs)), dtype=tf.float32)
 
-        Q = tf.transpose(Q)
+        # Q = tf.transpose(Q)
 
         for i in tf.range(self.horizon):
-            Q_current = tf.expand_dims(Q[i], axis=1)
+
+            Q_current = tf.expand_dims(Q[i], axis=0)
 
             if i == 0:
                 net_input = tf.reshape(
@@ -160,7 +159,7 @@ class predictor_autoregressive_tf:
 
         # Run current input through network
         Q0 = tf.squeeze(tf.convert_to_tensor(Q0, dtype=tf.float32))
-        Q0 = tf.reshape(Q0, [-1, 1])
+        Q0 = tf.reshape(Q0, [1, -1])
         if self.net_info.net_type == 'Dense':
             net_input = tf.concat([Q0, self.net_initial_input_without_Q_TF], axis=1)
         else:

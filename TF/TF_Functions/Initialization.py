@@ -136,7 +136,7 @@ def get_net(a,
                 if lines[i] == 'SAMPLING INTERVAL:':
                     net_sampling_interval = float(lines[i + 1].rstrip("\n")[:-2])
                     continue
-                if lines[i] == 'WASH_OUT_LENGTH:':
+                if lines[i] == 'WASH OUT LENGTH:':
                     net_wash_out_len = float(lines[i + 1].rstrip("\n"))
                     continue
 
@@ -202,6 +202,11 @@ def get_net(a,
 
             net_info.path_to_net = a.path_to_models + parent_net_name
 
+            try:
+                net_info.wash_out_len = net_wash_out_len
+            except AttributeError:
+                print('Wash out not defined.')
+
             # region Make a single call on an zero array to make the console output clean
             # (just aesthetic effect to throw possible warning here and not at the beginning of training)
 
@@ -244,13 +249,6 @@ def get_net(a,
         net_info.parent_net_name = 'Network trained from scratch'
         net_info.path_to_net = None  # Folder for net not yer created
 
-    # endregion
-
-    # region Save wash-out length to net_info
-    try:
-         net_info.wash_out_len = a.wash_out_len
-    except AttributeError:
-         print('Wash out not defined.')
     # endregion
 
     return net, net_info

@@ -4,7 +4,7 @@ from matplotlib import colors
 from tqdm import trange
 
 try:
-    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES
+    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
@@ -35,7 +35,7 @@ cmap = colors.LinearSegmentedColormap('custom', cdict)
 def get_data_for_gui_TF(a, dataset, net_name):
     states_0 = dataset[STATE_VARIABLES].to_numpy()[:-a.test_max_horizon, :]
 
-    Q = dataset['Q'].to_numpy()
+    Q = dataset[CONTROL_INPUTS].to_numpy()
     Q_array = [Q[i:-a.test_max_horizon+i] for i in range(a.test_max_horizon)]
     Q_array = np.vstack(Q_array).transpose()
 
@@ -52,15 +52,15 @@ def get_data_for_gui_TF(a, dataset, net_name):
         # predictor = predictor_autoregressive_tf(a=a, batch_size=1)
         predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=1, net_name=net_name)
         # Iteratively (to test internal state update)
-        output_array = np.zeros([a.test_len, a.test_max_horizon + 1, len(STATE_VARIABLES) + 1], dtype=np.float32)
+        output_array = np.zeros([a.test_len, a.test_max_horizon + 1, len(STATE_VARIABLES) + len(CONTROL_INPUTS)], dtype=np.float32)
         for timestep in trange(a.test_len):
-            Q_current_timestep = Q_array[np.newaxis, timestep, :]
+            Q_current_timestep = Q_array[np.newaxis, :, timestep]
             s_current_timestep = states_0[timestep, np.newaxis]
             predictor.setup(initial_state=s_current_timestep, prediction_denorm=True)
-            output_array[timestep,:,:] = predictor.predict(Q_current_timestep)
-            predictor.update_internal_state(Q_current_timestep[0, 0])
+            output_array[timestep, :, :] = predictor.predict(Q_current_timestep)
+            predictor.update_internal_state(Q_current_timestep[0])
 
-    output_array = output_array[..., [STATE_INDICES.get(key) for key in a.features]+[-1]]
+    output_array = output_array[..., [STATE_INDICES.get(key) for key in a.features]+list(range(-len(CONTROL_INPUTS),-1))]
 
     # time_axis is a time axis for ground truth
     return output_array
