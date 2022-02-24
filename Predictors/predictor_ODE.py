@@ -66,7 +66,7 @@ class predictor_ODE:
 if __name__ == '__main__':
     import timeit
     initialisation = '''
-from SI_Toolkit_ApplicationSpecificFiles.predictor_ODE import predictor_ODE
+from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
 import numpy as np
 batch_size = 2000
 horizon = 50
