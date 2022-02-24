@@ -4,11 +4,10 @@ from matplotlib import colors
 from tqdm import trange
 
 try:
-    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES
+    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
-# from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
 from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
 
@@ -71,7 +70,7 @@ def get_data_for_gui_TF(a, dataset, net_name, dt, intermediate_steps):
             output_array[timestep,:,:] = predictor.predict(Q_current_timestep)
             predictor.update_internal_state(Q_current_timestep[0, 0])
 
-    output_array = output_array[..., [STATE_INDICES.get(key) for key in a.features]+[-1]]
+    output_array = output_array[..., [STATE_INDICES.get(key) for key in a.features]+list(range(-len(CONTROL_INPUTS),-1))]
 
     # time_axis is a time axis for ground truth
     return output_array

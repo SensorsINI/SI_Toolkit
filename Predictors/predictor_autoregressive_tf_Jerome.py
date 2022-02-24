@@ -69,7 +69,7 @@ class predictor_autoregressive_tf:
             self.state_indices_list = [STATE_INDICES.get(key) for key in STATE_VARIABLES]
         else:
             # Neural Network
-            config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+            config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
             if '/' in net_name:
                 self.model_path = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + net_name.rsplit('/', 1)[0] + '/Models/'
                 self.net_name = self.net_name.split("/")[-1]

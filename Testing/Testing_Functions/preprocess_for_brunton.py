@@ -21,7 +21,8 @@ def preprocess_for_brunton(a):
     # Get sampling interval
     dataset_sampling_dt = get_sampling_interval_from_datafile(path_to_testfile[0])
     if dataset_sampling_dt is None:
-        raise ValueError ('No information about sampling interval found')
+        print('No information about sampling interval found')
+        # raise ValueError ('No information about sampling interval found')
 
     # # Add noise to position, angle
     # if a.noise == 'add_noise':

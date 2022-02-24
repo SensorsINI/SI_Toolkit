@@ -5,7 +5,6 @@ from time import sleep
 
 import glob
 import os
-os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"
 
 import matplotlib.pyplot as plt
 
@@ -26,7 +25,7 @@ except:
 
 import yaml, os
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
 
 
 PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + 'NormalizationInfo/'
@@ -261,22 +260,22 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
     # region Check if all datafile have the same sampling interval
 
-    dts_save = []
-    dt_save = None
-    for path in list_of_paths_to_datafiles:
-        dt_save = get_sampling_interval_from_datafile(path)
-        dts_save.append(dt_save)
-    dts_save = np.array(dt_save)
+    # dts_save = []
+    # dt_save = None
+    # for path in list_of_paths_to_datafiles:
+    #     dt_save = get_sampling_interval_from_datafile(path)
+    #     dts_save.append(dt_save)
+    # dts_save = np.array(dt_save)
 
-    tol = 1.0e-6
-    sampling_interval_str = '# Sampling interval of data used to calculate normalization: '
-    try:
-        if np.all(abs(dts_save - dt_save) < tol):
-            sampling_interval_str += '{} s'.format(dt_save)
-        else:
-            sampling_interval_str += 'Not constant!'
-    except TypeError:
-        print('Save interval unknown.')
+    # tol = 1.0e-6
+    # sampling_interval_str = '# Sampling interval of data used to calculate normalization: '
+    # try:
+    #     if np.all(abs(dts_save - dt_save) < tol):
+    #         sampling_interval_str += '{} s'.format(dt_save)
+    #     else:
+    #         sampling_interval_str += 'Not constant!'
+    # except TypeError:
+    #     print('Save interval unknown.')
 
     # endregion
 
@@ -373,11 +372,11 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
         writer.writerow(['# ' + 'Done with git-revision: {}'
                         .format(git_revision)])
 
-        writer.writerow(['#'])
+        # writer.writerow(['#'])
 
-        writer.writerow([sampling_interval_str])
+        # writer.writerow([sampling_interval_str])
 
-        writer.writerow(['#'])
+        # writer.writerow(['#'])
 
         writer.writerow(['# Data files used to calculate normalization information:'])
         for path in list_of_paths_to_datafiles:

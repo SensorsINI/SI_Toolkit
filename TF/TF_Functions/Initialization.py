@@ -16,8 +16,7 @@ except:
     pass
 
 from SI_Toolkit.TF.TF_Functions.Network import compose_net_from_net_name, load_pretrained_net_weights
-from SI_Toolkit.load_and_normalize import load_normalization_info, get_sampling_interval_from_normalization_info, \
-    calculate_normalization_info
+from SI_Toolkit.load_and_normalize import load_normalization_info, calculate_normalization_info
 
 from shutil import copy as shutil_copy
 
@@ -137,7 +136,7 @@ def get_net(a,
                 if lines[i] == 'SAMPLING INTERVAL:':
                     net_sampling_interval = float(lines[i + 1].rstrip("\n")[:-2])
                     continue
-                if lines[i] == 'WASH_OUT_LENGTH:':
+                if lines[i] == 'WASH OUT LENGTH:':
                     net_wash_out_len = float(lines[i + 1].rstrip("\n"))
                     continue
 
@@ -285,11 +284,11 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
 
     # region Get sampling interval from normalization info
     # TODO: this does not really fits here put is too small for me to create separate function
-    try:
-        net_info.sampling_interval = get_sampling_interval_from_normalization_info(net_info.path_to_normalization_info)
-    except ValueError:
-        net_info.sampling_interval = None
-        print('sampling_interval unknown')
+    # try:
+    #     net_info.sampling_interval = get_sampling_interval_from_normalization_info(net_info.path_to_normalization_info)
+    # except ValueError:
+    #     net_info.sampling_interval = None
+    #     print('sampling_interval unknown')
     # endregion
 
     return normalization_info

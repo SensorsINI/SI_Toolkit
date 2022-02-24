@@ -40,7 +40,7 @@ Using predictor:
 
 # "Command line" parameters
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states
+from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states #FIXME: get internal states, surely does nor work with Pytorch
 from SI_Toolkit.load_and_normalize import *
 
 try:
@@ -55,7 +55,7 @@ import yaml, os
 
 import tensorflow as tf
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
 
 NET_NAME = config['modeling']['NET_NAME']
 PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
