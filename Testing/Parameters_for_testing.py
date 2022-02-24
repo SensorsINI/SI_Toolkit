@@ -31,7 +31,7 @@ default_locations_for_testfile = [config_training["paths"]["PATH_TO_EXPERIMENT_F
 
 # TODO: For consistency features should be "state inputs" probably. Think about it once more before implementing
 # For CartPole
-features = list(np.sort(config_training['training_default']['state_inputs']))
+features = list(np.sort(config_testing['testing']['features']))
 # features_units = [' (deg)', ' (deg/s)', '', '', ' (m)', ' (m/s)']
 
 # For l2race
