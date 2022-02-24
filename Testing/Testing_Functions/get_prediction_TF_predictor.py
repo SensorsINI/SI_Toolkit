@@ -8,7 +8,9 @@ try:
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
-from SI_Toolkit.TF.TF_Functions.predictor_autoregressive_tf import predictor_autoregressive_tf
+# from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
+from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
+from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
 
 # This import mus go before pyplot so also before our scripts
 from matplotlib import use, get_backend
@@ -45,12 +47,21 @@ def get_data_for_gui_TF(a, dataset, net_name, dt, intermediate_steps):
         mode = 'sequential'
     if mode == 'batch':
         # All at once
-        predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len, net_name=net_name, dt=dt)
+        # TODO: This was probably never tested
+        if net_name == 'EulerTF':
+            predictor = predictor_ODE_tf(horizon=a.test_max_horizon, batch_size=a.test_len, net_name=net_name, dt=dt)
+        else:
+            predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len,
+                                                    net_name=net_name, dt=dt)
+
         predictor.setup(initial_state=states_0, prediction_denorm=True)
         output_array = predictor.predict(Q_array)
     elif mode == 'sequential':
         # predictor = predictor_autoregressive_tf(a=a, batch_size=1)
-        predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=1, net_name=net_name, dt=dt)
+        if net_name == 'EulerTF':
+            predictor = predictor_ODE_tf(horizon=a.test_max_horizon, batch_size=1, net_name=net_name, dt=dt)
+        else:
+            predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=1, net_name=net_name, dt=dt)
         # Iteratively (to test internal state update)
         output_array = np.zeros([a.test_len, a.test_max_horizon + 1, len(STATE_VARIABLES) + 1], dtype=np.float32)
         for timestep in trange(a.test_len):

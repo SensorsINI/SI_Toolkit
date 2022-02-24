@@ -62,6 +62,7 @@ class predictor_autoregressive_tf:
         self.prev_initial_state_tf = None
 
         if net_name == 'EulerTF':
+            raise NameError
             # Network sizes
             self.control_length = len(CONTROL_INPUTS)
             self.state_length =len(STATE_VARIABLES)
@@ -130,6 +131,7 @@ class predictor_autoregressive_tf:
     # TODO: replace everywhere with predict_tf
     # DEPRECATED: This version is in-efficient since it copies all batches to GPU
     def predict(self, Q, single_step=False):
+        print('************\n************\n************\n************\n************\n************\n')
         # Predict TF
         net_output = self.predict_tf(tf.convert_to_tensor(self.initial_input[0,...], dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32))
 

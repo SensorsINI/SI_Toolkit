@@ -13,7 +13,7 @@ from others.p_globals import (
     k, M, m, g, J_fric, M_fric, L, v_max, u_max, controlDisturbance, controlBias, TrackHalfLength
 )
 
-class predictor_autoregressive_tf:
+class predictor_ODE_tf:
     def __init__(self, horizon=None, batch_size=None, net_name=None, dt=0.02, intermediate_steps=10, normalization=True):
         self.net_name = net_name
         self.net_type = net_name
