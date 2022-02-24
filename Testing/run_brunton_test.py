@@ -6,10 +6,7 @@ from SI_Toolkit.Testing.Testing_Functions.get_prediction_TF_predictor import get
 from SI_Toolkit.Testing.Testing_Functions.get_prediction_from_euler_predictor import get_prediction_from_euler_predictor
 from SI_Toolkit.Testing.Testing_Functions.Brunton_GUI import run_test_gui
 
-#print('')
 a = args()  # 'a' like arguments
-#print(a.__dict__)
-#print('')
 
 def run_brunton_test():
 
