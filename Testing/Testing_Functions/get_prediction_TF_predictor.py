@@ -1,37 +1,16 @@
 import numpy as np
-from matplotlib import colors
 
 from tqdm import trange
 
 try:
-    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS
+    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS, CONTROL_INDICES
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
 from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
+# from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
 
-# This import mus go before pyplot so also before our scripts
-from matplotlib import use, get_backend
-# Use Agg if not in scientific mode of Pycharm
-
-if get_backend() != 'module://backend_interagg':
-    use('Agg')
-
-
-cdict = {'red':   ((0.0,  0.22, 0.0),
-                   (0.5,  1.0, 1.0),
-                   (1.0,  0.89, 1.0)),
-
-         'green': ((0.0,  0.49, 0.0),
-                   (0.5,  1.0, 1.0),
-                   (1.0,  0.12, 1.0)),
-
-         'blue':  ((0.0,  0.72, 0.0),
-                   (0.5,  0.0, 0.0),
-                   (1.0,  0.11, 1.0))}
-
-cmap = colors.LinearSegmentedColormap('custom', cdict)
 
 def get_data_for_gui_TF(a, dataset, net_name, dt, intermediate_steps):
     states_0 = dataset[STATE_VARIABLES].to_numpy()[:-a.test_max_horizon, :]
@@ -44,23 +23,24 @@ def get_data_for_gui_TF(a, dataset, net_name, dt, intermediate_steps):
         mode = 'batch'
     else:
         mode = 'sequential'
+    mode = 'sequential'
     if mode == 'batch':
         # All at once
-        # TODO: This was probably never tested
+        # TODO: Euler TF here in batch mode produces strange results
         if net_name == 'EulerTF':
             predictor = predictor_ODE_tf(horizon=a.test_max_horizon, batch_size=a.test_len, net_name=net_name, dt=dt)
         else:
             predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len,
-                                                    net_name=net_name, dt=dt)
-
-        predictor.setup(initial_state=states_0, prediction_denorm=True)
+                                                    net_name=net_name)
+        predictor.setup(initial_state=states_0)
         output_array = predictor.predict(Q_array)
+
     elif mode == 'sequential':
         # predictor = predictor_autoregressive_tf(a=a, batch_size=1)
         if net_name == 'EulerTF':
             predictor = predictor_ODE_tf(horizon=a.test_max_horizon, batch_size=1, net_name=net_name, dt=dt)
         else:
-            predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=1, net_name=net_name, dt=dt)
+            predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=1, net_name=net_name)
         # Iteratively (to test internal state update)
         output_array = np.zeros([a.test_len, a.test_max_horizon + 1, len(STATE_VARIABLES) + 1], dtype=np.float32)
         for timestep in trange(a.test_len):
@@ -70,7 +50,6 @@ def get_data_for_gui_TF(a, dataset, net_name, dt, intermediate_steps):
             output_array[timestep,:,:] = predictor.predict(Q_current_timestep)
             predictor.update_internal_state(Q_current_timestep[0, 0])
 
-    output_array = output_array[..., [STATE_INDICES.get(key) for key in a.features]+list(range(-len(CONTROL_INPUTS),-1))]
+    output_array = output_array[..., [STATE_INDICES.get(key) for key in a.features] + [CONTROL_INDICES.get(key) for key in CONTROL_INPUTS]]
 
-    # time_axis is a time axis for ground truth
     return output_array

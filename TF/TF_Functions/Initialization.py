@@ -244,13 +244,11 @@ def get_net(a,
         net_info.parent_net_name = 'Network trained from scratch'
         net_info.path_to_net = None  # Folder for net not yer created
 
-    # endregion
-
-    # region Save wash-out length to net_info
     try:
         net_info.wash_out_len = a.wash_out_len
     except AttributeError:
         print('Wash out not defined.')
+
     # endregion
 
     return net, net_info
