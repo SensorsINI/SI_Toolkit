@@ -19,6 +19,8 @@ def run_brunton_test():
     for test_idx in range(len(a.tests)):
         if a.tests[test_idx] == 'Euler':
             predictions = get_prediction_from_euler_predictor(a, dataset, dataset_sampling_dt, intermediate_steps=10)
+        elif a.tests[test_idx] == 'EulerTF':
+            predictions = get_prediction_from_euler_predictor(a, dataset, dataset_sampling_dt, intermediate_steps=10)
         else:  # Assume this is a neural_network test:
             predictions = get_data_for_gui_TF(a, dataset, net_name=a.tests[test_idx])
 
