@@ -127,11 +127,9 @@ class predictor_autoregressive_tf:
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
         net_output = tf.zeros(shape=(self.batch_size, len(self.net_info.outputs)), dtype=tf.float32)
 
-        # Q = tf.transpose(Q)
-
         for i in tf.range(self.horizon):
 
-            Q_current = tf.expand_dims(Q[i], axis=0)
+            Q_current = Q[:, i, :]
 
             if i == 0:
                 net_input = tf.reshape(

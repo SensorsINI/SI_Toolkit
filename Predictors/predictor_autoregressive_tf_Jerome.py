@@ -78,7 +78,7 @@ class predictor_autoregressive_tf:
                 self.gru_layers = [layer for layer in self.net.layers if (('gru' in layer.name) or ('lstm' in layer.name) or ('rnn' in layer.name))]
                 self.num_gru_layers = len(self.gru_layers)
                 self.rnn_internal_states = [tf.zeros(shape=(self.batch_size, layer.units)) for layer in self.gru_layers]
-            self.Q_prev = tf.convert_to_tensor(0, dtype=tf.float32)
+            self.Q_prev = tf.zeros(shape=(self.batch_size, 1, len(CONTROL_INPUTS)), dtype=tf.float32)
 
     # TODO: replace everywhere with predict_tf
     # DEPRECATED: This version is in-efficient since it copies all batches to GPU
@@ -88,21 +88,22 @@ class predictor_autoregressive_tf:
     # TODO: replace everywhere with predict_tf
     # DEPRECATED: This version is in-efficient since it copies all batches to GPU
     def predict(self, Q, single_step=False):
-        print('************\n************\n************\n************\n************\n************\n')
+        # print('************\n************\n************\n************\n************\n************\n')
         # Predict TF
         net_output = self.predict_tf(tf.convert_to_tensor(self.initial_input[0,...], dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32))
 
         # Prepare Deprecated Output
         output_array = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES) + self.control_length], dtype=np.float32)
         output_array[:, 0, :-self.control_length] = self.initial_input
-        output_array[..., :-1, -1] = Q
-        output_array[:, 1:, :6] = net_output.numpy()
+        output_array[..., :-1, -len(CONTROL_INPUTS):] = Q
+        output_array[:, 1:, :len(STATE_VARIABLES)] = net_output.numpy()
 
         return output_array
 
     # Predict (Euler: 6.8ms, RNN:10.5ms)
     @tf.function(experimental_compile=True)
     def predict_tf(self, initial_state, Q):
+        # assert tf.rank(Q) == 3
         # Select States
         if self.net_name != 'EulerTF':
             initial_state = tf.gather(initial_state, self.state_indices_list, axis=0)
@@ -120,9 +121,15 @@ class predictor_autoregressive_tf:
                 self.gru_layers[j].states[0].assign(self.rnn_internal_states[j])
 
             # Apply Last Input
-            Q0 = tf.tile(tf.expand_dims(tf.expand_dims(self.Q_prev, axis=0), axis=0), [self.batch_size, 1])
-            net_input = tf.reshape(tf.concat([Q0, self.initial_state_tf], axis=1), [-1, 1, len(self.net_info.inputs)])
-            self.net(net_input)
+            Q0 = self.Q_prev
+            # assert tf.shape(Q0)[1] == 1 # Just one timestep
+            if tf.shape(Q0)[0] != self.batch_size:
+                # assert tf.shape(Q0)[0] == 1 # Batch size == 1
+                Q0 = tf.tile(Q0, tf.constant([self.batch_size, 1, 1]))
+            Q0 = tf.squeeze(Q0, axis=1)
+
+            net_input = tf.concat([Q0, self.initial_state_tf], axis=1)
+            self.net(tf.expand_dims(net_input, axis=1))
 
             # Get RNN States
             for j in range(self.num_gru_layers):
@@ -158,14 +165,12 @@ class predictor_autoregressive_tf:
 
     @tf.function(experimental_compile=True)
     def iterate_net(self, Q, initial_state):
-        Q_current = tf.zeros(shape=(self.batch_size, self.control_length), dtype=tf.float32)
-        net_input = tf.zeros(shape=(self.batch_size, self.state_length+self.control_length), dtype=tf.float32)
+
         net_output = tf.zeros(shape=(self.batch_size, self.state_length), dtype=tf.float32)
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon, dynamic_size=False)
-        Q = tf.transpose(Q)
 
         for i in tf.range(self.horizon):
-            Q_current = tf.expand_dims(Q[i], axis=1)
+            Q_current = Q[..., i, :]
 
             if i == 0:
                 net_input = tf.concat([Q_current, initial_state], axis=1)

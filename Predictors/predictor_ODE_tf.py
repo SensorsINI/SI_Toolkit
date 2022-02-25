@@ -44,8 +44,8 @@ class predictor_ODE_tf:
         # Prepare Deprecated Output
         output_array = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES) + self.control_length], dtype=np.float32)
         output_array[:, 0, :-self.control_length] = self.initial_input
-        output_array[..., :-1, -1] = Q
-        output_array[:, 1:, :6] = net_output.numpy()
+        output_array[..., :-1, -len(CONTROL_INPUTS):] = Q
+        output_array[:, 1:, :len(STATE_VARIABLES)] = net_output.numpy()
 
         return output_array
 
@@ -65,12 +65,12 @@ class predictor_ODE_tf:
 
     @tf.function(experimental_compile=True)
     def iterate_net(self, Q, initial_state):
+
         net_output = tf.zeros(shape=(self.batch_size, self.state_length), dtype=tf.float32)
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon, dynamic_size=False)
-        Q = tf.transpose(Q)
 
         for i in tf.range(self.horizon):
-            Q_current = tf.expand_dims(Q[i], axis=1)
+            Q_current = Q[..., i, :]
 
             if i == 0:
                 net_input = tf.concat([Q_current, initial_state], axis=1)
