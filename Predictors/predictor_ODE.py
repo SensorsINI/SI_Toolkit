@@ -72,7 +72,9 @@ batch_size = 2000
 horizon = 50
 predictor = predictor_ODE(horizon, 0.02, 10)
 initial_state = np.random.random(size=(batch_size, 6))
-Q = np.random.random(size=(batch_size, horizon))
+Q = np.float32(np.random.random(size=(batch_size, horizon)))
+predictor.setup(initial_state)
+predictor.predict(Q)
 '''
 
 
