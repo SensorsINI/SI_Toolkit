@@ -36,10 +36,10 @@ try:
 except:
     print('No DataSelector found.')
 # region Import and print "command line" arguments
-print('')
+# print('')
 a = args()  # 'a' like arguments
-print(a.__dict__)
-print('')
+# print(a.__dict__)
+# print('')
 # endregion
 
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
@@ -70,9 +70,9 @@ def train_network(nni_parameters=None):
     net, net_info = get_net(a)
 
     # Create a copy of the network suitable for inference (stateful and with sequence length one)
-    net_for_inference, net_for_inference_info = \
-        get_net(a, time_series_length=a.test_len,
-                batch_size=1, stateful=True)
+    # net_for_inference, net_for_inference_info = \
+    #    get_net(a, time_series_length=a.test_len,
+    #            batch_size=1, stateful=True)
 
     # Create new full name for the pretrained net
     create_full_name(net_info, a.path_to_models)

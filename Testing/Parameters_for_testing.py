@@ -47,7 +47,7 @@ control_inputs = config_training['training_default']['control_inputs']
 
 # PATH_TO_NORMALIZATION_INFO = config['modeling']['PATH_TO_NORMALIZATION_INFO']
 
-TEST_LEN = "max"
+TEST_LEN = config_testing['testing']['TEST_LEN']
 
 def args():
     parser = argparse.ArgumentParser(description='Parameters for Brunton GUI', formatter_class=argparse.ArgumentDefaultsHelpFormatter)

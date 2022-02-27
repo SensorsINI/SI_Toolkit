@@ -8,31 +8,47 @@ import argparse
 import glob
 import yaml, os
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
+config_training = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
+config_testing = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
 
-net_name = config['modeling']['NET_NAME']
+
+net_name = config_training['modeling']['NET_NAME']
 
 # net_name = 'GRU-6IN-16H1-16H2-5OUT-0'
 # net_name = 'Dense-6IN-16H1-16H2-5OUT-0'
 # net_name = 'Dense-16H1-16H2'
 # Path to trained models and their logs
-PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
+PATH_TO_MODELS = config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config_training['paths']['path_to_experiment'] + "Models/"
 
-PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "NormalizationInfo/"
+PATH_TO_NORMALIZATION_INFO = config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config_training['paths']['path_to_experiment'] + "NormalizationInfo/"
 PATH_TO_NORMALIZATION_INFO += os.listdir(PATH_TO_NORMALIZATION_INFO)[0]
 
 # The following paths to dictionaries may be replaced by the list of paths to data files.
-TRAINING_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "/Recordings/Train/"
-VALIDATION_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "/Recordings/Validate/"
-TEST_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "/Recordings/Test/"
+TRAINING_FILES = config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config_training['paths']['path_to_experiment'] + "/Recordings/Train/"
+VALIDATION_FILES = config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config_training['paths']['path_to_experiment'] + "/Recordings/Validate/"
+TEST_FILES = config_training["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config_training['paths']['path_to_experiment'] + "/Recordings/Test/"
 
 
 # region Set inputs and outputs
 
-control_inputs = config['training_default']['control_inputs']
-state_inputs = config['training_default']['state_inputs']
-setpoint_inputs = config['training_default']['setpoint_inputs']
-outputs = config['training_default']['outputs']
+control_inputs = config_training['training_default']['control_inputs']
+state_inputs = config_training['training_default']['state_inputs']
+setpoint_inputs = config_training['training_default']['setpoint_inputs']
+outputs = config_training['training_default']['outputs']
+
+EPOCHS = config_training['training_default']['EPOCHS']
+BATCH_SIZE = config_training['training_default']['BATCH_SIZE']
+SEED = config_training['training_default']['SEED']
+LR = config_training['training_default']['LR']
+
+WASH_OUT_LEN = config_training['training_default']['WASH_OUT_LEN']
+POST_WASH_OUT_LEN = config_training['training_default']['POST_WASH_OUT_LEN']
+ON_FLY_DATA_GENERATION = config_training['training_default']['ON_FLY_DATA_GENERATION']
+NORMALIZE = config_training['training_default']['NORMALIZE']
+
+TEST_LEN = config_testing['testing']['TEST_LEN']
+START_IDX = config_testing['testing']['START_IDX']
+MAX_HORIZON = config_testing['testing']['MAX_HORIZON']
 
 # For l2race
 # control_inputs = ['u1', 'u2']
@@ -71,22 +87,22 @@ def args():
                         help='List of outputs from neural network')
 
     # Only valid for graphical testing:
-    parser.add_argument('--test_len', default=50, type=int,
-                        help='For graphical testing only test_len samples from first test file is taken.')
-    parser.add_argument('--test_start_idx', default=100, type=int, help='Indicates from which point data from test file should be taken.')
-    parser.add_argument('--test_max_horizon', default=5, type=int,
-                        help='Indicates prediction horizon for testing.')
+    # parser.add_argument('--test_len', default=TEST_LEN,
+    #                     help='For graphical testing only test_len samples from first test file is taken.')
+    # parser.add_argument('--test_start_idx', default=START_IDX, type=int, help='Indicates from which point data from test file should be taken.')
+    # parser.add_argument('--test_max_horizon', default=MAX_HORIZON, type=int,
+    #                     help='Indicates prediction horizon for testing.')
 
     # Training only:
-    parser.add_argument('--wash_out_len', default=10, type=int, help='Number of timesteps for a wash-out sequence, min is 0')
-    parser.add_argument('--post_wash_out_len', default=20, type=int,
+    parser.add_argument('--wash_out_len', default=WASH_OUT_LEN, type=int, help='Number of timesteps for a wash-out sequence, min is 0')
+    parser.add_argument('--post_wash_out_len', default=POST_WASH_OUT_LEN, type=int,
                         help='Number of timesteps after wash-out sequence (this is used to calculate loss), min is 1')
 
     # Training parameters
-    parser.add_argument('--num_epochs', default=20, type=int, help='Number of epochs of training')
-    parser.add_argument('--batch_size', default=64, type=int, help='Size of a batch')
-    parser.add_argument('--seed', default=1873, type=int, help='Set seed for reproducibility')
-    parser.add_argument('--lr', default=1.0e-2, type=float, help='Learning rate')
+    parser.add_argument('--num_epochs', default=EPOCHS, type=int, help='Number of epochs of training')
+    parser.add_argument('--batch_size', default=BATCH_SIZE, type=int, help='Size of a batch')
+    parser.add_argument('--seed', default=SEED, type=int, help='Set seed for reproducibility')
+    parser.add_argument('--lr', default=LR, type=float, help='Learning rate')
 
     parser.add_argument('--path_to_models', default=PATH_TO_MODELS, type=str,
                         help='Path where to save/ from where to load models')
@@ -94,9 +110,9 @@ def args():
     parser.add_argument('--path_to_normalization_info', default=PATH_TO_NORMALIZATION_INFO, type=str,
                         help='Path where the cartpole data is saved')
 
-    parser.add_argument('--on_fly_data_generation', default=False, type=bool,
+    parser.add_argument('--on_fly_data_generation', default=ON_FLY_DATA_GENERATION, type=bool,
                         help='Generate data for training during training, instead of loading previously saved data')
-    parser.add_argument('--normalize', default=True, type=bool, help='Make all data between 0 and 1')
+    parser.add_argument('--normalize', default=NORMALIZE, type=bool, help='Make all data between 0 and 1')
 
     args = parser.parse_args()
 
