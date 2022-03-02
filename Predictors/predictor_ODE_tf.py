@@ -1,22 +1,9 @@
-# "Command line" parameters
-from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
-# from SI_Toolkit.load_and_normalize import
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS, \
-    augment_predictor_output
-from types import SimpleNamespace
-import yaml
-import os
+from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES
 
-#  FIXME: YOU SHOULD IMPORT IT THROUGH SI_TOOLKIT_APPLICATION...
-from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, POSITION_IDX, POSITIOND_IDX
 from SI_Toolkit_ApplicationSpecificFiles.predictors_customization_tf import next_state_predictor_ODE_tf
 
 import tensorflow as tf
 import numpy as np
-
-from others.p_globals import (
-    k, M, m, g, J_fric, M_fric, L, v_max, u_max, controlDisturbance, controlBias, TrackHalfLength
-)
 
 
 class predictor_ODE_tf:
