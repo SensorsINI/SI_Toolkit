@@ -15,6 +15,7 @@ class predictor_autoregressive_tf:
         self.horizon = horizon
         self.normalization = normalization
 
+        self.initial_state = None
         self.initial_state_tf = None
         self.prev_initial_state_tf = None
 
@@ -80,23 +81,21 @@ class predictor_autoregressive_tf:
                 self.rnn_internal_states = [tf.zeros(shape=(self.batch_size, layer.units)) for layer in self.gru_layers]
             self.Q_prev = tf.zeros(shape=(self.batch_size, 1, len(CONTROL_INPUTS)), dtype=tf.float32)
 
-    # TODO: replace everywhere with predict_tf
-    # DEPRECATED: This version is in-efficient since it copies all batches to GPU
-    def setup(self, initial_state, prediction_denorm=True):
-        self.initial_input = initial_state
 
     # TODO: replace everywhere with predict_tf
     # DEPRECATED: This version is in-efficient since it copies all batches to GPU
-    def predict(self, Q, single_step=False):
+    def predict(self, initial_state, Q):
         # print('************\n************\n************\n************\n************\n************\n')
         # Predict TF
-        net_output = self.predict_tf(tf.convert_to_tensor(self.initial_input[0,...], dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32))
+
+        self.initial_state = initial_state
+
+        net_output = self.predict_tf(tf.convert_to_tensor(self.initial_state[0,...], dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32))
 
         # Prepare Deprecated Output
-        output_array = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES) + self.control_length], dtype=np.float32)
-        output_array[:, 0, :-self.control_length] = self.initial_input
-        output_array[..., :-1, -len(CONTROL_INPUTS):] = Q
-        output_array[:, 1:, :len(STATE_VARIABLES)] = net_output.numpy()
+        output_array = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)], dtype=np.float32)
+        output_array[:, 0, :] = self.initial_state
+        output_array[:, 1:, :] = net_output.numpy()
 
         return output_array
 
@@ -156,12 +155,10 @@ class predictor_autoregressive_tf:
 
     # TODO: replace everywhere with update_internal_state_tf
     # DEPRECATED: This version is in-efficient since it copies all batches to GPU
-    def update_internal_state(self, Q):
+    def update_internal_state(self, s, Q):
         if self.net_name != 'EulerTF':
             if tf.is_tensor(Q):
                 self.update_internal_state_tf(tf.convert_to_tensor(Q[0,...], dtype=tf.float32))
-            else:
-                self.update_internal_state_tf(tf.convert_to_tensor(Q, dtype=tf.float32))
 
     @tf.function(experimental_compile=True)
     def iterate_net(self, Q, initial_state):

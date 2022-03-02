@@ -151,7 +151,7 @@ class predictor_autoregressive_tf:
         return net_outputs
 
     # @tf.function
-    def update_internal_state(self, Q0):
+    def update_internal_state(self, s, Q0):
         # load internal RNN state
         load_internal_states(self.net, self.rnn_internal_states)
 

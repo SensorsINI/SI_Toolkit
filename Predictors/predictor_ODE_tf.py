@@ -1,11 +1,16 @@
-
 # "Command line" parameters
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
 # from SI_Toolkit.load_and_normalize import
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS, augment_predictor_output
+from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS, \
+    augment_predictor_output
 from types import SimpleNamespace
 import yaml
 import os
+
+from CartPole.cartpole_tf import wrap_angle_rad
+from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, POSITION_IDX, POSITIOND_IDX
+from SI_Toolkit_ApplicationSpecificFiles.predictors_customization_tf import next_state_predictor_ODE_tf
+
 import tensorflow as tf
 import numpy as np
 
@@ -13,144 +18,102 @@ from others.p_globals import (
     k, M, m, g, J_fric, M_fric, L, v_max, u_max, controlDisturbance, controlBias, TrackHalfLength
 )
 
+
 class predictor_ODE_tf:
-    def __init__(self, horizon=None, batch_size=None, net_name=None, dt=0.02, intermediate_steps=10, normalization=True):
-        self.net_name = net_name
-        self.net_type = net_name
-        self.batch_size = batch_size
-        self.horizon = horizon
+    def __init__(self, horizon=None, dt=0.02, intermediate_steps=10):
+
+        self.horizon = tf.convert_to_tensor(horizon)
+        self.batch_size = None  # Will be adjusted the control input size
+
+        self.initial_state = tf.zeros(shape=(1, len(STATE_VARIABLES)))
+        self.output = None
+
         self.dt = dt
         self.intermediate_steps = intermediate_steps
-        self.normalization = normalization
 
-        self.initial_state_tf = None
-        self.prev_initial_state_tf = None
+        self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps)
 
-        self.control_length = len(CONTROL_INPUTS)
-        self.state_length =len(STATE_VARIABLES)
-        self.state_indices_list = [STATE_INDICES.get(key) for key in STATE_VARIABLES]
+    def predict(self, initial_state, Q):
 
-    # TODO: replace everywhere with predict_tf
-    # DEPRECATED: This version is in-efficient since it copies all batches to GPU
-    def setup(self, initial_state, prediction_denorm=True):
-        self.initial_input = initial_state
+        if Q.ndim == 3:  # Q.shape = [batch_size, timesteps, features]
+            pass
+        elif Q.ndim == 2:  # Q.shape = [timesteps, features]
+            Q = Q[np.newaxis, :, :]
+        else:  # Q.shape = [features;  tf.rank(Q) == 1
+            Q = Q[np.newaxis, np.newaxis, :]
 
-    # TODO: replace everywhere with predict_tf
-    # DEPRECATED: This version is in-efficient since it copies all batches to GPU
-    def predict(self, Q, single_step=False):
-        # Predict TF
-        net_output = self.predict_tf(tf.convert_to_tensor(self.initial_input[0,...], dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32))
+        # Make sure the input is at least 2d
+        if initial_state.ndim == 1:
+            initial_state = initial_state[np.newaxis, :]
 
-        # Prepare Deprecated Output
-        output_array = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES) + self.control_length], dtype=np.float32)
-        output_array[:, 0, :-self.control_length] = self.initial_input
-        output_array[..., :-1, -len(CONTROL_INPUTS):] = Q
-        output_array[:, 1:, :len(STATE_VARIABLES)] = net_output.numpy()
+        Q = tf.convert_to_tensor(Q, dtype=tf.float32)
+        self.batch_size = tf.shape(Q)[0]
+        initial_state = tf.convert_to_tensor(initial_state, dtype=tf.float32)
 
-        return output_array
+        self.initial_state = initial_state
 
-    # Predict (Euler: 6.8ms, RNN:10.5ms)
+        # I hope this commented fragment can be converted to one graph with tf.function, merging with predict_tf.
+        # But it throws an error.
+        # self.initial_state = tf.cond(
+        #     tf.math.logical_and(tf.equal(tf.shape(self.initial_state)[0], 1), tf.not_equal(tf.shape(Q)[0], 1)),
+        #     lambda: tf.tile(self.initial_state, (self.batch_size, 1)),
+        #     lambda: self.initial_state
+        # )
+
+        if tf.shape(self.initial_state)[0] == 1 and tf.shape(Q)[0] != 1:  # Predicting multiple control scenarios for the same initial state
+            output = self.predict_tf_tile(self.initial_state, Q, self.batch_size)
+        else:  # tf.shape(self.initial_state)[0] == tf.shape(Q)[0]:  # For each control scenario there is separate initial state provided
+            output = self.predict_tf(self.initial_state, Q)
+
+        if self.batch_size > 1:
+            return output.numpy()
+        else:
+            return tf.squeeze(output).numpy()
+
     @tf.function(experimental_compile=True)
-    def predict_tf(self, initial_state, Q):
+    def predict_tf_tile(self, initial_state, Q, batch_size, params=None): # Predicting multiple control scenarios for the same initial state
+        initial_state = tf.tile(initial_state, (batch_size, 1))
+        return self.predict_tf(initial_state, Q, params=params)
 
-        self.initial_state_tf = tf.tile(tf.expand_dims(initial_state, axis=0), [self.batch_size, 1])
 
-        # Run Iterations
-        net_outputs = self.iterate_net(initial_state=self.initial_state_tf, Q=Q)
+    # Predict (Euler: 6.8ms)
+    @tf.function(experimental_compile=True)
+    def predict_tf(self, initial_state, Q, params=None):
 
-        return net_outputs
+        self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
+        self.output = self.output.write(0, initial_state)
 
-    def update_internal_state(self, Q):
+        next_state = initial_state
+
+        for k in tf.range(self.horizon):
+            next_state = self.next_step_predictor.step(next_state, Q[:, k, :], params)
+            self.output = self.output.write(k + 1, next_state)
+
+        self.output = tf.transpose(self.output.stack(), perm=[1, 0, 2])
+
+        return self.output
+
+    def update_internal_state(self, s, Q):
         pass
 
-    @tf.function(experimental_compile=True)
-    def iterate_net(self, Q, initial_state):
 
-        net_output = tf.zeros(shape=(self.batch_size, self.state_length), dtype=tf.float32)
-        net_outputs = tf.TensorArray(tf.float32, size=self.horizon, dynamic_size=False)
+if __name__ == '__main__':
+    import timeit
 
-        for i in tf.range(self.horizon):
-            Q_current = Q[..., i, :]
+    initialisation = '''
+from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
+from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import CONTROL_INPUTS
+import numpy as np
+batch_size = 2000
+horizon = 50
+predictor = predictor_ODE_tf(horizon, 0.02, 10)
+initial_state = np.random.random(size=(batch_size, 6))
+# initial_state = np.random.random(size=(1, 6))
+Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
+predictor.predict(initial_state, Q)
+'''
 
-            if i == 0:
-                net_input = tf.concat([Q_current, initial_state], axis=1)
-            else:
-                net_input = tf.concat([Q_current, net_output], axis=1)
+    code = '''\
+predictor.predict(initial_state, Q)'''
 
-            net_output = self.euler_net(net_input)
-
-            net_outputs = net_outputs.write(i, net_output)
-
-        output = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
-
-        return output
-
-    @tf.function(experimental_compile=True)
-    def cartpole_ode(self, x, Q):
-        # Coordinates Change (Angles are flipped in respect to https://sharpneat.sourceforge.io/research/cart-pole/cart-pole-equations.html)
-        angle       = -x[:, 0]
-        angleD      = -x[:, 1]
-        position    = x[:, 2]
-        positionD   = x[:, 3]
-
-        ca = tf.math.cos(angle)
-        sa = tf.math.sin(angle)
-        f = u_max * Q
-
-        # Cart Friction
-        # Equation 34  (https://sharpneat.sourceforge.io/research/cart-pole/cart-pole-equations.html)
-        # Alternatives: Equation 31, 32, 33
-        F_f = - M_fric * positionD
-
-        # Joint Friction
-        # Equation 40 (https://sharpneat.sourceforge.io/research/cart-pole/cart-pole-equations.html)
-        # Alternatives: Equation 35, 39, 38 & 41
-        M_f = J_fric * angleD
-
-        # Equation 28-F (https://sharpneat.sourceforge.io/research/cart-pole/cart-pole-equations.html)
-        positionDD = (
-                (
-                        m * g * sa * ca  # Gravity
-                        - (1 + k) * (
-                                f  # Motor Force
-                                + (m * L * angleD**2 * sa)  # Movement from Pole
-                                + F_f  # Cart Friction
-                        )
-                        - (M_f * ca / L)  # Joint Friction
-                ) / (m * ca**2 - (1 + k) * (M + m))
-        )
-        #positionDD = tf.zeros_like(sa)
-
-        # Equation 27-F (https://sharpneat.sourceforge.io/research/cart-pole/cart-pole-equations.html)
-        angleDD = (
-            (
-                g * sa                  # Gravity
-                - positionDD * ca       # Movement from Cart
-                - M_f / (m * L)         # Joint Friction
-            ) / ((1 + k) * L)
-        )
-
-        return tf.stack([-angleD, -angleDD, positionD, positionDD], axis=1)
-
-    @tf.function(experimental_compile=True)
-    def euler(self, x, Q, h):
-        derivative = self.cartpole_ode(x, Q)
-        return x + derivative*h
-
-    @tf.function(experimental_compile=True)
-    def angle_wrapping(self, x):
-        return tf.math.atan2(tf.math.sin(x), tf.math.cos(x))
-
-    @tf.function(experimental_compile=True)
-    def euler_net(self, inputs):
-        # Input Order [Q, angle, angleD, angle_cos, angle_sin, position, positionD]
-        Q = inputs[:,0]
-        x = tf.gather(inputs, [1,2,5,6], axis=1)
-
-        self.t_step = tf.constant(self.dt / self.intermediate_steps, dtype=tf.float32)
-
-        for i in range(self.intermediate_steps):
-            x = self.euler(x, Q, self.t_step)
-
-        # Output Order [angle, angleD, angle_cos, angle_sin, position, positionD]
-        return tf.stack([self.angle_wrapping(x[:, 0]), x[:, 1], tf.math.cos(x[:,0]), tf.math.sin(x[:,0]), x[:, 2], x[:, 3]], axis=1)
+    print(timeit.timeit(code, number=100, setup=initialisation) / 100.0)

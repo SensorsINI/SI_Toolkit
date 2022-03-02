@@ -4,10 +4,7 @@ class predictor_ODE:
     def __init__(self, horizon, dt, intermediate_steps=1):
         pass
 
-    def setup(self, initial_state: np.ndarray, prediction_denorm=False):
-        pass
-
-    def predict(self, Q: np.ndarray) -> np.ndarray:
+    def predict(self, initial_state: np.ndarray, Q: np.ndarray) -> np.ndarray:
         prediction = None
         return prediction
 

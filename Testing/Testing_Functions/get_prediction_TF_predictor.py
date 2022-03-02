@@ -19,37 +19,43 @@ def get_data_for_gui_TF(a, dataset, net_name, dt, intermediate_steps):
     Q_array = [Q[..., i:-a.test_max_horizon+i, :] for i in range(a.test_max_horizon)]
     Q_array = np.stack(Q_array, axis=1)
 
+    output_array = np.zeros([a.test_len, a.test_max_horizon + 1, len(a.features) + len(CONTROL_INPUTS)],
+                            dtype=np.float32)
+    output_array[:, :-1, -len(CONTROL_INPUTS):] = Q_array
+
     if net_name[:5] == 'Dense':
         mode = 'batch'
     else:
         mode = 'sequential'
-    mode = 'sequential'
+    mode = 'batch'
+    # mode = 'sequential'
     if mode == 'batch':
         # All at once
         # TODO: Euler TF here in batch mode produces strange results
         if net_name == 'EulerTF':
-            predictor = predictor_ODE_tf(horizon=a.test_max_horizon, batch_size=a.test_len, net_name=net_name, dt=dt)
+            predictor = predictor_ODE_tf(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
         else:
             predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len,
                                                     net_name=net_name)
-        predictor.setup(initial_state=states_0)
-        output_array = predictor.predict(Q_array)
+
+        output = predictor.predict(states_0, Q_array)
+        output_array[:, :, :-len(CONTROL_INPUTS)] = output[..., [STATE_INDICES.get(key) for key in a.features]]
 
     elif mode == 'sequential':
         # predictor = predictor_autoregressive_tf(a=a, batch_size=1)
         if net_name == 'EulerTF':
-            predictor = predictor_ODE_tf(horizon=a.test_max_horizon, batch_size=1, net_name=net_name, dt=dt)
+            predictor = predictor_ODE_tf(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
         else:
             predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=1, net_name=net_name)
         # Iteratively (to test internal state update)
-        output_array = np.zeros([a.test_len, a.test_max_horizon + 1, len(STATE_VARIABLES) + len(CONTROL_INPUTS)], dtype=np.float32)
+        output = np.zeros([a.test_len, a.test_max_horizon + 1, len(a.features)],
+                            dtype=np.float32)
         for timestep in trange(a.test_len):
             Q_current_timestep = Q_array[np.newaxis, timestep, :]
             s_current_timestep = states_0[timestep, np.newaxis]
-            predictor.setup(initial_state=s_current_timestep, prediction_denorm=True)
-            output_array[timestep,:,:] = predictor.predict(Q_current_timestep)
-            predictor.update_internal_state(Q_current_timestep[:, :1, :])
+            output[timestep, :, :] = predictor.predict(s_current_timestep, Q_current_timestep)
+            predictor.update_internal_state(s_current_timestep, Q_current_timestep[:, :1, :])
 
-    output_array = output_array[..., [STATE_INDICES.get(key) for key in a.features] + [CONTROL_INDICES.get(key) for key in CONTROL_INPUTS]]
+        output_array[:, :, :-len(CONTROL_INPUTS)] = output[..., [STATE_INDICES.get(key) for key in a.features]]
 
     return output_array
