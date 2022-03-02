@@ -83,14 +83,14 @@ class predictor_autoregressive_tf:
 
         self.net_initial_input_without_Q = np.zeros([len(self.net_info.inputs) - len(CONTROL_INPUTS)], dtype=np.float32)
 
-        self.output_array = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES) + len(CONTROL_INPUTS)],
+        self.output_array = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
                                      dtype=np.float32)
 
         print('Init done')
 
-    def setup(self, initial_state: np.array, prediction_denorm=True):
+    def predict(self, initial_state, Q) -> np.array:
 
-        self.output_array[..., 0, :-len(CONTROL_INPUTS)] = initial_state
+        self.output_array[..., 0, :] = initial_state
         initial_input_net_without_Q = initial_state[
             ..., [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]]]
         self.net_initial_input_without_Q = normalize_numpy_array(initial_input_net_without_Q,
@@ -102,10 +102,8 @@ class predictor_autoregressive_tf:
                                                          [-1, len(self.net_info.inputs[len(CONTROL_INPUTS):])])
 
 
-    def predict(self, Q) -> np.array:
 
         output_array = self.output_array
-        output_array[..., :-1, -len(CONTROL_INPUTS):] = Q
 
         # load internal RNN state if applies
         load_internal_states(self.net, self.rnn_internal_states)

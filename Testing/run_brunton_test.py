@@ -2,8 +2,7 @@
 from SI_Toolkit.Testing.Parameters_for_testing import args
 
 from SI_Toolkit.Testing.Testing_Functions.preprocess_for_brunton import preprocess_for_brunton
-from SI_Toolkit.Testing.Testing_Functions.get_prediction_TF_predictor import get_data_for_gui_TF
-from SI_Toolkit.Testing.Testing_Functions.get_prediction_from_euler_predictor import get_prediction_from_euler_predictor
+from SI_Toolkit.Testing.Testing_Functions.get_prediction import get_prediction
 from SI_Toolkit.Testing.Testing_Functions.Brunton_GUI import run_test_gui
 
 a = args()  # 'a' like arguments
@@ -14,12 +13,9 @@ def run_brunton_test():
 
     predictions_list = []
     for test_idx in range(len(a.tests)):
-        if a.tests[test_idx] == 'Euler':
-            predictions = get_prediction_from_euler_predictor(a, dataset, dataset_sampling_dt, intermediate_steps=10)
-        else:  # Assume this is a neural_network test:
-            predictions = get_data_for_gui_TF(a, dataset, net_name=a.tests[test_idx], dt=dataset_sampling_dt, intermediate_steps=10)
-
-        predictions_list.append(predictions)
+        predictions_list.append(
+            get_prediction(a, dataset, predictor_name=a.tests[test_idx], dt=dataset_sampling_dt, intermediate_steps=10)
+        )
 
     run_test_gui(a.features, a.titles,
                  ground_truth, predictions_list, time_axis,
