@@ -148,6 +148,7 @@ class predictor_autoregressive_tf:
 
         return net_outputs
 
+    # FIXME: STATE IS NOT USED CORRECTLY
     # @tf.function
     def update_internal_state(self, s, Q0):
         # load internal RNN state

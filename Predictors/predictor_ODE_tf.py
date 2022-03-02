@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import yaml
 import os
 
-from CartPole.cartpole_tf import wrap_angle_rad
+#  FIXME: YOU SHOULD IMPORT IT THROUGH SI_TOOLKIT_APPLICATION...
 from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, POSITION_IDX, POSITIOND_IDX
 from SI_Toolkit_ApplicationSpecificFiles.predictors_customization_tf import next_state_predictor_ODE_tf
 
