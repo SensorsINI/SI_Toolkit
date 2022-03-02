@@ -227,18 +227,18 @@ def get_sampling_interval_from_datafile(path_to_datafile):
 
 # This function returns the saving interval of datafile
 # Used to ensure that datafiles used for training save data with the same frequency
-def get_sampling_interval_from_normalization_info(path_to_normalization_info):
-    preceding_text = '# Sampling interval of data used to calculate normalization: '
-    with open(path_to_normalization_info, 'r') as cmt_file:  # open file
-        for line in cmt_file:  # read each line
-            if line[0:len(preceding_text)] == preceding_text:
-                dt_information = line[len(preceding_text):]
-                if dt_information == 'Not constant!':
-                    print('The normalization information was calculated with data with varying sampling frequency.')
-                    dt_save = None
-                else:
-                    dt_save = float(dt_information[:-2])
-                return dt_save
+# def get_sampling_interval_from_normalization_info(path_to_normalization_info):
+#     preceding_text = '# Sampling interval of data used to calculate normalization: '
+#     with open(path_to_normalization_info, 'r') as cmt_file:  # open file
+#        for line in cmt_file:  # read each line
+#             if line[0:len(preceding_text)] == preceding_text:
+#                 dt_information = line[len(preceding_text):]
+#                 if dt_information == 'Not constant!':
+#                     print('The normalization information was calculated with data with varying sampling frequency.')
+#                     dt_save = None
+#                 else:
+#                     dt_save = float(dt_information[:-2])
+#                 return dt_save
 
 
 def calculate_normalization_info(paths_to_data_information=None, plot_histograms=True, user_correction=True, path_to_norm_info=None):
