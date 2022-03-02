@@ -58,7 +58,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
 config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
 
-NET_NAME = config['modeling']['NET_NAME']  # TODO pulling data from training_config is problematic for Testing
+NET_NAME = config['modeling']['NET_NAME']  # TODO pulling data from training_config is problematic for Testing and operation of controller
 PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
 
 
