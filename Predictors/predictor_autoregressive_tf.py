@@ -103,44 +103,43 @@ class predictor_autoregressive_tf:
 
         self.rnn_internal_states = get_internal_states(self.net)
 
-        self.net_initial_input_without_Q = np.zeros([len(self.net_info.inputs) - len(CONTROL_INPUTS)], dtype=np.float32)
+        self.net_input_reg_initial_normed = None
 
-        self.output_array = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
+        self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
                                      dtype=np.float32)
 
         print('Init done')
 
     def predict(self, initial_state, Q) -> np.array:
 
-        self.output_array[..., 0, :] = initial_state
-        initial_input_net_without_Q = initial_state[
-            ..., [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]]]
-        self.net_initial_input_without_Q = normalize_numpy_array(initial_input_net_without_Q,
-                                                                 self.net_info.inputs[len(CONTROL_INPUTS):],
-                                                                 self.normalization_info)
+        initial_state, Q = check_dimensions(initial_state, Q)
+        self.output[:, 0, :] = initial_state
 
-        self.net_initial_input_without_Q_TF = tf.convert_to_tensor(self.net_initial_input_without_Q, tf.float32)
-        self.net_initial_input_without_Q_TF = tf.reshape(self.net_initial_input_without_Q_TF,
-                                                         [-1, len(self.net_info.inputs[len(CONTROL_INPUTS):])])
+        net_input_reg_initial = initial_state[:, [STATE_INDICES.get(key) for key in
+                                                  self.net_info.inputs[len(CONTROL_INPUTS):]]]  # [batch_size, features]
 
-        output_array = self.output_array
+        self.net_input_reg_initial_normed = normalize_numpy_array(net_input_reg_initial,
+                                                                  self.net_info.inputs[len(CONTROL_INPUTS):],
+                                                                  self.normalization_info)
+
+        self.net_input_reg_initial_normed, Q = convert_to_tensors(self.net_input_reg_initial_normed, Q)
 
         # load internal RNN state if applies
         load_internal_states(self.net, self.rnn_internal_states)
 
-        net_outputs = self.iterate_net(Q, self.net_initial_input_without_Q_TF)
+        net_outputs = self.iterate_net(Q, self.net_input_reg_initial_normed)
 
         # Denormalize
-        output_array[..., 1:, [STATE_INDICES.get(key) for key in self.net_info.outputs]] = \
+        self.output[..., 1:, [STATE_INDICES.get(key) for key in self.net_info.outputs]] = \
             denormalize_numpy_array(net_outputs.numpy(), self.net_info.outputs, self.normalization_info)
 
         # Augment
-        augment_predictor_output(output_array, self.net_info)
+        augment_predictor_output(self.output, self.net_info)
 
-        return output_array
+        return self.output
 
     @tf.function(experimental_compile=True)
-    def iterate_net(self, Q, net_initial_input_without_Q_TF):
+    def iterate_net(self, Q, net_input_reg_initial_normed):
 
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
         net_output = tf.zeros(shape=(self.batch_size, len(self.net_info.outputs)), dtype=tf.float32)
@@ -151,7 +150,7 @@ class predictor_autoregressive_tf:
 
             if i == 0:
                 net_input = tf.reshape(
-                    tf.concat([Q_current, net_initial_input_without_Q_TF], axis=1),
+                    tf.concat([Q_current, net_input_reg_initial_normed], axis=1),
                     shape=[-1, 1, len(self.net_info.inputs)])
             else:
                 net_input = tf.reshape(
@@ -169,18 +168,22 @@ class predictor_autoregressive_tf:
         return net_outputs
 
     # FIXME: STATE IS NOT USED CORRECTLY
-    # @tf.function
     def update_internal_state(self, s, Q0):
+        # Run current input through network
+        Q0 = tf.convert_to_tensor(Q0, dtype=tf.float32)
+        self.update_internal_state_tf(Q0)
+
+
+    # @tf.function(experimental_compile=True)
+    def update_internal_state_tf(self, Q0):
         # load internal RNN state
+
         load_internal_states(self.net, self.rnn_internal_states)
 
-        # Run current input through network
-        Q0 = tf.squeeze(tf.convert_to_tensor(Q0, dtype=tf.float32))
-        Q0 = tf.reshape(Q0, [1, -1])
         if self.net_info.net_type == 'Dense':
-            net_input = tf.concat([Q0, self.net_initial_input_without_Q_TF], axis=1)
+            net_input = tf.concat([Q0[:, 0, :], self.net_input_reg_initial_normed], axis=1)
         else:
-            net_input = (tf.reshape(tf.concat([Q0, self.net_initial_input_without_Q_TF], axis=1),
+            net_input = (tf.reshape(tf.concat([Q0[:, 0, :], self.net_input_reg_initial_normed], axis=1),
                                     [-1, 1, len(self.net_info.inputs)]))
 
         self.net(net_input)  # Using net directly
