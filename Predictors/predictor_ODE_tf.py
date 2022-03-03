@@ -6,6 +6,25 @@ import tensorflow as tf
 import numpy as np
 
 
+def check_dimensions(s, Q):
+    # Make sure the input is at least 2d
+    if s.ndim == 1:
+        s = s[np.newaxis, :]
+
+    if Q.ndim == 3:  # Q.shape = [batch_size, timesteps, features]
+        pass
+    elif Q.ndim == 2:  # Q.shape = [timesteps, features]
+        Q = Q[np.newaxis, :, :]
+    else:  # Q.shape = [features;  tf.rank(Q) == 1
+        Q = Q[np.newaxis, np.newaxis, :]
+
+    return s, Q
+
+
+def convert_to_tensors(s, Q):
+    return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
+
+
 class predictor_ODE_tf:
     def __init__(self, horizon=None, dt=0.02, intermediate_steps=10):
 
@@ -22,21 +41,11 @@ class predictor_ODE_tf:
 
     def predict(self, initial_state, Q):
 
-        if Q.ndim == 3:  # Q.shape = [batch_size, timesteps, features]
-            pass
-        elif Q.ndim == 2:  # Q.shape = [timesteps, features]
-            Q = Q[np.newaxis, :, :]
-        else:  # Q.shape = [features;  tf.rank(Q) == 1
-            Q = Q[np.newaxis, np.newaxis, :]
+        initial_state, Q = check_dimensions(initial_state, Q)
 
-        # Make sure the input is at least 2d
-        if initial_state.ndim == 1:
-            initial_state = initial_state[np.newaxis, :]
+        initial_state, Q = convert_to_tensors(initial_state, Q)
 
-        Q = tf.convert_to_tensor(Q, dtype=tf.float32)
         self.batch_size = tf.shape(Q)[0]
-        initial_state = tf.convert_to_tensor(initial_state, dtype=tf.float32)
-
         self.initial_state = initial_state
 
         # I hope this commented fragment can be converted to one graph with tf.function, merging with predict_tf.
@@ -82,6 +91,9 @@ class predictor_ODE_tf:
 
     def update_internal_state(self, s, Q):
         pass
+
+
+
 
 
 if __name__ == '__main__':

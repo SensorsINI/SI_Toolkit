@@ -29,7 +29,7 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     else:
         mode = 'batch'
 
-    mode = 'sequential'
+    # mode = 'sequential'
     # mode = 'batch'
 
     if 'EulerTF' in predictor_name:

@@ -56,10 +56,30 @@ import tensorflow as tf
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_testing.yml'), 'r'),
+                   Loader=yaml.FullLoader)
 
-NET_NAME = config['modeling']['NET_NAME']  # TODO pulling data from training_config is problematic for Testing and operation of controller
-PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
+PATH_TO_NN = config['testing']['PATH_TO_NN']
+
+
+def check_dimensions(s, Q):
+
+    # Make sure the input is at least 2d
+    if s.ndim == 1:
+        s = s[np.newaxis, :]
+
+    if Q.ndim == 3:  # Q.shape = [batch_size, timesteps, features]
+        pass
+    elif Q.ndim == 2:  # Q.shape = [timesteps, features]
+        Q = Q[np.newaxis, :, :]
+    else:  # Q.shape = [features;  tf.rank(Q) == 1
+        Q = Q[np.newaxis, np.newaxis, :]
+
+    return s, Q
+
+
+def convert_to_tensors(s, Q):
+    return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
 
 class predictor_autoregressive_tf:
@@ -69,7 +89,9 @@ class predictor_autoregressive_tf:
         self.horizon = horizon
 
         a = SimpleNamespace()
-        a.path_to_models = PATH_TO_MODELS
+
+        a.path_to_models = PATH_TO_NN
+
         a.net_name = net_name
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
@@ -100,8 +122,6 @@ class predictor_autoregressive_tf:
         self.net_initial_input_without_Q_TF = tf.convert_to_tensor(self.net_initial_input_without_Q, tf.float32)
         self.net_initial_input_without_Q_TF = tf.reshape(self.net_initial_input_without_Q_TF,
                                                          [-1, len(self.net_info.inputs[len(CONTROL_INPUTS):])])
-
-
 
         output_array = self.output_array
 

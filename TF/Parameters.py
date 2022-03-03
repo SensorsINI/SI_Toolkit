@@ -13,9 +13,6 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'con
 
 net_name = config['modeling']['NET_NAME']
 
-# net_name = 'GRU-6IN-16H1-16H2-5OUT-0'
-# net_name = 'Dense-6IN-16H1-16H2-5OUT-0'
-# net_name = 'Dense-16H1-16H2'
 # Path to trained models and their logs
 PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
 
