@@ -115,4 +115,4 @@ predictor.predict(initial_state, Q)
     code = '''\
 predictor.predict(initial_state, Q)'''
 
-    print(timeit.timeit(code, number=100, setup=initialisation) / 100.0)
+    print(timeit.timeit(code, number=1000, setup=initialisation) / 1000.0)
