@@ -98,28 +98,27 @@ def compose_net_from_net_name(net_name,
     return net, net_info
 
 
-@tf.function(experimental_compile=True)
-def get_internal_states(net):
-    states_list = []
-    for layer in net.layers:
+@tf.function(jit_compile=True)
+def copy_internal_states_to_ref(net, layers_ref):
+    for layer, layer_ref in zip(net.layers, layers_ref):
         if (('gru' in layer.name) or
                 ('lstm' in layer.name) or
                 ('rnn' in layer.name)):
-            single_states = []
-            for single_state in layer.states:
-                captured_single_state = tf.identity(single_state)
-                single_states.append(captured_single_state)
 
-            states_list.append(single_states)
+            for single_state, single_state_ref in zip(layer.states, layer_ref.states):
+                single_state_ref.assign(tf.convert_to_tensor(single_state))
         else:
-            states_list.append(None)
-    return states_list
+            pass
 
 
-@tf.function(experimental_compile=True)
-def load_internal_states(net, states):
-    for layer, state in zip(net.layers, states):
+@tf.function(jit_compile=True)
+def copy_internal_states_from_ref(net, layers_ref):
+    for layer, layer_ref in zip(net.layers, layers_ref):
         if (('gru' in layer.name) or
                 ('lstm' in layer.name) or
                 ('rnn' in layer.name)):
-            layer.states[0].assign(state[0])
+
+            for single_state, single_state_ref in zip(layer.states, layer_ref.states):
+                single_state.assign(tf.convert_to_tensor(single_state_ref))
+        else:
+            pass

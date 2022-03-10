@@ -40,7 +40,7 @@ Using predictor:
 
 # "Command line" parameters
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states #FIXME: get internal states, surely does nor work with Pytorch
+from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states  #FIXME: get internal states, surely does nor work with Pytorch; removed from master 10.03.2022
 from SI_Toolkit.load_and_normalize import *
 
 try:

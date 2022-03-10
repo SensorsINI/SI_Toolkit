@@ -202,20 +202,6 @@ def get_net(a,
 
             net_info.path_to_net = a.path_to_models + parent_net_name
 
-            # region Make a single call on an zero array to make the console output clean
-            # (just aesthetic effect to throw possible warning here and not at the beginning of training)
-
-            # # Save internal state
-            # states = get_internal_states(net)
-            #
-            # # Run test input
-            # test_input = np.zeros(shape=(batch_size, time_series_length, len(net_info.inputs)))
-            # net.predict_on_batch(test_input)
-            #
-            # # Restore initial hidden state
-            # net.reset_states()
-            # load_internal_states(net, states)
-
             # endregion
 
 

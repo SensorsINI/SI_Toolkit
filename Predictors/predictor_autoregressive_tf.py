@@ -38,7 +38,7 @@ Using predictor:
 # "Command line" parameters
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
 from SI_Toolkit.TF.TF_Functions.Normalising import normalize_tf, denormalize_tf
-from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states
+from SI_Toolkit.TF.TF_Functions.Network import copy_internal_states_from_ref, copy_internal_states_to_ref
 from SI_Toolkit.load_and_normalize import denormalize_numpy_array, normalize_numpy_array
 
 try:
@@ -104,9 +104,13 @@ class predictor_autoregressive_tf:
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
 
-        self.normalization_info = get_norm_info_for_net(self.net_info)
+        net, _ = \
+            get_net(a, time_series_length=1,
+                    batch_size=self.batch_size, stateful=True)
 
-        self.rnn_internal_states = get_internal_states(self.net)
+        self.layers_ref = net.layers
+
+        self.normalization_info = get_norm_info_for_net(self.net_info)
 
         self.normalizing_inputs = tf.convert_to_tensor(self.normalization_info[self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=tf.float32)
         self.normalizing_outputs = tf.convert_to_tensor(self.normalization_info[self.net_info.outputs], dtype=tf.float32)
@@ -137,7 +141,7 @@ class predictor_autoregressive_tf:
         )
 
         # load internal RNN state if applies
-        load_internal_states(self.net, self.rnn_internal_states)
+        copy_internal_states_from_ref(self.net, self.layers_ref)
 
         net_outputs = self.predict_tf(tf.convert_to_tensor(Q, dtype=tf.float32), self.net_input_reg_initial_normed)
 
@@ -191,7 +195,7 @@ class predictor_autoregressive_tf:
     def update_internal_state_tf(self, Q0):
         # load internal RNN state
 
-        load_internal_states(self.net, self.rnn_internal_states)
+        copy_internal_states_from_ref(self.net, self.layers_ref)
 
         if self.net_info.net_type == 'Dense':
             net_input = tf.concat([Q0[:, 0, :], self.net_input_reg_initial_normed], axis=1)
@@ -201,7 +205,7 @@ class predictor_autoregressive_tf:
 
         self.net(net_input)  # Using net directly
 
-        self.rnn_internal_states = get_internal_states(self.net)
+        copy_internal_states_to_ref(self.net, self.layers_ref)
 
 
 if __name__ == '__main__':
