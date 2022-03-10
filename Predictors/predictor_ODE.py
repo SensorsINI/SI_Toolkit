@@ -54,7 +54,7 @@ class predictor_ODE:
         self.output[:, 0, :] = self.initial_state
 
         for k in range(self.horizon):
-            self.output[..., k + 1, :] = self.next_step_predictor.step(self.output[..., k, :], Q[:, k, :], params)
+            self.output[:, k + 1, :] = self.next_step_predictor.step(self.output[:, k, :], Q[:, k, :], params)
 
         return self.output if (self.batch_size > 1) else np.squeeze(self.output)
 
