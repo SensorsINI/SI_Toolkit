@@ -65,10 +65,14 @@ PATH_TO_NN = config['testing']['PATH_TO_NN']
 def check_dimensions(s, Q):
 
     # Make sure the input is at least 2d
-    if s.ndim == 1:
+    if s is None:
+        pass
+    elif s.ndim == 1:
         s = s[np.newaxis, :]
 
-    if Q.ndim == 3:  # Q.shape = [batch_size, timesteps, features]
+    if Q is None:
+        pass
+    elif Q.ndim == 3:  # Q.shape = [batch_size, timesteps, features]
         pass
     elif Q.ndim == 2:  # Q.shape = [timesteps, features]
         Q = Q[np.newaxis, :, :]
