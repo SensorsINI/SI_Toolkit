@@ -26,6 +26,8 @@ PATH_TO_MODEL = "./SI_Toolkit_ApplicationSpecificFiles/Experiments/GP-experiment
 
 class predictor_autoregressive_GP:
     def __init__(self, horizon):
+        tf.config.run_functions_eagerly(True)
+
         self.horizon = horizon
         self.model = load_model(PATH_TO_MODEL)
         self.inputs = self.model.state_inputs + self.model.control_inputs
@@ -33,11 +35,13 @@ class predictor_autoregressive_GP:
         self.normalizing_outputs = tf.convert_to_tensor(self.model.norm_info[self.model.outputs], dtype=tf.float64)
         self.normalizing_outputs_full = tf.convert_to_tensor(self.model.norm_info[STATE_VARIABLES], dtype=tf.float64)
 
+    @tf.function(experimental_compile=True)
     def predict(self, s, Q_seq):
         Q_seq = tf.convert_to_tensor(Q_seq, dtype=tf.float64)
         Q_seq = normalize_tf(Q_seq, self.normalizing_inputs)
 
         outputs = tf.TensorArray(tf.float64, size=self.horizon+1)
+        num_rollouts = s.shape[0]
 
         if s.shape[1] > len(self.model.outputs):  # parsing full state (for mppi inputs)
             full = True
@@ -63,7 +67,7 @@ class predictor_autoregressive_GP:
 
             if full:  # parsing full state (for mppi outputs)
                 l = tf.unstack(s, axis=1)
-                l = l[:2]+tf.unstack(tf.zeros(shape=[3, s.shape[0]], dtype=tf.float64))+l[2:]
+                l = l[:2]+tf.unstack(tf.zeros(shape=[3, num_rollouts], dtype=tf.float64))+l[2:]
                 l = tf.transpose(tf.stack(l))
                 outputs = outputs.write(i+1, l)
             else:

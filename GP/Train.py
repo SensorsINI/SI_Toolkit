@@ -100,7 +100,8 @@ class MultiGPRWrapper(tf.Module):
         for m in self.models:
             opt.minimize(m.training_loss, m.trainable_variables, options=dict(maxiter=100))
 
-    @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=tf.float64)])
+    @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=tf.float64)],
+                 jit_compile=True)
     def predict_f(
         self, xnew: InputData,
         full_cov: bool = False,
