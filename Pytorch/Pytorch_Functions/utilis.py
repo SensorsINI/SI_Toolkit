@@ -124,7 +124,7 @@ def get_net(a,
             # endregion
 
             # region Get information about the pretrained network from the associated txt file
-            with open(txt_path) as f:
+            with open(txt_path, newline='') as f:
                 lines = f.read().splitlines()
 
             for i in range(len(lines)):
