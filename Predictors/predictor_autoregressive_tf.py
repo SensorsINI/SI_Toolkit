@@ -193,7 +193,11 @@ class predictor_autoregressive_tf:
                 tf.convert_to_tensor(net_input_reg_initial, dtype=tf.float32), self.normalizing_inputs
             )
 
-        self.update_internal_state_tf(net_input_reg_initial_normed, Q0)
+        if tf.shape(net_input_reg_initial_normed)[0] == 1 and tf.shape(Q0)[
+            0] != 1:  # Predicting multiple control scenarios for the same initial state
+            self.update_internal_state_tf_tile(net_input_reg_initial_normed, Q0, self.batch_size)
+        else:  # tf.shape(net_input_reg_initial_normed)[0] == tf.shape(Q0)[0]:  # For each control scenario there is separate initial state provided
+            self.update_internal_state_tf(net_input_reg_initial_normed, Q0)
 
 
     @Compile
@@ -211,6 +215,12 @@ class predictor_autoregressive_tf:
 
             copy_internal_states_to_ref(self.net, self.layers_ref)
 
+
+    @Compile
+    def update_internal_state_tf_tile(self, s, Q0, batch_size):
+
+        s = tf.tile(s, (batch_size, 1))
+        self.update_internal_state_tf(s, Q0)
 
 if __name__ == '__main__':
     import timeit
