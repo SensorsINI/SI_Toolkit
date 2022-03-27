@@ -1,6 +1,7 @@
 from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES
 
 from SI_Toolkit_ApplicationSpecificFiles.predictors_customization_tf import next_state_predictor_ODE_tf
+from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 import tensorflow as tf
 import numpy as np
@@ -52,7 +53,7 @@ class predictor_ODE_tf:
         self.batch_size = tf.shape(Q)[0]
         self.initial_state = initial_state
 
-        # I hope this commented fragment can be converted to one graph with tf.function, merging with predict_tf.
+        # I hope this commented fragment can be converted to one graph with Compile, merging with predict_tf.
         # But it throws an error.
         # self.initial_state = tf.cond(
         #     tf.math.logical_and(tf.equal(tf.shape(self.initial_state)[0], 1), tf.not_equal(tf.shape(Q)[0], 1)),
@@ -70,14 +71,14 @@ class predictor_ODE_tf:
         else:
             return tf.squeeze(output).numpy()
 
-    @tf.function(experimental_compile=True)
+    @Compile
     def predict_tf_tile(self, initial_state, Q, batch_size, params=None): # Predicting multiple control scenarios for the same initial state
         initial_state = tf.tile(initial_state, (batch_size, 1))
         return self.predict_tf(initial_state, Q, params=params)
 
 
     # Predict (Euler: 6.8ms)
-    @tf.function(experimental_compile=True)
+    @Compile
     def predict_tf(self, initial_state, Q, params=None):
 
         self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)

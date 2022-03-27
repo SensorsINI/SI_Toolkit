@@ -39,6 +39,7 @@ Using predictor:
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
 from SI_Toolkit.TF.TF_Functions.Normalising import normalize_tf, denormalize_tf
 from SI_Toolkit.TF.TF_Functions.Network import copy_internal_states_from_ref, copy_internal_states_to_ref
+from SI_Toolkit.TF.TF_Functions.Compile import Compile
 from SI_Toolkit.load_and_normalize import denormalize_numpy_array, normalize_numpy_array
 
 try:
@@ -141,7 +142,7 @@ class predictor_autoregressive_tf:
         return self.output
 
 
-    @tf.function(experimental_compile=True)
+    @Compile
     def predict_tf(self, Q, net_input_reg_initial):
 
         self.net_input_reg_initial_normed.assign(normalize_tf(
@@ -192,10 +193,14 @@ class predictor_autoregressive_tf:
                 tf.convert_to_tensor(net_input_reg_initial, dtype=tf.float32), self.normalizing_inputs
             )
 
-        self.update_internal_state_tf(net_input_reg_initial_normed, Q0)
+        if tf.shape(net_input_reg_initial_normed)[0] == 1 and tf.shape(Q0)[
+            0] != 1:  # Predicting multiple control scenarios for the same initial state
+            self.update_internal_state_tf_tile(net_input_reg_initial_normed, Q0, self.batch_size)
+        else:  # tf.shape(net_input_reg_initial_normed)[0] == tf.shape(Q0)[0]:  # For each control scenario there is separate initial state provided
+            self.update_internal_state_tf(net_input_reg_initial_normed, Q0)
 
 
-    @tf.function(experimental_compile=True)
+    @Compile
     def update_internal_state_tf(self, s, Q0):
 
         if self.net_info.net_type == 'Dense':
@@ -210,6 +215,12 @@ class predictor_autoregressive_tf:
 
             copy_internal_states_to_ref(self.net, self.layers_ref)
 
+
+    @Compile
+    def update_internal_state_tf_tile(self, s, Q0, batch_size):
+
+        s = tf.tile(s, (batch_size, 1))
+        self.update_internal_state_tf(s, Q0)
 
 if __name__ == '__main__':
     import timeit
