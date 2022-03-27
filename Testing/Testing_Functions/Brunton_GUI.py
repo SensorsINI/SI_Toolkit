@@ -1,12 +1,12 @@
 
 # region Imports and setting matplotlib backend
 
-# Import functions from PyQt5 module (creating GUI)
+# Import functions from PyQt6 module (creating GUI)
 
-from PyQt5.QtWidgets import QMainWindow, QApplication, QVBoxLayout, \
+from PyQt6.QtWidgets import QMainWindow, QApplication, QVBoxLayout, \
     QHBoxLayout, QLabel, QPushButton, QWidget, QCheckBox, \
     QComboBox, QSlider, QFrame, QButtonGroup, QRadioButton
-from PyQt5.QtCore import Qt
+from PyQt6.QtCore import Qt
 
 
 
@@ -17,7 +17,7 @@ from matplotlib import use, get_backend
 if get_backend() != 'module://backend_interagg':
     use('Agg')
 
-# Some more functions needed for interaction of matplotlib with PyQt5
+# Some more functions needed for interaction of matplotlib with PyQt6
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
 from matplotlib.figure import Figure
@@ -54,15 +54,15 @@ cmap = colors.LinearSegmentedColormap('custom', cdict)
 # endregion
 
 def run_test_gui(features, titles, ground_truth, predictions_list, time_axis):
-    # Creat an instance of PyQt5 application
-    # Every PyQt5 application has to contain this line
+    # Creat an instance of PyQt6 application
+    # Every PyQt6 application has to contain this line
     app = QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(True);
+    app.setQuitOnLastWindowClosed(True)
     # Create an instance of the GUI window.
     window = MainWindow(features, titles, ground_truth, predictions_list, time_axis)
     window.show()
     # Next line hands the control over to Python GUI
-    sys.exit(app.exec_())
+    sys.exit(app.exec())
 
 # Class implementing the main window of CartPole GUI
 class MainWindow(QMainWindow):
@@ -135,11 +135,11 @@ class MainWindow(QMainWindow):
         # region - Slider position
         l_sl_p = QVBoxLayout()
         l_sl_p.addWidget(QLabel('"Current" point in time:'))
-        self.sl_p = QSlider(Qt.Horizontal)
+        self.sl_p = QSlider(Qt.Orientation.Horizontal)
         self.sl_p.setMinimum(0)
         self.sl_p.setMaximum(self.time_axis.shape[0]-self.max_horizon-1)
         self.sl_p.setValue((self.time_axis.shape[0]-self.max_horizon)//2)
-        self.sl_p.setTickPosition(QSlider.TicksBelow)
+        self.sl_p.setTickPosition(QSlider.TickPosition.TicksBelow)
         # self.sl_p.setTickInterval(5)
 
         l_sl_p.addWidget(self.sl_p)
@@ -149,11 +149,11 @@ class MainWindow(QMainWindow):
         # region - Slider horizon
         l_sl_h = QVBoxLayout()
         l_sl_h.addWidget(QLabel('Prediction horizon:'))
-        self.sl_h = QSlider(Qt.Horizontal)
+        self.sl_h = QSlider(Qt.Orientation.Horizontal)
         self.sl_h.setMinimum(0)
         self.sl_h.setMaximum(self.max_horizon)
         self.sl_h.setValue(self.max_horizon//2)
-        self.sl_h.setTickPosition(QSlider.TicksBelow)
+        self.sl_h.setTickPosition(QSlider.TickPosition.TicksBelow)
         # self.sl_h.setTickInterval(5)
         # endregion
 
@@ -161,8 +161,8 @@ class MainWindow(QMainWindow):
         self.sl_h.valueChanged.connect(self.slider_horizon_f)
 
         separatorLine = QFrame()
-        separatorLine.setFrameShape( QFrame.VLine )
-        separatorLine.setFrameShadow( QFrame.Raised )
+        separatorLine.setFrameShape( QFrame.Shape.VLine )
+        separatorLine.setFrameShadow( QFrame.Shadow.Raised )
 
         l_sl.addLayout(l_sl_p)
         l_sl.addWidget(separatorLine)
