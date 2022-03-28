@@ -23,12 +23,15 @@ try:
 except:
     print('SI_Toolkit_ApplicationSpecificFiles not created yet')
 
-import yaml, os
+import yaml
+import os
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles',
+                   'config_training.yml'), 'r'), Loader=yaml.FullLoader)
 
 
-PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + 'NormalizationInfo/'
+PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + \
+    config["paths"]["path_to_experiment"] + 'NormalizationInfo/'
 normalization_rounding_decimals = 5
 
 
@@ -65,7 +68,6 @@ def get_paths_to_datafiles(paths_to_data_information):
                 if line == '# Data files used to calculate normalization information:':
                     reached_path_list = True
 
-
     if isinstance(paths_to_data_information, list):
         for path in paths_to_data_information:
             if path[-4:] == '.csv':
@@ -83,11 +85,13 @@ def get_paths_to_datafiles(paths_to_data_information):
             # Assume that path to folder was provided
             for dirpath, dirnames, filenames in os.walk(paths_to_data_information):
                 for filename in [f for f in filenames if f.endswith(".csv")]:
-                    list_of_paths_to_datafiles.append(os.path.join(dirpath, filename))
+                    list_of_paths_to_datafiles.append(
+                        os.path.join(dirpath, filename))
 
             # list_of_paths_to_datafiles = glob.glob(paths_to_data_information + '*.csv')
     else:
-        raise TypeError('Unsupported type of input argument to get_paths_to_datafiles')
+        raise TypeError(
+            'Unsupported type of input argument to get_paths_to_datafiles')
 
     return sorted(list_of_paths_to_datafiles)
 
@@ -128,12 +132,15 @@ def get_full_paths_to_csvs(default_locations='', csv_names=None):
             try:
                 list_of_files = []
                 for default_location in default_locations:
-                    list_of_files.extend(glob.glob(default_location + '/*.csv'))
+                    list_of_files.extend(
+                        glob.glob(default_location + '/*.csv'))
                 file_paths = [max(list_of_files, key=os.path.getctime)]
             except FileNotFoundError:
-                print('Cannot load: No experiment recording found in data folders: {}'.format(default_locations))
+                print('Cannot load: No experiment recording found in data folders: {}'.format(
+                    default_locations))
         else:
-            raise Exception('Cannot load: Tried loading most recent recording, but no default locations specified')
+            raise Exception(
+                'Cannot load: Tried loading most recent recording, but no default locations specified')
 
     else:
         # If not already a list csv_names location into a list
@@ -160,7 +167,8 @@ def get_full_paths_to_csvs(default_locations='', csv_names=None):
                     file_path_trial = os.path.join(default_location, filename)
                     if os.path.isfile(file_path_trial):
                         if one_file_already_found:
-                            raise Exception('There is more than one csv file with specified name at default location')
+                            raise Exception(
+                                'There is more than one csv file with specified name at default location')
                         file_path.append(file_path_trial)
                         one_file_already_found = True
                 if not file_path:
@@ -181,16 +189,19 @@ def load_csv_recording(file_path):
     # Get race recording
     print('Loading file {}'.format(file_path))
     try:
-        data: pd.DataFrame = pd.read_csv(file_path, comment='#')  # skip comment lines starting with #
+        # skip comment lines starting with #
+        data: pd.DataFrame = pd.read_csv(file_path, comment='#')
     except Exception as e:
         print('Cannot load: Caught {} trying to read CSV file {}'.format(e, file_path))
         return False
 
     # Change to float32 wherever numeric column
     cols = data.columns
-    data[cols] = data[cols].apply(pd.to_numeric, errors='ignore', downcast='float')
+    data[cols] = data[cols].apply(
+        pd.to_numeric, errors='ignore', downcast='float')
 
     return data
+
 
 def load_data(list_of_paths_to_datafiles=None):
 
@@ -205,7 +216,8 @@ def load_data(list_of_paths_to_datafiles=None):
 
         # Change to float32 wherever numeric column
         cols = df.columns
-        df[cols] = df[cols].apply(pd.to_numeric, errors='ignore', downcast='float')
+        df[cols] = df[cols].apply(
+            pd.to_numeric, errors='ignore', downcast='float')
 
         all_dfs.append(df)
 
@@ -217,7 +229,7 @@ def load_data(list_of_paths_to_datafiles=None):
 def get_sampling_interval_from_datafile(path_to_datafile):
     preceding_text = '# Saving: '
     dt_save = None
-    with open(path_to_datafile, 'r', newline='') as cmt_file:  # open file
+    with open(path_to_datafile, 'r') as cmt_file:  # open file
         for line in cmt_file:  # read each line
             if line[0:len(preceding_text)] == preceding_text:
                 dt_save = float(line[len(preceding_text):-2])
@@ -248,7 +260,8 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     BUT may include user corrections to account for prior knowledge about distribution (e.g. 0 mean)
     """
 
-    list_of_paths_to_datafiles = get_paths_to_datafiles(paths_to_data_information)
+    list_of_paths_to_datafiles = get_paths_to_datafiles(
+        paths_to_data_information)
 
     # print paths to datafiles
     print('')
@@ -321,7 +334,8 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # User defined normalization values:
 
     if user_correction:
-        df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
+        df_norm_info = apply_user_defined_normalization_correction(
+            df_norm_info)
 
     if df_norm_info.equals(df_norm_info_from_data):
         modified = 'No'
@@ -334,13 +348,16 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # endregion
 
     # region Transform original dataframe to comment by adding "comment column" and "space columns"
-    df_norm_info_from_data = df_norm_info_from_data.reindex(sorted(df_norm_info_from_data.columns), axis=1)
-    df_norm_info_from_data = df_norm_info_from_data.round(normalization_rounding_decimals)
+    df_norm_info_from_data = df_norm_info_from_data.reindex(
+        sorted(df_norm_info_from_data.columns), axis=1)
+    df_norm_info_from_data = df_norm_info_from_data.round(
+        normalization_rounding_decimals)
     df_index = df_norm_info_from_data.index
     df_norm_info_from_data.insert(0, "      ", df_index, True)
     df_norm_info_from_data.insert(0, "#", 4 * ['#'], True)
     for i in range(len(df_norm_info_from_data.columns)):
-        df_norm_info_from_data.insert(2 * i + 1, '         ', 4 * ['           '], True)
+        df_norm_info_from_data.insert(
+            2 * i + 1, '         ', 4 * ['           '], True)
     # endregion
 
     # region Make folder to save normalization info (if not yet existing)
@@ -355,7 +372,8 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     date_now = datetime.now().strftime('%Y-%m-%d')
     time_now = datetime.now().strftime('%H-%M-%S')
     if path_to_norm_info is None:
-        csv_filepath = PATH_TO_NORMALIZATION_INFO + 'NI_' + date_now + '_' + time_now + '.csv'
+        csv_filepath = PATH_TO_NORMALIZATION_INFO + \
+            'NI_' + date_now + '_' + time_now + '.csv'
     else:
         csv_filepath = path_to_norm_info + 'NI_' + date_now + '_' + time_now + '.csv'
 
@@ -378,15 +396,18 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
         # writer.writerow(['#'])
 
-        writer.writerow(['# Data files used to calculate normalization information:'])
+        writer.writerow(
+            ['# Data files used to calculate normalization information:'])
         for path in list_of_paths_to_datafiles:
             writer.writerow(['#     {}'.format(path)])
 
         writer.writerow(['#'])
 
-        writer.writerow(['# Original (calculated from data) Normalization Information:'])
+        writer.writerow(
+            ['# Original (calculated from data) Normalization Information:'])
 
-    df_norm_info_from_data.to_csv(csv_filepath, index=False, header=True, mode='a')  # Mode (a)ppend
+    df_norm_info_from_data.to_csv(
+        csv_filepath, index=False, header=True, mode='a')  # Mode (a)ppend
 
     with open(csv_filepath, "a", newline='') as outfile:
 
@@ -394,14 +415,16 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
         writer.writerow(['#'])
 
-        writer.writerow(['# Does user modified normalization info calculated from data?: {}'.format(modified)])
+        writer.writerow(
+            ['# Does user modified normalization info calculated from data?: {}'.format(modified)])
 
         writer.writerow(['#'])
 
         writer.writerow(['# Normalization Information:'])
 
     df_norm_info = df_norm_info.reindex(sorted(df_norm_info.columns), axis=1)
-    df_norm_info.to_csv(csv_filepath, index=True, header=True, mode='a')  # Mode (a)ppend
+    df_norm_info.to_csv(csv_filepath, index=True,
+                        header=True, mode='a')  # Mode (a)ppend
 
     # endregion
 
@@ -409,7 +432,8 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     if plot_histograms:
         # Plot historgrams to make the firs check about gaussian assumption
         for feature in df_total.columns:
-            plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
+            plt.hist(df_total[feature].to_numpy(), 50,
+                     density=True, facecolor='g', alpha=0.75)
             plt.title(feature)
             plt.show()
 
@@ -491,13 +515,13 @@ def denormalize_feature(feature, normalization_info, normalization_type='minmax_
         # return feature * (col_max - col_min) + col_min
         # return feature * col_std + col_mean
         return feature * (normalization_info.loc['max', name] - normalization_info.loc['min', name]) + \
-               normalization_info.loc['min', name]
+            normalization_info.loc['min', name]
     elif normalization_type == 'minmax_sym':
         # col_min = normalization_info.loc['min', name]
         # col_max = normalization_info.loc['max', name]
         # return ((feature + 1.0) / 2.0) * (col_max - col_min) + col_min
         return ((feature + 1.0) / 2.0) * (normalization_info.loc['max', name] - normalization_info.loc['min', name]) \
-               + normalization_info.loc['min', name]
+            + normalization_info.loc['min', name]
 
 
 def denormalize_df(dfs, normalization_info, normalization_type='minmax_sym'):
@@ -522,18 +546,18 @@ def denormalize_numpy_array(normalized_array,
     for feature_idx in range(len(features)):
         if normalization_type == 'gaussian':
             denormalized_array[..., feature_idx] = normalized_array[..., feature_idx] * \
-                                                   normalization_info.at['std', features[feature_idx]] + \
-                                                   normalization_info.at['mean', features[feature_idx]]
+                normalization_info.at['std', features[feature_idx]] + \
+                normalization_info.at['mean', features[feature_idx]]
         elif normalization_type == 'minmax_pos':
             denormalized_array[..., feature_idx] = normalized_array[..., feature_idx] \
-                                                   * (normalization_info.at['max', features[feature_idx]] -
-                                                      normalization_info.at['min', features[feature_idx]]) + \
-                                                   normalization_info.at['min', features[feature_idx]]
+                * (normalization_info.at['max', features[feature_idx]] -
+                   normalization_info.at['min', features[feature_idx]]) + \
+                normalization_info.at['min', features[feature_idx]]
         elif normalization_type == 'minmax_sym':
             denormalized_array[..., feature_idx] = ((normalized_array[..., feature_idx] + 1.0) / 2.0) * \
                                                    (normalization_info.at['max', features[feature_idx]] -
                                                     normalization_info.at['min', features[feature_idx]]) \
-                                                   + normalization_info.at['min', features[feature_idx]]
+                + normalization_info.at['min', features[feature_idx]]
 
     return denormalized_array
 
@@ -542,35 +566,37 @@ def normalize_numpy_array(denormalized_array,
                           features,
                           normalization_info,
                           normalization_type='minmax_sym',
-                          normalized_array = None,):  # If you want to write to an existing array instead of creating your own
+                          normalized_array=None,):  # If you want to write to an existing array instead of creating your own
 
-    if normalized_array is None: # This option gives a possibility of using preallocated array
+    if normalized_array is None:  # This option gives a possibility of using preallocated array
         normalized_array = np.zeros_like(denormalized_array)
 
     for feature_idx in range(len(features)):
         if normalization_type == 'gaussian':
             normalized_array[..., feature_idx] = (denormalized_array[..., feature_idx]
                                                   - normalization_info.at['mean', features[feature_idx]]) / \
-                                                  normalization_info.at['std', features[feature_idx]]
+                normalization_info.at['std', features[feature_idx]]
 
         elif normalization_type == 'minmax_pos':
             normalized_array[..., feature_idx] = (denormalized_array[..., feature_idx]
                                                   - normalization_info.at['min', features[feature_idx]])\
-                                                  / (normalization_info.at['max', features[feature_idx]] -
-                                                  normalization_info.at['min', features[feature_idx]])
-
+                / (normalization_info.at['max', features[feature_idx]] -
+                   normalization_info.at['min', features[feature_idx]])
 
         elif normalization_type == 'minmax_sym':
             normalized_array[..., feature_idx] = -1.0 + 2.0 * (
-                    (denormalized_array[..., feature_idx]-normalization_info.at['min', features[feature_idx]])
-                    /
-                    (normalization_info.at['max', features[feature_idx]] - normalization_info.at['min', features[feature_idx]])
+                (denormalized_array[..., feature_idx] -
+                 normalization_info.at['min', features[feature_idx]])
+                /
+                (normalization_info.at['max', features[feature_idx]] -
+                 normalization_info.at['min', features[feature_idx]])
             )
 
     return normalized_array
 
 
 if __name__ == '__main__':
-    folder_with_data_to_calculate_norm_info = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + "Recordings/Train/"
+    folder_with_data_to_calculate_norm_info = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + \
+        config["paths"]["path_to_experiment"] + "Recordings/Train/"
 
     calculate_normalization_info(folder_with_data_to_calculate_norm_info)
