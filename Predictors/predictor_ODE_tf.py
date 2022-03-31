@@ -106,15 +106,7 @@ if __name__ == '__main__':
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import CONTROL_INPUTS
-import numpy as np
-batch_size = 2000
-horizon = 50
 predictor = predictor_ODE_tf(horizon, 0.02, 10)
-initial_state = np.random.random(size=(batch_size, 6))
-# initial_state = np.random.random(size=(1, 6))
-Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
-predictor.predict(initial_state, Q)
 '''
 
     timer_predictor(initialisation)

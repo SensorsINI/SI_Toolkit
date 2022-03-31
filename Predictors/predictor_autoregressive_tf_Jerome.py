@@ -191,17 +191,7 @@ if __name__ == '__main__':
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import CONTROL_INPUTS
-import numpy as np
-batch_size = 2000
-horizon = 50
 predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name='GRU-6IN-32H1-32H2-5OUT-0')
-initial_state = np.random.random(size=(batch_size, 6))
-# initial_state = np.random.random(size=(1, 6))
-Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
-predictor.predict(initial_state, Q)
-predictor.update_internal_state(initial_state, Q)
-predictor.predict(initial_state, Q)
 '''
 
     timer_predictor(initialisation)
