@@ -63,7 +63,7 @@ class predictor_ODE:
 
 
 if __name__ == '__main__':
-    import timeit
+    from SI_Toolkit.Predictors.timer_predictor import timer_predictor
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
 from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, CONTROL_INPUTS
@@ -76,8 +76,5 @@ Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS)))
 predictor.predict(initial_state, Q)
 '''
 
+    timer_predictor(initialisation)
 
-    code = '''\
-predictor.predict(initial_state, Q)'''
-
-    print(timeit.timeit(code, number=1000, setup=initialisation)/1000.0)

@@ -187,7 +187,7 @@ predictor.update_internal_state(initial_state, Q)'''
 
 
 if __name__ == '__main__':
-    import timeit
+    from SI_Toolkit.Predictors.timer_predictor import timer_predictor
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
@@ -200,10 +200,8 @@ initial_state = np.random.random(size=(batch_size, 6))
 # initial_state = np.random.random(size=(1, 6))
 Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
 predictor.predict(initial_state, Q)
+predictor.update_internal_state(initial_state, Q)
+predictor.predict(initial_state, Q)
 '''
 
-    code = '''\
-predictor.predict(initial_state, Q)
-predictor.update_internal_state(initial_state, Q)'''
-
-    print(timeit.timeit(code, number=100, setup=initialisation) / 100.0)
+    timer_predictor(initialisation)

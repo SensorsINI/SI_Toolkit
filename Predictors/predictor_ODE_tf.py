@@ -102,7 +102,7 @@ class predictor_ODE_tf:
 
 
 if __name__ == '__main__':
-    import timeit
+    from SI_Toolkit.Predictors.timer_predictor import timer_predictor
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
@@ -117,7 +117,4 @@ Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS)))
 predictor.predict(initial_state, Q)
 '''
 
-    code = '''\
-predictor.predict(initial_state, Q)'''
-
-    print(timeit.timeit(code, number=1000, setup=initialisation) / 1000.0)
+    timer_predictor(initialisation)
