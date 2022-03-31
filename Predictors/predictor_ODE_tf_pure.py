@@ -68,14 +68,14 @@ class predictor_ODE_tf_pure:
         else:
             return tf.squeeze(output)
 
-    @tf.function(jit_compile=True)
+    # @tf.function(jit_compile=True)
     def predict_tf_tile(self, initial_state, Q, batch_size):  # Predicting multiple control scenarios for the same initial state
         initial_state = tf.tile(initial_state, (batch_size, 1))
         return self.predict_tf(initial_state, Q)
 
     # Predict (Euler: 6.8ms)
-    @tf.function(jit_compile=True, input_signature=[tf.TensorSpec(shape=[None, 6], dtype=tf.float32),
-                                                    tf.TensorSpec(shape=[1, 50, 1], dtype=tf.float32)])
+    # @tf.function(jit_compile=True, input_signature=[tf.TensorSpec(shape=[None, 6], dtype=tf.float32),
+    #                                                 tf.TensorSpec(shape=[1, 50, 1], dtype=tf.float32)])
     def predict_tf(self, initial_state, Q):
 
         self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
