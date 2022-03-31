@@ -39,9 +39,9 @@ class predictor_ODE_tf_pure:
 
         self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps)
 
-    @tf.function(jit_compile=True)
+    # @tf.function(jit_compile=True)
     def predict(self, initial_state, Q):
-        print('shit stick 1.5')
+        #print('shit stick 1.5')
         initial_state, Q = check_dimensions(initial_state, Q)
 
         initial_state, Q = convert_to_tensors(initial_state, Q)
