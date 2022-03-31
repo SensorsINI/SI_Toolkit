@@ -13,6 +13,6 @@ def identity(func):
     return func
 
 # Compile = tf.function
-# Compile = tf_function_jit
-Compile = tf_function_experimental
+Compile = tf_function_jit
+# Compile = tf_function_experimental
 # Compile = identity
