@@ -40,13 +40,9 @@ from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for
 from SI_Toolkit.TF.TF_Functions.Normalising import normalize_tf, denormalize_tf
 from SI_Toolkit.TF.TF_Functions.Network import copy_internal_states_from_ref, copy_internal_states_to_ref
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
-from SI_Toolkit.load_and_normalize import denormalize_numpy_array, normalize_numpy_array
 
-try:
-    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
-        CONTROL_INPUTS, augment_predictor_output
-except ModuleNotFoundError:
-    print('SI_Toolkit_ApplicationSpecificFiles not yet created')
+from SI_Toolkit_ApplicationSpecificFiles.predictors_customization_tf import STATE_VARIABLES, STATE_INDICES, \
+    CONTROL_INPUTS, predictor_output_augmentation_tf
 
 import numpy as np
 
@@ -118,6 +114,8 @@ class predictor_autoregressive_tf:
 
         self.indices_inputs_reg = [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]]
         self.indices_outputs = [STATE_INDICES.get(key) for key in self.net_info.outputs]
+        self.augmentation = predictor_output_augmentation_tf(self.net_info)
+        self.indices_augmentation = self.augmentation.indices_augmentation
 
         self.net_input_reg_initial_normed = tf.Variable(tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
 
@@ -133,11 +131,8 @@ class predictor_autoregressive_tf:
 
         net_input_reg_initial = initial_state[:, self.indices_inputs_reg]  # [batch_size, features]
 
-        self.output[..., 1:, self.indices_outputs] = \
+        self.output[..., 1:, self.indices_outputs+self.indices_augmentation] = \
             self.predict_tf(tf.convert_to_tensor(Q, dtype=tf.float32), tf.convert_to_tensor(net_input_reg_initial, dtype=tf.float32)).numpy()
-
-        # Augment
-        augment_predictor_output(self.output, self.net_info)
 
         return self.output
 
@@ -176,7 +171,12 @@ class predictor_autoregressive_tf:
 
         net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
 
-        return denormalize_tf(net_outputs, self.normalizing_outputs)
+        net_outputs = denormalize_tf(net_outputs, self.normalizing_outputs)
+
+        # Augment
+        output = self.augmentation.augment(net_outputs)
+
+        return output
 
 
     def update_internal_state(self, s=None, Q0=None):
@@ -243,4 +243,4 @@ predictor.update_internal_state(initial_state, Q)
 predictor.predict(initial_state, Q)
 predictor.update_internal_state(initial_state, Q)'''
 
-    print(timeit.timeit(code, number=10, setup=initialisation) / 10.0)
+    print(timeit.timeit(code, number=1000, setup=initialisation) / 1000.0)
