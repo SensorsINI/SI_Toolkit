@@ -41,7 +41,7 @@ class predictor_ODE_tf_pure:
 
     @tf.function(jit_compile=True)
     def predict(self, initial_state, Q):
-        print('shit stick 1.5')
+        print('test 1.5')
         initial_state, Q = check_dimensions(initial_state, Q)
 
         initial_state, Q = convert_to_tensors(initial_state, Q)
