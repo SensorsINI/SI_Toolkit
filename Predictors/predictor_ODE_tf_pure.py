@@ -41,7 +41,7 @@ class predictor_ODE_tf_pure:
 
     # @tf.function(jit_compile=True)
     def predict(self, initial_state, Q):
-        #print('shit stick 1.5')
+        # print('shit stick 1.5')
         initial_state, Q = check_dimensions(initial_state, Q)
 
         initial_state, Q = convert_to_tensors(initial_state, Q)
@@ -57,7 +57,8 @@ class predictor_ODE_tf_pure:
         #     lambda: self.initial_state
         # )
 
-        if tf.shape(self.initial_state)[0] == 1 and tf.shape(Q)[0] != 1:  # Predicting multiple control scenarios for the same initial state
+        if tf.shape(self.initial_state)[0] == 1 and tf.shape(Q)[
+            0] != 1:  # Predicting multiple control scenarios for the same initial state
             output = self.predict_tf_tile(self.initial_state, Q, self.batch_size)
         else:  # tf.shape(self.initial_state)[0] == tf.shape(Q)[0]:  # For each control scenario there is separate initial state provided
             output = self.predict_tf(self.initial_state, Q)
@@ -67,22 +68,22 @@ class predictor_ODE_tf_pure:
         else:
             return tf.squeeze(output)
 
-    @tf.function(jit_compile = True)
-    def predict_tf_tile(self, initial_state, Q, batch_size, params=None): # Predicting multiple control scenarios for the same initial state
+    @tf.function(jit_compile=True)
+    def predict_tf_tile(self, initial_state, Q, batch_size):  # Predicting multiple control scenarios for the same initial state
         initial_state = tf.tile(initial_state, (batch_size, 1))
-        return self.predict_tf(initial_state, Q, params=params)
-
+        return self.predict_tf(initial_state, Q)
 
     # Predict (Euler: 6.8ms)
-    @tf.function(jit_compile = True)
-    def predict_tf(self, initial_state, Q, params=None):
+    @tf.function(jit_compile=True, input_signature=[tf.TensorSpec(shape=[None, 6], dtype=tf.float32),
+                                                    tf.TensorSpec(shape=[1, 50, 1], dtype=tf.float32)])
+    def predict_tf(self, initial_state, Q):
 
         self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
         self.output = self.output.write(0, initial_state)
 
         next_state = initial_state
         for k in tf.range(self.horizon):
-            next_state = self.next_step_predictor.step(next_state, Q[:, k, :], params)
+            next_state = self.next_step_predictor.step(next_state, Q[:, k, :])
             self.output = self.output.write(k + 1, next_state)
 
         self.output = tf.transpose(self.output.stack(), perm=[1, 0, 2])
@@ -91,9 +92,6 @@ class predictor_ODE_tf_pure:
 
     def update_internal_state(self, s, Q):
         pass
-
-
-
 
 
 if __name__ == '__main__':
