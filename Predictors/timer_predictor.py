@@ -20,7 +20,7 @@ Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS)))
     initialisation_end = '''
 
 predictor.predict(initial_state, Q)
-predictor.update_internal_state(initial_state, Q)
+predictor.update_internal_state(Q)
 predictor.predict(initial_state, Q)
 '''
 
@@ -28,7 +28,7 @@ predictor.predict(initial_state, Q)
 
     code = '''\
 predictor.predict(initial_state, Q)
-predictor.update_internal_state(initial_state, Q)'''
+predictor.update_internal_state(Q)'''
 
     class HiddenPrints:
         def __enter__(self):

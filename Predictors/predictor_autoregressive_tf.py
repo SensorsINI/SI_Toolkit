@@ -179,7 +179,7 @@ class predictor_autoregressive_tf:
         return output
 
 
-    def update_internal_state(self, s=None, Q0=None):
+    def update_internal_state(self, Q0=None, s=None):  # FIXME: q0 shoud go first
 
         s, Q0 = check_dimensions(s, Q0)
         if Q0 is not None:
@@ -195,13 +195,13 @@ class predictor_autoregressive_tf:
 
         if tf.shape(net_input_reg_initial_normed)[0] == 1 and tf.shape(Q0)[
             0] != 1:  # Predicting multiple control scenarios for the same initial state
-            self.update_internal_state_tf_tile(net_input_reg_initial_normed, Q0, self.batch_size)
+            self.update_internal_state_tf_tile(Q0, net_input_reg_initial_normed, self.batch_size)
         else:  # tf.shape(net_input_reg_initial_normed)[0] == tf.shape(Q0)[0]:  # For each control scenario there is separate initial state provided
-            self.update_internal_state_tf(net_input_reg_initial_normed, Q0)
+            self.update_internal_state_tf(Q0, net_input_reg_initial_normed)
 
 
     @Compile
-    def update_internal_state_tf(self, s, Q0):
+    def update_internal_state_tf(self, Q0, s):
 
         if self.net_info.net_type == 'Dense':
             pass
@@ -217,10 +217,10 @@ class predictor_autoregressive_tf:
 
 
     @Compile
-    def update_internal_state_tf_tile(self, s, Q0, batch_size):
+    def update_internal_state_tf_tile(self, Q0, s, batch_size):
 
         s = tf.tile(s, (batch_size, 1))
-        self.update_internal_state_tf(s, Q0)
+        self.update_internal_state_tf(Q0, s)
 
 if __name__ == '__main__':
     from SI_Toolkit.Predictors.timer_predictor import timer_predictor

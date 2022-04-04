@@ -58,7 +58,7 @@ class predictor_ODE:
 
         return self.output if (self.batch_size > 1) else np.squeeze(self.output)
 
-    def update_internal_state(self, s, Q0):
+    def update_internal_state(self, Q0, s):
         pass
 
 
