@@ -66,10 +66,8 @@ class predictor_ODE_tf:
         else:  # tf.shape(self.initial_state)[0] == tf.shape(Q)[0]:  # For each control scenario there is separate initial state provided
             output = self.predict_tf(self.initial_state, Q)
 
-        if self.batch_size > 1:
-            return output.numpy()
-        else:
-            return tf.squeeze(output).numpy()
+        return output.numpy()
+
 
     @Compile
     def predict_tf_tile(self, initial_state, Q, batch_size, params=None): # Predicting multiple control scenarios for the same initial state
@@ -94,7 +92,7 @@ class predictor_ODE_tf:
 
         return self.output
 
-    def update_internal_state(self, s, Q):
+    def update_internal_state(self, Q, s):
         pass
 
 

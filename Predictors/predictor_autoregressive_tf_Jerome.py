@@ -133,7 +133,7 @@ class predictor_autoregressive_tf:
 
     # TODO: replace everywhere with update_internal_state_tf
     # DEPRECATED: This version is in-efficient since it copies all batches to GPU
-    def update_internal_state(self, s, Q):
+    def update_internal_state(self, Q, s=None):
 
         if tf.is_tensor(Q):
             self.update_internal_state_tf(tf.convert_to_tensor(Q[0,...], dtype=tf.float32))

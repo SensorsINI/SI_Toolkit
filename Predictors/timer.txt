@@ -1,0 +1,129 @@
+Timing the predictors:
+*************************
+
+
+------------------------------------------------------------------------------------------------------
+
+Number of calls: 1
+
+predictor_ODE
+
+min: 0.0362 s
+max: 0.0458 s
+mean: 0.0409 s
+std: 0.0031 s
+
+Measurements:
+0.0400 s
+0.0415 s
+0.0362 s
+0.0458 s
+0.0411 s
+
+
+predictor_ODE_tf
+
+min: 0.0057 s
+max: 0.0084 s
+mean: 0.0064 s
+std: 0.0010 s
+
+Measurements:
+0.0084 s
+0.0060 s
+0.0060 s
+0.0061 s
+0.0057 s
+
+
+predictor_autoregressive_tf
+
+min: 0.0089 s
+max: 0.0091 s
+mean: 0.0090 s
+std: 0.0001 s
+
+Measurements:
+0.0091 s
+0.0091 s
+0.0090 s
+0.0089 s
+0.0091 s
+
+
+predictor_autoregressive_tf_Jerome
+
+min: 0.0060 s
+max: 0.0066 s
+mean: 0.0062 s
+std: 0.0002 s
+
+Measurements:
+0.0060 s
+0.0061 s
+0.0066 s
+0.0060 s
+0.0061 s
+
+------------------------------------------------------------------------------------------------------
+
+Number of calls: 2
+
+predictor_ODE
+
+min: 0.0371 s
+max: 0.0403 s
+mean: 0.0387 s
+std: 0.0011 s
+
+Measurements:
+0.0390 s
+0.0384 s
+0.0371 s
+0.0403 s
+0.0388 s
+
+
+predictor_ODE_tf
+
+min: 0.0056 s
+max: 0.0058 s
+mean: 0.0057 s
+std: 0.0001 s
+
+Measurements:
+0.0056 s
+0.0058 s
+0.0057 s
+0.0057 s
+0.0056 s
+
+
+predictor_autoregressive_tf
+
+min: 0.0090 s
+max: 0.0093 s
+mean: 0.0091 s
+std: 0.0001 s
+
+Measurements:
+0.0092 s
+0.0093 s
+0.0090 s
+0.0091 s
+0.0090 s
+
+
+predictor_autoregressive_tf_Jerome
+
+min: 0.0060 s
+max: 0.0062 s
+mean: 0.0060 s
+std: 0.0001 s
+
+Measurements:
+0.0062 s
+0.0060 s
+0.0061 s
+0.0060 s
+0.0060 s
