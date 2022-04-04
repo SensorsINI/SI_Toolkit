@@ -217,7 +217,7 @@ def load_data(list_of_paths_to_datafiles=None):
 def get_sampling_interval_from_datafile(path_to_datafile):
     preceding_text = '# Saving: '
     dt_save = None
-    with open(path_to_datafile, 'r', newline='') as cmt_file:  # open file
+    with open(path_to_datafile, 'r') as cmt_file:  # open file
         for line in cmt_file:  # read each line
             if line[0:len(preceding_text)] == preceding_text:
                 dt_save = float(line[len(preceding_text):-2])
