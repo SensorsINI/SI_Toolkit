@@ -85,7 +85,7 @@ def convert_to_tensors(s, Q):
 
 
 class predictor_autoregressive_tf:
-    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=False):
+    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=True):
 
         self.batch_size = batch_size
         self.horizon = horizon
