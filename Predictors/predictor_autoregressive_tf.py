@@ -112,11 +112,13 @@ class predictor_autoregressive_tf:
         self.normalizing_inputs = tf.convert_to_tensor(self.normalization_info[self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=tf.float32)
         self.normalizing_outputs = tf.convert_to_tensor(self.normalization_info[self.net_info.outputs], dtype=tf.float32)
 
-        self.indices_inputs_reg = [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]]
-        self.indices_outputs = [STATE_INDICES.get(key) for key in self.net_info.outputs]
+        self.indices_inputs_reg = tf.convert_to_tensor([STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
+        self.indices_net_output = [STATE_INDICES.get(key) for key in self.net_info.outputs]
         self.augmentation = predictor_output_augmentation_tf(self.net_info)
         self.indices_augmentation = self.augmentation.indices_augmentation
+        self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_net_output+self.indices_augmentation))
 
+        self.net_input_reg_initial = None
         self.net_input_reg_initial_normed = tf.Variable(tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
@@ -128,17 +130,19 @@ class predictor_autoregressive_tf:
 
         initial_state, Q = check_dimensions(initial_state, Q)
         self.output[:, 0, :] = initial_state
+        self.batch_size = tf.shape(Q)[0]
 
-        net_input_reg_initial = initial_state[:, self.indices_inputs_reg]  # [batch_size, features]
+        initial_state, Q = convert_to_tensors(initial_state, Q)
 
-        self.output[..., 1:, self.indices_outputs+self.indices_augmentation] = \
-            self.predict_tf(tf.convert_to_tensor(Q, dtype=tf.float32), tf.convert_to_tensor(net_input_reg_initial, dtype=tf.float32)).numpy()
+        self.net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
+
+        self.output[:, 1:, :] = self.predict_tf(self.net_input_reg_initial, Q).numpy()
 
         return self.output
 
 
     @Compile
-    def predict_tf(self, Q, net_input_reg_initial):
+    def predict_tf(self, net_input_reg_initial, Q):
 
         self.net_input_reg_initial_normed.assign(normalize_tf(
             net_input_reg_initial, self.normalizing_inputs
@@ -175,6 +179,8 @@ class predictor_autoregressive_tf:
 
         # Augment
         output = self.augmentation.augment(net_outputs)
+
+        output = tf.gather(output, self.indices_outputs, axis=-1)
 
         return output
 
