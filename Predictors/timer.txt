@@ -1,0 +1,520 @@
+Timing the predictors:
+*************************
+
+
+------------------------------------------------------------------------------------------------------
+
+Number of calls: 1
+
+predictor_ODE
+
+min: 0.0367 s
+max: 0.0423 s
+mean: 0.0388 s
+std: 0.0020 s
+
+Measurements:
+0.0382 s
+0.0415 s
+0.0404 s
+0.0402 s
+0.0423 s
+0.0374 s
+0.0375 s
+0.0367 s
+0.0367 s
+0.0367 s
+
+
+predictor_ODE_tf
+
+min: 0.0053 s
+max: 0.0055 s
+mean: 0.0054 s
+std: 0.0001 s
+
+Measurements:
+0.0055 s
+0.0054 s
+0.0054 s
+0.0054 s
+0.0055 s
+0.0054 s
+0.0055 s
+0.0054 s
+0.0053 s
+0.0054 s
+
+
+predictor_autoregressive_tf
+
+min: 0.0071 s
+max: 0.0073 s
+mean: 0.0072 s
+std: 0.0001 s
+
+Measurements:
+0.0072 s
+0.0073 s
+0.0072 s
+0.0072 s
+0.0073 s
+0.0071 s
+0.0072 s
+0.0072 s
+0.0073 s
+0.0073 s
+
+
+predictor_autoregressive_tf_integrated_update
+WARNING:tensorflow:5 out of the last 56 calls to <function predictor_autoregressive_tf.predict_tf at 0x7f4f8438aca0> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has experimental_relax_shapes=True option that relaxes argument shapes that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+WARNING:tensorflow:6 out of the last 57 calls to <function predictor_autoregressive_tf.predict_tf at 0x7f4f643c0e50> triggered tf.function retracing. Tracing is expensive and the excessive number of tracings could be due to (1) creating @tf.function repeatedly in a loop, (2) passing tensors with different shapes, (3) passing Python objects instead of tensors. For (1), please define your @tf.function outside of the loop. For (2), @tf.function has experimental_relax_shapes=True option that relaxes argument shapes that can avoid unnecessary retracing. For (3), please refer to https://www.tensorflow.org/guide/function#controlling_retracing and https://www.tensorflow.org/api_docs/python/tf/function for  more details.
+
+min: 0.0066 s
+max: 0.0068 s
+mean: 0.0067 s
+std: 0.0001 s
+
+Measurements:
+0.0067 s
+0.0068 s
+0.0068 s
+0.0066 s
+0.0067 s
+0.0068 s
+0.0068 s
+0.0068 s
+0.0067 s
+0.0067 s
+
+
+predictor_autoregressive_tf_Jerome
+
+min: 0.0054 s
+max: 0.0055 s
+mean: 0.0055 s
+std: 0.0000 s
+
+Measurements:
+0.0054 s
+0.0055 s
+0.0055 s
+0.0054 s
+0.0055 s
+0.0055 s
+0.0055 s
+0.0054 s
+0.0055 s
+0.0055 s
+
+------------------------------------------------------------------------------------------------------
+
+Number of calls: 10
+
+predictor_ODE
+
+min: 0.0376 s
+max: 0.0377 s
+mean: 0.0377 s
+std: 0.0000 s
+
+Measurements:
+0.0377 s
+0.0377 s
+0.0377 s
+0.0377 s
+0.0377 s
+0.0376 s
+0.0376 s
+0.0377 s
+0.0377 s
+0.0377 s
+
+
+predictor_ODE_tf
+
+min: 0.0053 s
+max: 0.0056 s
+mean: 0.0054 s
+std: 0.0001 s
+
+Measurements:
+0.0053 s
+0.0053 s
+0.0053 s
+0.0054 s
+0.0054 s
+0.0056 s
+0.0054 s
+0.0055 s
+0.0054 s
+0.0055 s
+
+
+predictor_autoregressive_tf
+
+min: 0.0072 s
+max: 0.0073 s
+mean: 0.0072 s
+std: 0.0000 s
+
+Measurements:
+0.0073 s
+0.0073 s
+0.0073 s
+0.0072 s
+0.0073 s
+0.0072 s
+0.0072 s
+0.0072 s
+0.0072 s
+0.0073 s
+
+
+predictor_autoregressive_tf_integrated_update
+
+min: 0.0066 s
+max: 0.0068 s
+mean: 0.0068 s
+std: 0.0000 s
+
+Measurements:
+0.0067 s
+0.0068 s
+0.0068 s
+0.0068 s
+0.0067 s
+0.0068 s
+0.0068 s
+0.0066 s
+0.0068 s
+0.0068 s
+
+
+predictor_autoregressive_tf_Jerome
+
+min: 0.0054 s
+max: 0.0055 s
+mean: 0.0054 s
+std: 0.0001 s
+
+Measurements:
+0.0054 s
+0.0054 s
+0.0055 s
+0.0055 s
+0.0055 s
+0.0054 s
+0.0055 s
+0.0054 s
+0.0054 s
+0.0055 s
+
+------------------------------------------------------------------------------------------------------
+
+Number of calls: 100
+
+predictor_ODE
+
+min: 0.0376 s
+max: 0.0377 s
+mean: 0.0377 s
+std: 0.0000 s
+
+Measurements:
+0.0377 s
+0.0376 s
+0.0377 s
+0.0377 s
+0.0377 s
+0.0377 s
+0.0377 s
+0.0376 s
+0.0376 s
+0.0376 s
+
+
+predictor_ODE_tf
+
+min: 0.0053 s
+max: 0.0054 s
+mean: 0.0054 s
+std: 0.0001 s
+
+Measurements:
+0.0053 s
+0.0053 s
+0.0053 s
+0.0053 s
+0.0053 s
+0.0054 s
+0.0054 s
+0.0054 s
+0.0054 s
+0.0054 s
+
+
+predictor_autoregressive_tf
+
+min: 0.0071 s
+max: 0.0073 s
+mean: 0.0072 s
+std: 0.0001 s
+
+Measurements:
+0.0072 s
+0.0072 s
+0.0072 s
+0.0071 s
+0.0073 s
+0.0072 s
+0.0071 s
+0.0071 s
+0.0072 s
+0.0072 s
+
+
+predictor_autoregressive_tf_integrated_update
+
+min: 0.0066 s
+max: 0.0068 s
+mean: 0.0067 s
+std: 0.0001 s
+
+Measurements:
+0.0067 s
+0.0068 s
+0.0067 s
+0.0067 s
+0.0068 s
+0.0066 s
+0.0067 s
+0.0067 s
+0.0068 s
+0.0068 s
+
+
+predictor_autoregressive_tf_Jerome
+
+min: 0.0054 s
+max: 0.0056 s
+mean: 0.0055 s
+std: 0.0000 s
+
+Measurements:
+0.0054 s
+0.0054 s
+0.0056 s
+0.0054 s
+0.0054 s
+0.0055 s
+0.0054 s
+0.0055 s
+0.0055 s
+0.0054 s
+
+------------------------------------------------------------------------------------------------------
+
+Number of calls: 1000
+
+predictor_ODE
+
+min: 0.0379 s
+max: 0.0382 s
+mean: 0.0380 s
+std: 0.0001 s
+
+Measurements:
+0.0381 s
+0.0380 s
+0.0382 s
+0.0381 s
+0.0381 s
+0.0381 s
+0.0379 s
+0.0379 s
+0.0380 s
+0.0380 s
+
+
+predictor_ODE_tf
+
+min: 0.0051 s
+max: 0.0054 s
+mean: 0.0053 s
+std: 0.0001 s
+
+Measurements:
+0.0053 s
+0.0053 s
+0.0051 s
+0.0052 s
+0.0052 s
+0.0054 s
+0.0054 s
+0.0053 s
+0.0054 s
+0.0053 s
+
+
+predictor_autoregressive_tf
+
+min: 0.0071 s
+max: 0.0074 s
+mean: 0.0072 s
+std: 0.0001 s
+
+Measurements:
+0.0073 s
+0.0072 s
+0.0073 s
+0.0072 s
+0.0074 s
+0.0071 s
+0.0072 s
+0.0072 s
+0.0073 s
+0.0072 s
+
+
+predictor_autoregressive_tf_integrated_update
+
+min: 0.0066 s
+max: 0.0068 s
+mean: 0.0067 s
+std: 0.0001 s
+
+Measurements:
+0.0067 s
+0.0068 s
+0.0067 s
+0.0066 s
+0.0067 s
+0.0068 s
+0.0067 s
+0.0067 s
+0.0066 s
+0.0067 s
+
+
+predictor_autoregressive_tf_Jerome
+
+min: 0.0054 s
+max: 0.0055 s
+mean: 0.0055 s
+std: 0.0000 s
+
+Measurements:
+0.0055 s
+0.0054 s
+0.0055 s
+0.0055 s
+0.0054 s
+0.0055 s
+0.0054 s
+0.0055 s
+0.0054 s
+0.0054 s
+
+------------------------------------------------------------------------------------------------------
+
+Number of calls: 10000
+
+predictor_ODE
+
+min: 0.0381 s
+max: 0.0486 s
+mean: 0.0408 s
+std: 0.0032 s
+
+Measurements:
+0.0426 s
+0.0431 s
+0.0410 s
+0.0418 s
+0.0486 s
+0.0382 s
+0.0381 s
+0.0381 s
+0.0381 s
+0.0386 s
+
+
+predictor_ODE_tf
+
+min: 0.0051 s
+max: 0.0054 s
+mean: 0.0053 s
+std: 0.0001 s
+
+Measurements:
+0.0053 s
+0.0054 s
+0.0053 s
+0.0054 s
+0.0053 s
+0.0054 s
+0.0052 s
+0.0053 s
+0.0053 s
+0.0051 s
+
+
+predictor_autoregressive_tf
+
+min: 0.0070 s
+max: 0.0073 s
+mean: 0.0072 s
+std: 0.0001 s
+
+Measurements:
+0.0072 s
+0.0072 s
+0.0073 s
+0.0072 s
+0.0072 s
+0.0072 s
+0.0072 s
+0.0073 s
+0.0070 s
+0.0070 s
+
+
+predictor_autoregressive_tf_integrated_update
+
+min: 0.0065 s
+max: 0.0068 s
+mean: 0.0067 s
+std: 0.0001 s
+
+Measurements:
+0.0065 s
+0.0068 s
+0.0067 s
+0.0067 s
+0.0067 s
+0.0067 s
+0.0067 s
+0.0067 s
+0.0067 s
+0.0068 s
+
+
+predictor_autoregressive_tf_Jerome
+
+min: 0.0054 s
+max: 0.0055 s
+mean: 0.0054 s
+std: 0.0000 s
+
+Measurements:
+0.0054 s
+0.0054 s
+0.0054 s
+0.0054 s
+0.0054 s
+0.0055 s
+0.0054 s
+0.0054 s
+0.0054 s
+0.0054 s

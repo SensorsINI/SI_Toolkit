@@ -3,8 +3,7 @@ import sys, os
 from tqdm import trange
 import numpy as np
 
-# FIXME: Why time per call get lower when number of calls grows? It seems you need 100-1000 to get minimal values
-def timer_predictor(initialisation_specific, number=50, repeat=5):
+def timer_predictor(initialisation_specific, number=50, repeat=10):
 
     initialisation_start = '''
 from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import CONTROL_INPUTS
@@ -74,13 +73,19 @@ predictor = predictor_ODE_tf(horizon, 0.02, 10)
 
     initialisation_autoregressive_tf = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name=net_name)
+predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=False)
 '''
 
-    initialisation_autoregressive_tf_Jerome = '''
-from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
-predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name='GRU-6IN-32H1-32H2-5OUT-0')
+    initialisation_autoregressive_tf_integrated_update = '''
+from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
+predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=True)
 '''
+
+# Predictor of Jerome, now in others
+#     initialisation_autoregressive_tf_Jerome = '''
+# from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
+# predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name='GRU-6IN-32H1-32H2-5OUT-0')
+# '''
 
 
     # numbers = [1, 2]
@@ -113,8 +118,14 @@ predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name
 
         print('')
         print('')
-        print('predictor_autoregressive_tf_Jerome')
-        timer_predictor(initialisation_autoregressive_tf_Jerome)
+        print('predictor_autoregressive_tf_integrated_update')
+        timer_predictor(initialisation_autoregressive_tf_integrated_update)
+
+
+        # print('')
+        # print('')
+        # print('predictor_autoregressive_tf_Jerome')
+        # timer_predictor(initialisation_autoregressive_tf_Jerome)
 
 
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "0"  # Restrict printing messages from TF
