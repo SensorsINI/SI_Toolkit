@@ -23,8 +23,6 @@ def preprocess_for_brunton(a):
         # raise ValueError ('No information about sampling interval found')
 
     time_axis = dataset['time'].to_numpy()[:a.test_len]
-    # if dataset_sampling_dt is None:
-    #     dataset_sampling_dt = time_axis[1]-time_axis[0]
     ground_truth_features = a.features+a.control_inputs
     ground_truth = dataset[ground_truth_features].to_numpy()[:a.test_len, :]
 
