@@ -120,7 +120,7 @@ class predictor_autoregressive_tf:
         self.indices_net_output = [STATE_INDICES.get(key) for key in self.net_info.outputs]
         self.augmentation = predictor_output_augmentation_tf(self.net_info)
         self.indices_augmentation = self.augmentation.indices_augmentation
-        self.indices_outputs = tf.convert_to_tensor(self.indices_net_output+self.indices_augmentation)
+        self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_net_output+self.indices_augmentation))
 
         self.net_input_reg_initial = None
         self.net_input_reg_initial_normed = tf.Variable(tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
