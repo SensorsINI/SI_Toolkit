@@ -92,7 +92,7 @@ class predictor_ODE_tf:
 
         return self.output
 
-    def update_internal_state(self, Q, s):
+    def update_internal_state(self, Q, s=None):
         pass
 
 
