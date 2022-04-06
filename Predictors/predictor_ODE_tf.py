@@ -82,7 +82,7 @@ class predictor_ODE_tf:
         next_state = initial_state
 
         for k in tf.range(self.horizon):
-            next_state = self.next_step_predictor.step(next_state, Q[:, k, :], params)
+            next_state = self.next_step_predictor.step(next_state, Q[:, k, :])
             self.output = self.output.write(k + 1, next_state)
 
         self.output = tf.transpose(self.output.stack(), perm=[1, 0, 2])
