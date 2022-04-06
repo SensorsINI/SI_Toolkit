@@ -61,7 +61,6 @@ PATH_TO_NN = config['testing']['PATH_TO_NN']
 
 
 def check_dimensions(s, Q):
-
     # Make sure the input is at least 2d
     if s is None:
         pass
@@ -79,12 +78,23 @@ def check_dimensions(s, Q):
 
     return s, Q
 
+
+def check_batch_size(x, batch_size):
+    if tf.shape(x)[0] != batch_size:
+        if tf.shape(x)[0] == 1:
+            return tf.tile(x, (batch_size, 1))
+        else:
+            raise ValueError("Tensor has neither dimension 1 nor the one of the batch size")
+    else:
+        return x
+
+
 def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
 
 class predictor_autoregressive_tf:
-    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=False):
+    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=True):
 
         self.batch_size = batch_size
         self.horizon = horizon
@@ -112,20 +122,24 @@ class predictor_autoregressive_tf:
 
         self.normalization_info = get_norm_info_for_net(self.net_info)
 
-        self.normalizing_inputs = tf.convert_to_tensor(self.normalization_info[self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=tf.float32)
-        self.normalizing_outputs = tf.convert_to_tensor(self.normalization_info[self.net_info.outputs], dtype=tf.float32)
+        self.normalizing_inputs = tf.convert_to_tensor(
+            self.normalization_info[self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=tf.float32)
+        self.normalizing_outputs = tf.convert_to_tensor(self.normalization_info[self.net_info.outputs],
+                                                        dtype=tf.float32)
 
-        self.indices_inputs_reg = tf.convert_to_tensor([STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
+        self.indices_inputs_reg = tf.convert_to_tensor(
+            [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
         self.indices_net_output = [STATE_INDICES.get(key) for key in self.net_info.outputs]
         self.augmentation = predictor_output_augmentation_tf(self.net_info)
         self.indices_augmentation = self.augmentation.indices_augmentation
-        self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_net_output+self.indices_augmentation))
+        self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_net_output + self.indices_augmentation))
 
         self.net_input_reg_initial = None
-        self.net_input_reg_initial_normed = tf.Variable(tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
+        self.net_input_reg_initial_normed = tf.Variable(
+            tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
-                                     dtype=np.float32)
+                               dtype=np.float32)
 
         print('Init done')
 
@@ -137,25 +151,15 @@ class predictor_autoregressive_tf:
 
         initial_state, Q = convert_to_tensors(initial_state, Q)
 
-        if tf.shape(Q)[0] != self.batch_size:
-            if tf.shape(Q)[0] == 1:
-                Q = tf.tile(Q, (self.batch_size, 1))
-            else:
-                raise ValueError("Control input has neither dimension 1 nor the one of the batch size")
-        else:
-            pass
+        initial_state = check_batch_size(initial_state, self.batch_size)
+        Q = check_batch_size(Q, self.batch_size)
 
-        if tf.shape(initial_state)[0] != self.batch_size:
-            if tf.shape(initial_state)[0] == 1:
-                initial_state = tf.tile(initial_state, (self.batch_size, 1))
-            else:
-                raise ValueError("Initial state has neither dimension 1 nor the one of the batch size")
-        else:
-            pass
-
-
-        if self.update_before_predicting and self.last_net_input_reg_initial is not None and (last_optimal_control_input is not None or self.last_optimal_control_input is not None):
-            net_output = self.predict_with_update(initial_state, Q, last_optimal_control_input=last_optimal_control_input)
+        if self.update_before_predicting and self.last_net_input_reg_initial is not None and (
+                last_optimal_control_input is not None or self.last_optimal_control_input is not None):
+            if last_optimal_control_input is None:
+                last_optimal_control_input = self.last_optimal_control_input
+            net_output = self.predict_with_update_tf(initial_state, Q, self.last_net_input_reg_initial,
+                                                     last_optimal_control_input)
         else:
             net_output = self.predict_tf(initial_state, Q)
 
@@ -163,23 +167,10 @@ class predictor_autoregressive_tf:
 
         return self.output
 
-    def predict_with_update(self, initial_state, Q, last_optimal_control_input=None):
-
-        if last_optimal_control_input is None and self.last_optimal_control_input is None:
-            raise ValueError('The last control inout is missing')
-        elif last_optimal_control_input is None:
-            last_optimal_control_input = self.last_optimal_control_input
-
-        net_output = self.predict_with_update_tf(initial_state, Q, self.last_net_input_reg_initial, last_optimal_control_input)
-
-        return net_output
-
-
     @Compile
     def predict_with_update_tf(self, initial_state, Q, last_net_input_reg_initial, last_optimal_control_input):
         self.update_internal_state_tf(last_optimal_control_input, last_net_input_reg_initial)
         return self.predict_tf(initial_state, Q)
-
 
     @Compile
     def predict_tf(self, initial_state, Q):
@@ -226,31 +217,26 @@ class predictor_autoregressive_tf:
 
         return output
 
-
-    def update_internal_state(self, Q0=None, s=None):  # FIXME: q0 shoud go first
+    def update_internal_state(self, Q0=None, s=None):
 
         s, Q0 = check_dimensions(s, Q0)
         if Q0 is not None:
             Q0 = tf.convert_to_tensor(Q0, dtype=tf.float32)
 
         if s is not None:
-            net_input_reg_initial = s[:, self.indices_inputs_reg]
-            net_input_reg_initial_normed = normalize_tf(
-                tf.convert_to_tensor(net_input_reg_initial, dtype=tf.float32), self.normalizing_inputs
-            )
+            net_input_reg_initial = tf.gather(tf.convert_to_tensor(s, dtype=tf.float32), self.indices_inputs_reg, axis=-1)
+            net_input_reg_initial_normed = normalize_tf(net_input_reg_initial, self.normalizing_inputs)
+            net_input_reg_initial_normed = check_batch_size(net_input_reg_initial_normed, self.batch_size)
         else:
             net_input_reg_initial_normed = self.net_input_reg_initial_normed
 
+        Q0 = check_batch_size(Q0, self.batch_size)
 
         if self.update_before_predicting:
             self.last_optimal_control_input = Q0
             self.last_net_input_reg_initial = net_input_reg_initial_normed
         else:
-            if tf.shape(net_input_reg_initial_normed)[0] == 1 and tf.shape(Q0)[0] != 1:  # Predicting multiple control scenarios for the same initial state
-                self.update_internal_state_tf_tile(Q0, net_input_reg_initial_normed, self.batch_size)
-            else:  # tf.shape(net_input_reg_initial_normed)[0] == tf.shape(Q0)[0]:  # For each control scenario there is separate initial state provided
-                self.update_internal_state_tf(Q0, net_input_reg_initial_normed)
-
+            self.update_internal_state_tf(Q0, net_input_reg_initial_normed)
 
     @Compile
     def update_internal_state_tf(self, Q0, s):
@@ -261,22 +247,17 @@ class predictor_autoregressive_tf:
             copy_internal_states_from_ref(self.net, self.layers_ref)
 
             net_input = tf.reshape(tf.concat([Q0[:, 0, :], s], axis=1),
-                                    [-1, 1, len(self.net_info.inputs)])
+                                   [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
 
             copy_internal_states_to_ref(self.net, self.layers_ref)
 
 
-    @Compile
-    def update_internal_state_tf_tile(self, Q0, s, batch_size):
-
-        s = tf.tile(s, (batch_size, 1))
-        self.update_internal_state_tf(Q0, s)
-
     def reset(self):
         self.last_optimal_control_input = None
         self.last_optimal_control_input = None
+
 
 if __name__ == '__main__':
     from SI_Toolkit.Predictors.timer_predictor import timer_predictor
