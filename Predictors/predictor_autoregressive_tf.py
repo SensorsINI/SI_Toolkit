@@ -79,7 +79,6 @@ def check_dimensions(s, Q):
 
     return s, Q
 
-
 def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
@@ -138,52 +137,54 @@ class predictor_autoregressive_tf:
 
         initial_state, Q = convert_to_tensors(initial_state, Q)
 
-        self.net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
+        if tf.shape(Q)[0] != self.batch_size:
+            if tf.shape(Q)[0] == 1:
+                Q = tf.tile(Q, (self.batch_size, 1))
+            else:
+                raise ValueError("Control input has neither dimension 1 nor the one of the batch size")
+        else:
+            pass
+
+        if tf.shape(initial_state)[0] != self.batch_size:
+            if tf.shape(initial_state)[0] == 1:
+                initial_state = tf.tile(initial_state, (self.batch_size, 1))
+            else:
+                raise ValueError("Initial state has neither dimension 1 nor the one of the batch size")
+        else:
+            pass
+
+
         if self.update_before_predicting and self.last_net_input_reg_initial is not None and (last_optimal_control_input is not None or self.last_optimal_control_input is not None):
-            net_output = self.predict_with_update(self.net_input_reg_initial, Q, last_optimal_control_input=last_optimal_control_input)
-        elif tf.shape(self.net_input_reg_initial)[0] == 1 and tf.shape(Q)[0] != 1:  # Predicting multiple control scenarios for the same initial state
-            net_output = self.predict_tf_tile(self.net_input_reg_initial, Q, self.batch_size)
-        else:  # tf.shape(self.initial_state)[0] == tf.shape(Q)[0]:  # For each control scenario there is separate initial state provided
-                net_output = self.predict_tf(self.net_input_reg_initial, Q)
+            net_output = self.predict_with_update(initial_state, Q, last_optimal_control_input=last_optimal_control_input)
+        else:
+            net_output = self.predict_tf(initial_state, Q)
 
         self.output[:, 1:, :] = net_output.numpy()
 
         return self.output
 
-    def predict_with_update(self, net_input_reg_initial, Q, last_optimal_control_input=None):
+    def predict_with_update(self, initial_state, Q, last_optimal_control_input=None):
 
         if last_optimal_control_input is None and self.last_optimal_control_input is None:
             raise ValueError('The last control inout is missing')
         elif last_optimal_control_input is None:
             last_optimal_control_input = self.last_optimal_control_input
 
-        if tf.shape(net_input_reg_initial)[0] == 1 and tf.shape(Q)[0] != 1:  # Predicting multiple control scenarios for the same initial state
-            net_output = self.predict_with_update_tf_tile(self.net_input_reg_initial, Q, self.last_net_input_reg_initial, last_optimal_control_input, self.batch_size)
-        else:  # tf.shape(self.initial_state)[0] == tf.shape(Q)[0]:  # For each control scenario there is separate initial state provided
-            net_output = self.predict_with_update_tf(self.net_input_reg_initial, Q, self.last_net_input_reg_initial, last_optimal_control_input)
+        net_output = self.predict_with_update_tf(initial_state, Q, self.last_net_input_reg_initial, last_optimal_control_input)
 
         return net_output
 
 
     @Compile
-    def predict_with_update_tf(self, net_input_reg_initial, Q, last_net_input_reg_initial, last_optimal_control_input):
+    def predict_with_update_tf(self, initial_state, Q, last_net_input_reg_initial, last_optimal_control_input):
         self.update_internal_state_tf(last_optimal_control_input, last_net_input_reg_initial)
-        return self.predict_tf(net_input_reg_initial, Q)
-
-    @Compile
-    def predict_with_update_tf_tile(self, net_input_reg_initial, Q, last_net_input_reg_initial, last_optimal_control_input, batch_size):
-        net_input_reg_initial = tf.tile(net_input_reg_initial, (batch_size, 1))
-        last_net_input_reg_initial = tf.tile(last_net_input_reg_initial, (batch_size, 1))
-        return self.predict_with_update_tf(net_input_reg_initial, Q, last_net_input_reg_initial, last_optimal_control_input)
-
-    @Compile
-    def predict_tf_tile(self, net_input_reg_initial, Q, batch_size): # Predicting multiple control scenarios for the same initial state
-        net_input_reg_initial = tf.tile(net_input_reg_initial, (batch_size, 1))
-        return self.predict_tf(net_input_reg_initial, Q)
+        return self.predict_tf(initial_state, Q)
 
 
     @Compile
-    def predict_tf(self, net_input_reg_initial, Q):
+    def predict_tf(self, initial_state, Q):
+
+        net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
 
         self.net_input_reg_initial_normed.assign(normalize_tf(
             net_input_reg_initial, self.normalizing_inputs
