@@ -55,7 +55,7 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
             Q_current_timestep = Q_array[np.newaxis, timestep, :, :]
             s0 = states_0[np.newaxis, timestep, :]
             output[timestep, :, :] = predictor.predict(s0, Q_current_timestep)
-            predictor.update_internal_state(s0, Q_current_timestep[:, np.newaxis, 1, :])
+            predictor.update_internal_state(Q_current_timestep[:, np.newaxis, 1, :], s0)
 
         output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in a.features]]
 

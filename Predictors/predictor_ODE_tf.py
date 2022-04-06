@@ -66,10 +66,8 @@ class predictor_ODE_tf:
         else:  # tf.shape(self.initial_state)[0] == tf.shape(Q)[0]:  # For each control scenario there is separate initial state provided
             output = self.predict_tf(self.initial_state, Q)
 
-        if self.batch_size > 1:
-            return output.numpy()
-        else:
-            return tf.squeeze(output).numpy()
+        return output.numpy()
+
 
     @Compile
     def predict_tf_tile(self, initial_state, Q, batch_size, params=None): # Predicting multiple control scenarios for the same initial state
@@ -94,7 +92,7 @@ class predictor_ODE_tf:
 
         return self.output
 
-    def update_internal_state(self, s, Q):
+    def update_internal_state(self, Q, s=None):
         pass
 
 
@@ -102,22 +100,11 @@ class predictor_ODE_tf:
 
 
 if __name__ == '__main__':
-    import timeit
+    from SI_Toolkit.Predictors.timer_predictor import timer_predictor
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import CONTROL_INPUTS
-import numpy as np
-batch_size = 2000
-horizon = 50
 predictor = predictor_ODE_tf(horizon, 0.02, 10)
-initial_state = np.random.random(size=(batch_size, 6))
-# initial_state = np.random.random(size=(1, 6))
-Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
-predictor.predict(initial_state, Q)
 '''
 
-    code = '''\
-predictor.predict(initial_state, Q)'''
-
-    print(timeit.timeit(code, number=1000, setup=initialisation) / 1000.0)
+    timer_predictor(initialisation)
