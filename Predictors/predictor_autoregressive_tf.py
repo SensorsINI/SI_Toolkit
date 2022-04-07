@@ -101,9 +101,12 @@ class predictor_autoregressive_tf:
 
         a = SimpleNamespace()
 
-        a.path_to_models = PATH_TO_NN
-
-        a.net_name = net_name
+        if '/' in net_name:
+            a.path_to_models = os.path.join(*net_name.split("/")[:-1])+'/'
+            a.net_name = net_name.split("/")[-1]
+        else:
+            a.path_to_models = PATH_TO_NN
+            a.net_name = net_name
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
         self.net, self.net_info = \
