@@ -75,7 +75,8 @@ class predictor_ODE_tf_pure:
 
     # Predict (Euler: 6.8ms)
     # @tf.function(jit_compile=True, input_signature=[tf.TensorSpec(shape=[None, 6], dtype=tf.float32),
-    #                                                 tf.TensorSpec(shape=[1, 50, 1], dtype=tf.float32)])
+    #   tf.TensorSpec(shape=[1, 50, 1], dtype=tf.float32)])
+    # @tf.py_function()
     def predict_tf(self, initial_state, Q):
 
         self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
