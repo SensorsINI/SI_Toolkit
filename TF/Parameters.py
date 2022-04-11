@@ -36,6 +36,7 @@ EPOCHS = config['training_default']['EPOCHS']
 BATCH_SIZE = config['training_default']['BATCH_SIZE']
 SEED = config['training_default']['SEED']
 LR = config['training_default']['LR']
+SHIFT_LABELS = config['training_default']['SHIFT_LABELS']
 
 WASH_OUT_LEN = config['training_default']['WASH_OUT_LEN']
 POST_WASH_OUT_LEN = config['training_default']['POST_WASH_OUT_LEN']
@@ -88,6 +89,7 @@ def args():
     parser.add_argument('--batch_size', default=BATCH_SIZE, type=int, help='Size of a batch')
     parser.add_argument('--seed', default=SEED, type=int, help='Set seed for reproducibility')
     parser.add_argument('--lr', default=LR, type=float, help='Learning rate')
+    parser.add_argument('--shift_labels', default=SHIFT_LABELS, type=int, help='How much to shift labels/targets with respect to features while reading data file for training')
 
     parser.add_argument('--path_to_models', default=PATH_TO_MODELS, type=str,
                         help='Path where to save/ from where to load models')
