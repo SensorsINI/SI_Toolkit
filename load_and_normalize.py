@@ -300,10 +300,10 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # endregion
 
     # region Calculate normalization values from data
-    df_mean = df_total.mean(axis=0)
-    df_std = df_total.std(axis=0)
-    df_max = df_total.max(axis=0)
-    df_min = df_total.min(axis=0)
+    df_mean = df_total.mean(axis=0, numeric_only=True).dropna()
+    df_std = df_total.std(axis=0, numeric_only=True).dropna()
+    df_max = df_total.max(axis=0, numeric_only=True).dropna()
+    df_min = df_total.min(axis=0, numeric_only=True).dropna()
     frame = {'mean': df_mean, 'std': df_std, 'max': df_max, 'min': df_min}
     df_norm_info = pd.DataFrame(frame).transpose()
 
@@ -408,10 +408,11 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # region Plot histograms of data used for normalization
     if plot_histograms:
         # Plot historgrams to make the firs check about gaussian assumption
-        for feature in df_total.columns:
-            plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
-            plt.title(feature)
-            plt.show()
+        for feature in df_norm_info.columns:
+            if feature in df_total.columns:
+                plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
+                plt.title(feature)
+                plt.show()
 
     # endregion
 
