@@ -1,4 +1,4 @@
-from SI_Toolkit.GP.Train import load_model
+from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.TF.TF_Functions.Normalising import normalize_tf, denormalize_tf
 
 import numpy as np
@@ -21,66 +21,64 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'con
                    Loader=yaml.FullLoader)
 
 # TODO load from config
-PATH_TO_MODEL = "./SI_Toolkit_ApplicationSpecificFiles/Experiments/GP-experiment/Models/GP_model"
+PATH_TO_MODEL = "./SI_Toolkit_ApplicationSpecificFiles/Experiments/GP-experiment/Models/SGPR_model"
 
 
 class predictor_autoregressive_GP:
-    def __init__(self, horizon):
-        tf.config.run_functions_eagerly(True)
+    def __init__(self, horizon, num_rollouts):
+        # tf.config.run_functions_eagerly(True)
 
         self.horizon = horizon
+        self.num_rollouts = num_rollouts
         self.model = load_model(PATH_TO_MODEL)
         self.inputs = self.model.state_inputs + self.model.control_inputs
         self.normalizing_inputs = tf.convert_to_tensor(self.model.norm_info[self.model.control_inputs], dtype=tf.float64)
         self.normalizing_outputs = tf.convert_to_tensor(self.model.norm_info[self.model.outputs], dtype=tf.float64)
         self.normalizing_outputs_full = tf.convert_to_tensor(self.model.norm_info[STATE_VARIABLES], dtype=tf.float64)
 
-    @tf.function(experimental_compile=True)
-    def predict(self, s, Q_seq):
+        initial_state = np.tile(np.random.random(size=[1, 5]), [num_rollouts, 1])
+        Q = np.random.random(size=[num_rollouts, horizon, 1])
+
+        self.predict(initial_state, Q)
+
+    def predict(self, initial_state, Q_seq):
+        outputs = self.predict_tf(initial_state, Q_seq)
+        return outputs.numpy()
+
+    @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=tf.float64),
+                                  tf.TensorSpec(shape=[None, None, None], dtype=tf.float64)],
+                 jit_compile=True)
+    def predict_tf(self, initial_state, Q_seq):
+        s = tf.convert_to_tensor(initial_state, dtype=tf.float64)
         Q_seq = tf.convert_to_tensor(Q_seq, dtype=tf.float64)
-        Q_seq = normalize_tf(Q_seq, self.normalizing_inputs)
 
-        outputs = tf.TensorArray(tf.float64, size=self.horizon+1)
-        num_rollouts = s.shape[0]
+        outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
 
-        if s.shape[1] > len(self.model.outputs):  # parsing full state (for mppi inputs)
-            full = True
-            s = tf.convert_to_tensor(s, tf.float64)
-            outputs = outputs.write(0, s)
-            s = tf.gather(s, self.model.global_indices, axis=1)
-        else:
-            full = False
-            s = tf.convert_to_tensor(s, tf.float64)
-            outputs = outputs.write(0, s)
+        s = tf.gather(s, self.model.global_indices, axis=1)
 
         s = normalize_tf(s, self.normalizing_outputs)
 
-        for i in range(self.horizon):
-            Q_current = Q_seq[:, i, :]
+        outputs = outputs.write(0, s)
 
-            x = tf.reshape(
-                tf.concat([s, Q_current], axis=1),
-                shape=[-1, len(self.inputs)])
+        for i in range(self.horizon):
+            x = tf.concat([s, Q_seq[:, i, :]], axis=1)
 
             s, _ = self.model.predict_f(x)
-            s = tf.reshape(s, shape=[-1, len(self.model.outputs)])
+            s = tf.transpose(tf.squeeze(s, axis=2))
 
-            if full:  # parsing full state (for mppi outputs)
-                l = tf.unstack(s, axis=1)
-                l = l[:2]+tf.unstack(tf.zeros(shape=[3, num_rollouts], dtype=tf.float64))+l[2:]
-                l = tf.transpose(tf.stack(l))
-                outputs = outputs.write(i+1, l)
-            else:
-                outputs = outputs.write(i+1, s)
+            outputs = outputs.write(i+1, s)
 
         outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
 
-        if full:  # parsing full state (for mppi outputs)
-            outputs = denormalize_tf(outputs, self.normalizing_outputs_full)
-        else:
-            outputs = denormalize_tf(outputs, self.normalizing_outputs)
+        outputs = denormalize_tf(outputs, self.normalizing_outputs)
 
-        return outputs.numpy()
+        # outputs = tf.stack([outputs[..., 0], outputs[..., 1], tf.math.cos(outputs[..., 0]),
+        #                     tf.math.sin(outputs[..., 0]), outputs[..., 2], outputs[..., 3]], axis=2)
+
+        outputs = tf.stack([tf.math.atan2(outputs[..., 2], outputs[..., 1]), outputs[..., 0], outputs[..., 1],
+                            outputs[..., 2], outputs[..., 3], outputs[..., 4]], axis=2)
+
+        return outputs
 
     def update_internal_state(self, s, Q):  # this is here to make the get_prediction function happy
         pass
@@ -89,24 +87,21 @@ class predictor_autoregressive_GP:
 if __name__ == '__main__':
     import timeit
 
-    initialisation = '''
+    initialization = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
 import numpy as np
+import tensorflow as tf
 
-horizon = 10
-num_rollouts = 100
-predictor = predictor_autoregressive_GP(horizon=horizon)
-initial_state = np.random.random(size=(num_rollouts, 6))
-Q = np.float64(np.random.random(size=(num_rollouts, horizon, 1)))
+horizon = 50
+num_rollouts = 2000
+predictor = predictor_autoregressive_GP(horizon=horizon, num_rollouts=num_rollouts)
 
-predictor.predict(initial_state, Q)
-predictor.update_internal_state(initial_state, Q)
+initial_state = np.tile(np.random.random(size=[1, 5]), [num_rollouts, 1])
+Q = np.random.random(size=[num_rollouts, horizon, 1])
 '''
 
     code = '''\
 predictor.predict(initial_state, Q)
-predictor.update_internal_state(initial_state, Q)'''
+'''
 
-    print(timeit.timeit(code, number=10, setup=initialisation) / 10.0)
-
-
+    print(timeit.timeit(code, number=10, setup=initialization) / 10.0)
