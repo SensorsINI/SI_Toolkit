@@ -79,10 +79,13 @@ def check_dimensions(s, Q):
     return s, Q
 
 
-def check_batch_size(x, batch_size):
+def check_batch_size(x, batch_size, argument_type):
     if tf.shape(x)[0] != batch_size:
         if tf.shape(x)[0] == 1:
-            return tf.tile(x, (batch_size, 1))
+            if argument_type == 's':
+                return tf.tile(x, (batch_size, 1))
+            elif argument_type == 'Q':
+                return tf.tile(x, (batch_size, 1, 1))
         else:
             raise ValueError("Tensor has neither dimension 1 nor the one of the batch size")
     else:
@@ -101,9 +104,12 @@ class predictor_autoregressive_tf:
 
         a = SimpleNamespace()
 
-        a.path_to_models = PATH_TO_NN
-
-        a.net_name = net_name
+        if '/' in net_name:
+            a.path_to_models = os.path.join(*net_name.split("/")[:-1])+'/'
+            a.net_name = net_name.split("/")[-1]
+        else:
+            a.path_to_models = PATH_TO_NN
+            a.net_name = net_name
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
         self.net, self.net_info = \
@@ -151,8 +157,8 @@ class predictor_autoregressive_tf:
 
         initial_state, Q = convert_to_tensors(initial_state, Q)
 
-        initial_state = check_batch_size(initial_state, self.batch_size)
-        Q = check_batch_size(Q, self.batch_size)
+        initial_state = check_batch_size(initial_state, self.batch_size, 's')
+        Q = check_batch_size(Q, self.batch_size, 'Q')
 
         if self.update_before_predicting and self.last_net_input_reg_initial is not None and (
                 last_optimal_control_input is not None or self.last_optimal_control_input is not None):
@@ -226,11 +232,11 @@ class predictor_autoregressive_tf:
         if s is not None:
             net_input_reg_initial = tf.gather(tf.convert_to_tensor(s, dtype=tf.float32), self.indices_inputs_reg, axis=-1)
             net_input_reg_initial_normed = normalize_tf(net_input_reg_initial, self.normalizing_inputs)
-            net_input_reg_initial_normed = check_batch_size(net_input_reg_initial_normed, self.batch_size)
+            net_input_reg_initial_normed = check_batch_size(net_input_reg_initial_normed, self.batch_size, 's')
         else:
             net_input_reg_initial_normed = self.net_input_reg_initial_normed
 
-        Q0 = check_batch_size(Q0, self.batch_size)
+        Q0 = check_batch_size(Q0, self.batch_size, 'Q')
 
         if self.update_before_predicting:
             self.last_optimal_control_input = Q0
