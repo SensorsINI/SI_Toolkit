@@ -4,7 +4,7 @@ Created on Fri Jun 19 06:21:32 2020
 
 @author: Marcin
 """
-
+# Test SI
 try:
     import nni
 except ModuleNotFoundError:
