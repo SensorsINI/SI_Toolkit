@@ -26,7 +26,8 @@ class Dataset(keras.utils.Sequence):
         self.time_axes = []
 
         for df in dfs:
-            self.time_axes.append(df['time'])
+            if 'time' in df.columns:
+                self.time_axes.append(df['time'])
             self.data.append(df[self.inputs])
             self.labels.append(df[self.outputs])
 
