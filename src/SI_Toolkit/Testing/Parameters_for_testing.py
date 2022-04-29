@@ -11,7 +11,7 @@ import numpy as np
 import yaml
 import os
 
-config_testing = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
+config_testing = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
 
 PATH_TO_NN = config_testing['testing']["PATH_TO_NN"]
 

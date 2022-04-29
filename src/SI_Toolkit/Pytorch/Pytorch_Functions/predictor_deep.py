@@ -45,9 +45,9 @@ from SI_Toolkit.load_and_normalize import *
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 try:
-    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS, augment_predictor_output
+    from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS, augment_predictor_output
 except ModuleNotFoundError:
-    print('SI_Toolkit_ApplicationSpecificFiles not yet created')
+    print('SI_Toolkit_ASF not yet created')
 
 import numpy as np
 
@@ -56,7 +56,7 @@ import yaml, os
 
 import tensorflow as tf
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
 
 NET_NAME = config['modeling']['NET_NAME']
 PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"

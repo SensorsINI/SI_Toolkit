@@ -17,7 +17,6 @@ from tensorflow import keras
 import os
 
 import timeit
-from warnings import warn as warning
 
 # "Command line" parameters
 from SI_Toolkit.TF.Parameters import args
@@ -25,27 +24,21 @@ from SI_Toolkit.TF.Parameters import args
 # Custom functions
 from SI_Toolkit.TF.TF_Functions.Initialization import set_seed, create_full_name, create_log_file, \
     get_net, get_norm_info_for_net
-from SI_Toolkit.TF.TF_Functions.Loss import loss_msr_sequence_customizable, loss_msr_sequence_customizable_relative
 from SI_Toolkit.TF.TF_Functions.Dataset import Dataset
 # from SI_Toolkit.TF.TF_Functions.Dataset import DatasetRandom
 from SI_Toolkit.load_and_normalize import load_data, normalize_df, \
-    get_sampling_interval_from_datafile, get_paths_to_datafiles
+    get_paths_to_datafiles
 
 try:
-    from SI_Toolkit_ApplicationSpecificFiles.DataSelector import DataSelector
+    from SI_Toolkit_ASF_global.DataSelector import DataSelector
 except:
     print('No DataSelector found.')
-# region Import and print "command line" arguments
-# print('')
-a = args()  # 'a' like arguments
-# print(a.__dict__)
-# print('')
-# endregion
+
 
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
 # Warning! It may affect performance. I would discourage you to use it for long training tasks
 # @profile(precision=4)
-def train_network(nni_parameters=None):
+def train_network(a, nni_parameters=None):
     # region Start measuring time - to evaluate performance of the training function
     start = timeit.default_timer()
     # endregion
@@ -244,9 +237,16 @@ def train_network(nni_parameters=None):
     # endregion
 
 
-if __name__ == '__main__':
+def train_tf():
     import os.path
     import time
+
+    # region Import and print "command line" arguments
+    # print('')
+    a = args()  # 'a' like arguments
+    # print(a.__dict__)
+    # print('')
+    # endregion
 
     print('Path to experiment {}'.format(a.path_to_models))
 
@@ -255,8 +255,12 @@ if __name__ == '__main__':
     print("Training script last modified: %s" % time.ctime(os.path.getmtime(file)))
 
     # Run the training function and measure time of execution
-    train_network()
+    train_network(a)
 
     # Use the call below instead of train_network() if you want to use NNI
     # nni_parameters = nni.get_next_parameter()
     # train_network(nni_parameters)
+
+
+if __name__ == '__main__':
+    train_tf()

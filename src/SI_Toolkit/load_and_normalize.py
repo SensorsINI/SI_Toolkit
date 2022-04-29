@@ -4,7 +4,6 @@ from tqdm import trange
 from time import sleep
 
 import glob
-import os
 
 import matplotlib.pyplot as plt
 
@@ -19,16 +18,12 @@ except:
     pass
 
 try:
-    from SI_Toolkit_ApplicationSpecificFiles.user_defined_normalization_correction import apply_user_defined_normalization_correction
+    from SI_Toolkit_ASF_global.user_defined_normalization_correction import apply_user_defined_normalization_correction
 except:
-    print('SI_Toolkit_ApplicationSpecificFiles not created yet')
+    print('SI_Toolkit_ASF not created yet')
 
 import yaml, os
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
-
-
-PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + 'NormalizationInfo/'
 normalization_rounding_decimals = 5
 
 
@@ -241,12 +236,17 @@ def get_sampling_interval_from_datafile(path_to_datafile):
 #                 return dt_save
 
 
-def calculate_normalization_info(paths_to_data_information=None, plot_histograms=True, user_correction=True, path_to_norm_info=None):
+def calculate_normalization_info(paths_to_data_information=None, plot_histograms=True, user_correction=True, path_to_norm_info=None, config=None):
     """
     This function creates csv file with information about dataset statistics which may be used for normalization.
     The statistics are calculated from provided datafiles
     BUT may include user corrections to account for prior knowledge about distribution (e.g. 0 mean)
     """
+
+    if paths_to_data_information is None:
+        if config is None:
+            raise ValueError('Either paths_to_data_information or config must be not None')
+        paths_to_data_information = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + "Recordings/Train/"
 
     list_of_paths_to_datafiles = get_paths_to_datafiles(paths_to_data_information)
 
@@ -344,8 +344,17 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # endregion
 
     # region Make folder to save normalization info (if not yet existing)
+
+    if path_to_norm_info is None:
+        if config is None:
+            raise ValueError('Either path_to_norm_info or config must be not None')
+        path_to_norm_info = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + 'NormalizationInfo/'
+
+    if path_to_norm_info[-1] != '/':
+        path_to_norm_info = path_to_norm_info + '/'
+
     try:
-        os.makedirs(PATH_TO_NORMALIZATION_INFO[:-1])
+        os.makedirs(path_to_norm_info[:-1])
     except FileExistsError:
         pass
 
@@ -354,10 +363,8 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # region Write the .csv file
     date_now = datetime.now().strftime('%Y-%m-%d')
     time_now = datetime.now().strftime('%H-%M-%S')
-    if path_to_norm_info is None:
-        csv_filepath = PATH_TO_NORMALIZATION_INFO + 'NI_' + date_now + '_' + time_now + '.csv'
-    else:
-        csv_filepath = path_to_norm_info + 'NI_' + date_now + '_' + time_now + '.csv'
+
+    csv_filepath = path_to_norm_info + 'NI_' + date_now + '_' + time_now + '.csv'
 
     with open(csv_filepath, "a", newline='') as outfile:
         writer = csv.writer(outfile)
@@ -569,9 +576,3 @@ def normalize_numpy_array(denormalized_array,
             )
 
     return normalized_array
-
-
-if __name__ == '__main__':
-    folder_with_data_to_calculate_norm_info = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + "Recordings/Train/"
-
-    calculate_normalization_info(folder_with_data_to_calculate_norm_info)

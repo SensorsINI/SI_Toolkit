@@ -1,6 +1,6 @@
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES
+from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES
 
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization_tf import next_state_predictor_ODE_tf
+from SI_Toolkit_ASF_global.predictors_customization_tf import next_state_predictor_ODE_tf
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 import tensorflow as tf
