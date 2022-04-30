@@ -58,26 +58,17 @@ class predictor_ODE:
 
         return self.output if (self.batch_size > 1) else np.squeeze(self.output)
 
-    def update_internal_state(self, s, Q0):
+    def update_internal_state(self, Q0, s=None):
         pass
 
 
 if __name__ == '__main__':
-    import timeit
+    from SI_Toolkit.Predictors.timer_predictor import timer_predictor
+
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, CONTROL_INPUTS
-import numpy as np
-batch_size = 2000
-horizon = 50
 predictor = predictor_ODE(horizon, 0.02, 10)
-initial_state = np.random.random(size=(batch_size, 6))
-Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
-predictor.predict(initial_state, Q)
 '''
 
+    timer_predictor(initialisation)
 
-    code = '''\
-predictor.predict(initial_state, Q)'''
-
-    print(timeit.timeit(code, number=1000, setup=initialisation)/1000.0)

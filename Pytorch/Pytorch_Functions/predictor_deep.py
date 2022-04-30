@@ -42,6 +42,7 @@ Using predictor:
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
 from SI_Toolkit.TF.TF_Functions.Network import get_internal_states, load_internal_states  #FIXME: get internal states, surely does nor work with Pytorch; removed from master 10.03.2022
 from SI_Toolkit.load_and_normalize import *
+from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 try:
     from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, CONTROL_INPUTS, augment_predictor_output
@@ -153,7 +154,7 @@ class predictor_autoregressive_tf:
         return output_array
 
 
-    # @tf.function
+    # @Compile
     def update_internal_state(self, Q0):
         # load internal RNN state
         load_internal_states(self.net, self.rnn_internal_states)
@@ -166,12 +167,12 @@ class predictor_autoregressive_tf:
         else:
             net_input = (tf.reshape(tf.concat([Q0, self.net_initial_input_without_Q_TF], axis=1),
                                     [-1, 1, len(self.net_info.inputs)]))
-        # self.evaluate_net(self.net_current_input) # Using tf.function to compile net
+        # self.evaluate_net(self.net_current_input) # Using Compile to compile net
         self.net(net_input)  # Using net directly
 
         self.rnn_internal_states = get_internal_states(self.net)
 
-    # @tf.function
+    # @Compile
     def iterate_net_f(self, Q, single_step=False):
 
         if single_step:
@@ -202,7 +203,7 @@ class predictor_autoregressive_tf:
         net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
         return net_outputs
 
-    @tf.function
+    @Compile
     def evaluate_net_f(self, net_input):
         # print('retracing evaluate_net_f')
         net_output = self.net(net_input)

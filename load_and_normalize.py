@@ -52,7 +52,7 @@ def get_paths_to_datafiles(paths_to_data_information):
 
     def list_of_paths_from_norminfo():
 
-        with open(paths_to_data_information, 'r') as cmt_file:  # open file
+        with open(paths_to_data_information, 'r', newline='') as cmt_file:  # open file
             reached_path_list = False
             for line in cmt_file:  # read each line
                 if reached_path_list:
@@ -229,7 +229,7 @@ def get_sampling_interval_from_datafile(path_to_datafile):
 # Used to ensure that datafiles used for training save data with the same frequency
 # def get_sampling_interval_from_normalization_info(path_to_normalization_info):
 #     preceding_text = '# Sampling interval of data used to calculate normalization: '
-#     with open(path_to_normalization_info, 'r') as cmt_file:  # open file
+#     with open(path_to_normalization_info, 'r', newline='') as cmt_file:  # open file
 #        for line in cmt_file:  # read each line
 #             if line[0:len(preceding_text)] == preceding_text:
 #                 dt_information = line[len(preceding_text):]
@@ -300,10 +300,10 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # endregion
 
     # region Calculate normalization values from data
-    df_mean = df_total.mean(axis=0)
-    df_std = df_total.std(axis=0)
-    df_max = df_total.max(axis=0)
-    df_min = df_total.min(axis=0)
+    df_mean = df_total.mean(axis=0, numeric_only=True).dropna()
+    df_std = df_total.std(axis=0, numeric_only=True).dropna()
+    df_max = df_total.max(axis=0, numeric_only=True).dropna()
+    df_min = df_total.min(axis=0, numeric_only=True).dropna()
     frame = {'mean': df_mean, 'std': df_std, 'max': df_max, 'min': df_min}
     df_norm_info = pd.DataFrame(frame).transpose()
 
@@ -359,7 +359,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     else:
         csv_filepath = path_to_norm_info + 'NI_' + date_now + '_' + time_now + '.csv'
 
-    with open(csv_filepath, "a") as outfile:
+    with open(csv_filepath, "a", newline='') as outfile:
         writer = csv.writer(outfile)
 
         writer.writerow(['# ' + 'This is normalization information calculated {} at time {}'
@@ -388,7 +388,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
     df_norm_info_from_data.to_csv(csv_filepath, index=False, header=True, mode='a')  # Mode (a)ppend
 
-    with open(csv_filepath, "a") as outfile:
+    with open(csv_filepath, "a", newline='') as outfile:
 
         writer = csv.writer(outfile)
 
@@ -408,10 +408,11 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # region Plot histograms of data used for normalization
     if plot_histograms:
         # Plot historgrams to make the firs check about gaussian assumption
-        for feature in df_total.columns:
-            plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
-            plt.title(feature)
-            plt.show()
+        for feature in df_norm_info.columns:
+            if feature in df_total.columns:
+                plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
+                plt.title(feature)
+                plt.show()
 
     # endregion
 

@@ -111,7 +111,7 @@ def get_net(a,
             # endregion
 
             # region Get information about the pretrained network from the associated txt file
-            with open(txt_path) as f:
+            with open(txt_path, newline='') as f:
                 lines = f.read().splitlines()
 
             for i in range(len(lines)):
@@ -260,11 +260,11 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
         #  however it is also compatible with older version of the program with normalization info placed in a different folder
         if net_info.path_to_normalization_info is None:
             raise ValueError('You must provide normalization info for retraining existing network')
-        normalization_info = load_normalization_info(net_info.path_to_normalization_info)
         try: shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
         except: pass
         net_info.path_to_normalization_info = os.path.join(net_info.path_to_net, os.path.basename(
             net_info.path_to_normalization_info))
+        normalization_info = load_normalization_info(net_info.path_to_normalization_info)
 
     # region Get sampling interval from normalization info
     # TODO: this does not really fits here put is too small for me to create separate function

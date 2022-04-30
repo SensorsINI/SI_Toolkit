@@ -24,13 +24,13 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     output_array = np.zeros([a.test_len, a.test_max_horizon + 1, len(a.features)],
                             dtype=np.float32)
 
-    stateful_components = ['RNN', 'GRU', 'LSTM']
+    stateful_components = ['RNN', 'GRU', 'LSTM', 'GP']
     if any(stateful_component in predictor_name for stateful_component in stateful_components):
         mode = 'sequential'
     else:
         mode = 'batch'
 
-    mode = 'sequential'
+    # mode = 'sequential'
     # mode = 'batch'
 
     if 'EulerTF' in predictor_name:
@@ -53,13 +53,13 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     else:
 
         output = np.zeros([a.test_len, a.test_max_horizon + 1, len(a.features)],
-                          dtype=np.float64)
+                          dtype=np.float32)
         for timestep in trange(a.test_len):
             Q_current_timestep = Q_array[np.newaxis, timestep, :, :]
-            s0 = states_0[np.newaxis, timestep, [STATE_INDICES.get(key) for key in a.features]]
+            s0 = states_0[np.newaxis, timestep, :]
             output[timestep, :, :] = predictor.predict(s0, Q_current_timestep)
-            predictor.update_internal_state(s0, Q_current_timestep[:, np.newaxis, 1, :])
+            predictor.update_internal_state(Q_current_timestep[:, np.newaxis, 1, :], s0)
 
-        output_array[:, :, :] = output
+        output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in a.features]]
 
     return output_array

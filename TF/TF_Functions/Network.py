@@ -7,6 +7,8 @@ from types import SimpleNamespace
 
 import tensorflow as tf
 
+from SI_Toolkit.TF.TF_Functions.Compile import Compile
+
 def load_pretrained_net_weights(net, ckpt_path):
     """
     A function loading parameters (weights and biases) from a previous training to a net RNN instance
@@ -98,7 +100,7 @@ def compose_net_from_net_name(net_name,
     return net, net_info
 
 
-@tf.function(jit_compile=True)
+@Compile
 def copy_internal_states_to_ref(net, layers_ref):
     for layer, layer_ref in zip(net.layers, layers_ref):
         if (('gru' in layer.name) or
@@ -111,7 +113,7 @@ def copy_internal_states_to_ref(net, layers_ref):
             pass
 
 
-@tf.function(jit_compile=True)
+@Compile
 def copy_internal_states_from_ref(net, layers_ref):
     for layer, layer_ref in zip(net.layers, layers_ref):
         if (('gru' in layer.name) or

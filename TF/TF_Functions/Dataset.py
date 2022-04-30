@@ -26,11 +26,14 @@ class Dataset(keras.utils.Sequence):
         self.time_axes = []
 
         for df in dfs:
-            self.time_axes.append(df['time'])
+            if 'time' in df.columns:
+                self.time_axes.append(df['time'])
             self.data.append(df[self.inputs])
             self.labels.append(df[self.outputs])
 
         self.args = args
+
+        self.shift_labels = self.args.shift_labels
 
         self.exp_len = None
         self.warm_up_len = self.args.wash_out_len
@@ -69,15 +72,18 @@ class Dataset(keras.utils.Sequence):
         self.df_lengths_cs = []
         if type(self.data) == list:
             for data_set in self.data:
-                self.df_lengths.append(data_set.shape[0] - self.exp_len)
+                self.df_lengths.append(data_set.shape[0] - self.exp_len - self.shift_labels)
                 if not self.df_lengths_cs:
                     self.df_lengths_cs.append(self.df_lengths[0])
                 else:
-                    self.df_lengths_cs.append(self.df_lengths_cs[-1] + self.df_lengths[-1])
+                    self.df_lengths_cs.append(self.df_lengths_cs[-1] + self.df_lengths[-1] - self.shift_labels)
             self.number_of_samples = self.df_lengths_cs[-1]
 
         else:
-            self.number_of_samples = self.data.shape[0] - self.exp_len
+            self.number_of_samples = self.data.shape[0] - self.exp_len - self.shift_labels
+
+        if np.any(np.array(self.df_lengths) < 1):
+            raise ValueError('One of the datasets is too short to use it for training. Remove it manually and try again.')
 
         self.number_of_batches = int(np.ceil(self.number_of_samples / float(self.batch_size)))
 
@@ -117,14 +123,14 @@ class Dataset(keras.utils.Sequence):
 
         features = self.data[idx_data_set].to_numpy()[idx:idx + self.exp_len, :]
         # Every point in features has its target value corresponding to the next time step:
-        targets = self.labels[idx_data_set].to_numpy()[idx+1:idx + self.exp_len+1, :]
+        targets = self.labels[idx_data_set].to_numpy()[idx+self.shift_labels:idx + self.exp_len+self.shift_labels, :]
 
 
         # If get_time_axis try to obtain a vector of time data for the chosen sample
         if get_time_axis:
             try:
                 # As targets and features are shifted by one timestep we have to make time_axis accordingly longer to cover both
-                time_axis = self.time_axes[idx_data_set].to_numpy()[idx:idx + self.exp_len + 1]
+                time_axis = self.time_axes[idx_data_set].to_numpy()[idx:idx + self.exp_len + self.shift_labels]
             except IndexError:
                 time_axis = []
 
