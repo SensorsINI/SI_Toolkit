@@ -42,15 +42,15 @@ from SI_Toolkit.TF.TF_Functions.Network import copy_internal_states_from_ref, co
 from SI_Toolkit.load_and_normalize import denormalize_numpy_array, normalize_numpy_array
 
 try:
-    from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
+    from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
         CONTROL_INPUTS, augment_predictor_output
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
-try:
-    from SI_Toolkit.Predictors.predictor_noisy import predictor_noisy
-except ModuleNotFoundError:
-    print('Noisy predictor not available')
+#try:
+#    from SI_Toolkit.Predictors.predictor_noisy import predictor_noisy
+#except ModuleNotFoundError:
+#    print('Noisy predictor not available')
 
 try:
     from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
@@ -69,7 +69,7 @@ import timeit
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_testing.yml'), 'r'),
+config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'),
                    Loader=yaml.FullLoader)
 
 PATH_TO_NN = config['testing']['PATH_TO_NN']

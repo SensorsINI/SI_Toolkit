@@ -11,6 +11,7 @@ from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
 # from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
 from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
+from SI_Toolkit.Predictors.predictor_hybrid import predictor_hybrid
 
 
 def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
@@ -36,6 +37,14 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
         predictor = predictor_ODE_tf(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
     elif 'Euler' in predictor_name:
         predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
+    elif 'Hybrid' in predictor_name:
+        predictor_name = predictor_name.split()
+        if mode == 'batch':
+            predictor = predictor_hybrid(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps,
+                                         batch_size=a.test_len, net_name=predictor_name[1])
+        else:
+            predictor = predictor_hybrid(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps,
+                                         batch_size=1, net_name=predictor_name[1])
     else:
         if mode == 'batch':
             predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len,
