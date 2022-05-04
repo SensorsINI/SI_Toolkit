@@ -39,11 +39,11 @@ Using predictor:
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
 from SI_Toolkit.TF.TF_Functions.Normalising import normalize_tf, denormalize_tf
 from SI_Toolkit.TF.TF_Functions.Network import copy_internal_states_from_ref, copy_internal_states_to_ref
-from SI_Toolkit.load_and_normalize import denormalize_numpy_array, normalize_numpy_array
+from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 try:
-    from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
-        CONTROL_INPUTS, augment_predictor_output
+    from SI_Toolkit_ASF_global.predictors_customization_tf import STATE_VARIABLES, STATE_INDICES, \
+        CONTROL_INPUTS, predictor_output_augmentation_tf
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
@@ -53,7 +53,7 @@ except ModuleNotFoundError:
 #    print('Noisy predictor not available')
 
 try:
-    from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
+    from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
 except ModuleNotFoundError:
     print('Noisy predictor not available')
 
@@ -93,6 +93,17 @@ def check_dimensions(s, Q):
 
     return s, Q
 
+def check_batch_size(x, batch_size, argument_type):
+    if tf.shape(x)[0] != batch_size:
+        if tf.shape(x)[0] == 1:
+            if argument_type == 's':
+                return tf.tile(x, (batch_size, 1))
+            elif argument_type == 'Q':
+                return tf.tile(x, (batch_size, 1, 1))
+        else:
+            raise ValueError("Tensor has neither dimension 1 nor the one of the batch size")
+    else:
+        return x
 
 def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
@@ -103,7 +114,7 @@ class predictor_hybrid:
 
         self.batch_size = batch_size
         self.horizon = horizon
-        self.predictor = predictor_ODE(horizon=1, dt=dt, intermediate_steps=intermediate_steps)  # choose predictor
+        self.predictor = predictor_ODE_tf(horizon=1, dt=dt, intermediate_steps=intermediate_steps)  # choose predictor
 
         a = SimpleNamespace()
 
@@ -130,9 +141,14 @@ class predictor_hybrid:
                                                         dtype=tf.float32)
 
         self.indices_inputs_reg = [STATE_INDICES.get(key[:-5]) for key in self.net_info.inputs[len(CONTROL_INPUTS):]]
-        self.indices_outputs = [STATE_INDICES.get(key) for key in self.net_info.outputs]
+        self.indices_net_output = [STATE_INDICES.get(key) for key in self.net_info.outputs]
+        self.augmentation = predictor_output_augmentation_tf(self.net_info)
+        self.indices_augmentation = self.augmentation.indices_augmentation
+        self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_net_output + self.indices_augmentation))
 
         self.net_input_reg_initial_normed = tf.Variable(
+            tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
+        self.net_input_reg_normed = tf.Variable(
             tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
@@ -146,24 +162,20 @@ class predictor_hybrid:
 
         self.output[:, 0, :] = initial_state
         prediction = self.predictor.predict(initial_state, Q)
-        prediction = prediction[..., -1, :] # only take the latest prediction
-        prediction = prediction[..., np.newaxis, :]
-        net_input_reg_initial = prediction[..., self.indices_inputs_reg]  # [batch_size, features]
+        prediction = prediction[..., -1, :]  # only take the latest prediction
+        prediction, Q = convert_to_tensors(prediction, Q)
+        prediction = check_batch_size(prediction, self.batch_size, 's')
+        Q = check_batch_size(Q, self.batch_size, 'Q')
 
-        self.output[..., 1:, self.indices_outputs] = \
-            self.predict_tf(tf.convert_to_tensor(Q, dtype=tf.float32),
-                            tf.convert_to_tensor(net_input_reg_initial, dtype=tf.float32)).numpy()
-
-        self.update_internal_state_internal(prediction, Q)
-        # Augment
-        augment_predictor_output(self.output, self.net_info)
+        net_output = self.predict_tf(prediction, Q)
+        self.output[..., 1:, :] = net_output.numpy()
         print('predictor_hybrid prediction took ' + str(timeit.default_timer() - start_time) + ' seconds')
 
         return self.output
 
-    @tf.function(experimental_compile=True)
-    def predict_tf(self, Q, net_input_reg_initial):
-
+    @Compile
+    def predict_tf(self, initial_state, Q):
+        net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
         self.net_input_reg_initial_normed.assign(normalize_tf(
             net_input_reg_initial, self.normalizing_inputs
         ))
@@ -174,6 +186,7 @@ class predictor_hybrid:
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
         net_output = tf.zeros(shape=(self.batch_size, len(self.net_info.outputs)), dtype=tf.float32)
 
+
         for i in tf.range(self.horizon):
 
             Q_current = Q[:, i, :]
@@ -183,41 +196,55 @@ class predictor_hybrid:
                     tf.concat([Q_current, self.net_input_reg_initial_normed], axis=1),
                     shape=[-1, 1, len(self.net_info.inputs)])
             else:
+                state = denormalize_tf(net_output, self.normalizing_outputs)
+                state = self.augmentation.augment_single_state(state)
+                state = tf.gather(state, self.indices_outputs, axis=-1)  # rearrange
+                prediction = self.predictor.predict_tf(state, Q_current[:,tf.newaxis,:])
+                prediction = prediction[..., -1, :] # only take the latest prediction
+
+                net_input_reg = tf.gather(prediction, self.indices_inputs_reg,
+                                                  axis=-1)  # [batch_size, features]
+                self.net_input_reg_normed.assign(normalize_tf(
+                    net_input_reg, self.normalizing_inputs
+                ))
+
                 net_input = tf.reshape(
-                    tf.concat([Q_current, net_output], axis=1),
+                    tf.concat([Q_current, self.net_input_reg_normed], axis=1),
                     shape=[-1, 1, len(self.net_info.inputs)])
 
-            net_output = self.net(net_input)
+            net_output = self.net(net_input)  # run Network
 
             net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
-
             net_outputs = net_outputs.write(i, net_output)
 
         net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
+        net_outputs = denormalize_tf(net_outputs, self.normalizing_outputs)
+        # Augment
+        output = self.augmentation.augment(net_outputs)
+        output = tf.gather(output, self.indices_outputs, axis=-1)  # rearrange
+        return output
 
-        return denormalize_tf(net_outputs, self.normalizing_outputs)
-
-    def update_internal_state(self, s, Q0):
-        pass
-
-    def update_internal_state_internal(self, s=None, Q0=None):
-
+    def update_internal_state(self, Q0=None, s=None):
         s, Q0 = check_dimensions(s, Q0)
+
+        if s is not None:
+            prediction = self.predictor.predict(s, Q0)
+            prediction = prediction[..., -1, :]
+            net_input_reg_initial = tf.gather(prediction, self.indices_inputs_reg, axis=-1)
+            net_input_reg_initial_normed = normalize_tf(net_input_reg_initial, self.normalizing_inputs)
+            net_input_reg_initial_normed = check_batch_size(net_input_reg_initial_normed, self.batch_size, 's')
+        else:
+            net_input_reg_initial_normed = self.net_input_reg_initial_normed
+
         if Q0 is not None:
             Q0 = tf.convert_to_tensor(Q0, dtype=tf.float32)
 
-        if s is None:
-            net_input_reg_initial_normed = self.net_input_reg_initial_normed
-        else:
-            net_input_reg_initial = s[:, self.indices_inputs_reg]
-            net_input_reg_initial_normed = normalize_tf(
-                tf.convert_to_tensor(net_input_reg_initial, dtype=tf.float32), self.normalizing_inputs
-            )
+        Q0 = check_batch_size(Q0, self.batch_size, 'Q')
 
-        self.update_internal_state_tf(net_input_reg_initial_normed, Q0)
+        self.update_internal_state_tf(Q0, net_input_reg_initial_normed)
 
-    @tf.function(experimental_compile=True)
-    def update_internal_state_tf(self, s, Q0):
+    @Compile
+    def update_internal_state_tf(self, Q0, s):
 
         if self.net_info.net_type == 'Dense':
             pass
