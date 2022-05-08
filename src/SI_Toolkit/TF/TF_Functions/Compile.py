@@ -12,7 +12,7 @@ def tf_function_experimental(func):
 def identity(func):
     return func
 
-# Compile = tf.function
-Compile = tf_function_jit
+Compile = tf.function
+# Compile = tf_function_jit
 # Compile = tf_function_experimental
 # Compile = identity

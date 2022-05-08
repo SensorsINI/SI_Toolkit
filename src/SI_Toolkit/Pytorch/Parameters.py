@@ -8,7 +8,7 @@ import argparse
 import glob
 import yaml, os
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ApplicationSpecificFiles', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
+config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
 
 net_name = config['modeling']['NET_NAME']
 

@@ -6,7 +6,7 @@ import numpy as np
 def timer_predictor(initialisation_specific, number=50, repeat=10):
 
     initialisation_start = '''
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import CONTROL_INPUTS
+from SI_Toolkit_ASF_global.predictors_customization import CONTROL_INPUTS
 import numpy as np
 batch_size = 2000
 horizon = 50
