@@ -19,7 +19,7 @@ class DataSelector:
         self.exp_len = self.wash_out_len + self.post_wash_out_len
 
         self.num = 10  # You get one more bean as num
-        self.points_per_bin = 5
+        self.points_per_bin = 1
         self.nr_states_per_bin = np.ones((self.num, self.num, self.num, self.num, self.num))*self.points_per_bin
         self.nr_states_per_bin_current = np.zeros_like(self.nr_states_per_bin)
         self.table_empty_places_init = np.sum(self.nr_states_per_bin)  # + 180*4*10*10*10*10
@@ -113,7 +113,7 @@ class DataSelector:
 
             bin_idx = (position_idx, positionD_idx, angle_idx, angleD_idx, Q_idx)
             if angle_idx in range(3, 7) and angleD_idx in range(3, 7):
-                self.nr_states_per_bin[bin_idx] = 50
+                self.nr_states_per_bin[bin_idx] = 10
             # else:
             #     self.nr_states_per_bin[bin_idx] = 0
             # elif angle_cos_idx >= 6:

@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 from SI_Toolkit.GP.Parameters import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, \
     normalize_df, denormalize_df, normalize_numpy_array, denormalize_numpy_array
-from SI_Toolkit_ApplicationSpecificFiles.DataSelector import DataSelector
+from SI_Toolkit.GP.DataSelector import DataSelector
 from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
 
 gpf.config.set_default_float(tf.float64)
@@ -26,7 +26,7 @@ def run_opt(model, iterations, train_iter, test_iter, lr=0.01):
     logf = []
     logf_val = []
     training_loss = model.training_loss_closure(train_iter, compile=True)
-    validation_loss = model.training_loss_closure(test_iter, compile=True)
+    # validation_loss = model.training_loss_closure(test_iter, compile=True)
 
     variational_params = [(model.q_mu, model.q_sqrt)]
 
@@ -45,12 +45,12 @@ def run_opt(model, iterations, train_iter, test_iter, lr=0.01):
             print("Epoch: {}".format(step))
         if step % 10 == 0:
             elbo = -training_loss().numpy()
-            elbo_val = -validation_loss().numpy()
-            print("TRAIN: {} - VAL: {}".format(elbo, elbo_val))
+            # elbo_val = -validation_loss().numpy()
+            print("TRAIN: {}".format(elbo))
             logf.append(elbo)
-            logf_val.append(elbo_val)
+            # logf_val.append(elbo_val)
 
-    return logf, logf_val
+    return logf, None  # , logf_val
 
 
 if __name__ == '__main__':
@@ -83,25 +83,25 @@ if __name__ == '__main__':
 
     ## SUBSAMPLING FOR GP
     random.seed(10)
-    sample_indices = random.sample(range(X.shape[0]), 30)
+    sample_indices = random.sample(range(X.shape[0]), 10)
     X_samples = X[sample_indices]
     Y_samples = Y[sample_indices]
     data_samples = (X_samples, Y_samples)
 
     ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
-    plot_samples(data_samples, show_output=False)
+    # plot_samples(data_samples, show_output=False)
 
     ## DEFINING KERNELS
     inputs = a.state_inputs + a.control_inputs
     indices = {key: inputs.index(key) for key in inputs}
-    kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1],
+    kernels = {"position": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1],
                                            active_dims=[indices["position"],
                                                         indices["angleD"],
                                                         indices["positionD"],
                                                         indices["Q"]
                                                         ]),
 
-               "positionD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
+               "positionD": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1, 1],
                                             active_dims=[indices["angle_sin"],
                                                          indices["angle_cos"],
                                                          indices["angleD"],
@@ -109,7 +109,7 @@ if __name__ == '__main__':
                                                          indices["Q"]
                                                          ]),
 
-               "angle_sin": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
+               "angle_sin": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1, 1],
                                             active_dims=[indices["angle_sin"],
                                                          indices["angle_cos"],
                                                          indices["angleD"],
@@ -117,7 +117,7 @@ if __name__ == '__main__':
                                                          indices["Q"]
                                                          ]),
 
-               "angle_cos": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
+               "angle_cos": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1, 1],
                                             active_dims=[indices["angle_sin"],
                                                          indices["angle_cos"],
                                                          indices["angleD"],
@@ -125,7 +125,7 @@ if __name__ == '__main__':
                                                          indices["Q"]
                                                          ]),
 
-               "angleD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
+               "angleD": gpf.kernels.Matern12(lengthscales=[1, 1, 1, 1, 1],
                                          active_dims=[indices["angle_sin"],
                                                       indices["angle_cos"],
                                                       indices["angleD"],
@@ -135,13 +135,24 @@ if __name__ == '__main__':
 
     }
 
-    kernel = gpf.kernels.SeparateIndependent([kernels[k] for k in a.outputs])
-    inducing_variable = gpf.inducing_variables.SeparateIndependentInducingVariables(
-        [gpf.inducing_variables.InducingPoints(X_samples) for i in range(len(a.outputs))]
-    )
-    # inducing_variable = gpf.inducing_variables.SharedIndependentInducingVariables(
-    #     gpf.inducing_variables.InducingPoints(X_samples)
+    # kernel = gpf.kernels.SeparateIndependent([kernels[k] for k in a.outputs])
+    kernel = gpf.kernels.SharedIndependent(gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1, 1],
+                                                                active_dims=[indices["angle_sin"],
+                                                                             indices["angle_cos"],
+                                                                             indices["angleD"],
+                                                                             indices["positionD"],
+                                                                             indices["position"],
+                                                                             indices["Q"]
+                                                                             ]),
+                                           output_dim=5
+                                           )
+
+    # inducing_variable = gpf.inducing_variables.SeparateIndependentInducingVariables(
+    #     [gpf.inducing_variables.InducingPoints(X_samples) for i in range(len(a.outputs))]
     # )
+    inducing_variable = gpf.inducing_variables.SharedIndependentInducingVariables(
+        gpf.inducing_variables.InducingPoints(X_samples)
+    )
 
     ## DEFINING MULTI OUTPUT GPR MODEL
     model = gpf.models.SVGP(
@@ -179,8 +190,8 @@ if __name__ == '__main__':
         X_val = np.vstack([X_val, df[:-1, :]])
         Y_val = np.vstack([Y_val, df[1:, :-1]])
 
-    maxiter = ci_niter(10000)
-    logf, logf_val = run_opt(model, maxiter, (X, Y), (X_val, Y_val), lr=0.01)
+    maxiter = ci_niter(600)
+    logf, logf_val = run_opt(model, maxiter, (X, Y), (X_val, Y_val), lr=0.08)
 
     model = SVGPWrapper(a, model)
 
@@ -189,23 +200,23 @@ if __name__ == '__main__':
     plt.ylabel("ELBO")
     plt.show()
 
-    plt.plot(np.arange(maxiter)[::10], logf_val)
-    plt.xlabel("iteration")
-    plt.ylabel("ELBO")
-    plt.show()
+    # plt.plot(np.arange(maxiter)[::10], logf_val)
+    # plt.xlabel("iteration")
+    # plt.ylabel("ELBO")
+    # plt.show()
 
-    DS = DataSelector(a)
-    DS.load_data_into_selector(data_test)
-    X, Y = DS.return_dataset_for_training(shuffle=True,
-                                          inputs=a.state_inputs + a.control_inputs,
-                                          outputs=a.outputs,
-                                          raw=True)
-    X = X.squeeze().astype(np.float64)
-    Y = Y.squeeze().astype(np.float64)
-    data = (X, Y)
+    # DS = DataSelector(a)
+    # DS.load_data_into_selector(data_test)
+    # X, Y = DS.return_dataset_for_training(shuffle=True,
+    #                                       inputs=a.state_inputs + a.control_inputs,
+    #                                       outputs=a.outputs,
+    #                                       raw=True)
+    # X = X.squeeze().astype(np.float64)
+    # Y = Y.squeeze().astype(np.float64)
+    # data = (X, Y)
 
-    state_space_pred_err(model, data, SVGP=True)
-    plot_test(model, data_test, closed_loop=True)
+    # state_space_pred_err(model, data, SVGP=True)
+    # plot_test(model, data_test, closed_loop=True)
 
     # save model
     save_dir = a.path_to_models + "SVGP_model"
@@ -221,7 +232,7 @@ from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.GP.Parameters import args
 
 a = args()
-save_dir = a.path_to_models + "SVGP_model"
+save_dir = a.path_to_models + "SVGP_model_angular"
 
 # load model
 print("Loading...")
@@ -236,7 +247,7 @@ m_loaded.predict_f(s)
 '''
 
     code = '''\
-mn, _ = m_loaded.predict_f(s)
+mn = m_loaded.predict_f(s)
 '''
 
 print(timeit.timeit(code, number=50, setup=initialization))

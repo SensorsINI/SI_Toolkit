@@ -22,7 +22,7 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
                    Loader=yaml.FullLoader)
 
 # TODO load from config
-PATH_TO_MODEL = "./SI_Toolkit_ASF/Experiments/PhysicalData-1/Models/SGPR_model"
+PATH_TO_MODEL = "./SI_Toolkit_ASF/Experiments/PhysicalData-1/Models/SVGP_model"
 
 
 class predictor_autoregressive_GP:
@@ -39,62 +39,56 @@ class predictor_autoregressive_GP:
 
         self.indices = [STATE_INDICES.get(key) for key in self.model.outputs]
 
-        self.initial_state = tf.random.uniform(shape=[self.num_rollouts, 5], dtype=tf.float32)
-        Q = tf.random.uniform(shape=[self.num_rollouts, self.horizon, 1], dtype=tf.float32)
+        initial_state = np.random.random(size=[6, ])  # CHANGE SHAPE FOR TF MPPI
+        Q = np.random.random(size=[self.num_rollouts, self.horizon, 1])
 
-        self.outputs = None
-
-        self.predict_tf(self.initial_state, Q)  # CHANGE TO PREDICT FOR NON TF MPPI
+        self.predict(initial_state, Q)  # CHANGE TO PREDICT FOR NON TF MPPI
 
     def predict(self, initial_state, Q_seq):
         outputs = self.predict_tf(initial_state, Q_seq)
         return outputs.numpy()
 
-    # @Compile
     def step(self, s, Q):
         x = tf.concat([s, Q], axis=1)
         s = self.model.predict_f(x)
-        if self.num_rollouts == 1:
-           s = tf.expand_dims(s, axis=0)
+        # if self.num_rollouts == 1:
+        #    s = tf.expand_dims(s, axis=0)
         return s
 
-    # @tf.function
+    @Compile
     def predict_tf(self, initial_state, Q_seq):
-        # initial_state = tf.expand_dims(initial_state, axis=0)  # COMMENT OUT FOR TF MPPI
-        self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
-
-        self.initial_state = tf.cast(initial_state, dtype=tf.float64)
+        initial_state = tf.expand_dims(initial_state, axis=0)
+        s = tf.cast(initial_state, dtype=tf.float64)
         Q_seq = tf.cast(Q_seq, dtype=tf.float64)
 
-        s = tf.gather(self.initial_state, self.indices, axis=1)
+        outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
+        s = tf.gather(s, self.indices, axis=1)
 
         s = normalize_tf(s, self.normalizing_inputs)
 
-        # s = tf.repeat(s, repeats=self.num_rollouts, axis=0)  # COMMENT OUT FOR TF MPPI
-        self.outputs = self.outputs.write(0, s)
-
+        s = tf.repeat(s, repeats=self.num_rollouts, axis=0)
+        outputs = outputs.write(0, s)
         s = self.step(s, Q_seq[:, 0, :])
-
-        self.outputs = self.outputs.write(1, s)
+        outputs = outputs.write(1, s)
         for i in tf.range(1, self.horizon):
             # x = tf.concat([s, Q_seq[:, i, :]], axis=1)
             s = self.step(s, Q_seq[:, i, :])
             # s = tf.transpose(tf.squeeze(s, axis=2))
 
-            self.outputs = self.outputs.write(i+1, s)
+            outputs = outputs.write(i+1, s)
 
-        self.outputs = tf.transpose(self.outputs.stack(), perm=[1, 0, 2])
+        outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
 
-        self.outputs = denormalize_tf(self.outputs, self.normalizing_outputs)
+        outputs = denormalize_tf(outputs, self.normalizing_outputs)
 
         # outputs = tf.stack([outputs[..., 0], outputs[..., 1], tf.math.cos(outputs[..., 0]),
         #                     tf.math.sin(outputs[..., 0]), outputs[..., 2], outputs[..., 3]], axis=2)
 
-        self.outputs = tf.stack([tf.math.atan2(self.outputs[..., 2], self.outputs[..., 1]), self.outputs[..., 0], self.outputs[..., 1],
-                            self.outputs[..., 2], self.outputs[..., 3], self.outputs[..., 4]], axis=2)
+        outputs = tf.stack([tf.math.atan2(outputs[..., 2], outputs[..., 1]), outputs[..., 0], outputs[..., 1],
+                            outputs[..., 2], outputs[..., 3], outputs[..., 4]], axis=2)
 
-        self.outputs = tf.cast(self.outputs, tf.float32)
-        return self.outputs
+        # outputs = tf.cast(outputs, tf.float32)
+        return outputs
 
     def update_internal_state(self, Q):  # this is here to make the get_prediction function happy
         pass
@@ -104,20 +98,40 @@ if __name__ == '__main__':
     import timeit
 
     initialization = '''
-from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
+from SI_Toolkit.Predictors.predictor_autoregressive_GP_old import predictor_autoregressive_GP
 import numpy as np
 import tensorflow as tf
 
 horizon = 35
-num_rollouts = 2000
+num_rollouts = 1000
 predictor = predictor_autoregressive_GP(horizon=horizon, num_rollouts=num_rollouts)
 
-initial_state = tf.random.uniform(shape=[num_rollouts, 5], dtype=tf.float32)
-Q = tf.random.uniform(shape=[num_rollouts, horizon, 1], dtype=tf.float32)
+initial_state = np.random.random(size=[6, ])
+Q = np.random.random(size=[num_rollouts, horizon, 1])
 '''
 
     code = '''\
-predictor.predict_tf(initial_state, Q)
+predictor.predict(initial_state, Q)
 '''
 
-    print(timeit.timeit(code, number=10, setup=initialization) / 10.0)
+    # print(timeit.timeit(code, number=10, setup=initialization) / 10.0)
+
+    import matplotlib.pyplot as plt
+    from SI_Toolkit.Predictors.predictor_autoregressive_GP_old import predictor_autoregressive_GP
+    import numpy as np
+    import tensorflow as tf
+
+    horizon = 35
+    num_rollouts = 10
+    predictor = predictor_autoregressive_GP(horizon=horizon, num_rollouts=num_rollouts)
+
+    initial_state = np.array([np.pi, 0, -1, 0, 0], dtype=np.float32)
+    Q = np.random.uniform(low=-1.0, high=1.0, size=[num_rollouts, horizon, 1])
+    for i in range(num_rollouts):
+        plt.plot(range(horizon), Q[i, :, 0])
+    plt.show()
+
+    s = predictor.predict(initial_state, Q)
+    for i in range(num_rollouts):
+        plt.plot(range(horizon+1), s[i, :, 0])
+    plt.show()

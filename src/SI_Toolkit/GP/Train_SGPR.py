@@ -56,34 +56,34 @@ data_samples = (X_samples, Y_samples)
 ## DEFINING KERNELS
 inputs = a.state_inputs + a.control_inputs
 indices = {key: inputs.index(key) for key in inputs}
-kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1],
+kernels = {"position": gpf.kernels.Matern32(lengthscales=[1, 1, 1],
                                        active_dims=[indices["position"],
-                                                    indices["angleD"],
+                                                    # indices["angleD"],
                                                     indices["positionD"],
                                                     indices["Q"]
                                                     ]),
 
-           "positionD": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1, 1],
-                                        active_dims=[indices["angle_sin"],
-                                                     indices["angle_cos"],
-                                                     indices["angleD"],
+           "positionD": gpf.kernels.Matern32(lengthscales=[1, 1],
+                                        active_dims=[# indices["angle_sin"],
+                                                     # indices["angle_cos"],
+                                                     # indices["angleD"],
                                                      indices["positionD"],
                                                      indices["Q"]
                                                      ]),
 
-           "angle_sin": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1, 1],
+           "angle_sin": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1],
                                         active_dims=[indices["angle_sin"],
                                                      indices["angle_cos"],
                                                      indices["angleD"],
-                                                     indices["positionD"],
+                                                     # indices["positionD"],
                                                      indices["Q"]
                                                      ]),
 
-           "angle_cos": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1, 1],
+           "angle_cos": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1],
                                         active_dims=[indices["angle_sin"],
                                                      indices["angle_cos"],
                                                      indices["angleD"],
-                                                     indices["positionD"],
+                                                     # indices["positionD"],
                                                      indices["Q"]
                                                      ]),
 
@@ -98,7 +98,7 @@ kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1],
 }
 
 ## DEFINING MULTI OUTPUT SGPR MODEL
-sample_indices = random.sample(range(X_samples.shape[0]), 10)
+sample_indices = random.sample(range(X_samples.shape[0]), 30)
 data_subsampled = (data_samples[0][sample_indices], data_samples[1][sample_indices])
 
 ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
@@ -112,8 +112,15 @@ plot_samples(data_subsampled, show_output=False)
 #     Y = np.vstack([Y, df[1:, :-1]])
 
 model = MultiOutSGPR(a)
-# model.setup(data_samples, kernels, X_samples[sample_indices])
-model.setup((X, Y), kernels, X_samples[sample_indices])
+model.setup(data_samples, kernels, X_samples[sample_indices])
+# inducing_variables = {
+#     "position": X_samples[random.sample(range(X_samples.shape[0]), 5)],
+#     "positionD": X_samples[random.sample(range(X_samples.shape[0]), 5)],
+#     "angle_sin": X_samples[random.sample(range(X_samples.shape[0]), 5)],
+#     "angle_cos": X_samples[random.sample(range(X_samples.shape[0]), 5)],
+#     "angleD": X_samples[random.sample(range(X_samples.shape[0]), 5)]
+# }
+# model.setup((X, Y), kernels, inducing_variables)
 
 # plot_gp_test(model, data_train)  # plot prediction with kernel priors
 
@@ -155,8 +162,8 @@ X = X.squeeze()
 Y = Y.squeeze()
 data = (X, Y)
 
-errs = state_space_pred_err(model, data)
-print(errs)
+# errs = state_space_pred_err(model, data)
+# print(errs)
 
 ## PLOTTING 1s CLOSED-LOOP PREDICTION FROM TEST RECORDING
 plot_test(model, data_test, closed_loop=True)
@@ -182,18 +189,18 @@ print("Loading...")
 m_loaded = load_model(save_dir)
 print("Done!")
 
-num_rollouts = 1500
-horizon = 22
+num_rollouts = 2000
+horizon = 35
 
 s = tf.zeros(shape=[num_rollouts, 5], dtype=tf.float64)
 m_loaded.predict_f(s)
 '''
 
 code = '''\
-mn, _ = m_loaded.predict_f(s)
+mn = m_loaded.predict_f(s)
 '''
 
-print(timeit.timeit(code, number=22, setup=initialization))
+print(timeit.timeit(code, number=35, setup=initialization))
 
 # plot_test(m_loaded, data_test, closed_loop=True)  # plot posterior predictions with loaded trained model
 

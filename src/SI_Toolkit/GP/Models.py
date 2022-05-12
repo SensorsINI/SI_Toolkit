@@ -20,6 +20,7 @@ from SI_Toolkit.GP.Parameters import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, \
     normalize_df, denormalize_df, normalize_numpy_array, denormalize_numpy_array
 from SI_Toolkit.GP.DataSelector import DataSelector
+from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 gpf.config.set_default_float(tf.float64)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
@@ -53,7 +54,7 @@ class MultiOutGPR(tf.Module):
     def setup(self, data, kernels):
         for i in range(len(self.outputs)):
             m = gpf.models.GPR(data=(data[0],
-                                     data[1][:, i].reshape(-1, 1)),
+                                     data[1].reshape(-1, 1)),
                                kernel=kernels[self.outputs[i]]
                                )
             self.models.append(m)
@@ -104,26 +105,25 @@ class MultiOutGPR(tf.Module):
             print_summary(self.models[i])
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=gpf.default_float())],
-                 jit_compile=True)
+                 jit_compile=False)  # predictor runs faster on MPPI if only outer predictor function uses XLA; set to True if you use predict_f directly
     def predict_f(
         self, x: InputData,
-        full_cov: bool = False,
-        full_output_cov: bool = False,
     ) -> MeanAndVariance:
         means = tf.TensorArray(gpf.default_float(), size=len(self.models))
-        vars = tf.TensorArray(gpf.default_float(), size=len(self.models))
+        # vars = tf.TensorArray(gpf.default_float(), size=len(self.models))
 
         i = 0
         for p in self.posteriors:
-            mn, vr = p.predict_f(x, full_cov=full_cov, full_output_cov=full_output_cov)
+            mn, _ = p.predict_f(x)
+            # mn, _ = p._conditional_with_precompute(x)
             means = means.write(i, mn)
-            vars = vars.write(i, vr)
+            # vars = vars.write(i, vr)
             i += 1
 
-        means = means.stack()
-        vars = vars.stack()
+        means = tf.squeeze(tf.transpose(means.stack(), perm=[1, 0, 2]))
+        # vars = tf.squeeze(tf.transpose(vars.stack(), perm=[1, 0, 2]))
 
-        return means, vars
+        return means
 
 
 class MultiOutSGPR(MultiOutGPR):
@@ -137,12 +137,12 @@ class MultiOutSGPR(MultiOutGPR):
     def __init__(self, args):
         super().__init__(args)
 
-    def setup(self, data, kernels, inducing_variable):
+    def setup(self, data, kernels, inducing_variables):
         for i in range(len(self.outputs)):
             m = gpf.models.SGPR(data=(data[0].astype(dtype=np.float64),
                                       data[1][:, i].astype(dtype=np.float64).reshape(-1, 1)),
                                 kernel=kernels[self.outputs[i]],
-                                inducing_variable=inducing_variable.astype(dtype=np.float64)
+                                inducing_variable=inducing_variables.astype(dtype=np.float64)
                                 )
             self.models.append(m)
             # gpf.set_trainable(m.inducing_variable, False)
@@ -153,14 +153,14 @@ class SVGPWrapper(MultiOutGPR):
         self.model = model
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=gpf.default_float())],
-                 jit_compile=True)
+                 jit_compile=False)
     def predict_f(
         self, x: InputData,
         full_cov: bool = False,
         full_output_cov: bool = False,
     ) -> MeanAndVariance:
-        means, vars = self.model.posterior().predict_f(x, full_cov=full_cov, full_output_cov=full_output_cov)
-        return means, vars
+        means, _ = self.model.posterior().predict_f(x, full_cov=full_cov, full_output_cov=full_output_cov)
+        return means
 
 
 def run_tf_optimization(model, optimizer, iterations, val_data, i):
@@ -312,21 +312,21 @@ def plot_test(model, data, closed_loop=False):
         Y = Y[100:150]
         X = X[100:150]
         mean = np.empty(shape=[0, len(model.outputs)])
-        var = np.empty(shape=[0, len(model.outputs)])
+        # var = np.empty(shape=[0, len(model.outputs)])
 
         s = X[0, :-1].reshape(-1, len(model.outputs))
         for i in range(50):
             s = np.concatenate((s, X[i, -1].reshape(1, 1)), axis=1)
-            s, v = model.predict_f(tf.convert_to_tensor(s.reshape(-1, 1).T))
+            s = model.predict_f(tf.convert_to_tensor(s.reshape(-1, 1).T))
             s = s.numpy().reshape(-1, len(model.outputs))
-            v = v.numpy().reshape(-1, len(model.outputs))
+            # v = v.numpy().reshape(-1, len(model.outputs))
             # s[0, :] = Y[i, :]  # use ground truth for some state variables
             mean = np.vstack([mean, s])
-            var = np.vstack([var, v])
+            # var = np.vstack([var, v])
     else:
-        mean, var = model.predict_f(X)
-        mean = mean.numpy().squeeze().T
-        var = var.numpy().squeeze().T
+        mean = model.predict_f(X)
+        mean = mean.numpy()
+        # var = var.numpy()
 
     for i in range(len(model.outputs)):
         plt.figure(figsize=(12, 6))
@@ -362,11 +362,8 @@ def plot_test(model, data, closed_loop=False):
 
 def state_space_pred_err(model, data, SVGP=False):
     X, Y = data
-    Y_pred, _ = model.predict_f(X)
-    if SVGP:
-        errs = np.linalg.norm(Y_pred.numpy().squeeze() - Y, axis=1)
-    else:
-        errs = np.linalg.norm(Y_pred.numpy().squeeze().T - Y, axis=1)
+    Y_pred, _ = model.predict_f(tf.cast(X, dtype=tf.float64))
+    errs = np.linalg.norm(Y_pred.numpy() - Y, axis=1)
 
     plt.figure(figsize=(16, 12))
     plt.scatter(X[:, 2], X[:, 1], s=200, c=errs)
