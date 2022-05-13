@@ -11,6 +11,7 @@ from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
 # from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
 from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
+from SI_Toolkit.TF.Autoregressive_Model import prediction_autoregressive_model
 
 
 def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
@@ -23,7 +24,7 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     output_array = np.zeros([a.test_len, a.test_max_horizon + 1, len(a.features)],
                             dtype=np.float32)
 
-    stateful_components = ['RNN', 'GRU', 'LSTM']
+    stateful_components = ['RNN', 'GRU', 'LSTM', 'ARM']
     if any(stateful_component in predictor_name for stateful_component in stateful_components):
         mode = 'sequential'
     else:
@@ -36,6 +37,8 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
         predictor = predictor_ODE_tf(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
     elif 'Euler' in predictor_name:
         predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
+    elif 'ARM' in predictor_name:
+        pass
     else:
         if mode == 'batch':
             predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len,
@@ -47,8 +50,10 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
         output = predictor.predict(states_0, Q_array)
         output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in a.features]]
 
+    # implement prediction of autoregressive model, !hardcoded for specific use case!
+    elif 'ARM' in predictor_name:
+        output_array = prediction_autoregressive_model(a.test_max_horizon, dataset)
     else:
-
         output = np.zeros([a.test_len, a.test_max_horizon + 1, len(a.features)],
                           dtype=np.float32)
         for timestep in trange(a.test_len):
