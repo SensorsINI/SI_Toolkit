@@ -22,7 +22,7 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
                    Loader=yaml.FullLoader)
 
 # TODO load from config
-PATH_TO_MODEL = "./SI_Toolkit_ASF/Experiments/PhysicalData-1/Models/SVGP_model"
+PATH_TO_MODEL = "./SI_Toolkit_ASF/Experiments/PhysicalData-1/Models/SGPR_model"
 
 
 class predictor_autoregressive_GP:

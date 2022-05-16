@@ -162,6 +162,21 @@ class SVGPWrapper(MultiOutGPR):
         means, _ = self.model.posterior().predict_f(x, full_cov=full_cov, full_output_cov=full_output_cov)
         return means
 
+class SingleOutGPRWrapper(MultiOutGPR):
+    def __init__(self, args, model):
+        super().__init__(args)
+        self.model = model
+
+    @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=gpf.default_float())],
+                 jit_compile=False)
+    def predict_f(
+        self, x: InputData,
+        full_cov: bool = False,
+        full_output_cov: bool = False,
+    ) -> MeanAndVariance:
+        means, _ = self.model.posterior().predict_f(x, full_cov=full_cov, full_output_cov=full_output_cov)
+        return means
+
 
 def run_tf_optimization(model, optimizer, iterations, val_data, i):
     logf = []

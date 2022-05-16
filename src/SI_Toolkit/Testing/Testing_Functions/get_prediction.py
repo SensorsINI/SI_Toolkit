@@ -11,6 +11,7 @@ from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
 # from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
 from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
+from SI_Toolkit.Predictors.predictor_autoregressive_GP_Euler import predictor_autoregressive_GP
 
 
 def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
@@ -23,7 +24,7 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     output_array = np.zeros([a.test_len, a.test_max_horizon + 1, len(a.features)],
                             dtype=np.float32)
 
-    stateful_components = ['RNN', 'GRU', 'LSTM']
+    stateful_components = ['RNN', 'GRU', 'LSTM', 'GP']
     if any(stateful_component in predictor_name for stateful_component in stateful_components):
         mode = 'sequential'
     else:
@@ -36,6 +37,8 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
         predictor = predictor_ODE_tf(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
     elif 'Euler' in predictor_name:
         predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
+    elif 'GP' in predictor_name:
+        predictor = predictor_autoregressive_GP(horizon=a.test_max_horizon)
     else:
         if mode == 'batch':
             predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len,
@@ -55,7 +58,7 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
             Q_current_timestep = Q_array[np.newaxis, timestep, :, :]
             s0 = states_0[np.newaxis, timestep, :]
             output[timestep, :, :] = predictor.predict(s0, Q_current_timestep)
-            predictor.update_internal_state(Q_current_timestep[:, np.newaxis, 1, :], s0)
+            predictor.update_internal_state(Q_current_timestep[:, np.newaxis, 1, :])
 
         output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in a.features]]
 

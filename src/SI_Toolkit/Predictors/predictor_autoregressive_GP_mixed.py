@@ -22,8 +22,8 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
                    Loader=yaml.FullLoader)
 
 # TODO load from config
-PATH_TO_MODEL = "./SI_Toolkit_ASF/Experiments/PhysicalData-1/Models/SVGP_model"
-
+PATH_TO_MODEL_POSITION = "./SI_Toolkit_ASF/Experiments/PhysicalData-1/Models/GPR_model"
+PATH_TO_MODEL_REST = "./SI_Toolkit_ASF/Experiments/PhysicalData-1/Models/SVGP_model"
 
 class predictor_autoregressive_GP:
     def __init__(self, horizon, num_rollouts=1):
@@ -31,13 +31,15 @@ class predictor_autoregressive_GP:
 
         self.horizon = horizon
         self.num_rollouts = num_rollouts
-        self.model = load_model(PATH_TO_MODEL)
-        self.inputs = self.model.state_inputs + self.model.control_inputs
-        self.normalizing_inputs = tf.convert_to_tensor(self.model.norm_info[self.model.state_inputs], dtype=tf.float64)
-        self.normalizing_outputs = tf.convert_to_tensor(self.model.norm_info[self.model.outputs], dtype=tf.float64)
-        self.normalizing_outputs_full = tf.convert_to_tensor(self.model.norm_info[STATE_VARIABLES], dtype=tf.float64)
+        self.model_p = load_model(PATH_TO_MODEL_POSITION)
+        self.model_r = load_model(PATH_TO_MODEL_REST)
+        self.inputs = ['position', 'positionD', 'angle_sin', 'angle_cos', 'angleD', 'Q']
+        self.normalizing_inputs = tf.convert_to_tensor(self.model_p.norm_info[['position', 'positionD', 'angle_sin', 'angle_cos', 'angleD']], dtype=tf.float64)
+        self.normalizing_outputs = tf.convert_to_tensor(self.model_p.norm_info[['position', 'positionD', 'angle_sin', 'angle_cos', 'angleD']], dtype=tf.float64)
+        self.normalizing_outputs_full = tf.convert_to_tensor(self.model_p.norm_info[STATE_VARIABLES], dtype=tf.float64)
 
-        self.indices = [STATE_INDICES.get(key) for key in self.model.outputs]
+        self.indices_p = [STATE_INDICES.get(key) for key in ['positionD', 'position']]
+        self.indices_r = [STATE_INDICES.get(key) for key in ['positionD', 'angle_sin', 'angle_cos', 'angleD']]
 
         self.initial_state = tf.random.uniform(shape=[self.num_rollouts, 5], dtype=tf.float32)
         Q = tf.random.uniform(shape=[self.num_rollouts, self.horizon, 1], dtype=tf.float32)
@@ -52,10 +54,16 @@ class predictor_autoregressive_GP:
 
     # @Compile
     def step(self, s, Q):
-        x = tf.concat([s, Q], axis=1)
-        s = self.model.predict_f(x)
+        p = tf.gather(s, self.indices_p, axis=1)
+        r = tf.gather(s, self.indices_r, axis=1)
+        p_x = tf.concat([p, Q], axis=1)
+        r_x = tf.concat([r, Q], axis=1)
+        p = self.model_p.predict_f(p_x)
+        r = self.model_r.predict_f(r_x)
+        s = tf.concat([r[:, :-1], p[:, :], r[:, -1, tf.newaxis]], axis=1)
         # if self.num_rollouts == 1:
-        #    s = tf.expand_dims(s, axis=0)
+        #     s = tf.expand_dims(s, axis=0)
+        print(s)
         return s
 
     # @tf.function
@@ -66,7 +74,7 @@ class predictor_autoregressive_GP:
         self.initial_state = tf.cast(initial_state, dtype=tf.float64)
         Q_seq = tf.cast(Q_seq, dtype=tf.float64)
 
-        s = tf.gather(self.initial_state, self.indices, axis=1)
+        s = tf.gather(self.initial_state, self.model_p.global_indices, axis=1)
 
         s = normalize_tf(s, self.normalizing_inputs)
 
@@ -104,11 +112,11 @@ if __name__ == '__main__':
     import timeit
 
     initialization = '''
-from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
+from SI_Toolkit.Predictors.predictor_autoregressive_GP_mixed import predictor_autoregressive_GP
 import numpy as np
 import tensorflow as tf
 
-horizon = 35
+horizon = 50
 num_rollouts = 2000
 predictor = predictor_autoregressive_GP(horizon=horizon, num_rollouts=num_rollouts)
 
