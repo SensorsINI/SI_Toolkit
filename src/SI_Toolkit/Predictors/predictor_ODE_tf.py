@@ -9,19 +9,15 @@ import numpy as np
 
 def check_dimensions(s, Q):
     # Make sure the input is at least 2d
-    if s is None:
-        pass
-    elif s.ndim == 1:
-        s = s[np.newaxis, :]
+    if tf.rank(s) == 1:
+        s = s[tf.newaxis, :]
 
-    if Q is None:
+    if tf.rank(Q) == 3:  # Q.shape = [batch_size, timesteps, features]
         pass
-    elif Q.ndim == 3:  # Q.shape = [batch_size, timesteps, features]
-        pass
-    elif Q.ndim == 2:  # Q.shape = [timesteps, features]
-        Q = Q[np.newaxis, :, :]
+    elif tf.rank(Q) == 2:  # Q.shape = [timesteps, features]
+        Q = Q[tf.newaxis, :, :]
     else:  # Q.shape = [features;  tf.rank(Q) == 1
-        Q = Q[np.newaxis, np.newaxis, :]
+        Q = Q[tf.newaxis, tf.newaxis, :]
 
     return s, Q
 
@@ -31,7 +27,9 @@ def convert_to_tensors(s, Q):
 
 
 class predictor_ODE_tf:
-    def __init__(self, horizon=None, dt=0.02, intermediate_steps=10):
+    def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, disable_individual_compilation=False):
+
+        self.disable_individual_compilation = disable_individual_compilation
 
         self.horizon = tf.convert_to_tensor(horizon)
         self.batch_size = None  # Will be adjusted the control input size
@@ -42,42 +40,44 @@ class predictor_ODE_tf:
         self.dt = dt
         self.intermediate_steps = intermediate_steps
 
-        self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps)
+        self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, disable_individual_compilation=True)
 
-    def predict(self, initial_state, Q):
+        if disable_individual_compilation:
+            self.predict_tf_tile = self._predict_tf_tile
+            self.predict_tf = self._predict_tf
+            self.predict = self._predict_core
+        else:
+            self.predict_tf_tile = Compile(self._predict_tf_tile)
+            self.predict_tf = Compile(self._predict_tf)
+            self.predict = self._predict_numpy
+
+
+    def _predict_numpy(self, initial_state, Q):
+        initial_state, Q = convert_to_tensors(initial_state, Q)
+        return self._predict_core(initial_state, Q).numpy()
+
+
+    def _predict_core(self, initial_state, Q):
 
         initial_state, Q = check_dimensions(initial_state, Q)
-
-        initial_state, Q = convert_to_tensors(initial_state, Q)
 
         self.batch_size = tf.shape(Q)[0]
         self.initial_state = initial_state
 
-        # I hope this commented fragment can be converted to one graph with Compile, merging with predict_tf.
-        # But it throws an error.
-        # self.initial_state = tf.cond(
-        #     tf.math.logical_and(tf.equal(tf.shape(self.initial_state)[0], 1), tf.not_equal(tf.shape(Q)[0], 1)),
-        #     lambda: tf.tile(self.initial_state, (self.batch_size, 1)),
-        #     lambda: self.initial_state
-        # )
 
         if tf.shape(self.initial_state)[0] == 1 and tf.shape(Q)[0] != 1:  # Predicting multiple control scenarios for the same initial state
             output = self.predict_tf_tile(self.initial_state, Q, self.batch_size)
         else:  # tf.shape(self.initial_state)[0] == tf.shape(Q)[0]:  # For each control scenario there is separate initial state provided
             output = self.predict_tf(self.initial_state, Q)
 
-        return output.numpy()
+        return output
 
-
-    @Compile
-    def predict_tf_tile(self, initial_state, Q, batch_size, params=None): # Predicting multiple control scenarios for the same initial state
+    def _predict_tf_tile(self, initial_state, Q, batch_size, params=None):  # Predicting multiple control scenarios for the same initial state
         initial_state = tf.tile(initial_state, (batch_size, 1))
-        return self.predict_tf(initial_state, Q, params=params)
+        return self._predict_tf(initial_state, Q, params=params)
 
 
-    # Predict (Euler: 6.8ms)
-    @Compile
-    def predict_tf(self, initial_state, Q, params=None):
+    def _predict_tf(self, initial_state, Q, params=None):
 
         self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
         self.output = self.output.write(0, initial_state)
