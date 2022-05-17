@@ -1,4 +1,5 @@
 import tensorflow as tf
+import platform
 
 
 def tf_function_jit(func):
