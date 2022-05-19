@@ -10,7 +10,7 @@ import numpy as np
 
 from SI_Toolkit.GP.Parameters import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, normalize_df
-from SI_Toolkit_ApplicationSpecificFiles.DataSelector import DataSelector
+from SI_Toolkit_ASF.DataSelector import DataSelector
 
 
 gpf.config.set_default_float(tf.float64)
