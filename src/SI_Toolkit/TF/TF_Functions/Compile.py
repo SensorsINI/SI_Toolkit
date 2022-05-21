@@ -13,8 +13,8 @@ def tf_function_experimental(func):
 def identity(func):
     return func
 
-# GLOBALLY_DISABLE_COMPILATION = False
-GLOBALLY_DISABLE_COMPILATION = True
+GLOBALLY_DISABLE_COMPILATION = False
+# GLOBALLY_DISABLE_COMPILATION = True
 
 if GLOBALLY_DISABLE_COMPILATION:
     Compile = identity
