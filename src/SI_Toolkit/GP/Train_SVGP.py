@@ -22,11 +22,11 @@ gpf.config.set_default_float(tf.float64)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
 
-def run_opt(model, iterations, train_iter, test_iter, lr=0.01):
+def run_opt(model, iterations, train_iter, test_iter=None, lr=0.01):
     logf = []
     logf_val = []
     training_loss = model.training_loss_closure(train_iter, compile=True)
-    validation_loss = model.training_loss_closure(test_iter, compile=True)
+    # validation_loss = model.training_loss_closure(test_iter, compile=True)
 
     variational_params = [(model.q_mu, model.q_sqrt)]
 
@@ -45,12 +45,13 @@ def run_opt(model, iterations, train_iter, test_iter, lr=0.01):
             print("Epoch: {}".format(step))
         if step % 10 == 0:
             elbo = -training_loss().numpy()
-            elbo_val = -validation_loss().numpy()
-            print("TRAIN: {} VALIDATE: {}".format(elbo, elbo_val))
+            # elbo_val = -validation_loss().numpy()
+            # print("TRAIN: {} VALIDATE: {}".format(elbo, elbo_val))
+            print("TRAIN: {}".format(elbo))
             logf.append(elbo)
-            logf_val.append(elbo_val)
+            # logf_val.append(elbo_val)
 
-    return logf, logf_val
+    return logf, None
 
 
 if __name__ == '__main__':
@@ -83,17 +84,18 @@ if __name__ == '__main__':
 
     ## SUBSAMPLING FOR GP
     random.seed(10)
-    sample_indices = random.sample(range(X.shape[0]), 30)
+    sample_indices = random.sample(range(X.shape[0]), 37)
     X_samples = X[sample_indices]
     Y_samples = Y[sample_indices]
     data_samples = (X_samples, Y_samples)
 
     ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
-    # plot_samples(data_samples, show_output=False)
+    plot_samples(data_samples, show_output=False)
 
     ## DEFINING KERNELS
     inputs = a.state_inputs + a.control_inputs
     indices = {key: inputs.index(key) for key in inputs}
+    """
     kernels = {"position": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1],
                                            active_dims=[indices["position"],
                                                         indices["angleD"],
@@ -134,14 +136,14 @@ if __name__ == '__main__':
                                                       ])
 
     }
-
+    """
     # kernel = gpf.kernels.SeparateIndependent([kernels[k] for k in a.outputs])
-    kernel = gpf.kernels.SharedIndependent(gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
+    kernel = gpf.kernels.SharedIndependent(gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1, 1, 1],
                                                                 active_dims=[indices["angle_sin"],
                                                                              indices["angle_cos"],
                                                                              indices["angleD"],
                                                                              indices["positionD"],
-                                                                             # indices["position"],
+                                                                             indices["position"],
                                                                              indices["Q"]
                                                                              ]),
                                            output_dim=5
@@ -176,8 +178,8 @@ if __name__ == '__main__':
         X = np.vstack([X, df[:-1, :]])
         Y = np.vstack([Y, df[1:, :-1]])
 
-    # data_train = tf.data.Dataset.from_tensor_slices((X, Y))
-    # train_iter = iter(data_train.batch(32, drop_remainder=True).repeat(5000))
+    data_train = tf.data.Dataset.from_tensor_slices((X, Y))
+    train_iter = iter(data_train.batch(40, drop_remainder=True).repeat(10000))
 
     # gpf.set_trainable(model.inducing_variable, False)
     gpf.set_trainable(model.q_mu, False)
@@ -190,20 +192,23 @@ if __name__ == '__main__':
         X_val = np.vstack([X_val, df[:-1, :]])
         Y_val = np.vstack([Y_val, df[1:, :-1]])
 
-    maxiter = ci_niter(800)
-    logf, logf_val = run_opt(model, maxiter, (X, Y), (X_val, Y_val), lr=0.08)
+    # data_val = tf.data.Dataset.from_tensor_slices((X, Y))
+    # val_iter = iter(data_val.batch(64000, drop_remainder=True).repeat(3200))
+
+    maxiter = ci_niter(10000)
+    logf, logf_val = run_opt(model, maxiter, train_iter, (X_val, Y_val), lr=0.08)
 
     model = SVGPWrapper(a, model)
 
-    plt.plot(np.arange(maxiter)[::10], logf)
-    plt.xlabel("iteration")
-    plt.ylabel("ELBO")
-    plt.show()
+    # plt.plot(np.arange(maxiter)[::10], logf)
+    # plt.xlabel("iteration")
+    # plt.ylabel("ELBO")
+    # plt.show()
 
-    plt.plot(np.arange(maxiter)[::10], logf_val)
-    plt.xlabel("iteration")
-    plt.ylabel("ELBO")
-    plt.show()
+    # plt.plot(np.arange(maxiter)[::10], logf_val)
+    # plt.xlabel("iteration")
+    # plt.ylabel("ELBO")
+    # plt.show()
 
     # DS = DataSelector(a)
     # DS.load_data_into_selector(data_test)

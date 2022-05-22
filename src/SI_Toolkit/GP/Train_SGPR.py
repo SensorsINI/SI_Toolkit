@@ -56,14 +56,14 @@ data_samples = (X_samples, Y_samples)
 ## DEFINING KERNELS
 inputs = a.state_inputs + a.control_inputs
 indices = {key: inputs.index(key) for key in inputs}
-kernels = {"position": gpf.kernels.Matern32(lengthscales=[1, 1, 1],
+kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1],
                                        active_dims=[indices["position"],
                                                     # indices["angleD"],
                                                     indices["positionD"],
                                                     indices["Q"]
                                                     ]),
 
-           "positionD": gpf.kernels.Matern32(lengthscales=[1, 1],
+           "positionD": gpf.kernels.RBF(lengthscales=[1, 1],
                                         active_dims=[# indices["angle_sin"],
                                                      # indices["angle_cos"],
                                                      # indices["angleD"],
@@ -71,34 +71,34 @@ kernels = {"position": gpf.kernels.Matern32(lengthscales=[1, 1, 1],
                                                      indices["Q"]
                                                      ]),
 
-           "angle_sin": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1],
+           "angle_sin": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
                                         active_dims=[indices["angle_sin"],
                                                      indices["angle_cos"],
                                                      indices["angleD"],
-                                                     # indices["positionD"],
+                                                     indices["positionD"],
                                                      indices["Q"]
                                                      ]),
 
-           "angle_cos": gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1],
+           "angle_cos": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
                                         active_dims=[indices["angle_sin"],
                                                      indices["angle_cos"],
                                                      indices["angleD"],
-                                                     # indices["positionD"],
+                                                     indices["positionD"],
                                                      indices["Q"]
                                                      ]),
 
-           "angleD": gpf.kernels.Matern12(lengthscales=[1, 1, 1, 1, 1],
-                                     active_dims=[indices["angle_sin"],
-                                                  indices["angle_cos"],
-                                                  indices["angleD"],
-                                                  indices["positionD"],
-                                                  indices["Q"]
-                                                  ])
+           "angleD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
+                                             active_dims=[indices["angle_sin"],
+                                                          indices["angle_cos"],
+                                                          indices["angleD"],
+                                                          indices["positionD"],
+                                                          indices["Q"]
+                                                          ])
 
 }
 
 ## DEFINING MULTI OUTPUT SGPR MODEL
-sample_indices = random.sample(range(X_samples.shape[0]), 30)
+sample_indices = random.sample(range(X_samples.shape[0]), 10)
 data_subsampled = (data_samples[0][sample_indices], data_samples[1][sample_indices])
 
 ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
@@ -152,15 +152,15 @@ plt.show()
 #plt.show()
 
 ## SAMPLING FROM STATE TRAJECTORY
-DS = DataSelector(a)
-DS.load_data_into_selector(data_test)
-X, Y = DS.return_dataset_for_training(shuffle=True,
-                                      inputs=a.state_inputs + a.control_inputs,
-                                      outputs=a.outputs,
-                                      raw=True)
-X = X.squeeze()
-Y = Y.squeeze()
-data = (X, Y)
+# DS = DataSelector(a)
+# DS.load_data_into_selector(data_test)
+# X, Y = DS.return_dataset_for_training(shuffle=True,
+#                                       inputs=a.state_inputs + a.control_inputs,
+#                                       outputs=a.outputs,
+#                                       raw=True)
+# X = X.squeeze()
+# Y = Y.squeeze()
+# data = (X, Y)
 
 # errs = state_space_pred_err(model, data)
 # print(errs)

@@ -113,7 +113,7 @@ class DataSelector:
 
             bin_idx = (position_idx, positionD_idx, angle_idx, angleD_idx, Q_idx)
             if angle_idx in range(3, 7) and angleD_idx in range(3, 7):
-                self.nr_states_per_bin[bin_idx] = 10
+                self.nr_states_per_bin[bin_idx] = 50
             # else:
             #     self.nr_states_per_bin[bin_idx] = 0
             # elif angle_cos_idx >= 6:

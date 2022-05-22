@@ -11,7 +11,7 @@ import random
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from gpflow.models.training_mixins import InputData
-from gpflow.types import MeanAndVariance
+#from gpflow.types import MeanAndVariance
 from gpflow.utilities import print_summary
 from gpflow import posteriors
 
@@ -81,7 +81,7 @@ class MultiOutGPR(tf.Module):
 
         self.posteriors = []
         for m in self.models:
-            self.posteriors.append(m.posterior())  # posteriors allow for caching and faster prediction
+            self.posteriors.append(m.posterior(precompute_cache=posteriors.PrecomputeCacheType.VARIABLE))  # posteriors allow for caching and faster prediction
 
         return logs, logs_val
 
@@ -106,21 +106,28 @@ class MultiOutGPR(tf.Module):
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=gpf.default_float())],
                  jit_compile=False)  # predictor runs faster on MPPI if only outer predictor function uses XLA; set to True if you use predict_f directly
-    def predict_f(
-        self, x: InputData,
-    ) -> MeanAndVariance:
-        means = tf.TensorArray(gpf.default_float(), size=len(self.models))
+    def predict_f(self, x):
+        # means = tf.TensorArray(gpf.default_float(), size=len(self.models))
         # vars = tf.TensorArray(gpf.default_float(), size=len(self.models))
 
-        i = 0
+        # i = 0
+        """
         for p in self.posteriors:
             mn, _ = p.predict_f(x)
             # mn, _ = p._conditional_with_precompute(x)
             means = means.write(i, mn)
             # vars = vars.write(i, vr)
             i += 1
+        """
+        mn1, _ = self.posteriors[0].predict_f(x)
+        mn2, _ = self.posteriors[1].predict_f(x)
+        mn3, _ = self.posteriors[2].predict_f(x)
+        mn4, _ = self.posteriors[3].predict_f(x)
+        mn5, _ = self.posteriors[4].predict_f(x)
 
-        means = tf.squeeze(tf.transpose(means.stack(), perm=[1, 0, 2]))
+        # means = tf.concat([p.predict_f(x)[0] for p in self.posteriors], axis=1)
+        means = tf.concat([mn1, mn2, mn3, mn4, mn5], axis=1)
+        # means = tf.squeeze(tf.transpose(means.stack(), perm=[1, 0, 2]))
         # vars = tf.squeeze(tf.transpose(vars.stack(), perm=[1, 0, 2]))
 
         return means
@@ -151,15 +158,15 @@ class SVGPWrapper(MultiOutGPR):
     def __init__(self, args, model):
         super().__init__(args)
         self.model = model
+        self.posterior = model.posterior()
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=gpf.default_float())],
                  jit_compile=False)
     def predict_f(
         self, x: InputData,
         full_cov: bool = False,
-        full_output_cov: bool = False,
-    ) -> MeanAndVariance:
-        means, _ = self.model.posterior().predict_f(x, full_cov=full_cov, full_output_cov=full_output_cov)
+        full_output_cov: bool = False):
+        means, _ = self.posterior.predict_f(x, full_cov=full_cov, full_output_cov=full_output_cov)
         return means
 
 class SingleOutGPRWrapper(MultiOutGPR):
@@ -172,8 +179,7 @@ class SingleOutGPRWrapper(MultiOutGPR):
     def predict_f(
         self, x: InputData,
         full_cov: bool = False,
-        full_output_cov: bool = False,
-    ) -> MeanAndVariance:
+        full_output_cov: bool = False):
         means, _ = self.model.posterior().predict_f(x, full_cov=full_cov, full_output_cov=full_output_cov)
         return means
 

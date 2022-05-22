@@ -11,7 +11,7 @@ from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
 # from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
 from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_GP_Euler import predictor_autoregressive_GP
+from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
 
 
 def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):

@@ -22,7 +22,7 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
                    Loader=yaml.FullLoader)
 
 # TODO load from config
-PATH_TO_MODEL = "./SI_Toolkit_ASF/Experiments/PhysicalData-1/Models/SVGP_model"
+PATH_TO_MODEL = "./SI_Toolkit_ASF/Experiments/SimData/Models/SGPR_model"
 
 
 class predictor_autoregressive_GP:
@@ -39,26 +39,27 @@ class predictor_autoregressive_GP:
 
         self.indices = [STATE_INDICES.get(key) for key in self.model.outputs]
 
-        self.initial_state = tf.random.uniform(shape=[self.num_rollouts, 5], dtype=tf.float32)
+        self.initial_state = tf.random.uniform(shape=[self.num_rollouts, 6], dtype=tf.float32)
         Q = tf.random.uniform(shape=[self.num_rollouts, self.horizon, 1], dtype=tf.float32)
 
         self.outputs = None
 
         self.predict_tf(self.initial_state, Q)  # CHANGE TO PREDICT FOR NON TF MPPI
 
+
     def predict(self, initial_state, Q_seq):
         outputs = self.predict_tf(initial_state, Q_seq)
         return outputs.numpy()
 
-    # @Compile
+    @tf.function
     def step(self, s, Q):
         x = tf.concat([s, Q], axis=1)
         s = self.model.predict_f(x)
         # if self.num_rollouts == 1:
-        #    s = tf.expand_dims(s, axis=0)
+        #     s = tf.expand_dims(s, axis=0)
         return s
 
-    # @tf.function
+    @tf.function
     def predict_tf(self, initial_state, Q_seq):
         # initial_state = tf.expand_dims(initial_state, axis=0)  # COMMENT OUT FOR TF MPPI
         self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
@@ -112,7 +113,7 @@ horizon = 35
 num_rollouts = 2000
 predictor = predictor_autoregressive_GP(horizon=horizon, num_rollouts=num_rollouts)
 
-initial_state = tf.random.uniform(shape=[num_rollouts, 5], dtype=tf.float32)
+initial_state = tf.random.uniform(shape=[num_rollouts, 6], dtype=tf.float32)
 Q = tf.random.uniform(shape=[num_rollouts, horizon, 1], dtype=tf.float32)
 '''
 

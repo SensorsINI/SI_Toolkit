@@ -22,9 +22,9 @@ gpf.config.set_default_float(tf.float64)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
 
-def run_opt(model, iterations, train_iter, test_iter, lr=0.01):
+def run_opt(model, iterations, train_iter, test_iter=None, lr=0.01):
     logf = []
-    # logf_val = []
+    logf_val = []
     training_loss = model.training_loss_closure(train_iter, compile=True)
     # validation_loss = model.training_loss_closure(test_iter, compile=True)
 
@@ -47,7 +47,9 @@ def run_opt(model, iterations, train_iter, test_iter, lr=0.01):
             elbo = -training_loss().numpy()
             # elbo_val = -validation_loss().numpy()
             print("TRAIN: {}".format(elbo))
+            # print("TRAIN: {} VAL: {}".format(elbo, elbo_val))
             logf.append(elbo)
+            # logf_val.append(elbo_val)
 
     return logf, None
 
@@ -82,7 +84,7 @@ if __name__ == '__main__':
 
     ## SUBSAMPLING FOR GP
     random.seed(10)
-    sample_indices = random.sample(range(X.shape[0]), 20) # 50
+    sample_indices = random.sample(range(X.shape[0]), 30)
     X_samples = X[sample_indices]
     Y_samples = Y[sample_indices]
     data_samples = (X_samples, Y_samples)
@@ -177,8 +179,8 @@ if __name__ == '__main__':
         X = np.vstack([X, df[:-1, :]])
         Y = np.vstack([Y, df[1:, :-1]])
 
-    # data_train = tf.data.Dataset.from_tensor_slices((X, Y))
-    # train_iter = iter(data_train.batch(32, drop_remainder=True).repeat(5000))
+    data_train = tf.data.Dataset.from_tensor_slices((X, Y))
+    train_iter = iter(data_train.batch(12500, drop_remainder=True).repeat(600))
 
     # gpf.set_trainable(model.inducing_variable, False)
     gpf.set_trainable(model.q_mu, False)
@@ -191,8 +193,11 @@ if __name__ == '__main__':
         X_val = np.vstack([X_val, df[:-1, :]])
         Y_val = np.vstack([Y_val, df[1:, :-1]])
 
-    maxiter = ci_niter(300)
-    logf, logf_val = run_opt(model, maxiter, (X, Y), (X_val, Y_val), lr=0.08)
+    # data_val = tf.data.Dataset.from_tensor_slices((X, Y))
+    # val_iter = iter(data_train.batch(48000, drop_remainder=True).repeat(600))
+
+    maxiter = ci_niter(600)
+    logf, logf_val = run_opt(model, maxiter, train_iter, lr=0.08)
 
     model = SVGPWrapper(a, model)
 
@@ -220,7 +225,7 @@ if __name__ == '__main__':
     # plot_test(model, data_test, closed_loop=True)
 
     # save model
-    save_dir = a.path_to_models + "SVGP_model"
+    save_dir = a.path_to_models + "SVGP_reduced"
     print("Saving...")
     save_model(model, save_dir)
     print("Done!")
@@ -233,7 +238,7 @@ from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.GP.Parameters import args
 
 a = args()
-save_dir = a.path_to_models + "SVGP_model"
+save_dir = a.path_to_models + "SVGP_reduced"
 
 # load model
 print("Loading...")

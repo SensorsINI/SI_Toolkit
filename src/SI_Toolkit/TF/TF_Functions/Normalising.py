@@ -12,7 +12,7 @@ and rows in the order
 """
 
 
-@Compile
+# @Compile
 def normalize_tf(denormalized_array,
                  normalizing_array,
                  normalization_type='minmax_sym'
@@ -34,7 +34,7 @@ def normalize_tf(denormalized_array,
     return normalized_array
 
 
-@Compile
+# @Compile
 def denormalize_tf(normalized_array,
                    denormalizing_array,
                    normalization_type='minmax_sym'):

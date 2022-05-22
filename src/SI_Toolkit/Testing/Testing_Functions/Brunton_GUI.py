@@ -3,10 +3,10 @@
 
 # Import functions from PyQt6 module (creating GUI)
 
-from PyQt6.QtWidgets import QMainWindow, QApplication, QVBoxLayout, \
+from PyQt5.QtWidgets import QMainWindow, QApplication, QVBoxLayout, \
     QHBoxLayout, QLabel, QPushButton, QWidget, QCheckBox, \
     QComboBox, QSlider, QFrame, QButtonGroup, QRadioButton
-from PyQt6.QtCore import Qt
+from PyQt5.QtCore import Qt
 
 
 
