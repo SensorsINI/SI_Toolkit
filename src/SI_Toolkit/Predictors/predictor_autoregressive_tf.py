@@ -152,7 +152,7 @@ class predictor_autoregressive_tf:
     def predict(self, initial_state, Q, last_optimal_control_input=None) -> np.array:
 
         initial_state, Q = check_dimensions(initial_state, Q)
-        self.output[:, 0, :] = initial_state
+        # self.output[:, 0, :] = initial_state
         self.batch_size = tf.shape(Q)[0]
 
         initial_state, Q = convert_to_tensors(initial_state, Q)
@@ -160,16 +160,9 @@ class predictor_autoregressive_tf:
         initial_state = check_batch_size(initial_state, self.batch_size, 's')
         Q = check_batch_size(Q, self.batch_size, 'Q')
 
-        if self.update_before_predicting and self.last_net_input_reg_initial is not None and (
-                last_optimal_control_input is not None or self.last_optimal_control_input is not None):
-            if last_optimal_control_input is None:
-                last_optimal_control_input = self.last_optimal_control_input
-            net_output = self.predict_with_update_tf(initial_state, Q, self.last_net_input_reg_initial,
-                                                     last_optimal_control_input)
-        else:
-            net_output = self.predict_tf(initial_state, Q)
+        net_output = self.predict_tf(initial_state, Q)
 
-        self.output[:, 1:, :] = net_output.numpy()
+        self.output = net_output.numpy()
 
         return self.output
 
@@ -179,7 +172,12 @@ class predictor_autoregressive_tf:
         return self.predict_tf(initial_state, Q)
 
     @Compile
-    def predict_tf(self, initial_state, Q):
+    def predict_tf(self, initial_state, Q, last_optimal_control_input=None):
+        if self.update_before_predicting and self.last_net_input_reg_initial is not None and (
+                last_optimal_control_input is not None or self.last_optimal_control_input is not None):
+            if last_optimal_control_input is None:
+                last_optimal_control_input = self.last_optimal_control_input
+            self.update_internal_state_tf(last_optimal_control_input, self.last_net_input_reg_initial)
 
         net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
 
@@ -190,14 +188,15 @@ class predictor_autoregressive_tf:
         # load internal RNN state if applies
         copy_internal_states_from_ref(self.net, self.layers_ref)
 
-        net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
+        net_outputs = tf.TensorArray(tf.float32, size=self.horizon+1)
         net_output = tf.zeros(shape=(self.batch_size, len(self.net_info.outputs)), dtype=tf.float32)
 
-        for i in tf.range(self.horizon):
+        net_outputs = net_outputs.write(0, self.net_input_reg_initial_normed)
+        for i in tf.range(1, self.horizon+1):
 
             Q_current = Q[:, i, :]
 
-            if i == 0:
+            if i == 1:
                 net_input = tf.reshape(
                     tf.concat([Q_current, self.net_input_reg_initial_normed], axis=1),
                     shape=[-1, 1, len(self.net_info.inputs)])
@@ -266,11 +265,28 @@ class predictor_autoregressive_tf:
 
 
 if __name__ == '__main__':
-    from SI_Toolkit.Predictors.timer_predictor import timer_predictor
+    import timeit
 
-    initialisation = '''
+    initialization = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name=net_name)
+import numpy as np
+import tensorflow as tf
+
+horizon = 10
+num_rollouts = 2000
+predictor = predictor_autoregressive_tf(horizon=horizon, batch_size=num_rollouts, net_name='GRU-6IN-32H1-32H2-5OUT-0', update_before_predicting=True)
+
+initial_state = tf.random.uniform(shape=[num_rollouts, 6], dtype=tf.float32)
+Q = tf.random.uniform(shape=[num_rollouts, horizon, 1], dtype=tf.float32)
+    
+predictor.predict(initial_state, Q)
+predictor.update_internal_state(Q)
+predictor.predict(initial_state, Q)
 '''
 
-    timer_predictor(initialisation)
+    code = '''\
+predictor.predict(initial_state, Q)
+predictor.update_internal_state(Q)
+'''
+
+    print(timeit.timeit(code, number=100, setup=initialization) / 100.0)

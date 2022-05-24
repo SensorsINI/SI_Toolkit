@@ -51,7 +51,7 @@ class predictor_autoregressive_GP:
         outputs = self.predict_tf(initial_state, Q_seq)
         return outputs.numpy()
 
-    @tf.function
+    @Compile
     def step(self, s, Q):
         x = tf.concat([s, Q], axis=1)
         s = self.model.predict_f(x)
@@ -109,8 +109,8 @@ from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregr
 import numpy as np
 import tensorflow as tf
 
-horizon = 35
-num_rollouts = 2000
+horizon = 10
+num_rollouts = 1000
 predictor = predictor_autoregressive_GP(horizon=horizon, num_rollouts=num_rollouts)
 
 initial_state = tf.random.uniform(shape=[num_rollouts, 6], dtype=tf.float32)
@@ -121,4 +121,4 @@ Q = tf.random.uniform(shape=[num_rollouts, horizon, 1], dtype=tf.float32)
 predictor.predict_tf(initial_state, Q)
 '''
 
-    print(timeit.timeit(code, number=10, setup=initialization) / 10.0)
+    print(timeit.timeit(code, number=100, setup=initialization) / 100.0)
