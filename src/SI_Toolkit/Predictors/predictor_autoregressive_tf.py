@@ -131,6 +131,8 @@ class predictor_autoregressive_tf:
 
         self.normalizing_inputs = tf.convert_to_tensor(
             self.normalization_info[self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=tf.float32)
+        self.normalizing_control_inputs = tf.convert_to_tensor(
+            self.normalization_info[self.net_info.inputs[:len(CONTROL_INPUTS)]], dtype=tf.float32)
         self.normalizing_outputs = tf.convert_to_tensor(self.normalization_info[self.net_info.outputs],
                                                         dtype=tf.float32)
 
@@ -188,6 +190,10 @@ class predictor_autoregressive_tf:
             net_input_reg_initial, self.normalizing_inputs
         ))
 
+        Q_normed = normalize_tf(
+            Q, self.normalizing_control_inputs
+        )
+
         # load internal RNN state if applies
         copy_internal_states_from_ref(self.net, self.layers_ref)
 
@@ -196,7 +202,7 @@ class predictor_autoregressive_tf:
 
         for i in tf.range(self.horizon):
 
-            Q_current = Q[:, i, :]
+            Q_current = Q_normed[:, i, :]
 
             if i == 0:
                 net_input = tf.reshape(
@@ -247,13 +253,15 @@ class predictor_autoregressive_tf:
 
     @Compile
     def update_internal_state_tf(self, Q0, s):
-
+        Q0_normed = normalize_tf(
+            Q0, self.normalizing_control_inputs
+        )
         if self.net_info.net_type == 'Dense':
             pass
         else:
             copy_internal_states_from_ref(self.net, self.layers_ref)
 
-            net_input = tf.reshape(tf.concat([Q0[:, 0, :], s], axis=1),
+            net_input = tf.reshape(tf.concat([Q0_normed[:, 0, :], s], axis=1),
                                    [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
