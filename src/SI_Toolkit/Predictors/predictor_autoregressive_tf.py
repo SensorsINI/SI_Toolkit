@@ -63,8 +63,9 @@ PATH_TO_NN = config['testing']['PATH_TO_NN']
 
 def check_dimensions(s, Q):
     # Make sure the input is at least 2d
-    if tf.rank(s) == 1:
-        s = s[tf.newaxis, :]
+    if s is not None:
+        if tf.rank(s) == 1:
+            s = s[tf.newaxis, :]
 
     if tf.rank(Q) == 3:  # Q.shape = [batch_size, timesteps, features]
         pass
