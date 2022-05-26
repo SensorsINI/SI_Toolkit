@@ -38,7 +38,7 @@ Using predictor:
 # "Command line" parameters
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
 from SI_Toolkit.TF.TF_Functions.Normalising import normalize_tf, denormalize_tf
-from SI_Toolkit.TF.TF_Functions.Network import copy_internal_states_from_ref, copy_internal_states_to_ref
+from SI_Toolkit.TF.TF_Functions.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
