@@ -195,7 +195,7 @@ class predictor_autoregressive_tf:
         )
 
         # load internal RNN state if applies
-        copy_internal_states_from_ref(self.net, self.layers_ref)
+        _copy_internal_states_from_ref(self.net, self.layers_ref)
 
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
         net_output = tf.zeros(shape=(self.batch_size, len(self.net_info.outputs)), dtype=tf.float32)
@@ -259,14 +259,14 @@ class predictor_autoregressive_tf:
         if self.net_info.net_type == 'Dense':
             pass
         else:
-            copy_internal_states_from_ref(self.net, self.layers_ref)
+            _copy_internal_states_from_ref(self.net, self.layers_ref)
 
             net_input = tf.reshape(tf.concat([Q0_normed[:, 0, :], s], axis=1),
                                    [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
 
-            copy_internal_states_to_ref(self.net, self.layers_ref)
+            _copy_internal_states_to_ref(self.net, self.layers_ref)
 
 
     def reset(self):
