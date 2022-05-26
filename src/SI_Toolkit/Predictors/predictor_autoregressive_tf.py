@@ -150,10 +150,6 @@ class predictor_autoregressive_tf:
 
     def predict(self, initial_state, Q, last_optimal_control_input=None) -> np.array:
 
-        initial_state, Q = check_dimensions(initial_state, Q)
-        self.output[:, 0, :] = initial_state
-        self.batch_size = tf.shape(Q)[0]
-
         initial_state, Q = convert_to_tensors(initial_state, Q)
         if last_optimal_control_input is not None:
             last_optimal_control_input = tf.convert_to_tensor(last_optimal_control_input, dtype=tf.float32)
