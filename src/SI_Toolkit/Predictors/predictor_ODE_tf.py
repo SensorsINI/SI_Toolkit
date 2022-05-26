@@ -43,38 +43,21 @@ class predictor_ODE_tf:
         self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, disable_individual_compilation=True)
 
         if disable_individual_compilation:
-            self.predict_tf_tile = self._predict_tf_tile
             self.predict_tf = self._predict_tf
-            self.predict = self._predict_core
         else:
-            self.predict_tf_tile = Compile(self._predict_tf_tile)
             self.predict_tf = Compile(self._predict_tf)
-            self.predict = self._predict_numpy
 
 
-    def _predict_numpy(self, initial_state, Q):
+    def predict(self, initial_state, Q):
         initial_state, Q = convert_to_tensors(initial_state, Q)
-        return self._predict_core(initial_state, Q).numpy()
-
-
-    def _predict_core(self, initial_state, Q):
-
         initial_state, Q = check_dimensions(initial_state, Q)
 
         self.batch_size = tf.shape(Q)[0]
         self.initial_state = initial_state
 
+        output = self.predict_tf(self.initial_state, Q)
 
-        if tf.shape(self.initial_state)[0] == 1 and tf.shape(Q)[0] != 1:  # Predicting multiple control scenarios for the same initial state
-            output = self.predict_tf_tile(self.initial_state, Q, self.batch_size)
-        else:  # tf.shape(self.initial_state)[0] == tf.shape(Q)[0]:  # For each control scenario there is separate initial state provided
-            output = self.predict_tf(self.initial_state, Q)
-
-        return output
-
-    def _predict_tf_tile(self, initial_state, Q, batch_size, params=None):  # Predicting multiple control scenarios for the same initial state
-        initial_state = tf.tile(initial_state, (batch_size, 1))
-        return self._predict_tf(initial_state, Q, params=params)
+        return output.numpy()
 
 
     def _predict_tf(self, initial_state, Q, params=None):
