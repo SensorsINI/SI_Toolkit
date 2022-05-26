@@ -38,7 +38,7 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     elif 'Euler' in predictor_name:
         predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
     elif 'GP' in predictor_name:
-        predictor = predictor_autoregressive_GP(horizon=a.test_max_horizon)
+        predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=a.test_max_horizon)
     else:
         if mode == 'batch':
             predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len,

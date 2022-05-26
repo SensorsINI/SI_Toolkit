@@ -3,6 +3,7 @@ from SI_Toolkit.GP.Models import MultiOutSGPR, run_tf_optimization, save_model, 
 
 import os
 import timeit
+import shutil
 
 import gpflow as gpf
 import random
@@ -102,7 +103,11 @@ sample_indices = random.sample(range(X_samples.shape[0]), 10)
 data_subsampled = (data_samples[0][sample_indices], data_samples[1][sample_indices])
 
 ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
-plot_samples(data_subsampled, show_output=False)
+save_dir = a.path_to_models + "SGPR_model/"
+if not os.path.exists(save_dir):
+    os.makedirs(save_dir+'info')
+shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_SGPR.py", save_dir+"info/training_file.py")
+plot_samples(data_subsampled[0], save_dir=save_dir+"info/initial_ip/")
 
 # X = np.empty(shape=[0, 6])
 # Y = np.empty(shape=[0, 5])
@@ -133,14 +138,18 @@ for df in data_test:
 
 ## MODEL OPTIMIZATION
 maxiter = 800
-logf, logf_val = model.optimize("Adam", iters=maxiter, lr=0.08, val_data=(X_val, Y_val))
+logf, logf_val, train_time = model.optimize("Adam", iters=maxiter, lr=0.08, val_data=(X_val, Y_val))
+with open(save_dir+'info/training_time.txt', "w") as f:
+    f.write(str(train_time))
 
-plt.figure(figsize=(12, 12))
+plt.figure(figsize=(10, 10))
 for i in range(len(model.outputs)):
     plt.plot(np.arange(maxiter)[::10], logf_val[i])
 plt.legend(model.outputs)
-plt.xlabel("iteration")
-plt.ylabel("VAL ERROR")
+plt.xlabel("Iteration")
+plt.ylabel("ELBO")
+plt.grid()
+plt.savefig(save_dir+'info/training_ELBO.pdf')
 plt.show()
 
 # for i in range(len(model.outputs)):
@@ -169,7 +178,6 @@ plt.show()
 plot_test(model, data_test, closed_loop=True)
 
 # save model
-save_dir = a.path_to_models + "SGPR_model"
 print("Saving...")
 save_model(model, save_dir)
 print("Done!")
@@ -182,7 +190,7 @@ from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.GP.Parameters import args
 
 a = args()
-save_dir = a.path_to_models + "SGPR_model"
+save_dir = a.path_to_models + "/SGPR_model/"
 
 # load model
 print("Loading...")

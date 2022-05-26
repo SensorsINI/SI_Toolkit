@@ -22,16 +22,16 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
                    Loader=yaml.FullLoader)
 
 # TODO load from config
-PATH_TO_MODEL = "./SI_Toolkit_ASF/Experiments/SimData/Models/SGPR_model"
+PATH_TO_MODEL = "./SI_Toolkit_ASF/Experiments/SimData/Models/"
 
 
 class predictor_autoregressive_GP:
-    def __init__(self, horizon, num_rollouts=1):
+    def __init__(self, model_name, horizon, num_rollouts=1):
         # tf.config.run_functions_eagerly(True)
 
         self.horizon = horizon
         self.num_rollouts = num_rollouts
-        self.model = load_model(PATH_TO_MODEL)
+        self.model = load_model(PATH_TO_MODEL+model_name)
         self.inputs = self.model.state_inputs + self.model.control_inputs
         self.normalizing_inputs = tf.convert_to_tensor(self.model.norm_info[self.model.state_inputs], dtype=tf.float64)
         self.normalizing_outputs = tf.convert_to_tensor(self.model.norm_info[self.model.outputs], dtype=tf.float64)

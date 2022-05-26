@@ -3,6 +3,7 @@ from typing import Optional
 
 import os
 import timeit
+import time
 
 import pandas as pd
 import gpflow as gpf
@@ -71,6 +72,7 @@ class MultiOutGPR(tf.Module):
                 opt = tf.optimizers.SGD(lr)
             elif optimizer == "Adam":
                 opt = tf.optimizers.Adam(lr)
+            start = time.time()
             logs = []
             logs_val = []
             for i in range(len(self.models)):
@@ -78,12 +80,14 @@ class MultiOutGPR(tf.Module):
                 logs.append(logf)
                 logs_val.append(logf_val)
                 print_summary(self.models[i])
+            end = time.time()
+            training_time = end-start
 
         self.posteriors = []
         for m in self.models:
-            self.posteriors.append(m.posterior(precompute_cache=posteriors.PrecomputeCacheType.VARIABLE))  # posteriors allow for caching and faster prediction
+            self.posteriors.append(m.posterior(precompute_cache=posteriors.PrecomputeCacheType.TENSOR))  # posteriors allow for caching and faster prediction
 
-        return logs, logs_val
+        return logs, logs_val, training_time
 
     def batch_optimize(self, optimizer, data, iters=1000, lr=0.01, batch_size=16):
         X = np.empty(shape=[0, len(self.state_inputs+self.control_inputs)])
@@ -146,6 +150,13 @@ class MultiOutSGPR(MultiOutGPR):
 
     def setup(self, data, kernels, inducing_variables):
         for i in range(len(self.outputs)):
+            # TODO: make each model take only relevant inputs by default, instead of parsing them itself
+            # might lead to speedup
+            # m = gpf.models.SGPR(data=(data[0][:, kernels[self.outputs[i]].active_dims].astype(dtype=np.float64),
+            #                           data[1][:, i].astype(dtype=np.float64).reshape(-1, 1)),
+            #                     kernel=kernels[self.outputs[i]],
+            #                     inducing_variable=inducing_variables[:, kernels[self.outputs[i]].active_dims].astype(dtype=np.float64)
+            #                     )
             m = gpf.models.SGPR(data=(data[0].astype(dtype=np.float64),
                                       data[1][:, i].astype(dtype=np.float64).reshape(-1, 1)),
                                 kernel=kernels[self.outputs[i]],
@@ -251,11 +262,30 @@ def save_model(model, save_dir):
         m.norm_header = tf.Variable(m.norm_info.columns)
         m.norm_index = tf.Variable(m.norm_info.index)
         m.norm_info = tf.Variable(m.norm_info)
-    tf.saved_model.save(m, save_dir)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    save_params(model, save_dir+'info/')
+    tf.saved_model.save(m, save_dir+'model')
 
+def save_params(model, save_dir):
+    param_names = list(gpf.utilities.parameter_dict(model.models[0]).keys())
+    for i in range(len(model.models)):
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir+model.outputs[i])
+        out = []
+        out.append(np.array(model.outputs[i]))
+        out.append(np.array(model.outputs))
+        out.append(np.array(param_names))
+        out.append(model.models[i].kernel.variance.numpy())
+        out.append(model.models[i].kernel.lengthscales.numpy())
+        out.append(model.models[i].likelihood.variance.numpy())
+        out.append(model.models[i].inducing_variable.Z.numpy())
+        plot_samples(model.models[i].inducing_variable.Z.numpy(), save_dir=save_dir+model.outputs[i], show=False)
+
+        np.savetxt(save_dir+model.outputs[i]+'/params.csv', out, delimiter="\n", fmt='%s')
 
 def load_model(save_dir):
-    model = tf.saved_model.load(save_dir)
+    model = tf.saved_model.load(save_dir+'/model')
     model.state_inputs = [x.decode() for x in model.state_inputs.numpy().tolist()]
     model.control_inputs = [x.decode() for x in model.control_inputs.numpy().tolist()]
     model.outputs = [x.decode() for x in model.outputs.numpy().tolist()]
@@ -268,53 +298,50 @@ def load_model(save_dir):
     return model
 
 
-def plot_samples(data, show_output=False):
-    X, Y = data
+def plot_samples(data, save_dir=None, show=True):
+    X = data
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
 
-    plt.figure(figsize=(12, 12))
+    plt.figure(figsize=(10, 10))
     plt.plot(X[:, 2], X[:, 1], "bo")
-    if show_output:
-        plt.plot(Y[:, 2], Y[:, 1], "ro")
-        plt.legend(["k", "k+1"])
     plt.xlabel(r"sin$\theta$")
     plt.ylabel(r"cos$\theta$")
     plt.xlim(-1.1, 1.1)
     plt.ylim(-1.1, 1.1)
     plt.grid()
-    plt.show()
+    if save_dir is not None: plt.savefig(save_dir+'/angle_ss.pdf')
+    if show: plt.show()
 
-    plt.figure(figsize=(12, 12))
+    plt.figure(figsize=(10, 10))
     plt.plot(X[:, 0], np.arctan2(X[:, 2], X[:, 1]), "bo")
-    if show_output:
-        plt.plot(Y[:, 0], np.arctan2(Y[:, 2], Y[:, 1]), "ro")
-        plt.legend(["k", "k+1"])
     plt.xlabel(r"$\dot{\theta}$")
     plt.ylabel(r"$\theta}$")
     plt.xlim(-1.1, 1.1)
     plt.ylim(-1.1, 1.1)
     plt.grid()
-    plt.show()
+    if save_dir is not None: plt.savefig(save_dir+'/angular_ss.pdf')
+    if show: plt.show()
 
-    plt.figure(figsize=(12, 12))
+    plt.figure(figsize=(10, 10))
     plt.plot(X[:, 4], X[:, 3], "bo")
-    if show_output:
-        plt.plot(Y[:, 4], Y[:, 3], "ro")
-        plt.legend(["k", "k+1"])
     plt.xlabel(r"$\dot{x}$")
     plt.ylabel(r"$x$")
     plt.xlim(-1.1, 1.1)
     plt.ylim(-1.1, 1.1)
     plt.grid()
-    plt.show()
+    if save_dir is not None: plt.savefig(save_dir+'/position_ss.pdf')
+    if show: plt.show()
 
-    plt.figure(figsize=(12, 12))
-    plt.plot(X[:, 5], Y[:, 4], "bo")
+    plt.figure(figsize=(10, 10))
+    plt.plot(X[:, 5], X[:, 4], "bo")
     plt.xlabel(r"$Q$")
     plt.ylabel(r"$\dot{x}$")
     plt.xlim(-1.1, 1.1)
     plt.ylim(-1.1, 1.1)
     plt.grid()
-    plt.show()
+    if save_dir is not None: plt.savefig(save_dir+'/input_ss.pdf')
+    if show: plt.show()
 
 
 def plot_test(model, data, closed_loop=False):
