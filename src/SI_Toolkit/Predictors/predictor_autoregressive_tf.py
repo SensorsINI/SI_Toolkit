@@ -63,19 +63,15 @@ PATH_TO_NN = config['testing']['PATH_TO_NN']
 
 def check_dimensions(s, Q):
     # Make sure the input is at least 2d
-    if s is None:
-        pass
-    elif s.ndim == 1:
-        s = s[np.newaxis, :]
+    if tf.rank(s) == 1:
+        s = s[tf.newaxis, :]
 
-    if Q is None:
+    if tf.rank(Q) == 3:  # Q.shape = [batch_size, timesteps, features]
         pass
-    elif Q.ndim == 3:  # Q.shape = [batch_size, timesteps, features]
-        pass
-    elif Q.ndim == 2:  # Q.shape = [timesteps, features]
-        Q = Q[np.newaxis, :, :]
+    elif tf.rank(Q) == 2:  # Q.shape = [timesteps, features]
+        Q = Q[tf.newaxis, :, :]
     else:  # Q.shape = [features;  tf.rank(Q) == 1
-        Q = Q[np.newaxis, np.newaxis, :]
+        Q = Q[tf.newaxis, tf.newaxis, :]
 
     return s, Q
 
@@ -159,6 +155,11 @@ class predictor_autoregressive_tf:
         self.batch_size = tf.shape(Q)[0]
 
         initial_state, Q = convert_to_tensors(initial_state, Q)
+        if last_optimal_control_input is not None:
+            last_optimal_control_input = tf.convert_to_tensor(last_optimal_control_input, dtype=tf.float32)
+
+
+        initial_state, Q = check_dimensions(initial_state, Q)
 
         initial_state = check_batch_size(initial_state, self.batch_size, 's')
         Q = check_batch_size(Q, self.batch_size, 'Q')
@@ -172,8 +173,10 @@ class predictor_autoregressive_tf:
         else:
             net_output = self.predict_tf(initial_state, Q)
 
-        self.output[:, 1:, :] = net_output.numpy()
+        output = tf.concat((initial_state[:, tf.newaxis, :], net_output), axis=1)
 
+
+        self.output = output.numpy()
         return self.output
 
     @Compile
