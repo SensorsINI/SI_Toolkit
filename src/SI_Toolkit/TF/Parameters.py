@@ -17,7 +17,12 @@ net_name = config['modeling']['NET_NAME']
 PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
 
 PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "NormalizationInfo/"
-PATH_TO_NORMALIZATION_INFO += os.listdir(PATH_TO_NORMALIZATION_INFO)[0]
+
+# Get path to normalisation info as to a newest csv file in indicated folder
+paths = sorted([os.path.join(PATH_TO_NORMALIZATION_INFO, d) for d in os.listdir(PATH_TO_NORMALIZATION_INFO)], key=os.path.getctime)
+for path in paths:
+    if path[-4:] == '.csv':
+        PATH_TO_NORMALIZATION_INFO = path
 
 # The following paths to dictionaries may be replaced by the list of paths to data files.
 TRAINING_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "/Recordings/Train/"
