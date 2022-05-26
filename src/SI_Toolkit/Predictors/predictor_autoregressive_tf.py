@@ -76,19 +76,6 @@ def check_dimensions(s, Q):
     return s, Q
 
 
-def check_batch_size(x, batch_size, argument_type):
-    if tf.shape(x)[0] != batch_size:
-        if tf.shape(x)[0] == 1:
-            if argument_type == 's':
-                return tf.tile(x, (batch_size, 1))
-            elif argument_type == 'Q':
-                return tf.tile(x, (batch_size, 1, 1))
-        else:
-            raise ValueError("Tensor has neither dimension 1 nor the one of the batch size")
-    else:
-        return x
-
-
 def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
@@ -154,11 +141,7 @@ class predictor_autoregressive_tf:
         if last_optimal_control_input is not None:
             last_optimal_control_input = tf.convert_to_tensor(last_optimal_control_input, dtype=tf.float32)
 
-
         initial_state, Q = check_dimensions(initial_state, Q)
-
-        initial_state = check_batch_size(initial_state, self.batch_size, 's')
-        Q = check_batch_size(Q, self.batch_size, 'Q')
 
         if self.update_before_predicting and self.last_net_input_reg_initial is not None and (
                 last_optimal_control_input is not None or self.last_optimal_control_input is not None):
@@ -170,7 +153,6 @@ class predictor_autoregressive_tf:
             net_output = self.predict_tf(initial_state, Q)
 
         output = tf.concat((initial_state[:, tf.newaxis, :], net_output), axis=1)
-
 
         self.output = output.numpy()
         return self.output
@@ -238,11 +220,8 @@ class predictor_autoregressive_tf:
         if s is not None:
             net_input_reg_initial = tf.gather(tf.convert_to_tensor(s, dtype=tf.float32), self.indices_inputs_reg, axis=-1)
             net_input_reg_initial_normed = normalize_tf(net_input_reg_initial, self.normalizing_inputs)
-            net_input_reg_initial_normed = check_batch_size(net_input_reg_initial_normed, self.batch_size, 's')
         else:
             net_input_reg_initial_normed = self.net_input_reg_initial_normed
-
-        Q0 = check_batch_size(Q0, self.batch_size, 'Q')
 
         if self.update_before_predicting:
             self.last_optimal_control_input = Q0
@@ -278,7 +257,7 @@ if __name__ == '__main__':
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name=net_name)
+predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=True)
 '''
 
     timer_predictor(initialisation)
