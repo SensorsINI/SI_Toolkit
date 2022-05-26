@@ -38,7 +38,10 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     elif 'Euler' in predictor_name:
         predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
     elif 'GP' in predictor_name:
-        predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=a.test_max_horizon)
+        if mode == 'batch':
+            predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=a.test_max_horizon, num_rollouts=a.test_len)
+        else:
+            predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=a.test_max_horizon)
     else:
         if mode == 'batch':
             predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len,
@@ -58,7 +61,8 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
             Q_current_timestep = Q_array[np.newaxis, timestep, :, :]
             s0 = states_0[np.newaxis, timestep, :]
             output[timestep, :, :] = predictor.predict(s0, Q_current_timestep)
-            predictor.update_internal_state(Q_current_timestep[:, np.newaxis, 1, :])
+            if a.test_max_horizon > 1:
+                predictor.update_internal_state(Q_current_timestep[:, np.newaxis, 1, :])
 
         output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in a.features]]
 

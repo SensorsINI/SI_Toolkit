@@ -100,14 +100,14 @@ if __name__ == '__main__':
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import CONTROL_INPUTS
+from SI_Toolkit_ASF.predictors_customization import CONTROL_INPUTS
+import tensorflow as tf
 import numpy as np
 batch_size = 2000
 horizon = 50
 predictor = predictor_ODE_tf(horizon, 0.02, 10)
-initial_state = np.random.random(size=(batch_size, 6))
-# initial_state = np.random.random(size=(1, 6))
-Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
+initial_state = tf.random.uniform(shape=[batch_size, 6], dtype=tf.float32)
+Q = tf.random.uniform(shape=[batch_size, horizon, 1], dtype=tf.float32)
 predictor.predict(initial_state, Q)
 '''
 
