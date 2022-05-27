@@ -237,12 +237,15 @@ class predictor_autoregressive_tf:
             self.update_internal_state_tf(Q0, net_input_reg_initial_normed)
 
     def _update_internal_state_tf(self, Q0, s):
-        Q0_normed = normalize_tf(
-            Q0, self.normalizing_control_inputs
-        )
+
         if self.net_info.net_type == 'Dense':
             pass
         else:
+
+            Q0_normed = normalize_tf(
+                Q0, self.normalizing_control_inputs
+            )
+
             _copy_internal_states_from_ref(self.net, self.layers_ref)
 
             net_input = tf.reshape(tf.concat([Q0_normed[:, 0, :], s], axis=1),
