@@ -130,6 +130,7 @@ class predictor_autoregressive_tf:
         self.net_input_reg_initial = None
         self.net_input_reg_initial_normed = tf.Variable(
             tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
+        self.last_initial_state = tf.Variable(tf.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=tf.float32))
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
                                dtype=np.float32)
@@ -151,11 +152,11 @@ class predictor_autoregressive_tf:
 
         initial_state, Q = check_dimensions(initial_state, Q)
 
-        if self.update_before_predicting and self.last_net_input_reg_initial is not None and (
+        if self.update_before_predicting and self.last_initial_state is not None and (
                 last_optimal_control_input is not None or self.last_optimal_control_input is not None):
             if last_optimal_control_input is None:
                 last_optimal_control_input = self.last_optimal_control_input
-            output = self.predict_with_update_tf(initial_state, Q, self.last_net_input_reg_initial,
+            output = self.predict_with_update_tf(initial_state, Q, self.last_initial_state,
                                                      last_optimal_control_input)
         else:
             output = self.predict_tf(initial_state, Q)
@@ -164,11 +165,13 @@ class predictor_autoregressive_tf:
         return self.output
 
     @Compile
-    def predict_with_update_tf(self, initial_state, Q, last_net_input_reg_initial, last_optimal_control_input):
-        self._update_internal_state_tf(last_optimal_control_input, last_net_input_reg_initial)
+    def predict_with_update_tf(self, initial_state, Q, last_initial_state, last_optimal_control_input):
+        self._update_internal_state_tf(last_optimal_control_input, last_initial_state)
         return self._predict_tf(initial_state, Q)
 
     def _predict_tf(self, initial_state, Q):
+
+        self.last_initial_state.assign(initial_state)
 
         net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
 
@@ -224,17 +227,14 @@ class predictor_autoregressive_tf:
         if Q0 is not None:
             Q0 = tf.convert_to_tensor(Q0, dtype=tf.float32)
 
-        if s is not None:
-            net_input_reg_initial = tf.gather(tf.convert_to_tensor(s, dtype=tf.float32), self.indices_inputs_reg, axis=-1)
-            net_input_reg_initial_normed = normalize_tf(net_input_reg_initial, self.normalizing_inputs)
-        else:
-            net_input_reg_initial_normed = self.net_input_reg_initial_normed
+        if s is None:
+            s = self.last_initial_state
 
         if self.update_before_predicting:
             self.last_optimal_control_input = Q0
-            self.last_net_input_reg_initial = net_input_reg_initial_normed
+            self.last_initial_state.assign(s)
         else:
-            self.update_internal_state_tf(Q0, net_input_reg_initial_normed)
+            self.update_internal_state_tf(Q0, s)
 
     def _update_internal_state_tf(self, Q0, s):
 
@@ -242,13 +242,19 @@ class predictor_autoregressive_tf:
             pass
         else:
 
+            net_input_reg = tf.gather(s, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
+
+            net_input_reg_normed = normalize_tf(
+                net_input_reg, self.normalizing_inputs
+            )
+
             Q0_normed = normalize_tf(
                 Q0, self.normalizing_control_inputs
             )
 
             _copy_internal_states_from_ref(self.net, self.layers_ref)
 
-            net_input = tf.reshape(tf.concat([Q0_normed[:, 0, :], s], axis=1),
+            net_input = tf.reshape(tf.concat([Q0_normed[:, 0, :], net_input_reg_normed], axis=1),
                                    [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
