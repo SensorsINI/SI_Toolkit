@@ -4,6 +4,7 @@ from typing import Optional
 import os
 import timeit
 import time
+import csv
 
 import pandas as pd
 import gpflow as gpf
@@ -76,7 +77,7 @@ class MultiOutGPR(tf.Module):
             logs = []
             logs_val = []
             for i in range(len(self.models)):
-                logf, logf_val = run_tf_optimization(self.models[i], opt, iters, val_data, i)
+                logf, logf_val = run_tf_optimization(self.models[i], opt, iters, val_data, i, self)
                 logs.append(logf)
                 logs_val.append(logf_val)
                 print_summary(self.models[i])
@@ -195,7 +196,7 @@ class SingleOutGPRWrapper(MultiOutGPR):
         return means
 
 
-def run_tf_optimization(model, optimizer, iterations, val_data, i):
+def run_tf_optimization(model, optimizer, iterations, val_data, i, wrapper):
     logf = []
     logf_val = []
     training_loss = model.training_loss_closure(compile=True)
@@ -204,22 +205,31 @@ def run_tf_optimization(model, optimizer, iterations, val_data, i):
     def optimization_step():
         optimizer.minimize(training_loss, model.trainable_variables)
 
-    @tf.function
+    # @tf.function
     def validation_loss(data, i):
         X, Y = data
         Y_pred, _ = model.predict_f(X)
-        err = tf.math.log(tf.math.reduce_sum((tf.transpose(Y_pred) - Y[:, i])**2))
-        return err * 100000
 
-    for step in range(iterations):
+        Y = normalize_numpy_array(Y[:, i], features=[wrapper.outputs[i]], normalization_info=wrapper.norm_info)
+        Y_pred = normalize_numpy_array(Y_pred.numpy().T, features=[wrapper.outputs[i]], normalization_info=wrapper.norm_info)
+
+        err = np.sum(np.linalg.norm(Y_pred - Y)) / X.shape[0]
+        return err
+
+    elbo = -training_loss().numpy()
+    elbo_val = validation_loss(val_data, i)
+    print("TRAIN (ELBO): {} - VAL (MAE): {}".format(elbo, elbo_val))
+    logf.append(elbo)
+    logf_val.append(elbo_val)
+    for step in range(0, iterations):
         optimization_step()
 
         if step % 100 == 0:
             print("Epoch: {}".format(step))
         if step % 10 == 0:
             elbo = -training_loss().numpy()
-            elbo_val = -validation_loss(val_data, i)
-            print("TRAIN: {} - VAL: {}".format(elbo, elbo_val))
+            elbo_val = validation_loss(val_data, i)
+            print("TRAIN (ELBO): {} - VAL (MAE): {}".format(elbo, elbo_val))
             logf.append(elbo)
             logf_val.append(elbo_val)
 
@@ -269,20 +279,33 @@ def save_model(model, save_dir):
 
 def save_params(model, save_dir):
     param_names = list(gpf.utilities.parameter_dict(model.models[0]).keys())
+    param_names = [" ".join(p.split(".")[1:]) for p in param_names]
     for i in range(len(model.models)):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir+model.outputs[i])
         out = []
-        out.append(np.array(model.outputs[i]))
-        out.append(np.array(model.outputs))
-        out.append(np.array(param_names))
-        out.append(model.models[i].kernel.variance.numpy())
-        out.append(model.models[i].kernel.lengthscales.numpy())
-        out.append(model.models[i].likelihood.variance.numpy())
-        out.append(model.models[i].inducing_variable.Z.numpy())
+        out.append(model.outputs[i])
+        # out.append(", ".join(model.outputs))
+        out.append("-----------------------------------")
+        out.append(param_names[0])
+        out.append(np.array2string(model.models[i].kernel.variance.numpy(), separator=", "))
+        out.append("-----------------------------------")
+        out.append(param_names[1])
+        out.append(np.array2string(model.models[i].kernel.lengthscales.numpy(), separator=", "))
+        out.append("-----------------------------------")
+        out.append(param_names[2])
+        out.append(np.array2string(model.models[i].likelihood.variance.numpy(), separator=", "))
+        out.append("-----------------------------------")
+        out.append(param_names[3])
+        out.append(np.array2string(model.models[i].inducing_variable.Z.numpy(), separator=", "))
+        out.append("-----------------------------------")
+
         plot_samples(model.models[i].inducing_variable.Z.numpy(), save_dir=save_dir+model.outputs[i], show=False)
 
-        np.savetxt(save_dir+model.outputs[i]+'/params.csv', out, delimiter="\n", fmt='%s')
+        with open(save_dir+model.outputs[i]+'/params.csv', 'w') as f:
+            wr = csv.writer(f, delimiter="\n")
+            wr.writerow(out)
+
 
 def load_model(save_dir):
     model = tf.saved_model.load(save_dir+'/model')
@@ -408,49 +431,68 @@ def plot_test(model, data, closed_loop=False):
         plt.show()
 
 
-def state_space_pred_err(model, data, SVGP=False):
+def state_space_pred_err(model, data, save_dir=None):
     X, Y = data
-    Y_pred, _ = model.predict_f(tf.cast(X, dtype=tf.float64))
+    Y_pred = model.predict_f(tf.cast(X, dtype=tf.float64))
     errs = np.linalg.norm(Y_pred.numpy() - Y, axis=1)
 
-    plt.figure(figsize=(16, 12))
-    plt.scatter(X[:, 2], X[:, 1], s=200, c=errs)
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+
+    plt.figure(figsize=(12, 10))
+    plt.scatter(X[:, 2], X[:, 1], s=150, c=errs)
     plt.colorbar()
     plt.xlabel(r"sin$\theta$")
     plt.ylabel(r"cos$\theta$")
     plt.xlim(-1.1, 1.1)
     plt.ylim(-1.1, 1.1)
     plt.grid()
+    if save_dir is not None:
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir + '/angle_ss_err.pdf')
+        plt.savefig(save_dir + '/angle_ss_err.pdf')
     plt.show()
 
-    plt.figure(figsize=(16, 12))
-    plt.scatter(X[:, 0], np.arctan2(X[:, 2], X[:, 1]), s=200, c=errs)
+    plt.figure(figsize=(12, 10))
+    plt.scatter(X[:, 0], np.arctan2(X[:, 2], X[:, 1]), s=150, c=errs)
     plt.colorbar()
     plt.xlabel(r"$\dot{\theta}$")
     plt.ylabel(r"$\theta}$")
     plt.xlim(-1.1, 1.1)
     plt.ylim(-1.1, 1.1)
     plt.grid()
+    if save_dir is not None:
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir + '/angular_ss_err.pdf')
+        plt.savefig(save_dir + '/angular_ss_err.pdf')
     plt.show()
 
-    plt.figure(figsize=(16, 12))
-    plt.scatter(X[:, 4], X[:, 3], s=200, c=errs)
+    plt.figure(figsize=(12, 10))
+    plt.scatter(X[:, 4], X[:, 3], s=150, c=errs)
     plt.colorbar()
     plt.xlabel(r"$\dot{x}$")
     plt.ylabel(r"$x$")
     plt.xlim(-1.1, 1.1)
     plt.ylim(-1.1, 1.1)
     plt.grid()
+    if save_dir is not None:
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir + '/position_ss_err.pdf')
+        plt.savefig(save_dir + '/position_ss_err.pdf')
     plt.show()
 
-    plt.figure(figsize=(16, 12))
-    plt.scatter(X[:, 5], Y[:, 4], s=200, c=errs)
+    plt.figure(figsize=(12, 10))
+    plt.scatter(X[:, 5], Y[:, 4], s=150, c=errs)
     plt.colorbar()
     plt.xlabel(r"$Q$")
     plt.ylabel(r"$\dot{x}$")
     plt.xlim(-1.1, 1.1)
     plt.ylim(-1.1, 1.1)
     plt.grid()
+    if save_dir is not None:
+        if not os.path.exists(save_dir):
+            os.makedirs(save_dir + '/input_ss_err.pdf')
+        plt.savefig(save_dir + '/input_ss_err.pdf')
     plt.show()
 
     return np.sum(errs)
