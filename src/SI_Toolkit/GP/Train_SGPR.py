@@ -59,17 +59,17 @@ data_samples = (X_samples, Y_samples)
 ## DEFINING KERNELS
 inputs = a.state_inputs + a.control_inputs
 indices = {key: inputs.index(key) for key in inputs}
-kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1],
+kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1],
                                        active_dims=[indices["position"],
-                                                    indices["angleD"],
+                                                    # indices["angleD"],
                                                     indices["positionD"],
                                                     indices["Q"]
                                                     ]),
 
-           "positionD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
-                                        active_dims=[indices["angle_sin"],
-                                                     indices["angle_cos"],
-                                                     indices["angleD"],
+           "positionD": gpf.kernels.RBF(lengthscales=[1, 1],
+                                        active_dims=[# indices["angle_sin"],
+                                                     # indices["angle_cos"],
+                                                     # indices["angleD"],
                                                      indices["positionD"],
                                                      indices["Q"]
                                                      ]),
@@ -110,7 +110,7 @@ if not os.path.exists(save_dir):
     os.makedirs(save_dir+'info')
 shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_SGPR.py", save_dir+"info/training_file.py")
 plot_samples(data_subsampled[0], save_dir=save_dir+"info/initial_ip/")
-plot_samples(data[0][random.sample(range(X_samples.shape[0]), 10000)], save_dir=save_dir+"info/training_ss/")
+plot_samples(data[0], save_dir=save_dir+"info/training_ss/")
 
 
 # X = np.empty(shape=[0, 6])
