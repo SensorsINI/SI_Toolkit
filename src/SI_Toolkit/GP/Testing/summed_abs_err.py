@@ -51,22 +51,32 @@ if __name__ == '__main__':
         a.test_max_horizon = horizon
         print("HORIZON: {}".format(horizon))
         j = 0
+
+        a.test_start_idx = 50 - horizon
+
+        test_files = os.listdir(a.default_locations_for_testfile[0])
+        avg_err = 0
+
+        dataset_list = []
+        ground_truth_list = []
+        for test_file in test_files:
+            a.test_file = test_file
+            dataset, time_axis, dataset_sampling_dt, ground_truth = preprocess_for_brunton(a)
+            dataset_list.append(dataset)
+            ground_truth_list.append(ground_truth)
+
         for predictor_name in a.tests:
-            if 'EulerTF' in predictor_name:
+            if 'Euler' in predictor_name:
                 predictor = predictor_ODE_tf(horizon=horizon, dt=0.02)
             elif 'GP' in predictor_name:
                 predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=horizon)
             else:
                 predictor = predictor_autoregressive_tf(horizon=horizon, batch_size=1, net_name=predictor_name)
 
-            a.test_start_idx = 50 - horizon
-
-            test_files = os.listdir(a.default_locations_for_testfile[0])
-            avg_err = 0
-
-            for test_file in test_files:
-                a.test_file = test_file
-                dataset, time_axis, dataset_sampling_dt, ground_truth = preprocess_for_brunton(a)
+            for k in range(len(dataset_list)):
+                a.test_file = test_files[k]
+                dataset = dataset_list[k]
+                ground_truth = ground_truth_list[k]
 
                 states_0 = dataset[STATE_VARIABLES].to_numpy()[:-a.test_max_horizon, :]
 
@@ -124,7 +134,7 @@ if __name__ == '__main__':
 
     np.savetxt(save_dir + "/error_results.csv", results, delimiter=", ")
 
-    plt.plot(np.linspace(0, horizons[-1], len(horizons)), results)
+    plt.plot(np.linspace(0, horizons[-1]*0.02, len(horizons)+1), results)
     plt.legend(a.tests)
     plt.grid()
     plt.xlabel("Horizon [s]")
