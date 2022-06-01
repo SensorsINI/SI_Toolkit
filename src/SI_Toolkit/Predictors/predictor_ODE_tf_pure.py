@@ -77,14 +77,14 @@ class predictor_ODE_tf_pure:
     # @tf.function(jit_compile=True, input_signature=[tf.TensorSpec(shape=[None, 6], dtype=tf.float32),
     #   tf.TensorSpec(shape=[1, 50, 1], dtype=tf.float32)])
     # @tf.py_function()
-    def predict_tf(self, initial_state, Q):
+    def predict_tf(self, initial_state, Q, params = None):
 
         self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
         self.output = self.output.write(0, initial_state)
 
         next_state = initial_state
         for k in tf.range(self.horizon):
-            next_state = self.next_step_predictor.step(next_state, Q[:, k, :])
+            next_state = self.next_step_predictor.step(next_state, Q[:, k, :], params)
             self.output = self.output.write(k + 1, next_state)
 
         self.output = tf.transpose(self.output.stack(), perm=[1, 0, 2])
