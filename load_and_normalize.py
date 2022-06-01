@@ -454,7 +454,7 @@ def normalize_feature(feature, normalization_info, normalization_type='minmax_sy
         col_min = normalization_info.loc['min', name]
         col_max = normalization_info.loc['max', name]
         if (col_max - col_min) == 0:
-            return 0
+            return feature  # want to return the pole_length unnormalized
         else:
             return -1.0 + 2.0 * (feature - col_min) / (col_max - col_min)
 
