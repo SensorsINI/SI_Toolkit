@@ -49,12 +49,14 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
 
     else:
 
-        output = np.zeros([a.test_len, a.test_max_horizon + 1, len(a.features)],
-                          dtype=np.float32)
+        output = None
         for timestep in trange(a.test_len):
             Q_current_timestep = Q_array[np.newaxis, timestep, :, :]
             s0 = states_0[np.newaxis, timestep, :]
-            output[timestep, :, :] = predictor.predict(s0, Q_current_timestep)
+            if output is None:
+                output = predictor.predict(s0, Q_current_timestep)
+            else:
+                output = np.concatenate((output, predictor.predict(s0, Q_current_timestep)), axis=0)
             predictor.update_internal_state(Q_current_timestep[:, np.newaxis, 1, :], s0)
 
         output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in a.features]]
