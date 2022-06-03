@@ -18,6 +18,12 @@ def preprocess_for_brunton(a):
     dataset = dataset.iloc[a.test_start_idx:a.test_start_idx + a.test_len + a.test_max_horizon, :]
     dataset.reset_index(drop=True, inplace=True)
 
+    if dataset.shape[0]-a.test_max_horizon < a.test_len:
+        raise ValueError(
+            '\nThe test datafile is too small for the requested test length.\n'
+            'For this datafile TEST_LEN can be {} at most.\n'
+            'You requested {}.'.format(dataset.shape[0]-a.test_max_horizon, a.test_len))
+
     # Get sampling interval
     dataset_sampling_dt = get_sampling_interval_from_datafile(path_to_testfile[0])
     if dataset_sampling_dt is None:
