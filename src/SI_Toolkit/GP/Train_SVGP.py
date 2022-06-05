@@ -138,12 +138,12 @@ if __name__ == '__main__':
     }
     """
     # kernel = gpf.kernels.SeparateIndependent([kernels[k] for k in a.outputs])
-    kernel = gpf.kernels.SharedIndependent(gpf.kernels.Matern32(lengthscales=[1, 1, 1, 1, 1, 1],
+    kernel = gpf.kernels.SharedIndependent(gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
                                                                 active_dims=[indices["angle_sin"],
                                                                              indices["angle_cos"],
                                                                              indices["angleD"],
                                                                              indices["positionD"],
-                                                                             indices["position"],
+                                                                             # indices["position"],
                                                                              indices["Q"]
                                                                              ]),
                                            output_dim=5

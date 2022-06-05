@@ -124,18 +124,19 @@ class MultiOutGPR(tf.Module):
             # vars = vars.write(i, vr)
             i += 1
         """
-        mn1, _ = self.posteriors[0].predict_f(x)
-        mn2, _ = self.posteriors[1].predict_f(x)
-        mn3, _ = self.posteriors[2].predict_f(x)
-        mn4, _ = self.posteriors[3].predict_f(x)
-        mn5, _ = self.posteriors[4].predict_f(x)
+        mn1, var1 = self.posteriors[0].predict_f(x)
+        mn2, var2 = self.posteriors[1].predict_f(x)
+        mn3, var3 = self.posteriors[2].predict_f(x)
+        mn4, var4 = self.posteriors[3].predict_f(x)
+        mn5, var5 = self.posteriors[4].predict_f(x)
 
         # means = tf.concat([p.predict_f(x)[0] for p in self.posteriors], axis=1)
         means = tf.concat([mn1, mn2, mn3, mn4, mn5], axis=1)
+        vars = tf.concat([var1, var2, var3, var4, var5], axis=1)
         # means = tf.squeeze(tf.transpose(means.stack(), perm=[1, 0, 2]))
         # vars = tf.squeeze(tf.transpose(vars.stack(), perm=[1, 0, 2]))
 
-        return means
+        return means, vars
 
 
 class MultiOutSGPR(MultiOutGPR):
@@ -174,11 +175,8 @@ class SVGPWrapper(MultiOutGPR):
 
     @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=gpf.default_float())],
                  jit_compile=False)
-    def predict_f(
-        self, x: InputData,
-        full_cov: bool = False,
-        full_output_cov: bool = False):
-        means, _ = self.posterior.predict_f(x, full_cov=full_cov, full_output_cov=full_output_cov)
+    def predict_f(self, x):
+        means, _ = self.model.posterior().predict_f(x)
         return means
 
 class SingleOutGPRWrapper(MultiOutGPR):
@@ -189,7 +187,7 @@ class SingleOutGPRWrapper(MultiOutGPR):
     @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=gpf.default_float())],
                  jit_compile=False)
     def predict_f(
-        self, x: InputData,
+        self, x,
         full_cov: bool = False,
         full_output_cov: bool = False):
         means, _ = self.model.posterior().predict_f(x, full_cov=full_cov, full_output_cov=full_output_cov)
@@ -383,21 +381,21 @@ def plot_test(model, data, closed_loop=False):
         Y = Y[100:150]
         X = X[100:150]
         mean = np.empty(shape=[0, len(model.outputs)])
-        # var = np.empty(shape=[0, len(model.outputs)])
+        var = np.empty(shape=[0, len(model.outputs)])
 
         s = X[0, :-1].reshape(-1, len(model.outputs))
         for i in range(50):
             s = np.concatenate((s, X[i, -1].reshape(1, 1)), axis=1)
-            s = model.predict_f(tf.convert_to_tensor(s.reshape(-1, 1).T))
+            s, v = model.predict_f(tf.convert_to_tensor(s.reshape(-1, 1).T))
             s = s.numpy().reshape(-1, len(model.outputs))
-            # v = v.numpy().reshape(-1, len(model.outputs))
+            v = v.numpy().reshape(-1, len(model.outputs))
             # s[0, :] = Y[i, :]  # use ground truth for some state variables
             mean = np.vstack([mean, s])
-            # var = np.vstack([var, v])
+            var = np.vstack([var, v])
     else:
-        mean = model.predict_f(X)
+        mean, var = model.predict_f(X)
         mean = mean.numpy()
-        # var = var.numpy()
+        var = var.numpy()
 
     for i in range(len(model.outputs)):
         plt.figure(figsize=(12, 6))
@@ -410,14 +408,14 @@ def plot_test(model, data, closed_loop=False):
         #    fmt='co', capsize=5, zorder=1, label="mean, var"
         # )
         plt.plot(t, mean[:, i], "C0", zorder=3, label="mean")
-        # plt.fill_between(
-        #     t[:, 0],
-        #     mean[:, i] - 1.96 * np.sqrt(var[:, i]),
-        #     mean[:, i] + 1.96 * np.sqrt(var[:, i]),
-        #     color="C0",
-        #     alpha=0.2,
-        #     label="var"
-        # )
+        plt.fill_between(
+            t[:, 0],
+            mean[:, i] - 1.96 * np.sqrt(var[:, i]),
+            mean[:, i] + 1.96 * np.sqrt(var[:, i]),
+            color="C0",
+            alpha=0.2,
+            label="var"
+        )
 
         # PLOT GROUND TRUTH
         # alternative for small amounts of data
@@ -433,7 +431,7 @@ def plot_test(model, data, closed_loop=False):
 
 def state_space_pred_err(model, data, save_dir=None):
     X, Y = data
-    Y_pred = model.predict_f(tf.cast(X, dtype=tf.float64))
+    Y_pred, _ = model.predict_f(tf.cast(X, dtype=tf.float64))
     errs = np.linalg.norm(Y_pred.numpy() - Y, axis=1)
 
     if not os.path.exists(save_dir):

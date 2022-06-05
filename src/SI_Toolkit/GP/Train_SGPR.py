@@ -105,12 +105,12 @@ sample_indices = random.sample(range(X_samples.shape[0]), 10)
 data_subsampled = (data_samples[0][sample_indices], data_samples[1][sample_indices])
 
 ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
-save_dir = a.path_to_models + "SGP_{}/".format(len(sample_indices))
+save_dir = a.path_to_models + "SGP_{}_5dfs_with_var/".format(len(sample_indices))
 if not os.path.exists(save_dir):
     os.makedirs(save_dir+'info')
 shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_SGPR.py", save_dir+"info/training_file.py")
 plot_samples(data_subsampled[0], save_dir=save_dir+"info/initial_ip/")
-plot_samples(data[0][random.sample(range(X_samples.shape[0]), 10000)], save_dir=save_dir+"info/training_ss/")
+plot_samples(data[0], save_dir=save_dir+"info/training_ss/")
 
 
 # X = np.empty(shape=[0, 6])
@@ -198,7 +198,7 @@ from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.GP.Parameters import args
 
 a = args()
-save_dir = a.path_to_models + "/SGP_{}/"
+save_dir = a.path_to_models + "/SGP_{}_5dfs_with_var/"
 
 # load model
 print("Loading...")
@@ -218,5 +218,5 @@ mn = m_loaded.predict_f(s)
 
 print(timeit.timeit(code, number=35, setup=initialization))
 
-# plot_test(m_loaded, data_val, closed_loop=True)  # plot posterior predictions with loaded trained model
+plot_test(model, data_val, closed_loop=True)  # plot posterior predictions with loaded trained model
 
