@@ -46,7 +46,6 @@ class predictor_autoregressive_GP:
 
         self.predict_tf(self.initial_state, Q)  # CHANGE TO PREDICT FOR NON TF MPPI
 
-
     def predict(self, initial_state, Q_seq):
         outputs = self.predict_tf(initial_state, Q_seq)
         return outputs.numpy()
