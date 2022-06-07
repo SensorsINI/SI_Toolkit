@@ -9,7 +9,7 @@ import yaml
 import tensorflow as tf
 
 try:
-    from SI_Toolkit_ASF.SI_Toolkit_ASF.GlobalPackage.src.SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
+    from SI_Toolkit_ASF.SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
         CONTROL_INPUTS, augment_predictor_output
 except ModuleNotFoundError:
     print('SI_Toolkit_ASF not yet created')

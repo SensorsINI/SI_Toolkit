@@ -79,6 +79,7 @@ class predictor_ODE_tf:
 
     def _predict_tf(self, initial_state, Q, params=None):
 
+        self.horizon = tf.shape(Q)[1]
         self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
         self.output = self.output.write(0, initial_state)
 
