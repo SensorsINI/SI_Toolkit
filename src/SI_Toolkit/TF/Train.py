@@ -26,6 +26,7 @@ from SI_Toolkit.TF.TF_Functions.Initialization import set_seed, create_full_name
     get_net, get_norm_info_for_net
 from SI_Toolkit.TF.TF_Functions.Dataset import Dataset
 # from SI_Toolkit.TF.TF_Functions.Dataset import DatasetRandom
+from SI_Toolkit.TF.TF_Functions.Loss import loss_msr_sequence_customizable
 from SI_Toolkit.load_and_normalize import load_data, normalize_df, \
     get_paths_to_datafiles
 
