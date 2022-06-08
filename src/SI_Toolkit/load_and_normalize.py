@@ -658,6 +658,6 @@ def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_de
             pass
 
         for i in range(len(dfs)):
-            dfs[i].to_csv(os.path.join(save_files_to, 'D_'+file_names[i]), index=False)
+            dfs[i].to_csv(os.path.join(save_files_to, file_names[i]), index=False)
     else:
         print('No files found')
