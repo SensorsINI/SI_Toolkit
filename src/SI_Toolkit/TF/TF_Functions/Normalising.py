@@ -27,6 +27,8 @@ def get_normalization_function_tf(
     elif normalization_type == 'minmax_sym':
         a = 2.0 / (normalizing_array[2, :] - normalizing_array[3, :])
         b = -1.0 + 2.0 * (-normalizing_array[3, :] / (normalizing_array[2, :] - normalizing_array[3, :]))
+    else:
+        raise NameError('{} is not recognized as a normalization type'.format(normalization_type))
 
     a = tf.convert_to_tensor(a, dtype=tf.float32)
     b = tf.convert_to_tensor(b, dtype=tf.float32)
@@ -41,6 +43,7 @@ def get_normalization_function_tf(
 def get_denormalization_function_tf(
                                  denormalizing_array,
                                  normalization_type='minmax_sym'):
+
     if normalization_type == 'gaussian':
         A = denormalizing_array[1, :]
         B = denormalizing_array[0, :]
@@ -52,6 +55,8 @@ def get_denormalization_function_tf(
     elif normalization_type == 'minmax_sym':
         A = ((denormalizing_array[2, :] - denormalizing_array[3, :]) / 2.0)
         B = ((denormalizing_array[2, :] - denormalizing_array[3, :]) / 2.0) + denormalizing_array[3, :]
+    else:
+        raise NameError('{} is not recognized as a normalization type'.format(normalization_type))
 
     A = tf.convert_to_tensor(A, dtype=tf.float32)
     B = tf.convert_to_tensor(B, dtype=tf.float32)
