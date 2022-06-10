@@ -12,42 +12,52 @@ and rows in the order
 """
 
 
-@Compile
-def normalize_tf(denormalized_array,
-                 normalizing_array,
-                 normalization_type='minmax_sym'
-                 ):
-
+def get_normalization_function_tf(
+        normalizing_array,
+        normalization_type='minmax_sym'
+):
     if normalization_type == 'gaussian':
-        normalized_array = (denormalized_array - normalizing_array[0, :]) / normalizing_array[1, :]
+        a = 1.0 / normalizing_array[1, :]
+        b = - normalizing_array[0, :] / normalizing_array[1, :]
 
     elif normalization_type == 'minmax_pos':
-        normalized_array = (denormalized_array - normalizing_array[3, :]) / (
-                    normalizing_array[2, :] - normalizing_array[3, :])
-
+        a = 1.0 / (normalizing_array[2, :] - normalizing_array[3, :])
+        b = - normalizing_array[3, :] / (normalizing_array[2, :] - normalizing_array[3, :])
 
     elif normalization_type == 'minmax_sym':
-        normalized_array = -1.0 + 2.0 * (
-                (denormalized_array - normalizing_array[3, :]) / (normalizing_array[2, :] - normalizing_array[3, :])
-        )
+        a = 2.0 / (normalizing_array[2, :] - normalizing_array[3, :])
+        b = -1.0 + 2.0 * (-normalizing_array[3, :] / (normalizing_array[2, :] - normalizing_array[3, :]))
 
-    return normalized_array
+    a = tf.convert_to_tensor(a, dtype=tf.float32)
+    b = tf.convert_to_tensor(b, dtype=tf.float32)
+
+    def normalize_tf(denormalized_array):
+        normalized_array = a * denormalized_array + b
+        return normalized_array
+
+    return normalize_tf
 
 
-@Compile
-def denormalize_tf(normalized_array,
-                   denormalizing_array,
-                   normalization_type='minmax_sym'):
-
+def get_denormalization_function_tf(
+                                 denormalizing_array,
+                                 normalization_type='minmax_sym'):
     if normalization_type == 'gaussian':
-        denormalized_array = normalized_array * denormalizing_array[1, :] + denormalizing_array[0, :]
+        A = denormalizing_array[1, :]
+        B = denormalizing_array[0, :]
 
     elif normalization_type == 'minmax_pos':
-        denormalized_array = normalized_array * (denormalizing_array[2, :] - denormalizing_array[3, :]) + \
-                                               denormalizing_array[3, :]
-    elif normalization_type == 'minmax_sym':
-        denormalized_array = ((normalized_array + 1.0) / 2.0) * \
-                                               (denormalizing_array[2, :] - denormalizing_array[3, :]) \
-                                               + denormalizing_array[3, :]
+        A = (denormalizing_array[2, :] - denormalizing_array[3, :])
+        B = denormalizing_array[3, :]
 
-    return denormalized_array
+    elif normalization_type == 'minmax_sym':
+        A = ((denormalizing_array[2, :] - denormalizing_array[3, :]) / 2.0)
+        B = ((denormalizing_array[2, :] - denormalizing_array[3, :]) / 2.0) + denormalizing_array[3, :]
+
+    A = tf.convert_to_tensor(A, dtype=tf.float32)
+    B = tf.convert_to_tensor(B, dtype=tf.float32)
+
+    def denormalize_tf(normalized_array):
+        denormalized_array = A * normalized_array + B
+        return denormalized_array
+
+    return denormalize_tf

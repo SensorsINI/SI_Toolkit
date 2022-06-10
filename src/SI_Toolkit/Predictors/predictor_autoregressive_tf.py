@@ -37,7 +37,7 @@ Using predictor:
 
 # "Command line" parameters
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.TF.TF_Functions.Normalising import normalize_tf, denormalize_tf
+from SI_Toolkit.TF.TF_Functions.Normalising import get_normalization_function_tf, get_denormalization_function_tf
 from SI_Toolkit.TF.TF_Functions.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
@@ -130,6 +130,10 @@ class predictor_autoregressive_tf:
         self.normalizing_outputs = tf.convert_to_tensor(self.normalization_info[self.net_info.outputs],
                                                         dtype=tf.float32)
 
+        self.normalize_inputs_tf = get_normalization_function_tf(self.normalizing_inputs)
+        self.normalize_control_inputs_tf = get_normalization_function_tf(self.normalizing_control_inputs)
+        self.denormalize_outputs_tf = get_denormalization_function_tf(self.normalizing_outputs)
+
         self.indices_inputs_reg = tf.convert_to_tensor(
             [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
         self.indices_net_output = [STATE_INDICES.get(key) for key in self.net_info.outputs]
@@ -185,13 +189,11 @@ class predictor_autoregressive_tf:
 
         net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
 
-        self.net_input_reg_initial_normed.assign(normalize_tf(
-            net_input_reg_initial, self.normalizing_inputs
-        ))
-
-        Q_normed = normalize_tf(
-            Q, self.normalizing_control_inputs
+        self.net_input_reg_initial_normed.assign(
+            self.normalize_inputs_tf(net_input_reg_initial)
         )
+
+        Q_normed = self.normalize_control_inputs_tf(Q)
 
         # load internal RNN state if applies
         _copy_internal_states_from_ref(self.net, self.layers_ref)
@@ -220,7 +222,7 @@ class predictor_autoregressive_tf:
 
         net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
 
-        net_outputs = denormalize_tf(net_outputs, self.normalizing_outputs)
+        net_outputs = self.denormalize_outputs_tf(net_outputs)
 
         # Augment
         output = self.augmentation.augment(net_outputs)
@@ -254,13 +256,9 @@ class predictor_autoregressive_tf:
 
             net_input_reg = tf.gather(s, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
 
-            net_input_reg_normed = normalize_tf(
-                net_input_reg, self.normalizing_inputs
-            )
+            net_input_reg_normed = self.normalize_inputs_tf(net_input_reg)
 
-            Q0_normed = normalize_tf(
-                Q0, self.normalizing_control_inputs
-            )
+            Q0_normed = self.normalize_control_inputs_tf(Q0)
 
             _copy_internal_states_from_ref(self.net, self.layers_ref)
 
