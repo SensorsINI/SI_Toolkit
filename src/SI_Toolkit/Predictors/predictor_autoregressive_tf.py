@@ -82,10 +82,12 @@ def convert_to_tensors(s, Q):
 
 
 class predictor_autoregressive_tf:
-    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=True, disable_individual_compilation=False):
+    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=True, disable_individual_compilation=False, dt=None):
 
         self.batch_size = batch_size
         self.horizon = horizon
+
+        self.dt = dt
 
         a = SimpleNamespace()
 
@@ -104,6 +106,14 @@ class predictor_autoregressive_tf:
         net, _ = \
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
+
+        if np.any(['D_' in input_name for input_name in self.net_info.inputs]):
+            raise NotImplemented('Have you implemented differential network usage in predictor?')
+            self.differential_network = True
+            if self.dt is None:
+                raise ValueError('Differential network was loaded but timestep dt was not provided to the predictor')
+        else:
+            self.differential_network = False
 
         self.update_before_predicting = update_before_predicting
         self.last_net_input_reg_initial = None
