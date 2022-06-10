@@ -584,18 +584,18 @@ def normalize_numpy_array(denormalized_array,
     return normalized_array
 
 
-def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, file_names):
+def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings):
     """
     Takes list of dataframes dfs
     and augment it with derivatives of columns indicated in variables_for_derivative
     using algorithm indicated in derivative_algorithm.
     The output file is shorter - first and last indices for which it is difficult to get good derivative are dropped.
     """
-
+    file_names = [os.path.basename(paths_to_recordings[i]) for i in range(len(paths_to_recordings))]
 
     cut = 7
     dfs_with_derivatives = []
-    file_names_with_derivatives = []
+    paths_with_derivatives = []
     print('Calculating derivatives')
     no_time_axis_in_files = []
     for i in trange(len(dfs)):
@@ -605,7 +605,7 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, file
                 print('Dropping {} as too short'.format(file_names[i]))
             continue
         else:
-            file_names_with_derivatives.append(file_names[i])
+            paths_with_derivatives.append(paths_to_recordings[i])
         # print(file_names[i])
         try:
             t = df['time'].values
@@ -644,17 +644,17 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, file
                 for filename in no_time_axis_in_files:
                     print(filename)
 
-    return dfs_with_derivatives, file_names_with_derivatives
+    return dfs_with_derivatives, paths_with_derivatives
 
 
 def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_derivative, derivative_algorithm='finite_difference'):
     paths_to_recordings = get_paths_to_datafiles(get_files_from)
     if paths_to_recordings:
-        file_names = [os.path.basename(paths_to_recordings[i]) for i in range(len(paths_to_recordings))]
 
         dfs = load_data(list_of_paths_to_datafiles=paths_to_recordings)
 
-        dfs, file_names = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, file_names)
+        dfs, paths_with_derivative = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings)
+        file_names = [os.path.basename(paths_with_derivative[i]) for i in range(len(paths_with_derivative))]
 
         try:
             os.makedirs(save_files_to)
@@ -662,6 +662,17 @@ def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_de
             pass
 
         for i in range(len(dfs)):
-            dfs[i].to_csv(os.path.join(save_files_to, file_names[i]), index=False)
+            old_file_path = paths_with_derivative[i]
+            file_path = os.path.join(save_files_to, file_names[i])
+            with open(file_path, 'w', newline=''): # Overwrites if existed
+                pass
+            with open(old_file_path, "r", newline='') as f_input, \
+                    open(file_path, "a", newline='') as f_output:
+                for line in f_input:
+                    if line[0:len('#')] == '#':
+                        csv.writer(f_output).writerow([line.strip()])
+                    else:
+                        break
+            dfs[i].to_csv(file_path, index=False, mode='a')
     else:
         print('No files found')
