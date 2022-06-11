@@ -193,7 +193,6 @@ class predictor_autoregressive_tf:
         _copy_internal_states_from_ref(self.net, self.layers_ref)
 
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
-        net_output = tf.zeros(shape=(self.batch_size, len(self.net_info.outputs)), dtype=tf.float32)
 
         for i in tf.range(self.horizon):
 
