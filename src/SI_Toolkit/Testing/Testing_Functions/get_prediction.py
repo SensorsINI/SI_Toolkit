@@ -41,7 +41,7 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
             predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len,
                                                     net_name=predictor_name)
         else:
-            predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=1, net_name=predictor_name)
+            predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=1, net_name=predictor_name, dt=dt)
 
     if mode == 'batch':
         output = predictor.predict(states_0, Q_array)

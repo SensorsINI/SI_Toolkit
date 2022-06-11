@@ -37,7 +37,8 @@ Using predictor:
 
 # "Command line" parameters
 from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.TF.TF_Functions.Normalising import get_normalization_function_tf, get_denormalization_function_tf
+from SI_Toolkit.TF.TF_Functions.Normalising import get_normalization_function_tf, get_denormalization_function_tf, \
+    get_scaling_function_for_output_of_differential_network
 from SI_Toolkit.TF.TF_Functions.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
@@ -107,8 +108,7 @@ class predictor_autoregressive_tf:
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
 
-        if np.any(['D_' in input_name for input_name in self.net_info.inputs]):
-            raise NotImplemented('Have you implemented differential network usage in predictor?')
+        if np.any(['D_' in output_name for output_name in self.net_info.outputs]):
             self.differential_network = True
             if self.dt is None:
                 raise ValueError('Differential network was loaded but timestep dt was not provided to the predictor')
@@ -125,14 +125,27 @@ class predictor_autoregressive_tf:
 
         self.normalize_inputs_tf = get_normalization_function_tf(self.normalization_info, self.net_info.inputs[len(CONTROL_INPUTS):])
         self.normalize_control_inputs_tf = get_normalization_function_tf(self.normalization_info, self.net_info.inputs[:len(CONTROL_INPUTS)])
-        self.denormalize_outputs_tf = get_denormalization_function_tf(self.normalization_info, self.net_info.outputs)
 
         self.indices_inputs_reg = tf.convert_to_tensor(
             [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
-        self.indices_net_output = [STATE_INDICES.get(key) for key in self.net_info.outputs]
-        self.augmentation = predictor_output_augmentation_tf(self.net_info)
+
+        if self.differential_network:
+
+            self.rescale_output_diff_net = get_scaling_function_for_output_of_differential_network(
+                self.normalization_info,
+                self.net_info.outputs,
+                self.dt
+            )
+
+            outputs_names = np.array([x[2:] for x in self.net_info.outputs])
+        else:
+            outputs_names = self.net_info.outputs
+
+        self.denormalize_outputs_tf = get_denormalization_function_tf(self.normalization_info, outputs_names)
+        self.indices_outputs = [STATE_INDICES.get(key) for key in outputs_names]
+        self.augmentation = predictor_output_augmentation_tf(self.net_info, differential_network=self.differential_network)
         self.indices_augmentation = self.augmentation.indices_augmentation
-        self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_net_output + self.indices_augmentation))
+        self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_outputs + self.indices_augmentation))
 
         self.net_input_reg_initial_normed = tf.Variable(
             tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
@@ -206,8 +219,12 @@ class predictor_autoregressive_tf:
 
             net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
 
-            next_net_input = net_output
-            output = net_output
+            if self.differential_network:
+                next_net_input = next_net_input + self.rescale_output_diff_net(net_output)
+                output = next_net_input
+            else:
+                next_net_input = net_output
+                output = net_output
             outputs = outputs.write(i, output)
 
         outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
