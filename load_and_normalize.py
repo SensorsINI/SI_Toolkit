@@ -436,6 +436,10 @@ def normalize_feature(feature, normalization_info, normalization_type='minmax_sy
     else:
         return feature
 
+    # return pole_length parameter unnormalized
+    if name == 'pole_length':
+        return feature
+
     if normalization_type == 'gaussian':
         col_mean = normalization_info.loc['mean', name]
         col_std = normalization_info.loc['std', name]
@@ -454,7 +458,7 @@ def normalize_feature(feature, normalization_info, normalization_type='minmax_sy
         col_min = normalization_info.loc['min', name]
         col_max = normalization_info.loc['max', name]
         if (col_max - col_min) == 0:
-            return feature  # want to return the pole_length unnormalized
+            return 0
         else:
             return -1.0 + 2.0 * (feature - col_min) / (col_max - col_min)
 

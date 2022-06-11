@@ -118,7 +118,7 @@ if __name__ == '__main__':
 
     # Plot the training losses
     epoch_number = np.arange(1, epochs + 1, step=1)
-    plt.figure()
+    plt.figure(dpi=100)
     plt.plot(epoch_number, training_loss, label='training')
     plt.plot(epoch_number, validation_loss, label='validation')
     plt.xlabel("Training Epoch")
@@ -126,8 +126,8 @@ if __name__ == '__main__':
     plt.yscale('log')
     plt.legend()
 
-    # Save the model weights
-    model_name = "new_model-1"
-    ckpt_path = "./SI_Toolkit_ApplicationSpecificFiles/AR_Models/" + model_name
+    # Save the training logs and model weights
+    model_name = 'ARM-6IN-32H1-32H2-6OUT-0'
+    ckpt_path = './SI_Toolkit_ApplicationSpecificFiles/Experiments/L395-790-1/Models/' + model_name
     plt.savefig(ckpt_path + '/training_curve.png')
-    model.save_weights(ckpt_path + "/ckpt.ckpt")
+    model.save_weights(ckpt_path + '/ckpt.ckpt')
