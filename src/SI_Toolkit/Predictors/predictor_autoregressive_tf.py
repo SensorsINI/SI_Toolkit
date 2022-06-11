@@ -185,6 +185,8 @@ class predictor_autoregressive_tf:
             self.normalize_inputs_tf(net_input_reg_initial)
         )
 
+        next_net_input = self.net_input_reg_initial_normed
+
         Q_normed = self.normalize_control_inputs_tf(Q)
 
         # load internal RNN state if applies
@@ -197,19 +199,15 @@ class predictor_autoregressive_tf:
 
             Q_current = Q_normed[:, i, :]
 
-            if i == 0:
-                net_input = tf.reshape(
-                    tf.concat([Q_current, self.net_input_reg_initial_normed], axis=1),
-                    shape=[-1, 1, len(self.net_info.inputs)])
-            else:
-                net_input = tf.reshape(
-                    tf.concat([Q_current, net_output], axis=1),
-                    shape=[-1, 1, len(self.net_info.inputs)])
+            net_input = tf.reshape(
+                tf.concat([Q_current, next_net_input], axis=1),
+                shape=[-1, 1, len(self.net_info.inputs)])
 
             net_output = self.net(net_input)
 
             net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
 
+            next_net_input = net_output
             net_outputs = net_outputs.write(i, net_output)
 
         net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
