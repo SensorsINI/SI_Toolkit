@@ -26,6 +26,7 @@ from SI_Toolkit.TF.Parameters import args
 from SI_Toolkit.TF.TF_Functions.Initialization import set_seed, create_full_name, create_log_file, \
     get_net, get_norm_info_for_net
 from SI_Toolkit.TF.TF_Functions.Loss import loss_msr_sequence_customizable, loss_msr_sequence_customizable_relative
+from SI_Toolkit.TF.CustomTraining import CustomMSE
 from SI_Toolkit.TF.TF_Functions.Dataset import Dataset
 # from SI_Toolkit.TF.TF_Functions.Dataset import DatasetRandom
 from SI_Toolkit.load_and_normalize import load_data, normalize_df, \
@@ -145,16 +146,14 @@ def train_network(nni_parameters=None):
 
     # endregion
 
-    net.compile(
-        loss="mse",
-        optimizer=keras.optimizers.Adam(0.001)
-    )
     # net.compile(
-    #     loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
-    #                                         post_wash_out_len=a.post_wash_out_len,
-    #                                         discount_factor=1.0),
+    #     loss="mse",
     #     optimizer=keras.optimizers.Adam(0.001)
     # )
+    net.compile(
+        loss=CustomMSE(wash_out_len=a.wash_out_len, post_wash_out_len=a.post_wash_out_len, discount_factor=1.0),
+        optimizer=keras.optimizers.Adam(0.001)
+    )
     net.summary()
     # endregion
 
@@ -217,7 +216,8 @@ def train_network(nni_parameters=None):
     # endregion
 
     # region Plot loss change during training
-    plt.figure()
+    plt.figure(dpi=100)
+    plt.rc('font', size=10)
     plt.plot(history.history['loss'], label='train')
     plt.plot(history.history['val_loss'], label='validation')
     plt.xlabel("Training Epoch")
