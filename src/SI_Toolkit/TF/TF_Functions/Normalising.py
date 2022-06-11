@@ -13,9 +13,14 @@ and rows in the order
 
 
 def get_normalization_function_tf(
-        normalizing_array,
+        normalization_info,
+        variables_names,
         normalization_type='minmax_sym'
 ):
+
+    normalizing_array = tf.convert_to_tensor(
+        normalization_info[variables_names], dtype=tf.float32)
+
     if normalization_type == 'gaussian':
         a = 1.0 / normalizing_array[1, :]
         b = - normalizing_array[0, :] / normalizing_array[1, :]
@@ -41,8 +46,12 @@ def get_normalization_function_tf(
 
 
 def get_denormalization_function_tf(
-                                 denormalizing_array,
+                                 normalization_info,
+                                 variables_names,
                                  normalization_type='minmax_sym'):
+
+    denormalizing_array = tf.convert_to_tensor(
+        normalization_info[variables_names], dtype=tf.float32)
 
     if normalization_type == 'gaussian':
         A = denormalizing_array[1, :]

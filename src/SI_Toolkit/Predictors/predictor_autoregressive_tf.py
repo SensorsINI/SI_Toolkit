@@ -130,9 +130,9 @@ class predictor_autoregressive_tf:
         self.normalizing_outputs = tf.convert_to_tensor(self.normalization_info[self.net_info.outputs],
                                                         dtype=tf.float32)
 
-        self.normalize_inputs_tf = get_normalization_function_tf(self.normalizing_inputs)
-        self.normalize_control_inputs_tf = get_normalization_function_tf(self.normalizing_control_inputs)
-        self.denormalize_outputs_tf = get_denormalization_function_tf(self.normalizing_outputs)
+        self.normalize_inputs_tf = get_normalization_function_tf(self.normalization_info, self.net_info.inputs[len(CONTROL_INPUTS):])
+        self.normalize_control_inputs_tf = get_normalization_function_tf(self.normalization_info, self.net_info.inputs[:len(CONTROL_INPUTS)])
+        self.denormalize_outputs_tf = get_denormalization_function_tf(self.normalization_info, self.net_info.outputs)
 
         self.indices_inputs_reg = tf.convert_to_tensor(
             [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
