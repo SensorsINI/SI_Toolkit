@@ -9,6 +9,8 @@ from tensorflow.keras.optimizers import Adam
 from SI_Toolkit.TF.TrainingData import get_training_files
 from SI_Toolkit.TF.Autoregressive_Model import FeedBack
 
+"""Implementation of a custom loss function class and custom Training Loops for model Training."""
+
 
 class CustomMSE(keras.losses.Loss):
     def __init__(self, wash_out_len=500, post_wash_out_len=20, discount_factor=1, name="custom_mse"):
