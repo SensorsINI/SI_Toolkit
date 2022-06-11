@@ -135,7 +135,9 @@ class predictor_autoregressive_tf:
 
         self.indices_inputs_reg = tf.convert_to_tensor(
             [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
-        self.indices_net_output = [STATE_INDICES.get(key) for key in self.net_info.outputs]
+        output_names = np.sort(['angle'] + self.net_info.outputs)
+        OUTPUT_INDICES = {x: np.where(output_names == x)[0][0] for x in output_names}
+        self.indices_net_output = [OUTPUT_INDICES.get(key) for key in self.net_info.outputs]
         self.augmentation = predictor_output_augmentation_tf(self.net_info)
         self.indices_augmentation = self.augmentation.indices_augmentation
         self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_net_output + self.indices_augmentation))
@@ -168,6 +170,9 @@ class predictor_autoregressive_tf:
                                                      last_optimal_control_input)
         else:
             net_output = self.predict_tf(initial_state, Q)
+
+        if len(net_output[0][0]) > 6:  # cut out pole_length prediction
+            net_output = tf.concat([net_output[:, :, :4], net_output[:, :, 5:]], axis=2)
 
         self.output[:, 1:, :] = net_output.numpy()
 
@@ -202,9 +207,15 @@ class predictor_autoregressive_tf:
                     tf.concat([Q_current, self.net_input_reg_initial_normed], axis=1),
                     shape=[-1, 1, len(self.net_info.inputs)])
             else:
-                net_input = tf.reshape(
-                    tf.concat([Q_current, net_output], axis=1),
-                    shape=[-1, 1, len(self.net_info.inputs)])
+                if len(net_output[0]) > 5:  # cut out pole_length prediction
+                    net_input = tf.reshape(
+                        tf.concat([Q_current, net_output[:, :3], net_output[:, 4:]], axis=1),
+                        shape=[-1, 1, len(self.net_info.inputs)])
+
+                else:
+                    net_input = tf.reshape(
+                        tf.concat([Q_current, net_output], axis=1),
+                        shape=[-1, 1, len(self.net_info.inputs)])
 
             net_output = self.net(net_input)
 
