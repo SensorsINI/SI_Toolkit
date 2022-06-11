@@ -207,20 +207,21 @@ class predictor_autoregressive_tf:
             net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
 
             next_net_input = net_output
-            net_outputs = net_outputs.write(i, net_output)
+            output = net_output
+            outputs = outputs.write(i, output)
 
-        net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
+        outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
 
-        net_outputs = self.denormalize_outputs_tf(net_outputs)
+        outputs = self.denormalize_outputs_tf(outputs)
 
         # Augment
-        output = self.augmentation.augment(net_outputs)
+        outputs_augmented = self.augmentation.augment(outputs)
 
-        output = tf.gather(output, self.indices_outputs, axis=-1)
+        outputs_augmented = tf.gather(outputs_augmented, self.indices_outputs, axis=-1)
 
-        output = tf.concat((initial_state[:, tf.newaxis, :], output), axis=1)
+        outputs_augmented = tf.concat((initial_state[:, tf.newaxis, :], outputs_augmented), axis=1)
 
-        return output
+        return outputs_augmented
 
     def update_internal_state(self, Q0=None, s=None):
 
