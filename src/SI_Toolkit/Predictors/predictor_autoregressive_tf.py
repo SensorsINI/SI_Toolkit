@@ -192,7 +192,7 @@ class predictor_autoregressive_tf:
         # load internal RNN state if applies
         _copy_internal_states_from_ref(self.net, self.layers_ref)
 
-        net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
+        outputs = tf.TensorArray(tf.float32, size=self.horizon)
 
         for i in tf.range(self.horizon):
 
