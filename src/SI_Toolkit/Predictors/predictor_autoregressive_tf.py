@@ -123,6 +123,7 @@ class predictor_autoregressive_tf:
 
         self.normalization_info = get_norm_info_for_net(self.net_info)
 
+        self.normalize_state_tf = get_normalization_function_tf(self.normalization_info, STATE_VARIABLES)
         self.normalize_inputs_tf = get_normalization_function_tf(self.normalization_info, self.net_info.inputs[len(CONTROL_INPUTS):])
         self.normalize_control_inputs_tf = get_normalization_function_tf(self.normalization_info, self.net_info.inputs[:len(CONTROL_INPUTS)])
 
@@ -138,6 +139,11 @@ class predictor_autoregressive_tf:
             )
 
             outputs_names = np.array([x[2:] for x in self.net_info.outputs])
+
+            self.indices_state_to_output = tf.convert_to_tensor([STATE_INDICES.get(key) for key in outputs_names])
+            output_indices = {x: np.where(outputs_names == x)[0][0] for x in outputs_names}
+            self.indices_output_to_input = tf.convert_to_tensor([output_indices.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
+
         else:
             outputs_names = self.net_info.outputs
 
@@ -207,6 +213,10 @@ class predictor_autoregressive_tf:
 
         outputs = tf.TensorArray(tf.float32, size=self.horizon)
 
+        if self.differential_network:
+            initial_state_normed = self.normalize_state_tf(initial_state)
+            output = tf.gather(initial_state_normed, self.indices_state_to_output, axis=-1)
+
         for i in tf.range(self.horizon):
 
             Q_current = Q_normed[:, i, :]
@@ -220,11 +230,11 @@ class predictor_autoregressive_tf:
             net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
 
             if self.differential_network:
-                next_net_input = next_net_input + self.rescale_output_diff_net(net_output)
-                output = next_net_input
+                output = output + self.rescale_output_diff_net(net_output)
+                next_net_input = tf.gather(output, self.indices_output_to_input, axis=-1)
             else:
-                next_net_input = net_output
                 output = net_output
+                next_net_input = net_output
             outputs = outputs.write(i, output)
 
         outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
