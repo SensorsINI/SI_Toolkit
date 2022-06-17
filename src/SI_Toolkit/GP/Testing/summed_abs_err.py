@@ -41,7 +41,7 @@ if __name__ == '__main__':
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    horizons = range(0, 51)
+    horizons = range(0, 51, 5)
     results = np.zeros(shape=[len(horizons)+1, len(a.tests)])
 
     np.savetxt(save_dir + "/error_results.csv", results, delimiter=",")

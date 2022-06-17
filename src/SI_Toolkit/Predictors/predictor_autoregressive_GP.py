@@ -53,7 +53,7 @@ class predictor_autoregressive_GP:
     @Compile
     def step(self, s, Q):
         x = tf.concat([s, Q], axis=1)
-        s = self.model.predict_f(x)
+        s, _ = self.model.predict_f(x)
         # if self.num_rollouts == 1:
         #     s = tf.expand_dims(s, axis=0)
         return s
