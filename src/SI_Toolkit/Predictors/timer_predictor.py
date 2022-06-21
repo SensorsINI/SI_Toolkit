@@ -3,7 +3,7 @@ import sys, os
 from tqdm import trange
 import numpy as np
 
-def timer_predictor(initialisation_specific, number=50, repeat=10):
+def timer_predictor(initialisation_specific, number=50, repeat=100):
 
     initialisation_start = '''
 from SI_Toolkit_ASF_global.predictors_customization import CONTROL_INPUTS
