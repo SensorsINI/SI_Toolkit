@@ -62,6 +62,8 @@ def compose_net_from_net_name(net_name,
 
     # Construct network
     # Either dense...
+    # kernel_regularizer='l1',
+    # kernel_regularizer=tf.keras.regularizers.L2(0.001),
     if net_type == 'Dense':
         net.add(tf.keras.Input(shape=(time_series_length, len(inputs_list))))
         for i in range(h_number):

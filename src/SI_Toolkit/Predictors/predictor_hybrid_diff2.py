@@ -8,9 +8,9 @@ While designing the controller you just chose the predictor you want,
 """
 
 """
-This predictor combines a autoregressive neural network constructed in tensorflow with a noisy ode to make predictions.
+This predictor combines a autoregressive neural network constructed in tensorflow with a (noisy) ode to make predictions.
 Control inputs should be first (regarding vector indices) inputs of the vector.
-Network inputs are predictions of the ODE and network outputs are states 
+Network inputs are states and network outputs are the prediction errors.
 """
 
 """
@@ -109,7 +109,7 @@ def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
 
-class predictor_hybrid:
+class predictor_hybrid_diff2:
     def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, batch_size=None, net_name=None):
 
         self.batch_size = batch_size
@@ -118,12 +118,7 @@ class predictor_hybrid:
 
         a = SimpleNamespace()
 
-        if '/' in net_name:
-            a.path_to_models = os.path.join(*net_name.split("/")[:-1]) + '/'
-            a.net_name = net_name.split("/")[-1]
-        else:
-            a.path_to_models = PATH_TO_NN
-            a.net_name = net_name
+        a.path_to_models = PATH_TO_NN
 
         a.net_name = net_name
 
@@ -146,11 +141,15 @@ class predictor_hybrid:
                                                         dtype=tf.float32)
 
         self.indices_inputs_reg = [STATE_INDICES.get(key[:-5]) for key in self.net_info.inputs[len(CONTROL_INPUTS):]]
-        self.indices_inputs_reg = [STATE_INDICES.get(key[:-5]) for key in self.net_info.inputs[len(CONTROL_INPUTS):]]
-        self.indices_net_output = [STATE_INDICES.get(key) for key in self.net_info.outputs]
+        self.indices_net_output = [STATE_INDICES.get(key[:-5]) for key in self.net_info.outputs]
+        indices_net_output_sorted = self.indices_net_output.copy()
+        indices_net_output_sorted.sort()
+        self.indices_net_output = tf.convert_to_tensor(np.argsort(self.indices_net_output))
         self.augmentation = predictor_output_augmentation_tf(self.net_info)
         self.indices_augmentation = self.augmentation.indices_augmentation
-        self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_net_output + self.indices_augmentation))
+        self.indices_outputs = tf.convert_to_tensor(np.argsort(indices_net_output_sorted + self.indices_augmentation))
+        # indices_net_output is sorted because when indices_outputs is used, the contents of the net_output will already be in state space order just lacking the variables to be augmented
+        self.indices_net_output = tf.convert_to_tensor(np.argsort(self.indices_net_output))
 
         self.net_input_reg_initial_normed = tf.Variable(
             tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
@@ -167,19 +166,17 @@ class predictor_hybrid:
         initial_state, Q = check_dimensions(initial_state, Q)
 
         self.output[:, 0, :] = initial_state
-        prediction = self.predictor.predict(initial_state, Q)
-        prediction = prediction[:, -1, :]  # only take the latest prediction
-        prediction, Q = convert_to_tensors(prediction, Q)
-        prediction = check_batch_size(prediction, self.batch_size, 's')
+        initial_state, Q = convert_to_tensors(initial_state, Q)
+        initial_state = check_batch_size(initial_state, self.batch_size, 's')
         Q = check_batch_size(Q, self.batch_size, 'Q')
 
-        net_output = self.predict_tf(prediction, Q)
+        net_output = self.predict_tf(initial_state, Q)
         self.output[..., 1:, :] = net_output.numpy()
-        print('predictor_hybrid prediction took ' + str(timeit.default_timer() - start_time) + ' seconds')
+        print('predictor_hybrid_diff2 prediction took ' + str(timeit.default_timer() - start_time) + ' seconds')
 
         return self.output
 
-    @tf.function(experimental_compile=True)
+    #@tf.function(experimental_compile=True)
     def predict_tf(self, initial_state, Q):
         net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
         self.net_input_reg_initial_normed.assign(normalize_tf(
@@ -192,7 +189,7 @@ class predictor_hybrid:
         net_outputs = tf.TensorArray(tf.float32, size=self.horizon)
         net_output = tf.zeros(shape=(self.batch_size, len(self.net_info.outputs)), dtype=tf.float32)
 
-
+        prediction = initial_state
         for i in tf.range(self.horizon):
 
             Q_current = Q[:, i, :]
@@ -201,14 +198,13 @@ class predictor_hybrid:
                 net_input = tf.reshape(
                     tf.concat([Q_current, self.net_input_reg_initial_normed], axis=1),
                     shape=[-1, 1, len(self.net_info.inputs)])
+                prediction = self.predictor.predict_tf(initial_state, Q_current[:,tf.newaxis,:])
+                prediction = prediction[..., -1, :]  # only take the latest prediction
             else:
-                state = denormalize_tf(net_output, self.normalizing_outputs)
-                state = self.augmentation.augment_single_state(state)
-                state = tf.gather(state, self.indices_outputs, axis=-1)  # rearrange
-                prediction = self.predictor.predict_tf(state, Q_current[:,tf.newaxis,:])
+                prediction = self.predictor.predict_tf(net_output, Q_current[:,tf.newaxis,:])
                 prediction = prediction[:, -1, :] # only take the latest prediction
 
-                net_input_reg = tf.gather(prediction, self.indices_inputs_reg,
+                net_input_reg = tf.gather(net_output, self.indices_inputs_reg,
                                                   axis=-1)  # [batch_size, features]
                 self.net_input_reg_normed.assign(normalize_tf(
                     net_input_reg, self.normalizing_inputs
@@ -221,14 +217,17 @@ class predictor_hybrid:
             net_output = self.net(net_input)  # run Network
 
             net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
+            net_output = denormalize_tf(net_output, self.normalizing_outputs)
+            net_output = tf.gather(net_output, self.indices_net_output, axis=-1)
+            net_output = prediction[:, 1:] - net_output
+            net_output = self.augmentation.augment_single_state(net_output)
+            net_output = tf.gather(net_output, self.indices_outputs, axis=-1)
+
             net_outputs = net_outputs.write(i, net_output)
 
         net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
-        net_outputs = denormalize_tf(net_outputs, self.normalizing_outputs)
-        # Augment
-        output = self.augmentation.augment(net_outputs)
-        output = tf.gather(output, self.indices_outputs, axis=-1)  # rearrange
-        return output
+
+        return net_outputs
 
     def update_internal_state(self, Q0=None, s=None):
         s, Q0 = check_dimensions(s, Q0)
@@ -266,11 +265,23 @@ class predictor_hybrid:
 
 
 if __name__ == '__main__':
-    from SI_Toolkit.Predictors.timer_predictor import timer_predictor
+    import timeit
 
     initialisation = '''
-from SI_Toolkit.Predictors.predictor_hybrid import predictor_hybrid
-predictor = predictor_hybrid(horizon, 0.02, 10, batch_size=batch_size, net_name=net_name)
-    '''
+from SI_Toolkit.Predictors.predictor_hybrid_diff2 import predictor_hybrid_diff2
+from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import CONTROL_INPUTS
+import numpy as np
+batch_size = 2000
+horizon = 50
+predictor = predictor_hybrid_diff2(horizon, batch_size=batch_size, net_name='GRU-6IN-32H1-32H2-5OUT-0')
+initial_state = np.random.random(size=(batch_size, 6))
+# initial_state = np.random.random(size=(1, 6))
+Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
+predictor.predict(initial_state, Q)
+predictor.update_internal_state(initial_state, Q)
+'''
 
-    timer_predictor(initialisation)
+    code = '''\
+predictor.predict(initial_state, Q)'''
+
+    print(timeit.timeit(code, number=10, setup=initialisation) / 10.0)

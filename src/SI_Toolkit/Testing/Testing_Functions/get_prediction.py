@@ -12,7 +12,10 @@ from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
 # from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
 from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
 from SI_Toolkit.Predictors.predictor_hybrid import predictor_hybrid
-
+from SI_Toolkit.Predictors.predictor_hybrid2 import predictor_hybrid2
+from SI_Toolkit.Predictors.predictor_hybrid_diff import predictor_hybrid_diff
+from SI_Toolkit.Predictors.predictor_hybrid_diff2 import predictor_hybrid_diff2
+from SI_Toolkit.Predictors.predictor_noisy import predictor_noisy
 
 def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     states_0 = dataset[STATE_VARIABLES].to_numpy()[:-a.test_max_horizon, :]
@@ -35,8 +38,34 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
 
     if 'EulerTF' in predictor_name:
         predictor = predictor_ODE_tf(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
+    elif 'EulerNoisy' in predictor_name:
+        predictor = predictor_noisy(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
     elif 'Euler' in predictor_name:
         predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
+    elif 'Hybrid_diff2' in predictor_name:
+        predictor_name = predictor_name.split()
+        if mode == 'batch':
+            predictor = predictor_hybrid_diff2(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps,
+                                         batch_size=a.test_len, net_name=predictor_name[1])
+        else:
+            predictor = predictor_hybrid_diff2(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps,
+                                         batch_size=1, net_name=predictor_name[1])
+    elif 'Hybrid_diff' in predictor_name:
+        predictor_name = predictor_name.split()
+        if mode == 'batch':
+            predictor = predictor_hybrid_diff(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps,
+                                         batch_size=a.test_len, net_name=predictor_name[1])
+        else:
+            predictor = predictor_hybrid_diff(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps,
+                                         batch_size=1, net_name=predictor_name[1])
+    elif 'Hybrid2' in predictor_name:
+        predictor_name = predictor_name.split()
+        if mode == 'batch':
+            predictor = predictor_hybrid2(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps,
+                                         batch_size=a.test_len, net_name=predictor_name[1])
+        else:
+            predictor = predictor_hybrid2(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps,
+                                         batch_size=1, net_name=predictor_name[1])
     elif 'Hybrid' in predictor_name:
         predictor_name = predictor_name.split()
         if mode == 'batch':

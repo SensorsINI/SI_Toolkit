@@ -1,6 +1,15 @@
+"""
+This is a CLASS of predictor.
+The idea is to decouple the estimation of system future state from the controller design.
+While designing the controller you just chose the predictor you want,
+ initialize it while initializing the controller and while stepping the controller you just give it current state
+    and it returns the future states
+
+"""
+
 from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES
 
-from SI_Toolkit_ASF_global.predictors_customization_tf import next_state_predictor_ODE_tf
+from SI_Toolkit_ASF_global.predictors_customization_noisy import next_state_predictor_noisy
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 import tensorflow as tf
@@ -30,7 +39,7 @@ def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
 
-class predictor_ODE_tf:
+class predictor_noisy:
     def __init__(self, horizon=None, dt=0.02, intermediate_steps=10):
 
         self.horizon = tf.convert_to_tensor(horizon)
@@ -40,9 +49,9 @@ class predictor_ODE_tf:
         self.output = None
 
         self.dt = dt
-        self.intermediate_steps = intermediate_steps
+        self.intermediate_steps = int(intermediate_steps/2)
 
-        self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps)
+        self.next_step_predictor = next_state_predictor_noisy(dt, intermediate_steps)
 
     def predict(self, initial_state, Q):
 
@@ -66,7 +75,7 @@ class predictor_ODE_tf:
         else:  # tf.shape(self.initial_state)[0] == tf.shape(Q)[0]:  # For each control scenario there is separate initial state provided
             output = self.predict_tf(self.initial_state, Q)
 
-        return output.numpy()
+        return np.squeeze(output.numpy())
 
 
     @Compile
@@ -103,8 +112,8 @@ if __name__ == '__main__':
     from SI_Toolkit.Predictors.timer_predictor import timer_predictor
 
     initialisation = '''
-from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-predictor = predictor_ODE_tf(horizon, 0.02, 10)
+from SI_Toolkit.Predictors.predictor_noisy import predictor_noisy
+predictor = predictor_noisy(horizon, 0.02, 5)
 '''
 
     timer_predictor(initialisation)
