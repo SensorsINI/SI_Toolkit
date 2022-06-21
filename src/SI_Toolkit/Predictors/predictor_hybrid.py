@@ -164,24 +164,23 @@ class predictor_hybrid:
 
     def predict(self, initial_state, Q) -> np.array:
         start_time = timeit.default_timer()
+        self.output[:,0,:] = initial_state
         initial_state, Q = check_dimensions(initial_state, Q)
-
-        self.output[:, 0, :] = initial_state
-        prediction = self.predictor.predict(initial_state, Q)
-        prediction = prediction[:, -1, :]  # only take the latest prediction
-        prediction, Q = convert_to_tensors(prediction, Q)
-        prediction = check_batch_size(prediction, self.batch_size, 's')
+        initial_state, Q = convert_to_tensors(initial_state, Q)
+        initial_state = check_batch_size(initial_state, self.batch_size, 's')
         Q = check_batch_size(Q, self.batch_size, 'Q')
 
-        net_output = self.predict_tf(prediction, Q)
-        self.output[..., 1:, :] = net_output.numpy()
+        net_output = self.predict_tf(initial_state, Q)
+        self.output[:, 1:, :] = net_output.numpy()
         print('predictor_hybrid prediction took ' + str(timeit.default_timer() - start_time) + ' seconds')
 
         return self.output
 
     @tf.function(experimental_compile=True)
     def predict_tf(self, initial_state, Q):
-        net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
+        prediction = self.predictor.predict_tf(initial_state, Q[:, tf.newaxis, 0, :])
+        prediction = prediction[:, -1, :]  # only take the latest prediction
+        net_input_reg_initial = tf.gather(prediction, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
         self.net_input_reg_initial_normed.assign(normalize_tf(
             net_input_reg_initial, self.normalizing_inputs
         ))
@@ -221,13 +220,14 @@ class predictor_hybrid:
             net_output = self.net(net_input)  # run Network
 
             net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
-            net_outputs = net_outputs.write(i, net_output)
+            net_outputs = net_outputs.write(i+1, net_output)
 
         net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
         net_outputs = denormalize_tf(net_outputs, self.normalizing_outputs)
         # Augment
         output = self.augmentation.augment(net_outputs)
         output = tf.gather(output, self.indices_outputs, axis=-1)  # rearrange
+        output = tf.concat((initial_state[:, tf.newaxis, :], output), axis=1)
         return output
 
     def update_internal_state(self, Q0=None, s=None):
