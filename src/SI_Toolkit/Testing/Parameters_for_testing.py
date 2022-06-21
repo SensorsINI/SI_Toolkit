@@ -40,6 +40,8 @@ control_inputs = config_testing['testing']['control_inputs']
 
 TEST_LEN = config_testing['testing']['TEST_LEN']
 
+DECIMATION = config_testing['testing']['DECIMATION']
+
 def args():
     parser = argparse.ArgumentParser(description='Parameters for Brunton GUI', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     # Only valid for graphical testing:
@@ -65,6 +67,8 @@ def args():
     parser.add_argument('--test_start_idx', default=START_IDX, type=int, help='Indicates from which point data from test file should be taken.')
     parser.add_argument('--test_max_horizon', default=MAX_HORIZON, type=int,
                         help='Indicates prediction horizon for testing.')
+    parser.add_argument('--decimation', default=DECIMATION, type=int,
+                        help='How much to decimate the dataset - make it to fit the network timestep')
 
     args = parser.parse_args()
 

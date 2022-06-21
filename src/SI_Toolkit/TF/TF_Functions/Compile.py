@@ -1,4 +1,5 @@
 import tensorflow as tf
+import platform
 
 
 def tf_function_jit(func):
@@ -12,7 +13,14 @@ def tf_function_experimental(func):
 def identity(func):
     return func
 
-Compile = tf.function
-# Compile = tf_function_jit
-# Compile = tf_function_experimental
-# Compile = identity
+GLOBALLY_DISABLE_COMPILATION = False
+# GLOBALLY_DISABLE_COMPILATION = True
+
+if GLOBALLY_DISABLE_COMPILATION:
+    Compile = identity
+else:
+    if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
+        Compile = tf.function
+    else:
+        Compile = tf_function_jit
+        # Compile = tf_function_experimental # Should be same as tf_function_jit, not appropriate for newer version of TF

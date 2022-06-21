@@ -13,8 +13,16 @@ def preprocess_for_brunton(a):
                                 'a.test_file is {}'.format(path_to_testfile, a.default_locations_for_testfile, a.test_file))
     if a.test_len == 'max':
         a.test_len = len(test_dfs[0]) - a.test_max_horizon - a.test_start_idx  # You could have +1; then, for last prediction you don not have ground truth to compare with, but you can still calculate it.
-    dataset = test_dfs[0].iloc[a.test_start_idx:a.test_start_idx + a.test_len + a.test_max_horizon, :]
+    dataset = test_dfs[0]
+    dataset = dataset.iloc[::a.decimation, :]
+    dataset = dataset.iloc[a.test_start_idx:a.test_start_idx + a.test_len + a.test_max_horizon, :]
     dataset.reset_index(drop=True, inplace=True)
+
+    if dataset.shape[0]-a.test_max_horizon < a.test_len:
+        raise ValueError(
+            '\nThe test datafile is too small for the requested test length.\n'
+            'For this datafile TEST_LEN can be {} at most.\n'
+            'You requested {}.'.format(dataset.shape[0]-a.test_max_horizon, a.test_len))
 
     # Get sampling interval
     dataset_sampling_dt = get_sampling_interval_from_datafile(path_to_testfile[0])

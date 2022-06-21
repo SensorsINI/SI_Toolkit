@@ -102,8 +102,7 @@ def compose_net_from_net_name(net_name,
     return net, net_info
 
 
-@Compile
-def copy_internal_states_to_ref(net, layers_ref):
+def _copy_internal_states_to_ref(net, layers_ref):
     for layer, layer_ref in zip(net.layers, layers_ref):
         if (('gru' in layer.name) or
                 ('lstm' in layer.name) or
@@ -115,8 +114,7 @@ def copy_internal_states_to_ref(net, layers_ref):
             pass
 
 
-@Compile
-def copy_internal_states_from_ref(net, layers_ref):
+def _copy_internal_states_from_ref(net, layers_ref):
     for layer, layer_ref in zip(net.layers, layers_ref):
         if (('gru' in layer.name) or
                 ('lstm' in layer.name) or
@@ -126,3 +124,7 @@ def copy_internal_states_from_ref(net, layers_ref):
                 single_state.assign(tf.convert_to_tensor(single_state_ref))
         else:
             pass
+
+
+copy_internal_states_to_ref = Compile(_copy_internal_states_to_ref)
+copy_internal_states_from_ref = Compile(_copy_internal_states_from_ref)

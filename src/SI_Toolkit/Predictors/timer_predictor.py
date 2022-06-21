@@ -11,8 +11,7 @@ import numpy as np
 batch_size = 2000
 horizon = 50
 net_name = 'GRU-6IN-32H1-32H2-5OUT-0' # if applies
-# initial_state = np.random.random(size=(batch_size, 6))
-initial_state = np.random.random(size=(1, 6))
+initial_state = np.random.random(size=(batch_size, 6))
 Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
 
 '''

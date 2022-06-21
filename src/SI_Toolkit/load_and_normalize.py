@@ -7,6 +7,8 @@ import glob
 
 import matplotlib.pyplot as plt
 
+from derivative import dxdt
+
 # Import module to get a current time and date used to name the files containing normalization information
 from datetime import datetime
 import csv
@@ -321,7 +323,11 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # User defined normalization values:
 
     if user_correction:
-        df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
+        try:
+            df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
+        except NameError:
+            print('User defined normalization correction not applied. \n'
+                  'The needed function not found in SI_Toolkit_ASF_global.user_defined_normalization_correction.py')
 
     if df_norm_info.equals(df_norm_info_from_data):
         modified = 'No'
@@ -576,3 +582,97 @@ def normalize_numpy_array(denormalized_array,
             )
 
     return normalized_array
+
+
+def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings):
+    """
+    Takes list of dataframes dfs
+    and augment it with derivatives of columns indicated in variables_for_derivative
+    using algorithm indicated in derivative_algorithm.
+    The output file is shorter - first and last indices for which it is difficult to get good derivative are dropped.
+    """
+    file_names = [os.path.basename(paths_to_recordings[i]) for i in range(len(paths_to_recordings))]
+
+    cut = 7
+    dfs_with_derivatives = []
+    paths_with_derivatives = []
+    print('Calculating derivatives')
+    no_time_axis_in_files = []
+    for i in trange(len(dfs)):
+        df = dfs[i]
+        if df.shape[0] < 2 * cut:
+            if file_names is not None:
+                print('Dropping {} as too short'.format(file_names[i]))
+            continue
+        else:
+            paths_with_derivatives.append(paths_to_recordings[i])
+        # print(file_names[i])
+        try:
+            t = df['time'].values
+        except KeyError:
+            no_time_axis_in_files.append(file_names[i])
+            t = np.arange(df.shape[0])
+        y = df[variables_for_derivative].values
+        dy = np.zeros_like(y)
+        for j in range(len(variables_for_derivative)):
+            if derivative_algorithm == 'finite_difference':
+                dy[:, j] = dxdt(y[:, j], t, kind=derivative_algorithm, k=cut)
+            elif derivative_algorithm == 'single_difference':
+                cut = 1
+                dy[:-1, j] = (y[1:, j]-y[:-1, j])/(t[1:]-t[:-1])
+            else:
+                raise NotImplemented('{} is not a recognised name for derivative algorithm'.format(derivative_algorithm))
+
+        derivatives_names = ['D_' + x for x in variables_for_derivative]
+        derivatives = pd.DataFrame(data=dy, columns=derivatives_names)
+
+        df = pd.concat([df, derivatives], axis=1)
+
+        # cut first and last k where derivative is not well determined
+        df = df.iloc[cut:-cut, :]
+
+        dfs_with_derivatives.append(df)
+
+
+        if no_time_axis_in_files:
+            if set(no_time_axis_in_files) == set(file_names):
+                print('No time axis provided. Calculated increments dx for all the files.')
+            else:
+                print('WARNING!!!! \n Some data files have time axes, but some not. \n'
+                      'The derivative calculation across files is inconsistent!')
+                print('The files without time axis are:')
+                for filename in no_time_axis_in_files:
+                    print(filename)
+
+    return dfs_with_derivatives, paths_with_derivatives
+
+
+def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_derivative, derivative_algorithm='finite_difference'):
+    paths_to_recordings = get_paths_to_datafiles(get_files_from)
+    if paths_to_recordings:
+
+        dfs = load_data(list_of_paths_to_datafiles=paths_to_recordings)
+
+        dfs, paths_with_derivative = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings)
+        file_names = [os.path.basename(paths_with_derivative[i]) for i in range(len(paths_with_derivative))]
+
+        try:
+            os.makedirs(save_files_to)
+        except FileExistsError:
+            pass
+
+        for i in range(len(dfs)):
+            old_file_path = paths_with_derivative[i]
+            file_path = os.path.join(save_files_to, file_names[i])
+            with open(file_path, 'w', newline=''): # Overwrites if existed
+                pass
+            with open(old_file_path, "r", newline='') as f_input, \
+                    open(file_path, "a", newline='') as f_output:
+                for line in f_input:
+                    if line[0:len('#')] == '#':
+                        csv.writer(f_output).writerow([line.strip()])
+                    else:
+                        break
+            dfs[i].to_csv(file_path, index=False, mode='a')
+    else:
+        print('No files found')
