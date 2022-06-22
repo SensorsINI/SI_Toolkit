@@ -60,17 +60,17 @@ predictor.predict_tf(initial_state, Q)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    horizons = [30, 50]
-    rollouts = [1] + list(range(50, 4000, 50))
-    results = np.zeros(shape=[len(rollouts)+1, len(a.tests)])
+    horizons = [k for k in range(2, 51, 2)]
+    rollouts = [3000]
+    results = np.zeros(shape=[len(horizons)+1, len(a.tests)])
 
-    for h in horizons:
+    for r in rollouts:
         i = 1
-        for r in rollouts:
-            print("ROLLOUTS: {}".format(r))
+        for h in horizons:
+            print("HORIZONS: {}".format(h))
             j = 0
             for predictor_name in a.tests:
-                prediction_time = timeit.timeit(code, number=10, setup=initialization.format('"'+predictor_name+'"', h, r))/ 10.0
+                prediction_time = timeit.timeit(code, number=100, setup=initialization.format('"'+predictor_name+'"', h, r))/ 100.0
 
                 results[i, j] = prediction_time * 1000  # convert to milliseconds
                 print("{}: {}".format(predictor_name, prediction_time))
@@ -78,9 +78,9 @@ predictor.predict_tf(initial_state, Q)
 
             i += 1
 
-        np.savetxt(save_dir + "/prediction_times_horizon_{}.csv".format(h), results, delimiter=", ")
+        np.savetxt(save_dir + "/prediction_times_rollouts_{}.csv".format("3000"), results, delimiter=", ")
 
-        plt.plot([1] + rollouts, results)
+        plt.plot(rollouts, results)
         # plt.legend(a.tests)
         plt.grid()
         plt.title(str(h))

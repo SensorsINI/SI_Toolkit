@@ -10,6 +10,7 @@ import random
 import tensorflow as tf
 import numpy as np
 
+import matplotlib
 from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
 from SI_Toolkit.GP.Parameters import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, \
@@ -19,6 +20,7 @@ import matplotlib.pyplot as plt
 
 gpf.config.set_default_float(tf.float64)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
+matplotlib.rcParams.update({'font.size': 24})
 
 ##  LOADING ARGUMENTS FROM CONFIG
 a = args()
@@ -28,12 +30,16 @@ norm_info = load_normalization_info(a.path_to_normalization_info)
 
 path_train = get_paths_to_datafiles(a.training_files)
 path_val = get_paths_to_datafiles(a.validation_files)
+path_test = get_paths_to_datafiles(a.test_files)
 
 data_train = load_data(path_train)
 data_train = normalize_df(data_train, norm_info)
 
 data_val = load_data(path_val)
 data_val = normalize_df(data_val, norm_info)
+
+data_test = load_data(path_test)
+data_test = normalize_df(data_test, norm_info)
 
 ## SAMPLING FROM STATE TRAJECTORY
 a.num = 10
@@ -105,7 +111,7 @@ sample_indices = random.sample(range(X_samples.shape[0]), 10)
 data_subsampled = (data_samples[0][sample_indices], data_samples[1][sample_indices])
 
 ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
-save_dir = a.path_to_models + "SGP_{}_5dfs_with_var/".format(len(sample_indices))
+save_dir = a.path_to_models + "SGP_{}/".format(len(sample_indices))
 if not os.path.exists(save_dir):
     os.makedirs(save_dir+'info')
 shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_SGPR.py", save_dir+"info/training_file.py")
@@ -141,7 +147,7 @@ for df in data_val:
     Y_val = np.vstack([Y_val, df[1:, :-1]])
 
 ## MODEL OPTIMIZATION
-maxiter = 800
+maxiter = 400
 logf, logf_val, train_time = model.optimize("Adam", iters=maxiter, lr=0.08, val_data=(X_val, Y_val))
 with open(save_dir+'info/training_time.txt', "w") as f:
     f.write(str(train_time))
@@ -168,7 +174,7 @@ plt.show()
 a.num = 10
 a.training = False
 DS = DataSelector(a)
-DS.load_data_into_selector(data_val)
+DS.load_data_into_selector(data_test)
 X, Y = DS.return_dataset_for_training(shuffle=True,
                                       inputs=a.state_inputs + a.control_inputs,
                                       outputs=a.outputs,
@@ -183,7 +189,7 @@ errs = state_space_pred_err(model, data_subsampled, save_dir=save_dir+"info/ss_e
 # print(errs)
 
 ## PLOTTING 1s CLOSED-LOOP PREDICTION FROM TEST RECORDING
-plot_test(model, data_val, closed_loop=True)
+plot_test(model, data_test, closed_loop=True)
 
 # save model
 print("Saving...")
@@ -198,7 +204,7 @@ from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.GP.Parameters import args
 
 a = args()
-save_dir = a.path_to_models + "/SGP_{}_5dfs_with_var/"
+save_dir = a.path_to_models + "/SGP_{}/"
 
 # load model
 print("Loading...")
@@ -218,5 +224,5 @@ mn = m_loaded.predict_f(s)
 
 print(timeit.timeit(code, number=35, setup=initialization))
 
-plot_test(model, data_val, closed_loop=True)  # plot posterior predictions with loaded trained model
+# plot_test(model, data_val, closed_loop=True)  # plot posterior predictions with loaded trained model
 
