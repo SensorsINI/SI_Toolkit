@@ -10,6 +10,7 @@ import pandas as pd
 import gpflow as gpf
 import numpy as np
 import random
+import matplotlib
 import matplotlib.pyplot as plt
 import tensorflow as tf
 from gpflow.models.training_mixins import InputData
@@ -26,7 +27,7 @@ from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 gpf.config.set_default_float(tf.float64)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
-
+matplotlib.rcParams.update({'font.size': 24})
 
 class MultiOutGPR(tf.Module):
     """
@@ -86,7 +87,7 @@ class MultiOutGPR(tf.Module):
 
         self.posteriors = []
         for m in self.models:
-            self.posteriors.append(m.posterior(precompute_cache=posteriors.PrecomputeCacheType.TENSOR))  # posteriors allow for caching and faster prediction
+            self.posteriors.append(m.posterior(precompute_cache=posteriors.PrecomputeCacheType.VARIABLE))  # posteriors allow for caching and faster prediction
 
         return logs, logs_val, training_time
 
@@ -137,6 +138,35 @@ class MultiOutGPR(tf.Module):
         # vars = tf.squeeze(tf.transpose(vars.stack(), perm=[1, 0, 2]))
 
         return means, vars
+
+    @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=gpf.default_float())],
+                 jit_compile=False)  # predictor runs faster on MPPI if only outer predictor function uses XLA; set to True if you use predict_f directly
+    def predict_mean(self, x):
+        # means = tf.TensorArray(gpf.default_float(), size=len(self.models))
+        # vars = tf.TensorArray(gpf.default_float(), size=len(self.models))
+
+        # i = 0
+        """
+        for p in self.posteriors:
+            mn, _ = p.predict_f(x)
+            # mn, _ = p._conditional_with_precompute(x)
+            means = means.write(i, mn)
+            # vars = vars.write(i, vr)
+            i += 1
+        """
+        mn1 = self.posteriors[0].predict_mean(x)
+        mn2 = self.posteriors[1].predict_mean(x)
+        mn3 = self.posteriors[2].predict_mean(x)
+        mn4 = self.posteriors[3].predict_mean(x)
+        mn5 = self.posteriors[4].predict_mean(x)
+
+        # means = tf.concat([p.predict_f(x)[0] for p in self.posteriors], axis=1)
+        means = tf.concat([mn1, mn2, mn3, mn4, mn5], axis=1)
+        # means = tf.squeeze(tf.transpose(means.stack(), perm=[1, 0, 2]))
+        # vars = tf.squeeze(tf.transpose(vars.stack(), perm=[1, 0, 2]))
+
+        return means
+
 
 
 class MultiOutSGPR(MultiOutGPR):
@@ -211,7 +241,7 @@ def run_tf_optimization(model, optimizer, iterations, val_data, i, wrapper):
         Y = normalize_numpy_array(Y[:, i], features=[wrapper.outputs[i]], normalization_info=wrapper.norm_info)
         Y_pred = normalize_numpy_array(Y_pred.numpy().T, features=[wrapper.outputs[i]], normalization_info=wrapper.norm_info)
 
-        err = np.sum(np.linalg.norm(Y_pred - Y)) / X.shape[0]
+        err = np.linalg.norm(Y_pred - Y).mean()
         return err
 
     elbo = -training_loss().numpy()
@@ -324,7 +354,7 @@ def plot_samples(data, save_dir=None, show=True):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(12, 12))
     plt.plot(X[:, 2], X[:, 1], "bo")
     plt.xlabel(r"sin$\theta$")
     plt.ylabel(r"cos$\theta$")
@@ -334,8 +364,10 @@ def plot_samples(data, save_dir=None, show=True):
     if save_dir is not None: plt.savefig(save_dir+'/angle_ss.pdf')
     if show: plt.show()
 
-    plt.figure(figsize=(10, 10))
-    plt.plot(X[:, 0], np.arctan2(X[:, 2], X[:, 1]), "bo")
+    plt.figure(figsize=(12, 12))
+    angle_normed = np.arctan2(X[:, 2], X[:, 1])
+    angle_normed = -1.0 + (angle_normed + np.pi) / np.pi
+    plt.plot(X[:, 0], angle_normed, "bo")
     plt.xlabel(r"$\dot{\theta}$")
     plt.ylabel(r"$\theta}$")
     plt.xlim(-1.1, 1.1)
@@ -344,7 +376,7 @@ def plot_samples(data, save_dir=None, show=True):
     if save_dir is not None: plt.savefig(save_dir+'/angular_ss.pdf')
     if show: plt.show()
 
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(12, 12))
     plt.plot(X[:, 4], X[:, 3], "bo")
     plt.xlabel(r"$\dot{x}$")
     plt.ylabel(r"$x$")
@@ -354,7 +386,7 @@ def plot_samples(data, save_dir=None, show=True):
     if save_dir is not None: plt.savefig(save_dir+'/position_ss.pdf')
     if show: plt.show()
 
-    plt.figure(figsize=(10, 10))
+    plt.figure(figsize=(12, 12))
     plt.plot(X[:, 5], X[:, 4], "bo")
     plt.xlabel(r"$Q$")
     plt.ylabel(r"$\dot{x}$")
@@ -452,7 +484,9 @@ def state_space_pred_err(model, data, save_dir=None):
     plt.show()
 
     plt.figure(figsize=(12, 10))
-    plt.scatter(X[:, 0], np.arctan2(X[:, 2], X[:, 1]), s=150, c=errs)
+    angle_normed = np.arctan2(X[:, 2], X[:, 1])
+    angle_normed = -1.0 + (angle_normed + np.pi) / np.pi
+    plt.scatter(X[:, 0], angle_normed, s=150, c=errs)
     plt.colorbar()
     plt.xlabel(r"$\dot{\theta}$")
     plt.ylabel(r"$\theta}$")

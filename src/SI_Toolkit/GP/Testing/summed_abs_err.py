@@ -127,7 +127,9 @@ if __name__ == '__main__':
     width = 1.8
     bars = []
 
-    tests = ['RNN (retrained)', 'SGP (reduced)', 'Euler']
+    tests = ['RNN', 'SGP', 'Euler']
+
+    horizons = [1, 10, 20, 30, 40, 50]
 
     plt.figure(figsize=(12, 10))
     horizons = [h-2 for h in horizons]
@@ -143,5 +145,6 @@ if __name__ == '__main__':
     plt.legend([bar for bar in bars], tests)
     plt.tight_layout()
     plt.grid()
+    plt.ylim(0,220)
     plt.savefig('./error_bars.png', dpi=400)
     plt.show()
