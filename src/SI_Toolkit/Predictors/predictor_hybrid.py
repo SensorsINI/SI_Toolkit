@@ -111,7 +111,7 @@ def convert_to_tensors(s, Q):
 
 class predictor_hybrid:
     def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, batch_size=None, net_name=None):
-        print("Hybrid predictor with")
+        print("Hybrid predictor simulation with")
         print(net_name)
         self.batch_size = batch_size
         self.horizon = horizon
@@ -165,18 +165,17 @@ class predictor_hybrid:
 
     def predict(self, initial_state, Q) -> np.array:
         start_time = timeit.default_timer()
-        self.output[:,0,:] = initial_state
         initial_state, Q = check_dimensions(initial_state, Q)
         initial_state, Q = convert_to_tensors(initial_state, Q)
         initial_state = check_batch_size(initial_state, self.batch_size, 's')
         Q = check_batch_size(Q, self.batch_size, 'Q')
 
         net_output = self.predict_tf(initial_state, Q)
-        self.output[:, 1:, :] = net_output.numpy()
+        self.output = net_output.numpy()
 
         return self.output
 
-    @tf.function(experimental_compile=True)
+    @Compile
     def predict_tf(self, initial_state, Q):
         prediction = self.predictor.predict_tf(initial_state, Q[:, tf.newaxis, 0, :])
         prediction = prediction[:, -1, :]  # only take the latest prediction
@@ -220,7 +219,7 @@ class predictor_hybrid:
             net_output = self.net(net_input)  # run Network
 
             net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
-            net_outputs = net_outputs.write(i+1, net_output)
+            net_outputs = net_outputs.write(i, net_output)
 
         net_outputs = tf.transpose(net_outputs.stack(), perm=[1, 0, 2])
         net_outputs = denormalize_tf(net_outputs, self.normalizing_outputs)
@@ -236,6 +235,7 @@ class predictor_hybrid:
         if s is not None:
             prediction = self.predictor.predict(s, Q0)
             prediction = prediction[..., -1, :]
+            prediction, Q0 + check_dimensions(prediction, Q0)
             net_input_reg_initial = tf.gather(prediction, self.indices_inputs_reg, axis=-1)
             net_input_reg_initial_normed = normalize_tf(net_input_reg_initial, self.normalizing_inputs)
             net_input_reg_initial_normed = check_batch_size(net_input_reg_initial_normed, self.batch_size, 's')
