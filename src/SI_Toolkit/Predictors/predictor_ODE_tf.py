@@ -1,7 +1,6 @@
 from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES
-
-from SI_Toolkit_ASF_global.predictors_customization_tf import next_state_predictor_ODE_tf
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
+from SI_Toolkit_ASF_global.predictors_customization_tf import next_state_predictor_ODE_tf
 
 import tensorflow as tf
 import numpy as np
@@ -49,18 +48,29 @@ class predictor_ODE_tf:
 
 
     def predict(self, initial_state, Q):
-        initial_state, Q = convert_to_tensors(initial_state, Q)
         initial_state, Q = check_dimensions(initial_state, Q)
+        initial_state, Q = convert_to_tensors(initial_state, Q)
 
         self.batch_size = tf.shape(Q)[0]
         self.initial_state = initial_state
 
-        output = self.predict_tf(self.initial_state, Q)
+        if tf.shape(self.initial_state)[0] == 1 and tf.shape(Q)[
+            0] != 1:  # Predicting multiple control scenarios for the same initial state
+            output = self.predict_tf_tile(self.initial_state, Q, self.batch_size)
+        else:  # tf.shape(self.initial_state)[0] == tf.shape(Q)[0]:  # For each control scenario there is separate initial state provided
+            output = self.predict_tf(self.initial_state, Q)
 
-        return output.numpy()
+        if self.batch_size > 1:
+            return output
+        else:
+            return tf.squeeze(output)
 
+    # @tf.function(jit_compile=True)
+    def predict_tf_tile(self, initial_state, Q, batch_size):  # Predicting multiple control scenarios for the same initial state
+        initial_state = tf.tile(initial_state, (batch_size, 1))
+        return self.predict_tf(initial_state, Q)
 
-    def _predict_tf(self, initial_state, Q, params=None):
+    def _predict_tf(self, initial_state, Q, params = None):
 
         self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
         self.output = self.output.write(0, initial_state)
@@ -79,15 +89,23 @@ class predictor_ODE_tf:
         pass
 
 
-
-
-
 if __name__ == '__main__':
-    from SI_Toolkit.Predictors.timer_predictor import timer_predictor
+    import timeit
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
+from SI_Toolkit_ApplicationSpecificFiles.predictors_customization import CONTROL_INPUTS
+import numpy as np
+batch_size = 2000
+horizon = 50
 predictor = predictor_ODE_tf(horizon, 0.02, 10)
+initial_state = np.random.random(size=(batch_size, 6))
+# initial_state = np.random.random(size=(1, 6))
+Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
+predictor.predict(initial_state, Q)
 '''
 
-    timer_predictor(initialisation)
+    code = '''\
+predictor.predict(initial_state, Q)'''
+
+    print(timeit.timeit(code, number=100, setup=initialisation) / 100.0)
