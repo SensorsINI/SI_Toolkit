@@ -111,7 +111,7 @@ sample_indices = random.sample(range(X_samples.shape[0]), 10)
 data_subsampled = (data_samples[0][sample_indices], data_samples[1][sample_indices])
 
 ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
-save_dir = a.path_to_models + "SGP_{}_R/".format(len(sample_indices))
+save_dir = a.path_to_models + "SGP_{}/".format(len(sample_indices))
 if not os.path.exists(save_dir):
     os.makedirs(save_dir+'info')
 shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_SGPR.py", save_dir+"info/training_file.py")

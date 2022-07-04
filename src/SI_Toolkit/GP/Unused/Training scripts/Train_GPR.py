@@ -10,7 +10,7 @@ import numpy as np
 
 from SI_Toolkit.GP.Parameters import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, normalize_df
-from SI_Toolkit_ASF.DataSelector import DataSelector
+from SI_Toolkit.GP.DataSelector import DataSelector
 
 
 gpf.config.set_default_float(tf.float64)
@@ -43,55 +43,55 @@ Y = Y.squeeze().astype(np.float64)
 
 ## SUBSAMPLING FOR GP
 random.seed(10)
-sample_indices = random.sample(range(X.shape[0]), 130)
+sample_indices = random.sample(range(X.shape[0]), 10)
 X_sub = X[sample_indices]
 Y_sub = Y[sample_indices]
 data_train_subsampled = (X_sub, Y_sub)
 
 ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
-plot_samples(data_train_subsampled, show_output=False)
+# plot_samples(data_train_subsampled, show_output=False)
 
 ## DEFINING KERNELS
 inputs = a.state_inputs + a.control_inputs
 indices = {key: inputs.index(key) for key in inputs}
-kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1],
+kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1],
                                        active_dims=[indices["position"],
-                                                    indices["angleD"],
+                                                    # indices["angleD"],
                                                     indices["positionD"],
                                                     indices["Q"]
                                                     ]),
 
-           "positionD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
-                                        active_dims=[indices["angle_sin"],
-                                                     indices["angle_cos"],
-                                                     indices["angleD"],
-                                                     indices["positionD"],
-                                                     indices["Q"]
-                                                     ]),
+           # "positionD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
+           #                              active_dims=[indices["angle_sin"],
+           #                                           indices["angle_cos"],
+           #                                           indices["angleD"],
+           #                                           indices["positionD"],
+           #                                           indices["Q"]
+           #                                           ]),
 
-           "angle_sin": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
-                                        active_dims=[indices["angle_sin"],
-                                                     indices["angle_cos"],
-                                                     indices["angleD"],
-                                                     indices["positionD"],
-                                                     indices["Q"]
-                                                     ]),
+           # "angle_sin": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
+           #                              active_dims=[indices["angle_sin"],
+           #                                           indices["angle_cos"],
+           #                                           indices["angleD"],
+           #                                           indices["positionD"],
+           #                                           indices["Q"]
+           #                                           ]),
 
-           "angle_cos": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
-                                        active_dims=[indices["angle_sin"],
-                                                     indices["angle_cos"],
-                                                     indices["angleD"],
-                                                     indices["positionD"],
-                                                     indices["Q"]
-                                                     ]),
+           # "angle_cos": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
+           #                              active_dims=[indices["angle_sin"],
+           #                                           indices["angle_cos"],
+           #                                           indices["angleD"],
+           #                                           indices["positionD"],
+           #                                           indices["Q"]
+           #                                           ]),
 
-           "angleD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
-                                     active_dims=[indices["angle_sin"],
-                                                  indices["angle_cos"],
-                                                  indices["angleD"],
-                                                  indices["positionD"],
-                                                  indices["Q"]
-                                                  ])
+           # "angleD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
+           #                           active_dims=[indices["angle_sin"],
+           #                                        indices["angle_cos"],
+           #                                        indices["angleD"],
+           #                                        indices["positionD"],
+           #                                        indices["Q"]
+           #                                        ])
 
 }
 
@@ -116,11 +116,11 @@ X = X.squeeze().astype(np.float64)
 Y = Y.squeeze().astype(np.float64)
 data = (X, Y)
 
-errs = state_space_pred_err(model, data)
-print(errs)
+# errs = state_space_pred_err(model, data)
+# print(errs)
 
 ## PLOTTING 1s CLOSED-LOOP PREDICTION FROM TEST RECORDING
-plot_test(model, data_test, closed_loop=True)
+# plot_test(model, data_test, closed_loop=True)
 
 # save model
 save_dir = a.path_to_models + "GPR_model"
@@ -146,7 +146,7 @@ print("Done!")
 num_rollouts = 2000
 horizon = 50
 
-s = tf.zeros(shape=[num_rollouts, 5], dtype=tf.float64)
+s = tf.zeros(shape=[num_rollouts, 3], dtype=tf.float64)
 m_loaded.predict_f(s)
 '''
 
