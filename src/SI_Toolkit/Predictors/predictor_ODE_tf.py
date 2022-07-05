@@ -65,7 +65,7 @@ class predictor_ODE_tf:
         else:
             return tf.squeeze(output)
 
-    # @tf.function(jit_compile=True)
+    @Compile
     def predict_tf_tile(self, initial_state, Q, batch_size):  # Predicting multiple control scenarios for the same initial state
         initial_state = tf.tile(initial_state, (batch_size, 1))
         return self.predict_tf(initial_state, Q)
