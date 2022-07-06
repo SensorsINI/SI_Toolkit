@@ -139,6 +139,7 @@ class MultiOutGPR(tf.Module):
 
         return means, vars
 
+"""
     @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=gpf.default_float())],
                  jit_compile=False)  # predictor runs faster on MPPI if only outer predictor function uses XLA; set to True if you use predict_f directly
     def predict_mean(self, x):
@@ -146,14 +147,14 @@ class MultiOutGPR(tf.Module):
         # vars = tf.TensorArray(gpf.default_float(), size=len(self.models))
 
         # i = 0
-        """
+        '''
         for p in self.posteriors:
             mn, _ = p.predict_f(x)
             # mn, _ = p._conditional_with_precompute(x)
             means = means.write(i, mn)
             # vars = vars.write(i, vr)
             i += 1
-        """
+        '''
         mn1 = self.posteriors[0].predict_mean(x)
         mn2 = self.posteriors[1].predict_mean(x)
         mn3 = self.posteriors[2].predict_mean(x)
@@ -166,8 +167,7 @@ class MultiOutGPR(tf.Module):
         # vars = tf.squeeze(tf.transpose(vars.stack(), perm=[1, 0, 2]))
 
         return means
-
-
+"""
 
 class MultiOutSGPR(MultiOutGPR):
     """

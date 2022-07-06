@@ -60,6 +60,7 @@ class predictor_autoregressive_GP:
         #     s = tf.expand_dims(s, axis=0)
         return s
 
+    """
     @Compile
     def step_mean(self, s, Q):
         x = tf.concat([s, Q], axis=1)
@@ -67,9 +68,10 @@ class predictor_autoregressive_GP:
         # if self.num_rollouts == 1:
         #     s = tf.expand_dims(s, axis=0)
         return s
+    """
 
     @tf.function
-    def predict_tf_var(self, initial_state, Q_seq):
+    def predict_tf(self, initial_state, Q_seq):
         # initial_state = tf.expand_dims(initial_state, axis=0)  # COMMENT OUT FOR TF MPPI
         self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
 
@@ -109,8 +111,9 @@ class predictor_autoregressive_GP:
 
         return self.outputs
 
+    """
     @Compile
-    def predict_tf(self, initial_state, Q_seq):
+    def predict_tf_mean(self, initial_state, Q_seq):
         # initial_state = tf.expand_dims(initial_state, axis=0)  # COMMENT OUT FOR TF MPPI
         self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
 
@@ -149,6 +152,7 @@ class predictor_autoregressive_GP:
                             self.outputs[..., 2], self.outputs[..., 3], self.outputs[..., 4]], axis=2)
 
         return self.outputs
+    """
 
     def update_internal_state(self, *args):  # this is here to make the get_prediction function happy
         pass
