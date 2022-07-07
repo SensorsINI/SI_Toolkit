@@ -18,16 +18,23 @@ except ModuleNotFoundError:
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
-config = yaml.load(open(os.path.join('../SI_Toolkit_ASF', 'config_testing.yml'), 'r'),
+config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'),
                    Loader=yaml.FullLoader)
 
-# TODO load from config
-PATH_TO_MODEL = '.' + config["testing"]["PATH_TO_NN"]
+PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
 
 
 class predictor_autoregressive_GP:
     def __init__(self, model_name, horizon, num_rollouts=1):
         # tf.config.run_functions_eagerly(True)
+        a = SimpleNamespace()
+
+        if '/' in model_name:
+            a.path_to_models = os.path.join(*model_name.split("/")[:-1])+'/'
+            a.net_name = model_name.split("/")[-1]
+        else:
+            a.path_to_models = PATH_TO_MODEL
+            a.net_name = model_name
 
         self.horizon = horizon
         self.num_rollouts = num_rollouts
