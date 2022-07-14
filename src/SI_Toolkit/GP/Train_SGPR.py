@@ -65,17 +65,17 @@ data_samples = (X_samples, Y_samples)
 ## DEFINING KERNELS
 inputs = a.state_inputs + a.control_inputs
 indices = {key: inputs.index(key) for key in inputs}
-kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1],
+kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1],
                                        active_dims=[indices["position"],
-                                                    indices["angleD"],
+                                                    # indices["angleD"],
                                                     indices["positionD"],
                                                     indices["Q"]
                                                     ]),
 
-           "positionD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
-                                        active_dims=[indices["angle_sin"],
-                                                     indices["angle_cos"],
-                                                     indices["angleD"],
+           "positionD": gpf.kernels.RBF(lengthscales=[1, 1],
+                                        active_dims=[# indices["angle_sin"],
+                                                     # indices["angle_cos"],
+                                                     # indices["angleD"],
                                                      indices["positionD"],
                                                      indices["Q"]
                                                      ]),
@@ -107,7 +107,7 @@ kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1],
 }
 
 ## DEFINING MULTI OUTPUT SGPR MODEL
-sample_indices = random.sample(range(X_samples.shape[0]), 30)
+sample_indices = random.sample(range(X_samples.shape[0]), 10)
 data_subsampled = (data_samples[0][sample_indices], data_samples[1][sample_indices])
 
 ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
