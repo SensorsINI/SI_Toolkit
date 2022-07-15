@@ -12,7 +12,7 @@ from SI_Toolkit_ASF_global.predictors_customization import next_state_predictor_
 
 
 class predictor_ODE:
-    def __init__(self, horizon, dt, intermediate_steps=1):
+    def __init__(self, horizon, dt, intermediate_steps=1, **kwargs):
 
         self.horizon = horizon
         self.batch_size = None  # Will be adjusted the control input size

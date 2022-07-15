@@ -25,7 +25,7 @@ PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
 
 
 class predictor_autoregressive_GP:
-    def __init__(self, model_name, horizon, num_rollouts=1):
+    def __init__(self, model_name, horizon, num_rollouts=1, **kwargs):
         # tf.config.run_functions_eagerly(True)
         a = SimpleNamespace()
 

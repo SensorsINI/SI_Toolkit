@@ -27,7 +27,7 @@ def convert_to_tensors(s, Q):
 
 
 class predictor_ODE_tf:
-    def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, disable_individual_compilation=False):
+    def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, disable_individual_compilation=False, **kwargs):
 
         self.disable_individual_compilation = disable_individual_compilation
 
