@@ -14,9 +14,8 @@ from SI_Toolkit.Predictors import predictor
 
 class predictor_ODE(predictor):
     def __init__(self, horizon, dt, intermediate_steps=1, **kwargs):
-
-        self.horizon = horizon
-        self.batch_size = None  # Will be adjusted the control input size
+        # batch_size will be adjusted the control input size
+        super().__init__(horizon=horizon, batch_size=None)
 
         self.initial_state = None
         self.output = None

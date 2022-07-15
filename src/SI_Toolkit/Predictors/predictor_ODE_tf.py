@@ -31,8 +31,8 @@ class predictor_ODE_tf(predictor):
 
         self.disable_individual_compilation = disable_individual_compilation
 
-        self.horizon = tf.convert_to_tensor(horizon)
-        self.batch_size = None  # Will be adjusted the control input size
+        # batch_size will be adjusted the control input size
+        super().__init__(horizon=tf.convert_to_tensor(horizon), batch_size=None)
 
         self.initial_state = tf.zeros(shape=(1, len(STATE_VARIABLES)))
         self.output = None

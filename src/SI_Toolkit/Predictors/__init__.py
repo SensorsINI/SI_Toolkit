@@ -2,6 +2,10 @@ import tensorflow as tf
 import numpy as np
 
 class predictor:
+    def __init__(self, horizon: float, batch_size: int) -> None:
+        self.horizon = horizon
+        self.batch_size = batch_size
+    
     def predict_tf(self, s: tf.Tensor, Q: tf.Tensor):
         """Predict the whole MPC horizon using tensorflow
 

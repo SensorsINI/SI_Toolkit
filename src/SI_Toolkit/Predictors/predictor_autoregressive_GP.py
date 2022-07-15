@@ -36,8 +36,8 @@ class predictor_autoregressive_GP(predictor):
             a.path_to_models = PATH_TO_MODEL
             a.net_name = model_name
 
-        self.horizon = horizon
-        self.num_rollouts = num_rollouts
+        super().__init__(horizon=horizon, batch_size=num_rollouts)
+        self.num_rollouts = self.batch_size
         self.model = load_model(PATH_TO_MODEL+model_name)
         self.inputs = self.model.state_inputs + self.model.control_inputs
 
