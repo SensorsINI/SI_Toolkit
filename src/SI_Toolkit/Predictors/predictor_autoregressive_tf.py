@@ -45,6 +45,7 @@ from SI_Toolkit.TF.TF_Functions.Compile import Compile
 from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
     CONTROL_INPUTS
 from SI_Toolkit_ASF_global.predictors_customization_tf import predictor_output_augmentation_tf
+from SI_Toolkit.Predictors import predictor
 
 import numpy as np
 
@@ -82,7 +83,7 @@ def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
 
-class predictor_autoregressive_tf:
+class predictor_autoregressive_tf(predictor):
     def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=True, disable_individual_compilation=False, dt=None, **kwargs):
 
         self.batch_size = batch_size

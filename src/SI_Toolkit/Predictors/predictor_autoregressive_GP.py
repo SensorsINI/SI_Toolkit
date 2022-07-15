@@ -2,13 +2,13 @@ from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.TF.TF_Functions.Normalising import get_normalization_function_tf, get_denormalization_function_tf
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
-import numpy as np
-
 from types import SimpleNamespace
 import os
 import yaml
 
 import tensorflow as tf
+
+from SI_Toolkit.Predictors import predictor
 
 try:
     from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
@@ -24,7 +24,7 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
 PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
 
 
-class predictor_autoregressive_GP:
+class predictor_autoregressive_GP(predictor):
     def __init__(self, model_name, horizon, num_rollouts=1, **kwargs):
         # tf.config.run_functions_eagerly(True)
         a = SimpleNamespace()

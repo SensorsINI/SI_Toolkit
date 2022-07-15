@@ -2,9 +2,9 @@ from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES
 
 from SI_Toolkit_ASF_global.predictors_customization_tf import next_state_predictor_ODE_tf
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
+from SI_Toolkit.Predictors import predictor
 
 import tensorflow as tf
-import numpy as np
 
 
 def check_dimensions(s, Q):
@@ -26,7 +26,7 @@ def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
 
-class predictor_ODE_tf:
+class predictor_ODE_tf(predictor):
     def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, disable_individual_compilation=False, **kwargs):
 
         self.disable_individual_compilation = disable_individual_compilation
