@@ -1,6 +1,12 @@
+import logging
 import tensorflow as tf
 import platform
-from SI_Toolkit_ASF_global import GLOBALLY_DISABLE_COMPILATION
+
+try:
+    from SI_Toolkit_ASF_global import GLOBALLY_DISABLE_COMPILATION
+except ModuleNotFoundError:
+    logging.warn("No compilation option set in SI_Toolkit_ASF_global. Setting GLOBALLY_DISABLE_COMPILATION to True.")
+    GLOBALLY_DISABLE_COMPILATION = True
 
 def tf_function_jit(func):
     return tf.function(func=func, jit_compile=True)
