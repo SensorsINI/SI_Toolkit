@@ -27,8 +27,7 @@ def convert_to_tensors(s, Q):
 
 
 class predictor_ODE_tf(predictor):
-    def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, disable_individual_compilation=False, **kwargs):
-
+    def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, disable_individual_compilation=False, batch_size=1, **kwargs):
         self.disable_individual_compilation = disable_individual_compilation
 
         # batch_size will be adjusted the control input size
@@ -40,7 +39,7 @@ class predictor_ODE_tf(predictor):
         self.dt = dt
         self.intermediate_steps = intermediate_steps
 
-        self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, disable_individual_compilation=True)
+        self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, batch_size, disable_individual_compilation=True)
 
         if disable_individual_compilation:
             self.predict_tf = self._predict_tf
