@@ -14,7 +14,7 @@ from tqdm import trange
 
 
 try:
-    from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
+    from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
         CONTROL_INPUTS, CONTROL_INDICES
 except ModuleNotFoundError:
     print('SI_Toolkit_ASF not yet created')

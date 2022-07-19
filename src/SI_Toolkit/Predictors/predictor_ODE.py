@@ -8,7 +8,7 @@ While designing the controller you just chose the predictor you want,
 """
 
 import numpy as np
-from SI_Toolkit_ASF_global.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES
+from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES
 from SI_Toolkit.Predictors import predictor
 
 
