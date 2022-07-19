@@ -20,7 +20,7 @@ except:
     pass
 
 try:
-    from SI_Toolkit_ASF_global.user_defined_normalization_correction import apply_user_defined_normalization_correction
+    from SI_Toolkit_ASF.user_defined_normalization_correction import apply_user_defined_normalization_correction
 except:
     print('SI_Toolkit_ASF not created yet')
 

@@ -42,9 +42,9 @@ from SI_Toolkit.TF.TF_Functions.Normalising import get_normalization_function_tf
 from SI_Toolkit.TF.TF_Functions.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
-from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
+from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
     CONTROL_INPUTS
-from SI_Toolkit_ASF_global.predictors_customization_tf import predictor_output_augmentation_tf
+from SI_Toolkit_ASF.predictors_customization_tf import predictor_output_augmentation_tf
 from SI_Toolkit.Predictors import predictor
 
 import numpy as np

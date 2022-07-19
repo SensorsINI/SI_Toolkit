@@ -3,7 +3,7 @@ import tensorflow as tf
 import platform
 
 try:
-    from SI_Toolkit_ASF_global import GLOBALLY_DISABLE_COMPILATION
+    from SI_Toolkit_ASF import GLOBALLY_DISABLE_COMPILATION
 except ImportError:
     logging.warn("No compilation option set in SI_Toolkit_ASF_global. Setting GLOBALLY_DISABLE_COMPILATION to True.")
     GLOBALLY_DISABLE_COMPILATION = True
