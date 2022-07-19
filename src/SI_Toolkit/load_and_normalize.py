@@ -25,6 +25,7 @@ except:
     print('SI_Toolkit_ASF not created yet')
 
 import yaml, os
+config_SI = yaml.load(open(os.path.join("SI_Toolkit_ASF", "config_training.yml"), "r"), yaml.FullLoader)
 
 normalization_rounding_decimals = 5
 
@@ -676,3 +677,7 @@ def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_de
             dfs[i].to_csv(file_path, index=False, mode='a')
     else:
         print('No files found')
+
+
+if __name__ == "__main__":
+    calculate_normalization_info(config=config_SI)
