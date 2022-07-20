@@ -328,7 +328,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
             df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
         except NameError:
             print('User defined normalization correction not applied. \n'
-                  'The needed function not found in SI_Toolkit_ASF_global.user_defined_normalization_correction.py')
+                  'The needed function not found in SI_Toolkit_ASF.user_defined_normalization_correction.py')
 
     if df_norm_info.equals(df_norm_info_from_data):
         modified = 'No'

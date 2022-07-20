@@ -14,7 +14,7 @@ STATE_INDICES_TF = tf.lookup.StaticHashTable(  # TF style dictionary
 
 class next_state_predictor_ODE_tf():
 
-    def __init__(self, dt, intermediate_steps):
+    def __init__(self, dt, intermediate_steps, batch_size, **kwargs):
         self.s = None
 
         self.intermediate_steps = tf.convert_to_tensor(intermediate_steps, dtype=tf.int32)
