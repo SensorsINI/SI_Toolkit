@@ -18,11 +18,12 @@ class DataSelector:
         self.post_wash_out_len = args.post_wash_out_len  # 1 is minimum here! Also for dense net
         self.exp_len = self.wash_out_len + self.post_wash_out_len
 
-        self.num = 10  # You get one more bean as num
-        self.points_per_bin = 5
+        self.num = args.num  # You get one more bean as num
+        self.training = args.training
+        self.points_per_bin = 1
         self.nr_states_per_bin = np.ones((self.num, self.num, self.num, self.num, self.num))*self.points_per_bin
         self.nr_states_per_bin_current = np.zeros_like(self.nr_states_per_bin)
-        self.table_empty_places_init = np.sum(self.nr_states_per_bin)  # + 180*4*10*10*10*10
+        self.table_empty_places_init = np.sum(self.nr_states_per_bin)
         self.table_empty_places = self.table_empty_places_init
 
         self.position_bin_boundries = None
@@ -72,16 +73,16 @@ class DataSelector:
         print('There are {} datapoints available'.format(self.number_of_samples))
         print('You requested to collect {} points'.format(self.table_empty_places))
 
-        first = 3/4 # 1.0/(self.num-1)
-        last = 3/4 # (self.num-1-1)/(self.num-1)
+        first = (2.0-self.num)/self.num
+        last = (self.num-2.0)/self.num
 
-        self.position_bin_boundries = np.linspace(start=-self.maxs['position']*first, stop=self.maxs['position']*last, num=self.num-1)
-        self.positionD_bin_boundries = np.linspace(start=-self.maxs['positionD']*first, stop=self.maxs['positionD']*last, num=self.num-1)
-        self.angle_bin_boundries = np.linspace(start=-self.maxs['angle']*first, stop=self.maxs['angle']*last, num=self.num-1)
+        self.position_bin_boundries = np.linspace(start=self.maxs['position']*first, stop=self.maxs['position']*last, num=self.num-1)
+        self.positionD_bin_boundries = np.linspace(start=self.maxs['positionD']*first, stop=self.maxs['positionD']*last, num=self.num-1)
+        self.angle_bin_boundries = np.linspace(start=self.maxs['angle']*first, stop=self.maxs['angle']*last, num=self.num-1)
         # self.angle_sin_bin_boundries = np.linspace(start=-self.maxs['angle_sin'] * first, stop=self.maxs['angle_sin'] * last, num=self.num-1)
         # self.angle_cos_bin_boundries = np.linspace(start=-self.maxs['angle_cos'] * first, stop=self.maxs['angle_cos'] * last, num=self.num-1)
-        self.angleD_bin_boundries = np.linspace(start=-self.maxs['angleD']*first, stop=self.maxs['angleD']*last, num=self.num-1)
-        self.Q_bin_boundries = np.linspace(start=-self.maxs['Q'] * first, stop=self.maxs['Q'] * last, num=self.num-1)
+        self.angleD_bin_boundries = np.linspace(start=self.maxs['angleD']*first, stop=self.maxs['angleD']*last, num=self.num-1)
+        self.Q_bin_boundries = np.linspace(start=self.maxs['Q'] * first, stop=self.maxs['Q'] * last, num=self.num-1)
 
         self.max_iter = self.number_of_samples-1
 
@@ -112,8 +113,8 @@ class DataSelector:
             Q_idx = next((i for i, v in enumerate(self.Q_bin_boundries) if v > data_point['Q']), len(self.Q_bin_boundries))
 
             bin_idx = (position_idx, positionD_idx, angle_idx, angleD_idx, Q_idx)
-            if angle_idx in range(3, 7) and angleD_idx in range(3, 7):
-                self.nr_states_per_bin[bin_idx] = 50
+            if self.training and angle_idx in range(3, 7) and angleD_idx in range(3, 7):
+                self.nr_states_per_bin[bin_idx] = 20
             # else:
             #     self.nr_states_per_bin[bin_idx] = 0
             # elif angle_cos_idx >= 6:

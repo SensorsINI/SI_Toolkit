@@ -466,6 +466,8 @@ def normalize_feature(feature, normalization_info, normalization_type='minmax_sy
     elif normalization_type == 'minmax_sym':
         col_min = normalization_info.loc['min', name]
         col_max = normalization_info.loc['max', name]
+        if isinstance(col_max, str):
+            return 0
         if (col_max - col_min) == 0:
             return 0
         else:
