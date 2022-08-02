@@ -218,6 +218,7 @@ def train_network(a, nni_parameters=None):
     plt.ylabel("Loss")
     plt.yscale('log')
     plt.legend()
+    plt.title(net_info.net_full_name)
     plt.savefig(net_info.path_to_net + 'training_curve' + '.png')
     plt.show()
     # endregion
