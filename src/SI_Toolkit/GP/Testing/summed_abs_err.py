@@ -58,9 +58,9 @@ if __name__ == '__main__':
 
     predictors = []
     for predictor_name in a.tests:
-        if 'Euler' in predictor_name:
+        if 'predictor_ODE_tf' in predictor_name:
             predictors.append(predictor_ODE_tf(horizon=50, dt=0.02))
-        elif 'GP' in predictor_name:
+        elif 'predictor_autoregressive_GP' in predictor_name:
             predictors.append(predictor_autoregressive_GP(model_name=predictor_name, horizon=50))
         else:
             predictors.append(predictor_autoregressive_tf(horizon=50, batch_size=1, net_name=predictor_name))

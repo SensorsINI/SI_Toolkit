@@ -27,13 +27,13 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     # mode = 'sequential'
     # mode = 'batch'
 
-    if 'EulerTF' in predictor_name:
+    if 'predictor_ODE_tf' in predictor_name:
         from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
         predictor = predictor_ODE_tf(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps, batch_size=a.test_len)
-    elif 'Euler' in predictor_name:
+    elif 'predictor_ODE' in predictor_name:
         from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
         predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps, batch_size=a.test_len)
-    elif 'GP' in predictor_name:
+    elif 'predictor_autoregressive_GP' in predictor_name:
         from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
         if mode == 'batch':
             predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=a.test_max_horizon, num_rollouts=a.test_len)
