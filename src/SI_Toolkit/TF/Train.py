@@ -141,7 +141,7 @@ def train_network(a, nni_parameters=None):
 
     net.compile(
         loss="mse",
-        optimizer=keras.optimizers.Adam(0.001)
+        optimizer=keras.optimizers.Adam(a.lr)
     )
     # net.compile(
     #     loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
