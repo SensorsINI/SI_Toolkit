@@ -445,7 +445,7 @@ def normalize_feature(feature, normalization_info, normalization_type='minmax_sy
     else:
         pass
 
-    if name in normalization_info.columns:
+    if name in normalization_info.columns and pd.api.types.is_numeric_dtype(normalization_info[name]):
         pass
     else:
         return feature
@@ -494,6 +494,11 @@ def denormalize_feature(feature, normalization_info, normalization_type='minmax_
         name = feature.name
     else:
         pass
+
+    if name in normalization_info.columns and pd.api.types.is_numeric_dtype(normalization_info[name]):
+        pass
+    else:
+        return feature
 
     if normalization_type == 'gaussian':
         # col_mean = normalization_info.loc['mean', name]
