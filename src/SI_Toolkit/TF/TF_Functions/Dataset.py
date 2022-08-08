@@ -34,19 +34,11 @@ class Dataset(keras.utils.Sequence):
         self.labels = []
         self.time_axes = []
 
-        SAMPLING_PERIOD = 0.02
-        CUT_LAST_S = 0.0
-        TAKE_X_PERCENT_OF_DATA = 100.0
-        for i in range(len(dfs)):
-            df = dfs[i]
-            if CUT_LAST_S != 0.0:
-                df = df.iloc[:-int(CUT_LAST_S/SAMPLING_PERIOD)]
+        for df in dfs:
             if 'time' in df.columns:
                 self.time_axes.append(df['time'])
             self.data.append(df[self.inputs])
             self.labels.append(df[self.outputs])
-            if ((i+1)*100.0/len(dfs)) > TAKE_X_PERCENT_OF_DATA:
-                break
 
         self.args = args
 
