@@ -14,14 +14,13 @@ from SI_Toolkit.Predictors import predictor
 
 class predictor_ODE(predictor):
     def __init__(self, horizon, dt, intermediate_steps=1, batch_size=1, **kwargs):
-        # batch_size will be adjusted the control input size
-        super().__init__(horizon=horizon, batch_size=None)
+        super().__init__(horizon=horizon, batch_size=batch_size)
 
         self.initial_state = None
         self.output = None
 
         # Part specific to cartpole
-        self.next_step_predictor = next_state_predictor_ODE(dt, intermediate_steps, batch_size)
+        self.next_step_predictor = next_state_predictor_ODE(dt, intermediate_steps, self.batch_size)
 
 
     def predict(self, initial_state: np.ndarray, Q: np.ndarray, params=None) -> np.ndarray:
