@@ -9,7 +9,7 @@ except ImportError:
     GLOBALLY_DISABLE_COMPILATION = True
 
 def tf_function_jit(func):
-    return tf.function(func=func)
+    return tf.function(func=func, jit_compile=True)
 
 
 def tf_function_experimental(func):
