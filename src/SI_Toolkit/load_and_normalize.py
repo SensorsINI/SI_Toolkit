@@ -682,7 +682,3 @@ def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_de
             dfs[i].to_csv(file_path, index=False, mode='a')
     else:
         print('No files found')
-
-
-if __name__ == "__main__":
-    calculate_normalization_info(config=config_SI)
