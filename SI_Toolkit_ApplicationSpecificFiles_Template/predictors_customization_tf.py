@@ -14,7 +14,7 @@ STATE_INDICES_TF = tf.lookup.StaticHashTable(  # TF style dictionary
 
 class next_state_predictor_ODE_tf():
 
-    def __init__(self, dt, intermediate_steps):
+    def __init__(self, dt, intermediate_steps, batch_size, **kwargs):
         self.s = None
 
         self.intermediate_steps = tf.convert_to_tensor(intermediate_steps, dtype=tf.int32)
@@ -29,7 +29,7 @@ class next_state_predictor_ODE_tf():
 
 
 class predictor_output_augmentation_tf:
-    def __init__(self, net_info):
+    def __init__(self, net_info, differential_network=False):
         self.net_output_indices = {key: value for value, key in enumerate(net_info.outputs)}
         indices_augmentation = []
         features_augmentation = []

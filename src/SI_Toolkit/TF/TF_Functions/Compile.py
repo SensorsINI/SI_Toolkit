@@ -1,6 +1,12 @@
+import logging
 import tensorflow as tf
 import platform
 
+try:
+    from SI_Toolkit_ASF import GLOBALLY_DISABLE_COMPILATION
+except ImportError:
+    logging.warn("No compilation option set in SI_Toolkit_ASF. Setting GLOBALLY_DISABLE_COMPILATION to True.")
+    GLOBALLY_DISABLE_COMPILATION = True
 
 def tf_function_jit(func):
     return tf.function(func=func, jit_compile=True)
@@ -13,8 +19,6 @@ def tf_function_experimental(func):
 def identity(func):
     return func
 
-GLOBALLY_DISABLE_COMPILATION = False
-# GLOBALLY_DISABLE_COMPILATION = True
 
 if GLOBALLY_DISABLE_COMPILATION:
     Compile = identity

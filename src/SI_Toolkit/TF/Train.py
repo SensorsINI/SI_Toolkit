@@ -31,7 +31,7 @@ from SI_Toolkit.load_and_normalize import load_data, normalize_df, \
     get_paths_to_datafiles
 
 try:
-    from SI_Toolkit_ASF_global.DataSelector import DataSelector
+    from SI_Toolkit_ASF.DataSelector import DataSelector
 except:
     print('No DataSelector found.')
 

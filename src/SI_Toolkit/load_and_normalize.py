@@ -20,11 +20,12 @@ except:
     pass
 
 try:
-    from SI_Toolkit_ASF_global.user_defined_normalization_correction import apply_user_defined_normalization_correction
+    from SI_Toolkit_ASF.user_defined_normalization_correction import apply_user_defined_normalization_correction
 except:
     print('SI_Toolkit_ASF not created yet')
 
 import yaml, os
+config_SI = yaml.load(open(os.path.join("SI_Toolkit_ASF", "config_training.yml"), "r"), yaml.FullLoader)
 
 normalization_rounding_decimals = 5
 
@@ -327,7 +328,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
             df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
         except NameError:
             print('User defined normalization correction not applied. \n'
-                  'The needed function not found in SI_Toolkit_ASF_global.user_defined_normalization_correction.py')
+                  'The needed function not found in SI_Toolkit_ASF.user_defined_normalization_correction.py')
 
     if df_norm_info.equals(df_norm_info_from_data):
         modified = 'No'
