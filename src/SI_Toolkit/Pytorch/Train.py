@@ -21,7 +21,7 @@ import timeit
 from warnings import warn as warning
 
 # "Command line" parameters
-from SI_Toolkit.Pytorch.Parameters import args
+from SI_Toolkit.load_parameters_for_training import args
 
 import time
 

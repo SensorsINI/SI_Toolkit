@@ -12,7 +12,7 @@ import numpy as np
 
 import matplotlib
 from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
-from SI_Toolkit.GP.Parameters import args
+from SI_Toolkit.load_parameters_for_training import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, \
     normalize_df, denormalize_df, normalize_numpy_array, denormalize_numpy_array
 from SI_Toolkit.GP.DataSelector import DataSelector

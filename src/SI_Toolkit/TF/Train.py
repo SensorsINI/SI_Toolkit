@@ -19,7 +19,7 @@ import os
 import timeit
 
 # "Command line" parameters
-from SI_Toolkit.TF.Parameters import args
+from SI_Toolkit.load_parameters_for_training import args
 
 # Custom functions
 from SI_Toolkit.TF.TF_Functions.Initialization import set_seed, create_full_name, create_log_file, \

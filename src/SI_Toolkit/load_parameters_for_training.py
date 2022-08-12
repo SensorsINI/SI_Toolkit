@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jun 19 08:29:29 2020
-
-@author: Marcin
+This function loads parameters for training (TF/Pytorch/GPs) from config,
+adds however an option to overwrite config values with command line
 """
 import argparse
 import glob
@@ -105,6 +104,9 @@ def args():
     parser.add_argument('--path_to_normalization_info', default=PATH_TO_NORMALIZATION_INFO, type=str,
                         help='Path where the cartpole data is saved')
 
+    parser.add_argument('--num_workers', default=1, type=int,
+                        help='Number of workers to produce data from data loaders - only for Pytorch')
+
     parser.add_argument('--on_fly_data_generation', default=ON_FLY_DATA_GENERATION, type=bool,
                         help='Generate data for training during training, instead of loading previously saved data')
     parser.add_argument('--normalize', default=NORMALIZE, type=bool, help='Make all data between 0 and 1')
@@ -129,5 +131,8 @@ def args():
 
     if args.outputs is not None:
         args.outputs = sorted(args.outputs)
+
+    args.exp_len = args.wash_out_len + args.post_wash_out_len
+
     return args
 
