@@ -1,25 +1,19 @@
 from SI_Toolkit.Testing.Parameters_for_testing import args
 from SI_Toolkit.GP.Parameters import args as args_GP
-from SI_Toolkit.load_and_normalize import normalize_numpy_array, load_normalization_info
 
-import matplotlib
 import matplotlib.pyplot as plt
 import yaml
 from types import SimpleNamespace
 
-from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
 from SI_Toolkit.GP.DataSelector import DataSelector
 
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, \
-    normalize_df, denormalize_df, normalize_numpy_array, denormalize_numpy_array
+    normalize_df
 
-from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
+from SI_Toolkit.Functions.General.Initialization import get_net
 
 import os
 import numpy as np
-import tensorflow as tf
 import random
 
 def state_space_pred_err(net, data, save_dir=None):
@@ -147,6 +141,6 @@ if __name__ == '__main__':
 
     net, _ = \
         get_net(a, time_series_length=1,
-                batch_size=1000, stateful=True)
+                batch_size=1000, stateful=True, library='TF')
 
     state_space_pred_err(net, data_subsampled, save_dir=save_dir + '/info/ss_error/')

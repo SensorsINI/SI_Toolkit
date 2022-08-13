@@ -1,14 +1,9 @@
 from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.TF.TF_Functions.Normalising import normalize_tf, denormalize_tf
-from SI_Toolkit.TF.TF_Functions.Compile import Compile
+from SI_Toolkit.Functions.TF.Normalising import normalize_tf, denormalize_tf
+from SI_Toolkit.Functions.TF.Compile import Compile
 
-import numpy as np
-
-from types import SimpleNamespace
 import os
 import yaml
-
-import tensorflow as tf
 
 try:
     from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
@@ -95,7 +90,6 @@ class predictor_autoregressive_GP:
 
 
 if __name__ == '__main__':
-    import timeit
 
     initialization = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_GP_old import predictor_autoregressive_GP
