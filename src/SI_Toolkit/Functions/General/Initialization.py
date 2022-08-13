@@ -168,11 +168,11 @@ def get_net(a,
             ckpt_found = False
 
             ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filenames[0]
-            if os.path.isfile(ckpt_path + '.index'):
+            if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
                 ckpt_found = True
             if not ckpt_found:
                 ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filenames[1]
-                if os.path.isfile(ckpt_path + '.index'):
+                if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
                     ckpt_found = True
             if not ckpt_found:
                 ckpt_not_found_str = 'The corresponding .ckpt file is missing' \
