@@ -1,6 +1,6 @@
 from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.TF.TF_Functions.Normalising import get_normalization_function_tf, get_denormalization_function_tf
-from SI_Toolkit.TF.TF_Functions.Compile import Compile
+from SI_Toolkit.Functions.TF.Normalising import get_normalization_function_tf, get_denormalization_function_tf
+from SI_Toolkit.Functions.TF.Compile import Compile
 
 from types import SimpleNamespace
 import os

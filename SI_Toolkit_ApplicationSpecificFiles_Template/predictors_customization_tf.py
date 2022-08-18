@@ -1,8 +1,6 @@
 import tensorflow as tf
 
-from SI_Toolkit.TF.TF_Functions.Compile import Compile
-import numpy as np
-
+from SI_Toolkit.Functions.TF.Compile import Compile
 
 STATE_INDICES = {} # This could be imported
 STATE_INDICES_TF = tf.lookup.StaticHashTable(  # TF style dictionary

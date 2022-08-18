@@ -1,11 +1,10 @@
 import os
-# We use shutil to remove redundant dictionaries, os can remvove
-import shutil
-
-import random as rnd
 
 import numpy as np
-import tensorflow as tf
+import random as rnd
+
+from shutil import copy as shutil_copy
+import shutil
 
 from datetime import datetime
 
@@ -15,25 +14,26 @@ try:
 except:
     pass
 
-from SI_Toolkit.TF.TF_Functions.Network import compose_net_from_net_name, load_pretrained_net_weights
 from SI_Toolkit.load_and_normalize import load_normalization_info, calculate_normalization_info
-
-from shutil import copy as shutil_copy
-
 
 # Set seeds everywhere required to make results reproducible
 def set_seed(args):
     seed = args.seed
     rnd.seed(seed)
     np.random.seed(seed)
-    tf.random.set_seed(seed)
+    if args.library == 'TF':
+        import tensorflow as tf
+        tf.random.set_seed(seed)
+    else:  # Pytorch
+        pass
 
 
 def get_net(a,
             # If any of arguments provided it overwrite what is given in a
             time_series_length=None,
             batch_size=None,
-            stateful=False
+            stateful=False,
+            library='TF'
             ):
     """
     A quite big (too big?) chunk of creating a network, its associated net_info variable
@@ -48,6 +48,11 @@ def get_net(a,
     The action to take is decided based on provided net_name.
     It also deletes the folder if txt or ckpt file is missing.
     """
+
+    if library == 'TF':
+        from SI_Toolkit.Functions.TF.Network import compose_net_from_net_name, load_pretrained_net_weights
+    else:
+        from SI_Toolkit.Functions.Pytorch.Network import compose_net_from_net_name, load_pretrained_net_weights
 
     # region If length of timeseries to be fed into net not provided get it as a sum: wash_out_len + post_wash_out_len
     if time_series_length is None:
@@ -154,15 +159,20 @@ def get_net(a,
                                                       batch_size=batch_size, stateful=stateful)
 
             # region Load weights from checkpoint file
-            ckpt_filenames = [parent_net_name + '.ckpt', 'ckpt.ckpt'] # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
+            if library == 'TF':
+                ckpt_filenames = [parent_net_name + '.ckpt',
+                                  'ckpt.ckpt']  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
+            else:  # Pytorch
+                ckpt_filenames = [parent_net_name + '.pt',
+                                  'ckpt.pt']  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
             ckpt_found = False
 
             ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filenames[0]
-            if os.path.isfile(ckpt_path + '.index'):
+            if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
                 ckpt_found = True
             if not ckpt_found:
                 ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filenames[1]
-                if os.path.isfile(ckpt_path + '.index'):
+                if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
                     ckpt_found = True
             if not ckpt_found:
                 ckpt_not_found_str = 'The corresponding .ckpt file is missing' \
@@ -234,7 +244,6 @@ def get_net(a,
         net_info.wash_out_len = a.wash_out_len
     except AttributeError:
         print('Wash out not defined.')
-
     # endregion
 
     return net, net_info
@@ -267,12 +276,7 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
         normalization_info = load_normalization_info(net_info.path_to_normalization_info)
 
     # region Get sampling interval from normalization info
-    # TODO: this does not really fits here put is too small for me to create separate function
-    # try:
-    #     net_info.sampling_interval = get_sampling_interval_from_normalization_info(net_info.path_to_normalization_info)
-    # except ValueError:
-    #     net_info.sampling_interval = None
-    #     print('sampling_interval unknown')
+    net_info.sampling_interval = None
     # endregion
 
     return normalization_info
@@ -331,8 +335,6 @@ def create_log_file(net_info, a):
     f.write(net_info.net_type)
     f.write('\n\nNORMALIZATION:\n')
     f.write(net_info.path_to_normalization_info)
-    # f.write('\n\nSAMPLING INTERVAL:\n')
-    # f.write('{} s'.format(net_info.sampling_interval))
     f.write('\n\nPARENT NET:\n')
     f.write(net_info.parent_net_name)
     f.write('\n\nWASH OUT LENGTH:\n')

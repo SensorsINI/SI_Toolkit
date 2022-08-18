@@ -1,5 +1,4 @@
 import tensorflow as tf
-from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 """
 In the below functions normalizing_array is required 

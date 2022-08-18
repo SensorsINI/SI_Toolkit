@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jun 19 08:29:29 2020
-
-@author: Marcin
+This function loads parameters for training (TF/Pytorch/GPs) from config,
+adds however an option to overwrite config values with command line
 """
 import argparse
 import glob
@@ -10,6 +9,7 @@ import yaml, os
 
 config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
 
+library = config['library']
 
 net_name = config['modeling']['NET_NAME']
 
@@ -48,6 +48,7 @@ WASH_OUT_LEN = config['training_default']['WASH_OUT_LEN']
 POST_WASH_OUT_LEN = config['training_default']['POST_WASH_OUT_LEN']
 ON_FLY_DATA_GENERATION = config['training_default']['ON_FLY_DATA_GENERATION']
 NORMALIZE = config['training_default']['NORMALIZE']
+USE_NNI = config['training_default']['USE_NNI']
 
 # For l2race
 # control_inputs = ['u1', 'u2']
@@ -58,6 +59,9 @@ NORMALIZE = config['training_default']['NORMALIZE']
 
 def args():
     parser = argparse.ArgumentParser(description='Train a GRU network.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('--library', default=library, type=str,
+                        help='Decide if you want to use TF or Pytorch for training.')
 
     # Defining the model
     parser.add_argument('--net_name', default=net_name, type=str,
@@ -108,6 +112,7 @@ def args():
     parser.add_argument('--on_fly_data_generation', default=ON_FLY_DATA_GENERATION, type=bool,
                         help='Generate data for training during training, instead of loading previously saved data')
     parser.add_argument('--normalize', default=NORMALIZE, type=bool, help='Make all data between 0 and 1')
+    parser.add_argument('--use_nni', default=USE_NNI, type=bool, help='Use NNI package to search hyperparameter space')
 
     args = parser.parse_args()
 
@@ -129,5 +134,6 @@ def args():
 
     if args.outputs is not None:
         args.outputs = sorted(args.outputs)
+
     return args
 

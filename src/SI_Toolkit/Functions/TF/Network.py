@@ -1,13 +1,8 @@
-
-import copy
-
-import numpy as np
-
 from types import SimpleNamespace
 
 import tensorflow as tf
 
-from SI_Toolkit.TF.TF_Functions.Compile import Compile
+from SI_Toolkit.Functions.TF.Compile import Compile
 
 def load_pretrained_net_weights(net, ckpt_path):
     """

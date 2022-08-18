@@ -15,5 +15,4 @@ eggs/
 *.egg-info/
 *.egg
 /NormalizationInfo
-/src/SI_Toolkit/TF/Models
-/src/SI_Toolkit/TF/NNI/NNI_Results
+/src/SI_Toolkit/Training/NNI/NNI_Results
