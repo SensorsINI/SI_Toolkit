@@ -1,6 +1,6 @@
-from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES
+from mppi.state_utilities import STATE_VARIABLES
 
-from SI_Toolkit_ASF_global.predictors_customization_tf import next_state_predictor_ODE_tf
+from mppi.predictors_customization_tf import next_state_predictor_ODE_tf
 from SI_Toolkit.TF.TF_Functions.Compile import Compile
 
 import tensorflow as tf
@@ -40,7 +40,7 @@ class predictor_ODE_tf:
         self.dt = dt
         self.intermediate_steps = intermediate_steps
 
-        self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, disable_individual_compilation=True)
+        self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps)
 
         if disable_individual_compilation:
             self.predict_tf = self._predict_tf

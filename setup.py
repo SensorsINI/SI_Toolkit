@@ -31,7 +31,7 @@ else:
     PyQt_requirements = ['PyQt6']
 
 requirements = []
-requirements = requirements + tensorflow_requirements + PyQt_requirements
+requirements = requirements + tensorflow_requirements # + PyQt_requirements
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()
