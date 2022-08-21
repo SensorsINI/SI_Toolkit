@@ -371,7 +371,8 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     date_now = datetime.now().strftime('%Y-%m-%d')
     time_now = datetime.now().strftime('%H-%M-%S')
 
-    csv_filepath = path_to_norm_info + 'NI_' + date_now + '_' + time_now + '.csv'
+    normalization_info_name = 'NI_' + date_now + '_' + time_now
+    csv_filepath = path_to_norm_info + normalization_info_name + '.csv'
 
     with open(csv_filepath, "a", newline='') as outfile:
         writer = csv.writer(outfile)
@@ -422,10 +423,18 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # region Plot histograms of data used for normalization
     if plot_histograms:
         # Plot historgrams to make the firs check about gaussian assumption
+        # Save histograms to folder with same name
+        histograms_path = path_to_norm_info + 'histograms'
+        try:
+            os.makedirs(histograms_path)
+        except FileExistsError:
+            pass
+
         for feature in df_norm_info.columns:
             if feature in df_total.columns:
                 plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
                 plt.title(feature)
+                plt.savefig(histograms_path + '/' + feature + '.png')
                 plt.show()
 
     # endregion
