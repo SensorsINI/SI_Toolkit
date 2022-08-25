@@ -1,6 +1,7 @@
 import os.path
 import time
 import timeit
+import shutil
 
 try:
     import nni
@@ -76,6 +77,11 @@ def train_network():
     #                              - validation
     #                              - testing
     create_log_file(net_info, a)
+
+    # Copy training config
+    src = os.path.join('SI_Toolkit_ASF', 'config_training.yml')
+    dst = os.path.join(a.path_to_models, net_info.net_full_name)
+    shutil.copy2(src, dst)
 
     # region Load data and prepare datasets
 
