@@ -49,6 +49,7 @@ POST_WASH_OUT_LEN = config['training_default']['POST_WASH_OUT_LEN']
 ON_FLY_DATA_GENERATION = config['training_default']['ON_FLY_DATA_GENERATION']
 NORMALIZE = config['training_default']['NORMALIZE']
 USE_NNI = config['training_default']['USE_NNI']
+CONSTRUCT_NETWORK = config['training_default']['CONSTRUCT_NETWORK']
 
 # For l2race
 # control_inputs = ['u1', 'u2']
@@ -113,6 +114,10 @@ def args():
                         help='Generate data for training during training, instead of loading previously saved data')
     parser.add_argument('--normalize', default=NORMALIZE, type=bool, help='Make all data between 0 and 1')
     parser.add_argument('--use_nni', default=USE_NNI, type=bool, help='Use NNI package to search hyperparameter space')
+    parser.add_argument('--construct_network', default=CONSTRUCT_NETWORK, type=str,
+                        help='For Pytorch you can decide if you want to construct network with modules or cells.'
+                             'First is needed for DeltaRNN, second gives more flexibility in specifying layers sizes.')
+
 
     args = parser.parse_args()
 

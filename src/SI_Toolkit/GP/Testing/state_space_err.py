@@ -141,6 +141,6 @@ if __name__ == '__main__':
 
     net, _ = \
         get_net(a, time_series_length=1,
-                batch_size=1000, stateful=True, library='TF')
+                batch_size=1000, stateful=True)
 
     state_space_pred_err(net, data_subsampled, save_dir=save_dir + '/info/ss_error/')

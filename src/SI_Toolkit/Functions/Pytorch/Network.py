@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from SI_Toolkit.Functions.Pytorch.DeltaGRU.deltagru import DeltaGRU
 
 import collections
 from types import SimpleNamespace
@@ -39,9 +40,11 @@ def compose_net_from_net_name(net_name,
                               outputs_list,
                               time_series_length,
                               batch_size=None,
-                              stateful=False):
+                              stateful=False,
+                              construct_network='with cells'):
 
-    net = Sequence(net_name=net_name, inputs_list=inputs_list, outputs_list=outputs_list, batch_size=batch_size)
+    net = Sequence(net_name=net_name, inputs_list=inputs_list, outputs_list=outputs_list,
+                   batch_size=batch_size, construct_network=construct_network)
 
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
           .format(net.net_type, len(net.h_size), ', '.join(map(str, net.h_size))))
@@ -61,7 +64,7 @@ class Sequence(nn.Module):
     Our Network class.
     """
 
-    def __init__(self, net_name, inputs_list, outputs_list, batch_size):
+    def __init__(self, net_name, inputs_list, outputs_list, batch_size, construct_network='with cells'):
         super(Sequence, self).__init__()
         """Initialization of an RNN instance
         We assume that inputs may be both commands and state variables, whereas outputs are always state variables
@@ -69,6 +72,8 @@ class Sequence(nn.Module):
 
         # Check if GPU is available. If yes device='cuda:0' if not device='cpu'
         self.device = get_device()
+
+        self.construct_network = construct_network
 
         self.net_name = net_name
         self.net_full_name = None
@@ -93,6 +98,8 @@ class Sequence(nn.Module):
 
         if 'GRU' in names:
             self.net_type = 'GRU'
+        if 'DeltaGRU' in names:
+            self.net_type = 'DeltaGRU'
         elif 'LSTM' in names:
             self.net_type = 'LSTM'
         elif 'Dense' in names:
@@ -101,33 +108,52 @@ class Sequence(nn.Module):
             self.net_type = 'RNN-Basic'
 
         # Construct network
+        if self.construct_network == 'with cells':
+            if self.net_type == 'Dense':
+                self.net_cell = [nn.Linear(len(inputs_list), self.h_size[0]).to(self.device)]
+                for i in range(len(self.h_size) - 1):
+                    self.net_cell.append(nn.Linear(self.h_size[i], self.h_size[i + 1]).to(self.device))
+            elif self.net_type == 'GRU':
+                self.net_cell = [nn.GRUCell(len(inputs_list), self.h_size[0]).to(self.device)]
+                for i in range(len(self.h_size) - 1):
+                    self.net_cell.append(nn.GRUCell(self.h_size[i], self.h_size[i + 1]).to(self.device))
+            elif self.net_type == 'DeltaGRU':
+                raise ValueError("DeltaGRU can only be created with construct_network == 'with modules'")
+            elif self.net_type == 'LSTM':
+                self.net_cell = [nn.LSTMCell(len(inputs_list), self.h_size[0]).to(self.device)]
+                for i in range(len(self.h_size) - 1):
+                    self.net_cell.append(nn.LSTMCell(self.h_size[i], self.h_size[i + 1]).to(self.device))
+            elif self.net_type == 'RNN-Basic':
+                self.net_cell = [nn.RNNCell(len(inputs_list), self.h_size[0]).to(self.device)]
+                for i in range(len(self.h_size) - 1):
+                    self.net_cell.append(nn.RNNCell(self.h_size[i], self.h_size[i + 1]).to(self.device))
+        elif self.construct_network == 'with modules':
+            if self.net_type == 'Dense':
+                raise ValueError("Dense can only be created with construct_network == 'with cells'")
+            if self.h_size and self.h_size.count(self.h_size[0]) != len(self.h_size):  # List not empty and not elements are the same
+                raise ValueError("In the mode construct_network == 'with modules' all hidden layers must have the same size. It is not the case.")
 
-        if self.net_type == 'GRU':
-            self.net_cell = [nn.GRUCell(len(inputs_list), self.h_size[0]).to(self.device)]
-            for i in range(len(self.h_size) - 1):
-                self.net_cell.append(nn.GRUCell(self.h_size[i], self.h_size[i + 1]).to(self.device))
-        elif self.net_type == 'LSTM':
-            self.net_cell = [nn.LSTMCell(len(inputs_list), self.h_size[0]).to(self.device)]
-            for i in range(len(self.h_size) - 1):
-                self.net_cell.append(nn.LSTMCell(self.h_size[i], self.h_size[i + 1]).to(self.device))
-        elif self.net_type == 'Dense':
-            self.net_cell = [nn.Linear(len(inputs_list), self.h_size[0]).to(self.device)]
-            for i in range(len(self.h_size) - 1):
-                self.net_cell.append(nn.Linear(self.h_size[i], self.h_size[i + 1]).to(self.device))
-        else:
-            self.net_cell = [nn.RNNCell(len(inputs_list), self.h_size[0]).to(self.device)]
-            for i in range(len(self.h_size) - 1):
-                self.net_cell.append(nn.RNNCell(self.h_size[i], self.h_size[i + 1]).to(self.device))
+            if self.net_type == 'GRU':
+                self.network_head = nn.GRU(input_size=len(inputs_list), hidden_size=self.h_size[0],
+                                           num_layers=len(self.h_size))
+            elif self.net_type == 'DeltaGRU':
+                self.network_head = DeltaGRU(n_inp=len(inputs_list), n_hid=self.h_size[0],
+                                             num_layers=len(self.h_size))
+            elif self.net_type == 'LSTM':
+                self.network_head = nn.LSTM(input_size=len(inputs_list), hidden_size=self.h_size[0],
+                                            num_layers=len(self.h_size))
+            elif self.net_type == 'RNN-Basic':
+                self.network_head = nn.RNN(input_size=len(inputs_list), hidden_size=self.h_size[0],
+                                           num_layers=len(self.h_size))
 
-        self.linear = nn.Linear(self.h_size[-1], len(outputs_list))  # RNN out
+        self.final_fc = nn.Linear(self.h_size[-1], len(outputs_list))  # RNN out
 
-        self.layers = nn.ModuleList([])
-        for cell in self.net_cell:
-            self.layers.append(cell)
-        self.layers.append(self.linear)
+        if self.construct_network == 'with cells':
+            self.layers = nn.ModuleList([])
+            for cell in self.net_cell:
+                self.layers.append(cell)
+            self.layers.append(self.final_fc)
 
-        # Count data samples (=time steps)
-        self.sample_counter = 0
         # Declaration of the variables keeping internal state of GRU hidden layers
         self.h = [None] * len(self.h_size)
         self.c = [None] * len(self.h_size)  # Internal state cell - only matters for LSTM
@@ -144,7 +170,6 @@ class Sequence(nn.Module):
         """
         Reset the network (not the weights!)
         """
-        self.sample_counter = 0
         self.reset_internal_states()
 
     def forward(self, network_input):
@@ -155,35 +180,41 @@ class Sequence(nn.Module):
 
         network_input = torch.transpose(network_input, 0, 1)  # Results in [time horizon, batch size, features (input size)]
 
-        outputs = []
-
         if self.batch_size is None:
             batch_size = network_input.size(1)
             if self.h[0] is None:
                 self.reset_internal_states(batch_size)
 
-        for iteration, input_t in enumerate(network_input.chunk(network_input.size(0), dim=0)):
+        if self.construct_network == 'with cells':
+            outputs = []
+            for iteration, input_t in enumerate(network_input.chunk(network_input.size(0), dim=0)):
+                if self.net_type == 'Dense':
+                    self.h[0] = self.layers[0](input_t.squeeze(0))
+                    for i in range(len(self.h_size) - 1):
+                        self.h[i + 1] = self.layers[i + 1](self.h[i])
+                elif self.net_type == 'LSTM':
+                    self.h[0], self.c[0] = self.layers[0](input_t.squeeze(0), (self.h[0], self.c[0]))
+                    for i in range(len(self.h_size) - 1):
+                        self.h[i + 1], self.c[i + 1] = self.layers[i + 1](self.h[i], (self.h[i + 1], self.c[i + 1]))
+                elif self.net_type == 'GRU' or self.net_type == 'RNN-Basic':
+                    self.h[0] = self.layers[0](input_t.squeeze(0), self.h[0])
+                    for i in range(len(self.h_size) - 1):
+                        self.h[i + 1] = self.layers[i + 1](self.h[i], self.h[i + 1])
 
-            # Propagate input through RNN layers
+                output = self.final_fc(self.h[-1])
+
+                outputs += [output]
+
+            outputs = torch.stack(outputs, 1)
+
+        elif self.construct_network == 'with modules':
             if self.net_type == 'LSTM':
-                self.h[0], self.c[0] = self.layers[0](input_t.squeeze(0), (self.h[0], self.c[0]))
-                for i in range(len(self.h_size) - 1):
-                    self.h[i + 1], self.c[i + 1] = self.layers[i + 1](self.h[i], (self.h[i + 1], self.c[i + 1]))
-            elif self.net_type == 'GRU' or self.net_type == 'RNN-Basic':
-                self.h[0] = self.layers[0](input_t.squeeze(0), self.h[0])
-                for i in range(len(self.h_size) - 1):
-                    self.h[i + 1] = self.layers[i + 1](self.h[i], self.h[i + 1])
-            elif self.net_type == 'Dense':
-                self.h[0] = self.layers[0](input_t.squeeze(0))
-                for i in range(len(self.h_size) - 1):
-                    self.h[i + 1] = self.layers[i + 1](self.h[i])
+                outputs, (self.h, self.c) = self.network_head(input, (self.h, self.c))
+            elif self.net_type == 'GRU' or self.net_type == 'DeltaGRU' or self.net_type == 'RNN-Basic':
+                outputs, self.h = self.network_head(network_input, self.h)
+            outputs = self.final_fc(outputs)
 
-            output = self.layers[-1](self.h[-1])
-
-            outputs += [output]
-            self.sample_counter = self.sample_counter + 1
-
-        return torch.stack(outputs, 1)
+        return outputs
 
     def reset_internal_states(self, batch_size=None):
 

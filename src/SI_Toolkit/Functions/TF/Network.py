@@ -22,7 +22,9 @@ def compose_net_from_net_name(net_name,
                               outputs_list,
                               time_series_length,
                               batch_size=None,
-                              stateful=False):
+                              stateful=False,
+                              **kwargs,
+                              ):
 
     # Get the information about network architecture from the network name
     # Split the names into "LSTM/GRU", "128H1", "64H2" etc.

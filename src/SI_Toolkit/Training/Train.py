@@ -33,11 +33,6 @@ def train_network():
     file = os.path.realpath(__file__)
     print("Training script last modified: %s" % time.ctime(os.path.getmtime(file)))
 
-    if a.library == 'TF':
-        from SI_Toolkit.Functions.TF.Training import train_network_core
-    else:
-        from SI_Toolkit.Functions.Pytorch.Training import train_network_core
-
     if a.use_nni:
         nni_parameters = nni.get_next_parameter()
     else:
@@ -64,18 +59,16 @@ def train_network():
         pass
     # endregion
 
-    net, net_info = get_net(a, library=a.library)
+    net, net_info = get_net(a)
+
+    if net_info.library == 'TF':  # If loading pretrained network this has precedence against a.library
+        from SI_Toolkit.Functions.TF.Training import train_network_core
+    else:
+        from SI_Toolkit.Functions.Pytorch.Training import train_network_core
 
     # Create new full name for the pretrained net
     create_full_name(net_info, a.path_to_models)
     normalization_info = get_norm_info_for_net(net_info, files_for_normalization=a.training_files)
-    # а is an "argument"
-    # It must contain:
-    # path to models
-    # information about paths for:
-    #                              - training
-    #                              - validation
-    #                              - testing
     create_log_file(net_info, a)
 
     # Copy training config
@@ -97,6 +90,8 @@ def train_network():
     paths_to_datafiles_test = get_paths_to_datafiles(a.test_files)
     test_dfs = load_data(paths_to_datafiles_test)
     test_dfs_norm = normalize_df(test_dfs, normalization_info)
+
+    # endregion
 
     # Run the training function
     loss, validation_loss = train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a)
