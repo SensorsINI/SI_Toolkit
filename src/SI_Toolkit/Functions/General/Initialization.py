@@ -305,7 +305,10 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
         #  however it is also compatible with older version of the program with normalization info placed in a different folder
         if net_info.path_to_normalization_info is None:
             raise ValueError('You must provide normalization info for retraining existing network')
-        shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
+        try:
+            shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
+        except shutil.SameFileError:
+            pass
         net_info.path_to_normalization_info = os.path.join(net_info.path_to_net, os.path.basename(
             net_info.path_to_normalization_info))
         normalization_info = load_normalization_info(net_info.path_to_normalization_info)
