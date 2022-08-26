@@ -98,7 +98,7 @@ class Sequence(nn.Module):
 
         if 'GRU' in names:
             self.net_type = 'GRU'
-        if 'DeltaGRU' in names:
+        elif 'DeltaGRU' in names:
             self.net_type = 'DeltaGRU'
         elif 'LSTM' in names:
             self.net_type = 'LSTM'
