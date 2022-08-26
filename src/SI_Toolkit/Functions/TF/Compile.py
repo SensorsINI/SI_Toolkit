@@ -3,7 +3,7 @@ import tensorflow as tf
 import platform
 
 try:
-    from SI_Toolkit_ASF import GLOBALLY_DISABLE_COMPILATION
+    from SI_Toolkit_ASF import GLOBALLY_DISABLE_COMPILATION, USE_JIT_COMPILATION
 except ImportError:
     logging.warn("No compilation option set in SI_Toolkit_ASF. Setting GLOBALLY_DISABLE_COMPILATION to True.")
     GLOBALLY_DISABLE_COMPILATION = True
@@ -24,6 +24,8 @@ if GLOBALLY_DISABLE_COMPILATION:
     Compile = identity
 else:
     if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
+        Compile = tf.function
+    elif not USE_JIT_COMPILATION:
         Compile = tf.function
     else:
         Compile = tf_function_jit
