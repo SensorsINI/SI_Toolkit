@@ -209,10 +209,12 @@ class Sequence(nn.Module):
 
         elif self.construct_network == 'with modules':
             if self.net_type == 'LSTM':
-                outputs, (self.h, self.c) = self.network_head(input, (self.h, self.c))
+                outputs, (self.h, self.c) = self.network_head(network_input, (self.h, self.c))
             elif self.net_type == 'GRU' or self.net_type == 'DeltaGRU' or self.net_type == 'RNN-Basic':
                 outputs, self.h = self.network_head(network_input, self.h)
             outputs = self.final_fc(outputs)
+
+            outputs = torch.transpose(outputs, 0, 1)
 
         return outputs
 
@@ -225,10 +227,15 @@ class Sequence(nn.Module):
             self.h = [None] * len(self.h_size)
             self.c = [None] * len(self.h_size)  # Internal state cell - only matters for LSTM
         else:
-            for i in range(len(self.h_size)):  # For Dense network h keeps intermediate results
-                self.h[i] = torch.zeros(batch_size, self.h_size[i], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
+            if self.construct_network == 'with cells':
+                for i in range(len(self.h_size)):  # For Dense network h keeps intermediate results
+                    self.h[i] = torch.zeros(batch_size, self.h_size[i], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
+                    if self.net_type == 'LSTM':
+                        self.c[i] = torch.zeros(batch_size, self.h_size[i], dtype=torch.float).to(self.device)
+            else:
+                self.h = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
                 if self.net_type == 'LSTM':
-                    self.c[i] = torch.zeros(batch_size, self.h_size[i], dtype=torch.float).to(self.device)
+                    self.c = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)
 
 
 # Print parameter count
