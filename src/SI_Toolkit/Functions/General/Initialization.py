@@ -142,7 +142,7 @@ def get_net(a,
                 if lines[i] == 'WASH OUT LENGTH:':
                     net_wash_out_len = float(lines[i + 1].rstrip("\n"))
                     continue
-                if lines[i] == 'CONSTRUCT NETWORK':
+                if lines[i] == 'CONSTRUCT NETWORK:':
                     construct_network = lines[i + 1].rstrip("\n")
                     continue
 
