@@ -84,7 +84,21 @@ def get_net(a,
                 parent_net_name = a.net_name
 
             # After above if statement we have parent_net_name and can load it
-            print('Loading a pretrained network with the full name: {}'.format(parent_net_name))
+
+            # region check for DeltaGRU, and alternatively load normal GRU printing a warning
+            convert_to_delta = False
+            if os.path.isdir(a.path_to_models + parent_net_name):
+                print('Loading a pretrained network with the full name: {}'.format(parent_net_name))
+            else:
+                if parent_net_name[:5] == 'Delta':
+                    if os.path.isdir(a.path_to_models + parent_net_name[5:]):
+                        convert_to_delta = True
+                        print('{} not found, loading {} instead'.format(parent_net_name, parent_net_name[5:]))
+                        parent_net_name = parent_net_name[5:]
+                    else:
+                        raise FileNotFoundError('Neither specified DeltaGRU nor a normal GRU (Delta){} was found'.format(parent_net_name))
+                else:
+                    raise FileNotFoundError('{} not found'.format(parent_net_name))
             print('')
 
             # endregion
@@ -118,6 +132,8 @@ def get_net(a,
                     continue
                 if lines[i] == 'NET NAME:':
                     net_name = lines[i + 1].rstrip("\n")
+                    if convert_to_delta:
+                        net_name = 'Delta'+net_name
                     continue
                 if lines[i] == 'NET FULL NAME:':
                     net_full_name = lines[i + 1].rstrip("\n")
@@ -328,7 +344,13 @@ def create_full_name(net_info, path_to_models):
                     + net_info.net_name[idx_end_prefix + 1:] \
                     + '-' + str(len(net_info.outputs)) + 'OUT'
 
-    net_index = 0
+    if net_info.parent_net_name == 'Network trained from scratch':
+        net_index = 0
+    else:
+        parent_index = int(net_info.parent_net_name.split('-')[-1])
+        net_index = parent_index + 1
+
+
     while True:
         path_to_dir = path_to_models + net_full_name + '-' + str(net_index)
         if os.path.isdir(path_to_dir):
