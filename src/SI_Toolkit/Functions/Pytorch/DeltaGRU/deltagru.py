@@ -448,7 +448,7 @@ class DeltaGRU(nn.Module):
         for i in range(self.num_layers):
             self.layer_list[i].set_eval_sparsity(self.eval_sp)
 
-    def forward(self, x):
+    def forward(self, x, h=None):
         if x.dim() != 3:
             raise ValueError("The input vector x must be 3-dimensional (len, batch, n_feat)")
         self.list_rnn_debug = []
@@ -459,7 +459,10 @@ class DeltaGRU(nn.Module):
         delta_hid = []
         self.abs_sum_delta_hid = 0
         for i, rnn in enumerate(self.layer_list):
-            x = rnn(x)
+            if h is None:
+                x = rnn(x)
+            else:
+                x = rnn(x, h[i])
             if self.debug:
                 self.list_rnn_debug.append(rnn.dict_debug)
             self.abs_sum_delta_hid += rnn.abs_delta_hid
