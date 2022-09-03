@@ -85,6 +85,8 @@ class DeltaGRUCell(nn.Module):
         self.delta_inp = []
         self.delta_hid = []
 
+        self.hidden = None
+
         # Regularizer
         # self.abs_delta_hid = torch.zeros(1).float()
 
@@ -220,7 +222,10 @@ class DeltaGRUCell(nn.Module):
         #     one_minus_u = (torch.ones_like(u) - u)
 
         if h_0 is None:
-            hidden = torch.zeros(n_batch, self.n_hid).float()  # Initialize hidden state
+            if self.hidden is None:
+                hidden = torch.zeros(n_batch, self.n_hid).float()  # Initialize hidden state
+            else:
+                hidden = self.hidden.float()
         else:
             hidden = h_0.float()
         input_prev = torch.zeros(n_batch, self.n_inp).float()  # Initialize previous input state
@@ -357,6 +362,7 @@ class DeltaGRUCell(nn.Module):
                 self.dict_debug[key] = []
 
         output = self.delta_forward(x, h_0)
+        self.hidden = output[-1, :, :]  # save last hidden state
 
         # Store data for debugging
         if self.debug:
@@ -472,9 +478,10 @@ class DeltaGRU(nn.Module):
             delta_inp.append(rnn.delta_inp)
             delta_hid.append(rnn.delta_hid)
         self.abs_sum_delta_hid = torch.sum(self.abs_sum_delta_hid)
+        final_hidden_states = torch.stack([rnn.hidden for rnn in self.layer_list], 0)
 
         if self.eval_sp:
             self.sp_dx = get_temporal_sparsity(delta_inp)
             self.sp_dh = get_temporal_sparsity(delta_hid)
 
-        return x, x[-1, :, :]
+        return x, final_hidden_states
