@@ -381,8 +381,11 @@ class DeltaGRU(nn.Module):
                  nqf=4,
                  eval_sp=0,
                  debug=0,
-                 use_cuda=1):
+                 use_cuda=None):
         super(DeltaGRU, self).__init__()
+
+        if use_cuda is None:
+            use_cuda = torch.cuda.is_available()
 
         # Properties
         self.n_inp = n_inp
