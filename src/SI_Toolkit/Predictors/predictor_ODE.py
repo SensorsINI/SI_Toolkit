@@ -8,19 +8,23 @@ While designing the controller you just chose the predictor you want,
 """
 
 import numpy as np
+from Control_Toolkit.others.environment import EnvironmentBatched
 from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES
 from SI_Toolkit.Predictors import predictor
 
 
 class predictor_ODE(predictor):
-    def __init__(self, horizon, dt, intermediate_steps=1, batch_size=1, **kwargs):
+    def __init__(self, horizon, dt, intermediate_steps=1, batch_size=1, planning_environment: EnvironmentBatched=None, **kwargs):
         super().__init__(horizon=horizon, batch_size=batch_size)
 
         self.initial_state = None
         self.output = None
 
-        # Part specific to cartpole
-        self.next_step_predictor = next_state_predictor_ODE(dt, intermediate_steps, self.batch_size)
+        # Application-specific part
+        if planning_environment is None:
+            self.next_step_predictor = next_state_predictor_ODE(dt, intermediate_steps, self.batch_size)
+        else:
+            self.next_step_predictor = next_state_predictor_ODE(dt, intermediate_steps, self.batch_size, planning_environment)
 
 
     def predict(self, initial_state: np.ndarray, Q: np.ndarray, params=None) -> np.ndarray:
