@@ -74,9 +74,9 @@ def training_loop(train_dataset, val_dataset):
     for epoch in range(epochs):
         print("\nStart of epoch %d/%d" % (epoch + 1, epochs))
         start_time = time.time()
-        # change prediction horizon over the epochs
-        if epoch > 0 and loss_fn.post_wash_out_len < 20:
-            loss_fn.change_parameters(10 + 2 * epoch)
+        # # change prediction horizon over the epochs
+        # if epoch > 0 and loss_fn.post_wash_out_len < 20:
+        #     loss_fn.change_parameters(10 + 2 * epoch)
 
         # Iterate over the batches of the dataset.
         for step, (x_batch_train, y_batch_train) in enumerate(train_dataset):
@@ -107,7 +107,7 @@ if __name__ == '__main__':
     # Define the model
     model = FeedBack(32, 6, 500)
     # Instantiate a loss function.
-    loss_fn = CustomMSE(500, 10)
+    loss_fn = CustomMSE(500, 20)
     # Prepare the loss metrics.
     epoch_loss_avg = tf.keras.metrics.Mean()
     epoch_val_loss_avg = tf.keras.metrics.Mean()
@@ -115,12 +115,13 @@ if __name__ == '__main__':
     optimizer = Adam(learning_rate=1e-4)
 
     # Train the model
-    epochs = 6
+    epochs = 5
     training_loss, validation_loss = training_loop(training_dataset, validation_dataset)
 
     # Plot the training losses
     epoch_number = np.arange(1, epochs + 1, step=1)
     plt.figure(dpi=100)
+    plt.rc('font', size=10)
     plt.plot(epoch_number, training_loss, label='training')
     plt.plot(epoch_number, validation_loss, label='validation')
     plt.xlabel("Training Epoch")
@@ -130,6 +131,6 @@ if __name__ == '__main__':
 
     # Save the training logs and model weights
     model_name = 'ARM-6IN-32H1-32H2-6OUT-0'
-    ckpt_path = './SI_Toolkit_ApplicationSpecificFiles/Experiments/L395-790-1/Models/' + model_name
+    ckpt_path = './SI_Toolkit_ApplicationSpecificFiles/Experiments/L395-790-2/Models/' + model_name
     plt.savefig(ckpt_path + '/training_curve.png')
     model.save_weights(ckpt_path + '/ckpt.ckpt')
