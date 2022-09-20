@@ -21,8 +21,8 @@ def get_angle(net_output):
 
 def prediction_autoregressive_model(horizon, dataset):
     # prepare the inputs
-    path = "./SI_Toolkit_ApplicationSpecificFiles/Experiments/L395-790-1/"
-    norm_info_path = path + "NormalizationInfo/NI_2022-05-31_17-23-46.csv"
+    path = "./SI_Toolkit_ApplicationSpecificFiles/Experiments/Experiment-8/"
+    norm_info_path = path + "NormalizationInfo/NI_2022-06-10_19-12-23.csv"
     input_names = ['Q', 'angleD', 'angle_cos', 'angle_sin', 'position', 'positionD']
     output_names = list(np.sort(['angleD', 'angle_cos', 'angle_sin', 'position', 'positionD', 'pole_length']))
     normalization_info = pd.read_csv(norm_info_path, index_col=0, comment='#')
@@ -59,6 +59,9 @@ def prediction_autoregressive_model(horizon, dataset):
     outputs = tf.stack(outputs)
     # concatenate the first state
     outputs = tf.concat([state_0, outputs], axis=1)
+
+    if len(outputs[0][0]) > 6:  # cut out pole_length prediction
+        net_output = tf.concat([outputs[:, :, :4], outputs[:, :, 5:]], axis=2)
     return outputs.numpy()
 
 
