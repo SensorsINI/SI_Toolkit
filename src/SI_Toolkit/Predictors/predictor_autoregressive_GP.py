@@ -1,14 +1,14 @@
 from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.TF.TF_Functions.Normalising import get_normalization_function_tf, get_denormalization_function_tf
-from SI_Toolkit.TF.TF_Functions.Compile import Compile
-
-import numpy as np
+from SI_Toolkit.Functions.TF.Normalising import get_normalization_function_tf, get_denormalization_function_tf
+from SI_Toolkit.Functions.TF.Compile import Compile
 
 from types import SimpleNamespace
 import os
 import yaml
 
 import tensorflow as tf
+
+from SI_Toolkit.Predictors import predictor
 
 try:
     from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
@@ -24,8 +24,8 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
 PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
 
 
-class predictor_autoregressive_GP:
-    def __init__(self, model_name, horizon, num_rollouts=1):
+class predictor_autoregressive_GP(predictor):
+    def __init__(self, model_name, horizon, num_rollouts=1, **kwargs):
         # tf.config.run_functions_eagerly(True)
         a = SimpleNamespace()
 
@@ -36,8 +36,8 @@ class predictor_autoregressive_GP:
             a.path_to_models = PATH_TO_MODEL
             a.net_name = model_name
 
-        self.horizon = horizon
-        self.num_rollouts = num_rollouts
+        super().__init__(horizon=horizon, batch_size=num_rollouts)
+        self.num_rollouts = self.batch_size
         self.model = load_model(PATH_TO_MODEL+model_name)
         self.inputs = self.model.state_inputs + self.model.control_inputs
 

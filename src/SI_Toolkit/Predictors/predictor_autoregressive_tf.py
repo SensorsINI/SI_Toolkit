@@ -36,15 +36,16 @@ Using predictor:
 # TODO: Make horizon updatable in runtime
 
 # "Command line" parameters
-from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.TF.TF_Functions.Normalising import get_normalization_function_tf, get_denormalization_function_tf, \
+from SI_Toolkit.Functions.General.Initialization import get_net, get_norm_info_for_net
+from SI_Toolkit.Functions.TF.Normalising import get_normalization_function_tf, get_denormalization_function_tf, \
     get_scaling_function_for_output_of_differential_network
-from SI_Toolkit.TF.TF_Functions.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
-from SI_Toolkit.TF.TF_Functions.Compile import Compile
+from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
+from SI_Toolkit.Functions.TF.Compile import Compile
 
-from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
+from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
     CONTROL_INPUTS
-from SI_Toolkit_ASF_global.predictors_customization_tf import predictor_output_augmentation_tf
+from SI_Toolkit_ASF.predictors_customization_tf import predictor_output_augmentation_tf
+from SI_Toolkit.Predictors import predictor
 
 import numpy as np
 
@@ -82,12 +83,10 @@ def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
 
-class predictor_autoregressive_tf:
-    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=True, disable_individual_compilation=False, dt=None):
+class predictor_autoregressive_tf(predictor):
+    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=True, disable_individual_compilation=False, dt=None, **kwargs):
 
-        self.batch_size = batch_size
-        self.horizon = horizon
-
+        super().__init__(horizon=horizon, batch_size=batch_size)
         self.dt = dt
 
         a = SimpleNamespace()

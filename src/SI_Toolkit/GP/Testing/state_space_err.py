@@ -1,25 +1,19 @@
 from SI_Toolkit.Testing.Parameters_for_testing import args
 from SI_Toolkit.GP.Parameters import args as args_GP
-from SI_Toolkit.load_and_normalize import normalize_numpy_array, load_normalization_info
 
-import matplotlib
 import matplotlib.pyplot as plt
 import yaml
 from types import SimpleNamespace
 
-from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
 from SI_Toolkit.GP.DataSelector import DataSelector
 
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, \
-    normalize_df, denormalize_df, normalize_numpy_array, denormalize_numpy_array
+    normalize_df
 
-from SI_Toolkit.TF.TF_Functions.Initialization import get_net, get_norm_info_for_net
+from SI_Toolkit.Functions.General.Initialization import get_net
 
 import os
 import numpy as np
-import tensorflow as tf
 import random
 
 def state_space_pred_err(net, data, save_dir=None):
@@ -109,9 +103,9 @@ if __name__ == '__main__':
         os.makedirs(save_dir)
 
     """
-    if 'Euler' in predictor_name:
+    if 'predictor_ODE_tf' in predictor_name:
         predictor = predictor_ODE_tf(horizon=1, dt=0.02)
-    elif 'GP' in predictor_name:
+    elif 'predictor_autoregressive_GP' in predictor_name:
         predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=1)
     else:
         predictor = predictor_autoregressive_tf(horizon=1, batch_size=1000, net_name=predictor_name)

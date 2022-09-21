@@ -14,7 +14,7 @@ from tqdm import trange
 
 
 try:
-    from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
+    from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
         CONTROL_INPUTS, CONTROL_INDICES
 except ModuleNotFoundError:
     print('SI_Toolkit_ASF not yet created')
@@ -35,9 +35,9 @@ predictor_name = {}
 horizon = {}
 num_rollouts = {}
 
-if 'Euler' in predictor_name:
+if 'predictor_ODE_tf' in predictor_name:
     predictor = predictor_ODE_tf(horizon=horizon, dt=0.02)
-elif 'GP' in predictor_name:
+elif 'predictor_autoregressive_GP' in predictor_name:
     predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=horizon)
 else:
     predictor = predictor_autoregressive_tf(horizon=horizon, batch_size=num_rollouts, net_name=predictor_name)

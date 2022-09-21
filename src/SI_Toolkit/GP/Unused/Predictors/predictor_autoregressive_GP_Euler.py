@@ -1,10 +1,7 @@
 from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.TF.TF_Functions.Normalising import normalize_tf, denormalize_tf
-from SI_Toolkit.TF.TF_Functions.Compile import Compile
+from SI_Toolkit.Functions.TF.Normalising import normalize_tf, denormalize_tf
+from SI_Toolkit.Functions.TF.Compile import Compile
 
-import numpy as np
-
-from types import SimpleNamespace
 import os
 import yaml
 
@@ -73,7 +70,7 @@ class predictor_autoregressive_GP:
         #    s = tf.expand_dims(s, axis=0)
         return s, p
 
-    # @tf.function
+    # @Compile
     def predict_tf(self, initial_state, Q_seq):
         # initial_state = tf.expand_dims(initial_state, axis=0)  # COMMENT OUT FOR TF MPPI
         self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)

@@ -1,29 +1,22 @@
 import copy
-from typing import Optional
 
 import os
-import timeit
 import time
 import csv
 
 import pandas as pd
 import gpflow as gpf
 import numpy as np
-import random
 import matplotlib
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from gpflow.models.training_mixins import InputData
 #from gpflow.types import MeanAndVariance
 from gpflow.utilities import print_summary
 from gpflow import posteriors
 
-from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
-from SI_Toolkit.GP.Parameters import args
-from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, \
-    normalize_df, denormalize_df, normalize_numpy_array, denormalize_numpy_array
-from SI_Toolkit.GP.DataSelector import DataSelector
-from SI_Toolkit.TF.TF_Functions.Compile import Compile
+from CartPole.state_utilities import ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
+from SI_Toolkit.load_and_normalize import load_normalization_info, \
+    normalize_numpy_array
 
 gpf.config.set_default_float(tf.float64)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF

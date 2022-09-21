@@ -20,11 +20,12 @@ except:
     pass
 
 try:
-    from SI_Toolkit_ASF_global.user_defined_normalization_correction import apply_user_defined_normalization_correction
+    from SI_Toolkit_ASF.user_defined_normalization_correction import apply_user_defined_normalization_correction
 except:
     print('SI_Toolkit_ASF not created yet')
 
 import yaml, os
+config_SI = yaml.load(open(os.path.join("SI_Toolkit_ASF", "config_training.yml"), "r"), yaml.FullLoader)
 
 normalization_rounding_decimals = 5
 
@@ -327,7 +328,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
             df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
         except NameError:
             print('User defined normalization correction not applied. \n'
-                  'The needed function not found in SI_Toolkit_ASF_global.user_defined_normalization_correction.py')
+                  'The needed function not found in SI_Toolkit_ASF.user_defined_normalization_correction.py')
 
     if df_norm_info.equals(df_norm_info_from_data):
         modified = 'No'
@@ -370,7 +371,8 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     date_now = datetime.now().strftime('%Y-%m-%d')
     time_now = datetime.now().strftime('%H-%M-%S')
 
-    csv_filepath = path_to_norm_info + 'NI_' + date_now + '_' + time_now + '.csv'
+    normalization_info_name = 'NI_' + date_now + '_' + time_now
+    csv_filepath = path_to_norm_info + normalization_info_name + '.csv'
 
     with open(csv_filepath, "a", newline='') as outfile:
         writer = csv.writer(outfile)
@@ -421,10 +423,18 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # region Plot histograms of data used for normalization
     if plot_histograms:
         # Plot historgrams to make the firs check about gaussian assumption
+        # Save histograms to folder with same name
+        histograms_path = path_to_norm_info + 'histograms'
+        try:
+            os.makedirs(histograms_path)
+        except FileExistsError:
+            pass
+
         for feature in df_norm_info.columns:
             if feature in df_total.columns:
                 plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
                 plt.title(feature)
+                plt.savefig(histograms_path + '/' + feature + '.png')
                 plt.show()
 
     # endregion
@@ -444,7 +454,7 @@ def normalize_feature(feature, normalization_info, normalization_type='minmax_sy
     else:
         pass
 
-    if name in normalization_info.columns:
+    if name in normalization_info.columns and pd.api.types.is_numeric_dtype(normalization_info[name]):
         pass
     else:
         return feature
@@ -493,6 +503,11 @@ def denormalize_feature(feature, normalization_info, normalization_type='minmax_
         name = feature.name
     else:
         pass
+
+    if name in normalization_info.columns and pd.api.types.is_numeric_dtype(normalization_info[name]):
+        pass
+    else:
+        return feature
 
     if normalization_type == 'gaussian':
         # col_mean = normalization_info.loc['mean', name]

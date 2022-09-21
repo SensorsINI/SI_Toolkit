@@ -2,16 +2,10 @@ import numpy as np
 from tqdm import trange
 
 try:
-    from SI_Toolkit_ASF_global.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
+    from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
         CONTROL_INPUTS, CONTROL_INDICES
 except ModuleNotFoundError:
     print('SI_Toolkit_ASF not yet created')
-
-from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-# from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
 
 
 def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
@@ -24,7 +18,7 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     output_array = np.zeros([a.test_len, a.test_max_horizon + 1, len(a.features)],
                             dtype=np.float32)
 
-    stateful_components = ['RNN', 'GRU', 'LSTM', 'GP']
+    stateful_components = ['RNN', 'GRU', 'LSTM']
     if any(stateful_component in predictor_name for stateful_component in stateful_components):
         mode = 'sequential'
     else:
@@ -33,16 +27,20 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     # mode = 'sequential'
     # mode = 'batch'
 
-    if 'EulerTF' in predictor_name:
-        predictor = predictor_ODE_tf(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
-    elif 'Euler' in predictor_name:
-        predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps)
-    elif 'GP' in predictor_name:
+    if 'predictor_ODE_tf' in predictor_name:
+        from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
+        predictor = predictor_ODE_tf(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps, batch_size=a.test_len)
+    elif 'predictor_ODE' in predictor_name:
+        from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
+        predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps, batch_size=a.test_len)
+    elif 'predictor_autoregressive_GP' in predictor_name:
+        from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
         if mode == 'batch':
             predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=a.test_max_horizon, num_rollouts=a.test_len)
         else:
             predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=a.test_max_horizon)
     else:
+        from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
         if mode == 'batch':
             predictor = predictor_autoregressive_tf(horizon=a.test_max_horizon, batch_size=a.test_len,
                                                     net_name=predictor_name)

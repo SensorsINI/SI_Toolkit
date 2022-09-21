@@ -3,7 +3,7 @@ FIXME: Not functioning now!
 """
 import tensorflow as tf
 from tensorflow import keras
-from SI_Toolkit.TF.TF_Functions.Network import create_rnn_instance
+from SI_Toolkit.Functions.TF.Network import create_rnn_instance
 
 import yaml, os
 config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)

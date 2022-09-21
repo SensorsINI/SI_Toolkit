@@ -1,13 +1,8 @@
-
-import copy
-
-import numpy as np
-
 from types import SimpleNamespace
 
 import tensorflow as tf
 
-from SI_Toolkit.TF.TF_Functions.Compile import Compile
+from SI_Toolkit.Functions.TF.Compile import Compile
 
 def load_pretrained_net_weights(net, ckpt_path):
     """
@@ -27,7 +22,9 @@ def compose_net_from_net_name(net_name,
                               outputs_list,
                               time_series_length,
                               batch_size=None,
-                              stateful=False):
+                              stateful=False,
+                              **kwargs,
+                              ):
 
     # Get the information about network architecture from the network name
     # Split the names into "LSTM/GRU", "128H1", "64H2" etc.

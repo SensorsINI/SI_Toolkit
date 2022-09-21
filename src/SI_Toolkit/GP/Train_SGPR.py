@@ -12,7 +12,7 @@ import numpy as np
 
 import matplotlib
 from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
-from SI_Toolkit.GP.Parameters import args
+from SI_Toolkit.Functions.General.load_parameters_for_training import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, \
     normalize_df, denormalize_df, normalize_numpy_array, denormalize_numpy_array
 from SI_Toolkit.GP.DataSelector import DataSelector
@@ -65,17 +65,17 @@ data_samples = (X_samples, Y_samples)
 ## DEFINING KERNELS
 inputs = a.state_inputs + a.control_inputs
 indices = {key: inputs.index(key) for key in inputs}
-kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1],
+kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1],
                                        active_dims=[indices["position"],
-                                                    indices["angleD"],
+                                                    # indices["angleD"],
                                                     indices["positionD"],
                                                     indices["Q"]
                                                     ]),
 
-           "positionD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
-                                        active_dims=[indices["angle_sin"],
-                                                     indices["angle_cos"],
-                                                     indices["angleD"],
+           "positionD": gpf.kernels.RBF(lengthscales=[1, 1],
+                                        active_dims=[# indices["angle_sin"],
+                                                     # indices["angle_cos"],
+                                                     # indices["angleD"],
                                                      indices["positionD"],
                                                      indices["Q"]
                                                      ]),
@@ -107,7 +107,7 @@ kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1],
 }
 
 ## DEFINING MULTI OUTPUT SGPR MODEL
-sample_indices = random.sample(range(X_samples.shape[0]), 30)
+sample_indices = random.sample(range(X_samples.shape[0]), 10)
 data_subsampled = (data_samples[0][sample_indices], data_samples[1][sample_indices])
 
 ## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
