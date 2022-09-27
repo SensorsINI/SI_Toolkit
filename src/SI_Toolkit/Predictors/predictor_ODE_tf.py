@@ -40,7 +40,7 @@ class predictor_ODE_tf(predictor):
 
         if planning_environment is None:
             self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, self.batch_size,
-                                                                   disable_individual_compilation=True,)
+                                                                   disable_individual_compilation=True)
         else:
             self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, self.batch_size,
                                                                    disable_individual_compilation=True,
