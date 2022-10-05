@@ -84,8 +84,16 @@ def convert_to_tensors(s, Q):
 
 
 class predictor_autoregressive_tf(predictor):
-    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=True, disable_individual_compilation=False, dt=None, **kwargs):
-
+    def __init__(
+        self,
+        horizon: int,
+        dt: float,
+        batch_size=1,
+        disable_individual_compilation=False,
+        net_name=None,
+        update_before_predicting=True,
+        **kwargs
+    ):
         super().__init__(horizon=horizon, batch_size=batch_size)
         self.dt = dt
 

@@ -25,7 +25,13 @@ PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
 
 
 class predictor_autoregressive_GP(predictor):
-    def __init__(self, model_name, horizon, num_rollouts=1, **kwargs):
+    def __init__(
+        self,
+        horizon: int,
+        model_name: str,
+        batch_size=1,
+        **kwargs
+    ):
         # tf.config.run_functions_eagerly(True)
         a = SimpleNamespace()
 
@@ -36,8 +42,7 @@ class predictor_autoregressive_GP(predictor):
             a.path_to_models = PATH_TO_MODEL
             a.net_name = model_name
 
-        super().__init__(horizon=horizon, batch_size=num_rollouts)
-        self.num_rollouts = self.batch_size
+        super().__init__(horizon=horizon, batch_size=batch_size)
         self.model = load_model(PATH_TO_MODEL+model_name)
         self.inputs = self.model.state_inputs + self.model.control_inputs
 
@@ -47,8 +52,8 @@ class predictor_autoregressive_GP(predictor):
                                                               self.model.outputs)
         self.indices = [STATE_INDICES.get(key) for key in self.model.outputs]
 
-        self.initial_state = tf.random.uniform(shape=[self.num_rollouts, 6], dtype=tf.float32)
-        Q = tf.random.uniform(shape=[self.num_rollouts, self.horizon, 1], dtype=tf.float32)
+        self.initial_state = tf.random.uniform(shape=[self.batch_size, 6], dtype=tf.float32)
+        Q = tf.random.uniform(shape=[self.batch_size, self.horizon, 1], dtype=tf.float32)
 
         self.outputs = None
 
@@ -63,7 +68,7 @@ class predictor_autoregressive_GP(predictor):
     def step(self, s, Q):
         x = tf.concat([s, Q], axis=1)
         s, _ = self.model.predict_f(x)
-        # if self.num_rollouts == 1:
+        # if self.batch_size == 1:
         #     s = tf.expand_dims(s, axis=0)
         return s
 
@@ -72,7 +77,7 @@ class predictor_autoregressive_GP(predictor):
     def step_mean(self, s, Q):
         x = tf.concat([s, Q], axis=1)
         s = self.model.predict_mean(x)
-        # if self.num_rollouts == 1:
+        # if self.batch_size == 1:
         #     s = tf.expand_dims(s, axis=0)
         return s
     """
@@ -91,7 +96,7 @@ class predictor_autoregressive_GP(predictor):
         s = self.normalize_tf(s)
         s = tf.cast(s, tf.float64)
 
-        # s = tf.repeat(s, repeats=self.num_rollouts, axis=0)  # COMMENT OUT FOR TF MPPI
+        # s = tf.repeat(s, repeats=self.batch_size, axis=0)  # COMMENT OUT FOR TF MPPI
         self.outputs = self.outputs.write(0, s)
 
         s = self.step(s, Q_seq[:, 0, :])
@@ -133,7 +138,7 @@ class predictor_autoregressive_GP(predictor):
         s = self.normalize_tf(s)
         s = tf.cast(s, tf.float64)
 
-        # s = tf.repeat(s, repeats=self.num_rollouts, axis=0)  # COMMENT OUT FOR TF MPPI
+        # s = tf.repeat(s, repeats=self.batch_size, axis=0)  # COMMENT OUT FOR TF MPPI
         self.outputs = self.outputs.write(0, s)
 
         s = self.step_mean(s, Q_seq[:, 0, :])
