@@ -28,22 +28,22 @@ class predictor_autoregressive_GP(predictor):
     def __init__(
         self,
         horizon: int,
-        model_name: str,
+        net_name: str,
         batch_size=1,
         **kwargs
     ):
         # tf.config.run_functions_eagerly(True)
         a = SimpleNamespace()
 
-        if '/' in model_name:
-            a.path_to_models = os.path.join(*model_name.split("/")[:-1])+'/'
-            a.net_name = model_name.split("/")[-1]
+        if '/' in net_name:
+            a.path_to_models = os.path.join(*net_name.split("/")[:-1])+'/'
+            a.net_name = net_name.split("/")[-1]
         else:
             a.path_to_models = PATH_TO_MODEL
-            a.net_name = model_name
+            a.net_name = net_name
 
         super().__init__(horizon=horizon, batch_size=batch_size)
-        self.model = load_model(PATH_TO_MODEL+model_name)
+        self.model = load_model(PATH_TO_MODEL+net_name)
         self.inputs = self.model.state_inputs + self.model.control_inputs
 
         self.normalize_tf = get_normalization_function_tf(self.model.norm_info,

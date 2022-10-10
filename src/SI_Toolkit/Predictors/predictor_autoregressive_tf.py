@@ -35,25 +35,26 @@ Using predictor:
 
 # TODO: Make horizon updatable in runtime
 
-# "Command line" parameters
-from SI_Toolkit.Functions.General.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.Functions.TF.Normalising import get_normalization_function_tf, get_denormalization_function_tf, \
-    get_scaling_function_for_output_of_differential_network
-from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
-from SI_Toolkit.Functions.TF.Compile import Compile
-
-from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
-    CONTROL_INPUTS
-from SI_Toolkit_ASF.predictors_customization_tf import predictor_output_augmentation_tf
-from SI_Toolkit.Predictors import predictor
+import os
+from types import SimpleNamespace
 
 import numpy as np
-
-from types import SimpleNamespace
-import os
-import yaml
-
 import tensorflow as tf
+import yaml
+from CartPole.state_utilities import CONTROL_INPUTS, STATE_VARIABLES
+# "Command line" parameters
+from SI_Toolkit.Functions.General.Initialization import (get_net,
+                                                         get_norm_info_for_net)
+from SI_Toolkit.Functions.TF.Compile import Compile
+from SI_Toolkit.Functions.TF.Network import (_copy_internal_states_from_ref,
+                                             _copy_internal_states_to_ref)
+from SI_Toolkit.Functions.TF.Normalising import (
+    get_denormalization_function_tf, get_normalization_function_tf,
+    get_scaling_function_for_output_of_differential_network)
+from SI_Toolkit.Predictors import predictor
+from SI_Toolkit_ASF.predictors_customization import STATE_INDICES
+from SI_Toolkit_ASF.predictors_customization_tf import \
+    predictor_output_augmentation_tf
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 

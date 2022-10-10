@@ -7,12 +7,12 @@ While designing the controller you just chose the predictor you want,
 
 """
 
-from typing import Callable
+from typing import Callable, Optional
 import numpy as np
-from Environments import TensorType
-from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES
+from CartPole.state_utilities import STATE_VARIABLES
+from Control_Toolkit.others.environment import TensorType
+from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE
 from SI_Toolkit.Predictors import predictor
-from Control_Toolkit.others.environment import EnvironmentBatched
 
 
 class predictor_ODE(predictor):
@@ -21,7 +21,7 @@ class predictor_ODE(predictor):
         horizon: int,
         dt: float,
         intermediate_steps: int,
-        step_fun: Callable[[TensorType, TensorType, float], TensorType],
+        step_fun: Optional[Callable[[TensorType, TensorType, float], TensorType]]=None,
         batch_size=1,
         **kwargs
     ):

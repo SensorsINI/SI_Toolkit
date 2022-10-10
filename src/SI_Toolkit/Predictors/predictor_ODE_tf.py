@@ -1,6 +1,6 @@
-from typing import Callable
-from Environments import TensorType
-from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES
+from typing import Callable, Optional
+from CartPole.state_utilities import STATE_VARIABLES
+from Control_Toolkit.others.environment import TensorType
 
 from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE_tf
 from SI_Toolkit.Functions.TF.Compile import Compile
@@ -34,7 +34,7 @@ class predictor_ODE_tf(predictor):
         horizon: int,
         dt: float,
         intermediate_steps: int,
-        step_fun: Callable[[TensorType, TensorType, float], TensorType],
+        step_fun: Optional[Callable[[TensorType, TensorType, float], TensorType]]=None,
         disable_individual_compilation=False,
         batch_size=1,
         **kwargs
