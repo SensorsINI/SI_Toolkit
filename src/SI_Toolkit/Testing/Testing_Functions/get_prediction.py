@@ -1,9 +1,9 @@
 import numpy as np
+from CartPole.state_utilities import CONTROL_INPUTS, STATE_VARIABLES
 from tqdm import trange
 
 try:
-    from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
-        CONTROL_INPUTS, CONTROL_INDICES
+    from SI_Toolkit_ASF.predictors_customization import STATE_INDICES
 except ModuleNotFoundError:
     print('SI_Toolkit_ASF not yet created')
 
