@@ -155,7 +155,7 @@ class predictor_autoregressive_tf(predictor):
         else:
             outputs_names = self.net_info.outputs
 
-        self.denormalize_outputs_tf = get_denormalization_function_tf(self.normalization_info, outputs_names)
+        self.denormalize_outputs_tf = get_denormalization_function(self.normalization_info, outputs_names, self.lib)
         self.indices_outputs = [STATE_INDICES.get(key) for key in outputs_names]
         self.augmentation = predictor_output_augmentation_tf(self.net_info, differential_network=self.differential_network)
         self.indices_augmentation = self.augmentation.indices_augmentation
@@ -209,7 +209,7 @@ class predictor_autoregressive_tf(predictor):
         net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
 
         self.net_input_reg_initial_normed.assign(
-            self.normalize_inputs_tf(net_input_reg_initial)
+            self.normalize_inputs(net_input_reg_initial)
         )
 
         next_net_input = self.net_input_reg_initial_normed
