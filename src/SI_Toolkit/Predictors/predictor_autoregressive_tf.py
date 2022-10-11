@@ -37,7 +37,7 @@ Using predictor:
 
 # "Command line" parameters
 from SI_Toolkit.Functions.General.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.Functions.TF.Normalising import get_normalization_function_tf, get_denormalization_function_tf, \
+from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function, \
     get_scaling_function_for_output_of_differential_network
 from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
 from SI_Toolkit.Functions.TF.Compile import Compile
@@ -107,6 +107,15 @@ class predictor_autoregressive_tf(predictor):
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
 
+        if self.net_info.library == 'TF':
+            from Control_Toolkit.others.environment import TensorFlowLibrary
+            self.lib = TensorFlowLibrary
+        elif self.net_info.library == 'Pytorch':
+            from Control_Toolkit.others.environment import PyTorchLibrary
+            self.lib = PyTorchLibrary
+        else:
+            raise NotImplementedError('predictor_autoregressive_neural defined only for TF and Pytorch')
+
         if np.any(['D_' in output_name for output_name in self.net_info.outputs]):
             self.differential_network = True
             if self.dt is None:
@@ -122,9 +131,9 @@ class predictor_autoregressive_tf(predictor):
 
         self.normalization_info = get_norm_info_for_net(self.net_info)
 
-        self.normalize_state_tf = get_normalization_function_tf(self.normalization_info, STATE_VARIABLES)
-        self.normalize_inputs_tf = get_normalization_function_tf(self.normalization_info, self.net_info.inputs[len(CONTROL_INPUTS):])
-        self.normalize_control_inputs_tf = get_normalization_function_tf(self.normalization_info, self.net_info.inputs[:len(CONTROL_INPUTS)])
+        self.normalize_state = get_normalization_function(self.normalization_info, STATE_VARIABLES, self.lib)
+        self.normalize_inputs = get_normalization_function(self.normalization_info, self.net_info.inputs[len(CONTROL_INPUTS):], self.lib)
+        self.normalize_control_inputs = get_normalization_function(self.normalization_info, self.net_info.inputs[:len(CONTROL_INPUTS)], self.lib)
 
         self.indices_inputs_reg = tf.convert_to_tensor(
             [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
@@ -205,7 +214,7 @@ class predictor_autoregressive_tf(predictor):
 
         next_net_input = self.net_input_reg_initial_normed
 
-        Q_normed = self.normalize_control_inputs_tf(Q)
+        Q_normed = self.normalize_control_inputs(Q)
 
         # load internal RNN state if applies
         _copy_internal_states_from_ref(self.net, self.layers_ref)
@@ -213,7 +222,7 @@ class predictor_autoregressive_tf(predictor):
         outputs = tf.TensorArray(tf.float32, size=self.horizon)
 
         if self.differential_network:
-            initial_state_normed = self.normalize_state_tf(initial_state)
+            initial_state_normed = self.normalize_state(initial_state)
             output = tf.gather(initial_state_normed, self.indices_state_to_output, axis=-1)
 
         for i in tf.range(self.horizon):
@@ -272,9 +281,9 @@ class predictor_autoregressive_tf(predictor):
 
             net_input_reg = tf.gather(s, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
 
-            net_input_reg_normed = self.normalize_inputs_tf(net_input_reg)
+            net_input_reg_normed = self.normalize_inputs(net_input_reg)
 
-            Q0_normed = self.normalize_control_inputs_tf(Q0)
+            Q0_normed = self.normalize_control_inputs(Q0)
 
             _copy_internal_states_from_ref(self.net, self.layers_ref)
 
