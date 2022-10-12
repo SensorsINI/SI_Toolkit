@@ -145,8 +145,8 @@ class predictor_autoregressive_tf(predictor):
         self.normalize_inputs = get_normalization_function(self.normalization_info, self.net_info.inputs[len(CONTROL_INPUTS):], self.lib)
         self.normalize_control_inputs = get_normalization_function(self.normalization_info, self.net_info.inputs[:len(CONTROL_INPUTS)], self.lib)
 
-        self.indices_inputs_reg = tf.convert_to_tensor(
-            [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
+        self.indices_inputs_reg = self.lib.to_tensor(
+            [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int32)
 
         if self.differential_network:
 
@@ -159,9 +159,9 @@ class predictor_autoregressive_tf(predictor):
 
             outputs_names = np.array([x[2:] for x in self.net_info.outputs])
 
-            self.indices_state_to_output = tf.convert_to_tensor([STATE_INDICES.get(key) for key in outputs_names])
+            self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names], dtype=self.lib.int32)
             output_indices = {x: np.where(outputs_names == x)[0][0] for x in outputs_names}
-            self.indices_output_to_input = tf.convert_to_tensor([output_indices.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
+            self.indices_output_to_input = self.lib.to_tensor([output_indices.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int32)
 
         else:
             outputs_names = self.net_info.outputs
