@@ -63,18 +63,18 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
 PATH_TO_NN = config['testing']['PATH_TO_NN']
 
 
-def check_dimensions(s, Q):
+def check_dimensions(s, Q, lib):
     # Make sure the input is at least 2d
     if s is not None:
-        if tf.rank(s) == 1:
-            s = s[tf.newaxis, :]
+        if lib.ndim(s) == 1:
+            s = s[lib.newaxis, :]
 
-    if tf.rank(Q) == 3:  # Q.shape = [batch_size, timesteps, features]
+    if lib.ndim(Q) == 3:  # Q.shape = [batch_size, timesteps, features]
         pass
-    elif tf.rank(Q) == 2:  # Q.shape = [timesteps, features]
-        Q = Q[tf.newaxis, :, :]
-    else:  # Q.shape = [features;  tf.rank(Q) == 1
-        Q = Q[tf.newaxis, tf.newaxis, :]
+    elif lib.ndim(Q) == 2:  # Q.shape = [timesteps, features]
+        Q = Q[lib.newaxis, :, :]
+    else:  # Q.shape = [features;  rank(Q) == 1
+        Q = Q[lib.newaxis, lib.newaxis, :]
 
     return s, Q
 
@@ -183,7 +183,7 @@ class predictor_autoregressive_tf(predictor):
         if last_optimal_control_input is not None:
             last_optimal_control_input = tf.convert_to_tensor(last_optimal_control_input, dtype=tf.float32)
 
-        initial_state, Q = check_dimensions(initial_state, Q)
+        initial_state, Q = check_dimensions(initial_state, Q, self.lib)
 
         if self.update_before_predicting and self.last_initial_state is not None and (
                 last_optimal_control_input is not None or self.last_optimal_control_input is not None):
@@ -260,7 +260,7 @@ class predictor_autoregressive_tf(predictor):
 
     def update_internal_state(self, Q0=None, s=None):
 
-        s, Q0 = check_dimensions(s, Q0)
+        s, Q0 = check_dimensions(s, Q0, self.lib)
         if Q0 is not None:
             Q0 = tf.convert_to_tensor(Q0, dtype=tf.float32)
 
