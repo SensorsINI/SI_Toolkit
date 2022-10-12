@@ -172,9 +172,12 @@ class predictor_autoregressive_tf(predictor):
         self.indices_augmentation = self.augmentation.indices_augmentation
         self.indices_outputs = self.lib.to_tensor(np.argsort(self.indices_outputs + self.indices_augmentation), dtype=self.lib.int32)
 
-        self.net_input_reg_initial_normed = tf.Variable(
-            tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
-        self.last_initial_state = tf.Variable(tf.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=tf.float32))
+        self.net_input_reg_initial_normed = self.lib.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=self.lib.float32)
+        self.last_initial_state = self.lib.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
+
+        if self.lib.lib == 'TF':
+            self.net_input_reg_initial_normed = Variable(self.net_input_reg_initial_normed)
+            self.last_initial_state = Variable(self.last_initial_state)
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
                                dtype=np.float32)
@@ -238,7 +241,7 @@ class predictor_autoregressive_tf(predictor):
             initial_state_normed = self.normalize_state(initial_state)
             output = self.lib.gather(initial_state_normed, self.indices_state_to_output, a=-1)
 
-        for i in tf.range(self.horizon):
+        for i in self.lib.arange(self.horizon):
 
             Q_current = Q_normed[:, i, :]
 
