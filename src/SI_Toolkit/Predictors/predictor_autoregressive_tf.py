@@ -39,7 +39,7 @@ Using predictor:
 from SI_Toolkit.Functions.General.Initialization import get_net, get_norm_info_for_net
 from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function, \
     get_scaling_function_for_output_of_differential_network
-from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
+
 from SI_Toolkit.Functions.TF.Compile import Compile
 
 from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
@@ -242,13 +242,13 @@ class predictor_autoregressive_tf(predictor):
 
             Q_current = Q_normed[:, i, :]
 
-            net_input = tf.reshape(
-                tf.concat([Q_current, next_net_input], axis=1),
+            net_input = self.lib.reshape(
+                self.lib.concat([Q_current, next_net_input], a=1),
                 shape=[-1, 1, len(self.net_info.inputs)])
 
             net_output = self.net(net_input)
 
-            net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
+            net_output = self.lib.reshape(net_output, [-1, len(self.net_info.outputs)])
 
             if self.differential_network:
                 output = output + self.rescale_output_diff_net(net_output)
@@ -282,7 +282,10 @@ class predictor_autoregressive_tf(predictor):
 
         if self.update_before_predicting:
             self.last_optimal_control_input = Q0
-            self.last_initial_state.assign(s)
+            if self.lib.lib == 'TF':
+                self.last_initial_state.assign(s)
+            else:
+                self.last_initial_state = s
         else:
             self.update_internal_state_tf(Q0, s)
 
