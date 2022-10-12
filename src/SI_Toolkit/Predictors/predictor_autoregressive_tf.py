@@ -211,7 +211,7 @@ class predictor_autoregressive_tf(predictor):
         else:
             output = self.predict_tf(initial_state, Q)
 
-        self.output = output.numpy()
+        self.output = self.lib.to_numpy(output)
         return self.output
 
     def _predict_with_update_tf(self, initial_state, Q, last_initial_state, last_optimal_control_input):
