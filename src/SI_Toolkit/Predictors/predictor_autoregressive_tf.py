@@ -170,7 +170,7 @@ class predictor_autoregressive_tf(predictor):
         self.indices_outputs = [STATE_INDICES.get(key) for key in outputs_names]
         self.augmentation = predictor_output_augmentation_tf(self.net_info, differential_network=self.differential_network)
         self.indices_augmentation = self.augmentation.indices_augmentation
-        self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_outputs + self.indices_augmentation))
+        self.indices_outputs = self.lib.to_tensor(np.argsort(self.indices_outputs + self.indices_augmentation), dtype=self.lib.int32)
 
         self.net_input_reg_initial_normed = tf.Variable(
             tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
@@ -194,7 +194,7 @@ class predictor_autoregressive_tf(predictor):
         Q = self.lib.to_tensor(Q, dtype=self.lib.float32)
 
         if last_optimal_control_input is not None:
-            last_optimal_control_input = tf.convert_to_tensor(last_optimal_control_input, dtype=tf.float32)
+            last_optimal_control_input = self.lib.to_tensor(last_optimal_control_input, dtype=self.lib.float32)
 
         initial_state, Q = check_dimensions(initial_state, Q, self.lib)
 
@@ -219,7 +219,7 @@ class predictor_autoregressive_tf(predictor):
 
         self.last_initial_state.assign(initial_state)
 
-        net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
+        net_input_reg_initial = self.lib.gather(initial_state, self.indices_inputs_reg, a=-1)  # [batch_size, features]
 
         self.net_input_reg_initial_normed.assign(
             self.normalize_inputs(net_input_reg_initial)
@@ -232,11 +232,11 @@ class predictor_autoregressive_tf(predictor):
         # load internal RNN state if applies
         self.copy_internal_states_from_ref(self.net, self.layers_ref)
 
-        outputs = tf.TensorArray(tf.float32, size=self.horizon)
+        outputs = tf.TensorArray(self.lib.float32, size=self.horizon)
 
         if self.differential_network:
             initial_state_normed = self.normalize_state(initial_state)
-            output = tf.gather(initial_state_normed, self.indices_state_to_output, axis=-1)
+            output = self.lib.gather(initial_state_normed, self.indices_state_to_output, a=-1)
 
         for i in tf.range(self.horizon):
 
@@ -252,7 +252,7 @@ class predictor_autoregressive_tf(predictor):
 
             if self.differential_network:
                 output = output + self.rescale_output_diff_net(net_output)
-                next_net_input = tf.gather(output, self.indices_output_to_input, axis=-1)
+                next_net_input = self.lib.gather(output, self.indices_output_to_input, a=-1)
             else:
                 output = net_output
                 next_net_input = net_output
@@ -265,7 +265,7 @@ class predictor_autoregressive_tf(predictor):
         # Augment
         outputs_augmented = self.augmentation.augment(outputs)
 
-        outputs_augmented = tf.gather(outputs_augmented, self.indices_outputs, axis=-1)
+        outputs_augmented = self.lib.gather(outputs_augmented, self.indices_outputs, a=-1)
 
         outputs_augmented = tf.concat((initial_state[:, tf.newaxis, :], outputs_augmented), axis=1)
 
@@ -292,7 +292,7 @@ class predictor_autoregressive_tf(predictor):
             pass
         else:
 
-            net_input_reg = tf.gather(s, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
+            net_input_reg = self.lib.gather(s, self.indices_inputs_reg, a=-1)  # [batch_size, features]
 
             net_input_reg_normed = self.normalize_inputs(net_input_reg)
 
