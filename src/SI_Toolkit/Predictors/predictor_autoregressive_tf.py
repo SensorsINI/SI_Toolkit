@@ -247,7 +247,7 @@ class predictor_autoregressive_tf(predictor):
             Q_current = Q_normed[:, i, :]
 
             net_input = self.lib.reshape(
-                self.lib.concat([Q_current, next_net_input], a=1),
+                self.lib.concat([Q_current, next_net_input], axis=1),
                 shape=[-1, 1, len(self.net_info.inputs)])
 
             net_output = self.net(net_input)
@@ -277,7 +277,7 @@ class predictor_autoregressive_tf(predictor):
 
         outputs_augmented = self.lib.gather_last(outputs_augmented, self.indices_outputs)
 
-        outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), a=1)
+        outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), axis=1)
 
         return outputs_augmented
 
