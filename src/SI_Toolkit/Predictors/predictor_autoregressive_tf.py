@@ -258,7 +258,7 @@ class predictor_autoregressive_tf(predictor):
                 next_net_input = net_output
             outputs = outputs.write(i, output)
 
-        outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
+        outputs = self.lib.permute(outputs.stack(), [1, 0, 2])
 
         outputs = self.denormalize_outputs(outputs)
 
@@ -267,7 +267,7 @@ class predictor_autoregressive_tf(predictor):
 
         outputs_augmented = self.lib.gather(outputs_augmented, self.indices_outputs, a=-1)
 
-        outputs_augmented = tf.concat((initial_state[:, tf.newaxis, :], outputs_augmented), axis=1)
+        outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), a=1)
 
         return outputs_augmented
 
@@ -275,7 +275,7 @@ class predictor_autoregressive_tf(predictor):
 
         s, Q0 = check_dimensions(s, Q0, self.lib)
         if Q0 is not None:
-            Q0 = tf.convert_to_tensor(Q0, dtype=tf.float32)
+            Q0 = self.lib.to_tensor(Q0, dtype=self.lib.float32)
 
         if s is None:
             s = self.last_initial_state
@@ -300,7 +300,7 @@ class predictor_autoregressive_tf(predictor):
 
             self.copy_internal_states_from_ref(self.net, self.layers_ref)
 
-            net_input = tf.reshape(tf.concat([Q0_normed[:, 0, :], net_input_reg_normed], axis=1),
+            net_input = self.lib.reshape(self.lib.concat([Q0_normed[:, 0, :], net_input_reg_normed], a=1),
                                    [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
