@@ -17,7 +17,7 @@ def get_normalization_function(
 ):
 
     normalizing_array = lib.to_tensor(
-        normalization_info[variables_names], dtype=lib.float32)
+        normalization_info[variables_names].values, dtype=lib.float32)
 
     if normalization_type == 'gaussian':
         a = 1.0 / normalizing_array[1, :]
@@ -51,7 +51,7 @@ def get_denormalization_function(
 ):
 
     denormalizing_array = lib.to_tensor(
-        normalization_info[variables_names], dtype=lib.float32)
+        normalization_info[variables_names].values, dtype=lib.float32)
 
     if normalization_type == 'gaussian':
         A = denormalizing_array[1, :]
@@ -86,8 +86,8 @@ def get_scaling_function_for_output_of_differential_network(
 ):
 
     DIFF_NET_STATE_VARIABLES = [x[2:] for x in network_outputs]  # Outputs without D_ -> to make possible comparison with inputs
-    denormalizing_derivatives = lib.to_tensor(normalization_info[network_outputs], dtype=lib.float32)
-    normalizing_variables = lib.to_tensor(normalization_info[DIFF_NET_STATE_VARIABLES], dtype=lib.float32)
+    denormalizing_derivatives = lib.to_tensor(normalization_info[network_outputs].values, dtype=lib.float32)
+    normalizing_variables = lib.to_tensor(normalization_info[DIFF_NET_STATE_VARIABLES].values, dtype=lib.float32)
 
     # # Augmentation matrix allows network not to include some derivatives - probably now not useful and in a false place
     # augmentation_matrix = np.zeros(shape=(len(inputs), len(outputs)))
