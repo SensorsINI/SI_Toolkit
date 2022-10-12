@@ -45,4 +45,5 @@ def CompileAdaptive(fun):
     elif lib_name == 'TF':
         return CompileTF(fun)
     else:
-        raise NotImplementedError("...")
+        print('Jit compilation for Pytorch not yet implemented.')
+        return identity(fun)
