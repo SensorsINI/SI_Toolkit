@@ -53,7 +53,6 @@ from types import SimpleNamespace
 import os
 import yaml
 
-import tensorflow as tf
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
@@ -114,6 +113,7 @@ class predictor_autoregressive_tf(predictor):
             from Control_Toolkit.others.environment import TensorFlowLibrary
             self.lib = TensorFlowLibrary
             from tensorflow import TensorArray
+            self.TensorArray = TensorArray
             from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
             self.copy_internal_states_from_ref = _copy_internal_states_from_ref
             self.copy_internal_states_to_ref = _copy_internal_states_to_ref
@@ -234,7 +234,10 @@ class predictor_autoregressive_tf(predictor):
         # load internal RNN state if applies
         self.copy_internal_states_from_ref(self.net, self.layers_ref)
 
-        outputs = tf.TensorArray(self.lib.float32, size=self.horizon)
+        if self.lib.lib == 'TF':
+            outputs = self.TensorArray(self.lib.float32, size=self.horizon)
+        else:
+            outputs = self.lib.zeros([self.batch_size, self.horizon, len(self.net_info.outputs)])
 
         if self.differential_network:
             initial_state_normed = self.normalize_state(initial_state)
@@ -258,9 +261,15 @@ class predictor_autoregressive_tf(predictor):
             else:
                 output = net_output
                 next_net_input = net_output
-            outputs = outputs.write(i, output)
 
-        outputs = self.lib.permute(outputs.stack(), [1, 0, 2])
+            if self.lib.lib == 'TF':
+                outputs = outputs.write(i, output)
+            else:
+                outputs[:, i, :] = output
+
+        if self.lib.lib == 'TF':
+            outputs = self.lib.permute(outputs.stack(), [1, 0, 2])
+
 
         outputs = self.denormalize_outputs(outputs)
 
