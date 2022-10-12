@@ -166,7 +166,7 @@ class predictor_autoregressive_tf(predictor):
         else:
             outputs_names = self.net_info.outputs
 
-        self.denormalize_outputs_tf = get_denormalization_function(self.normalization_info, outputs_names, self.lib)
+        self.denormalize_outputs = get_denormalization_function(self.normalization_info, outputs_names, self.lib)
         self.indices_outputs = [STATE_INDICES.get(key) for key in outputs_names]
         self.augmentation = predictor_output_augmentation_tf(self.net_info, differential_network=self.differential_network)
         self.indices_augmentation = self.augmentation.indices_augmentation
@@ -260,7 +260,7 @@ class predictor_autoregressive_tf(predictor):
 
         outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
 
-        outputs = self.denormalize_outputs_tf(outputs)
+        outputs = self.denormalize_outputs(outputs)
 
         # Augment
         outputs_augmented = self.augmentation.augment(outputs)
