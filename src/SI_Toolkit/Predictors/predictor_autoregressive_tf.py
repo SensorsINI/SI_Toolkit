@@ -312,7 +312,7 @@ class predictor_autoregressive_tf(predictor):
 
             self.copy_internal_states_from_ref(self.net, self.layers_ref)
 
-            net_input = self.lib.reshape(self.lib.concat([Q0_normed[:, 0, :], net_input_reg_normed], a=1),
+            net_input = self.lib.reshape(self.lib.concat([Q0_normed[:, 0, :], net_input_reg_normed], axis=1),
                                    [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
