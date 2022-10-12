@@ -145,7 +145,7 @@ class predictor_autoregressive_tf(predictor):
         self.normalize_control_inputs = get_normalization_function(self.normalization_info, self.net_info.inputs[:len(CONTROL_INPUTS)], self.lib)
 
         self.indices_inputs_reg = self.lib.to_tensor(
-            [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int32)
+            [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int64)
 
         if self.differential_network:
 
@@ -158,9 +158,9 @@ class predictor_autoregressive_tf(predictor):
 
             outputs_names = np.array([x[2:] for x in self.net_info.outputs])
 
-            self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names], dtype=self.lib.int32)
+            self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names], dtype=self.lib.int64)
             output_indices = {x: np.where(outputs_names == x)[0][0] for x in outputs_names}
-            self.indices_output_to_input = self.lib.to_tensor([output_indices.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int32)
+            self.indices_output_to_input = self.lib.to_tensor([output_indices.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int64)
 
         else:
             outputs_names = self.net_info.outputs
@@ -169,7 +169,7 @@ class predictor_autoregressive_tf(predictor):
         self.indices_outputs = [STATE_INDICES.get(key) for key in outputs_names]
         self.augmentation = predictor_output_augmentation_tf(self.net_info, self.lib, differential_network=self.differential_network)
         self.indices_augmentation = self.augmentation.indices_augmentation
-        self.indices_outputs = self.lib.to_tensor(np.argsort(self.indices_outputs + self.indices_augmentation), dtype=self.lib.int32)
+        self.indices_outputs = self.lib.to_tensor(np.argsort(self.indices_outputs + self.indices_augmentation), dtype=self.lib.int64)
 
         self.net_input_reg_initial_normed = self.lib.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=self.lib.float32)
         self.last_initial_state = self.lib.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
