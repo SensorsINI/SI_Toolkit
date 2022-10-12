@@ -146,7 +146,8 @@ class predictor_autoregressive_tf(predictor):
             self.rescale_output_diff_net = get_scaling_function_for_output_of_differential_network(
                 self.normalization_info,
                 self.net_info.outputs,
-                self.dt
+                self.dt,
+                self.lib
             )
 
             outputs_names = np.array([x[2:] for x in self.net_info.outputs])
