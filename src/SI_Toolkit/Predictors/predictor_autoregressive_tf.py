@@ -220,13 +220,19 @@ class predictor_autoregressive_tf(predictor):
 
     def _predict_tf(self, initial_state, Q):
 
-        self.last_initial_state.assign(initial_state)
+        if self.lib.lib == 'TF':
+            self.last_initial_state.assign(initial_state)
+        else:
+            self.last_initial_state = initial_state
 
         net_input_reg_initial = self.lib.gather(initial_state, self.indices_inputs_reg, a=-1)  # [batch_size, features]
 
-        self.net_input_reg_initial_normed.assign(
-            self.normalize_inputs(net_input_reg_initial)
-        )
+        if self.lib.lib == 'TF':
+            self.net_input_reg_initial_normed.assign(
+                self.normalize_inputs(net_input_reg_initial)
+            )
+        else:
+            self.net_input_reg_initial_normed = self.normalize_inputs(net_input_reg_initial)
 
         next_net_input = self.net_input_reg_initial_normed
 
