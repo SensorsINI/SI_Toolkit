@@ -2,7 +2,7 @@ from Control_Toolkit.others.environment import TensorFlowLibrary
 
 from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function
-from SI_Toolkit.Functions.TF.Compile import Compile
+from SI_Toolkit.Functions.TF.Compile import CompileTF
 
 from types import SimpleNamespace
 import os
@@ -66,7 +66,7 @@ class predictor_autoregressive_GP(predictor):
         outputs = self.predict_tf(initial_state, Q_seq)
         return outputs.numpy()
 
-    @Compile
+    @CompileTF
     def step(self, s, Q):
         x = tf.concat([s, Q], axis=1)
         s, _ = self.model.predict_f(x)
@@ -75,7 +75,7 @@ class predictor_autoregressive_GP(predictor):
         return s
 
     """
-    @Compile
+    @CompileTF
     def step_mean(self, s, Q):
         x = tf.concat([s, Q], axis=1)
         s = self.model.predict_mean(x)
@@ -126,7 +126,7 @@ class predictor_autoregressive_GP(predictor):
         return self.outputs
 
     """
-    @Compile
+    @CompileTF
     def predict_tf_mean(self, initial_state, Q_seq):
         # initial_state = tf.expand_dims(initial_state, axis=0)  # COMMENT OUT FOR TF MPPI
         self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)

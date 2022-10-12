@@ -1,7 +1,7 @@
 from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES
 
 from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE_tf
-from SI_Toolkit.Functions.TF.Compile import Compile
+from SI_Toolkit.Functions.TF.Compile import CompileTF
 from SI_Toolkit.Predictors import predictor
 
 import tensorflow as tf
@@ -48,7 +48,7 @@ class predictor_ODE_tf(predictor):
         if disable_individual_compilation:
             self.predict_tf = self._predict_tf
         else:
-            self.predict_tf = Compile(self._predict_tf)
+            self.predict_tf = CompileTF(self._predict_tf)
 
 
     def predict(self, initial_state, Q):

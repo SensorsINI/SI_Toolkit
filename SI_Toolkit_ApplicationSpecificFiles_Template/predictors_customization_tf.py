@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from SI_Toolkit.Functions.TF.Compile import Compile
+from SI_Toolkit.Functions.TF.Compile import CompileTF
 
 STATE_INDICES = {} # This could be imported
 STATE_INDICES_TF = tf.lookup.StaticHashTable(  # TF style dictionary
@@ -18,7 +18,7 @@ class next_state_predictor_ODE_tf():
         self.intermediate_steps = tf.convert_to_tensor(intermediate_steps, dtype=tf.int32)
         self.t_step = tf.convert_to_tensor(dt / float(self.intermediate_steps), dtype=tf.float32)
 
-    @Compile
+    @CompileTF
     def step(self, s, Q, params):
 
         s_next = s
@@ -48,7 +48,7 @@ class predictor_output_augmentation_tf:
     def get_features_augmentation(self):
         return self.features_augmentation
 
-    @Compile
+    @CompileTF
     def augment(self, net_output):
 
         output = net_output

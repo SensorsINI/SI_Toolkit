@@ -40,7 +40,7 @@ from SI_Toolkit.Functions.General.Initialization import get_net, get_norm_info_f
 from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function, \
     get_scaling_function_for_output_of_differential_network
 
-from SI_Toolkit.Functions.TF.Compile import Compile
+from SI_Toolkit.Functions.TF.Compile import CompileTF
 
 from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
     CONTROL_INPUTS
@@ -186,8 +186,8 @@ class predictor_autoregressive_tf(predictor):
             self.predict_tf = self._predict_tf
             self.update_internal_state_tf = self._update_internal_state_tf
         else:
-            self.predict_tf = Compile(self._predict_tf)
-            self.update_internal_state_tf = Compile(self._update_internal_state_tf)
+            self.predict_tf = CompileTF(self._predict_tf)
+            self.update_internal_state_tf = CompileTF(self._update_internal_state_tf)
 
         print('Init done')
 
@@ -213,7 +213,7 @@ class predictor_autoregressive_tf(predictor):
         self.output = output.numpy()
         return self.output
 
-    @Compile
+    @CompileTF
     def predict_with_update_tf(self, initial_state, Q, last_initial_state, last_optimal_control_input):
         self._update_internal_state_tf(last_optimal_control_input, last_initial_state)
         return self._predict_tf(initial_state, Q)
