@@ -115,16 +115,15 @@ class predictor_autoregressive_tf(predictor):
             from tensorflow import TensorArray
             self.TensorArray = TensorArray
             from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
-            self.copy_internal_states_from_ref = _copy_internal_states_from_ref
-            self.copy_internal_states_to_ref = _copy_internal_states_to_ref
         elif self.net_info.library == 'Pytorch':
             from Control_Toolkit.others.environment import PyTorchLibrary
             self.lib = PyTorchLibrary
             from SI_Toolkit.Functions.Pytorch.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
-            self.copy_internal_states_from_ref = _copy_internal_states_from_ref
-            self.copy_internal_states_to_ref = _copy_internal_states_to_ref
         else:
             raise NotImplementedError('predictor_autoregressive_neural defined only for TF and Pytorch')
+
+        self.copy_internal_states_from_ref = _copy_internal_states_from_ref
+        self.copy_internal_states_to_ref = _copy_internal_states_to_ref
 
         if np.any(['D_' in output_name for output_name in self.net_info.outputs]):
             self.differential_network = True
