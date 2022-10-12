@@ -78,14 +78,17 @@ def check_dimensions(s, Q, lib):
 
     return s, Q
 
-
-def convert_to_tensors(s, Q):
-    return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
-
-
 class predictor_autoregressive_tf(predictor):
-    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=True, disable_individual_compilation=False, dt=None, **kwargs):
-
+    def __init__(
+        self,
+        horizon=None,
+        dt=None,
+        batch_size=None,
+        disable_individual_compilation=False,
+        net_name=None,
+        update_before_predicting=True,
+        **kwargs
+    ):
         super().__init__(horizon=horizon, batch_size=batch_size)
         self.dt = dt
 
@@ -179,7 +182,9 @@ class predictor_autoregressive_tf(predictor):
 
     def predict(self, initial_state, Q, last_optimal_control_input=None) -> np.array:
 
-        initial_state, Q = convert_to_tensors(initial_state, Q)
+        initial_state = self.lib.to_tensor(initial_state, dtype=self.lib.float32)
+        Q = self.lib.to_tensor(Q, dtype=self.lib.float32)
+
         if last_optimal_control_input is not None:
             last_optimal_control_input = tf.convert_to_tensor(last_optimal_control_input, dtype=tf.float32)
 
