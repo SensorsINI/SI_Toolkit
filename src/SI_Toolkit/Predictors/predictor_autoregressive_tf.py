@@ -222,7 +222,7 @@ class predictor_autoregressive_tf(predictor):
 
         self.lib.assign(self.last_initial_state, initial_state)
 
-        net_input_reg_initial = self.lib.gather(initial_state, self.indices_inputs_reg, a=-1)  # [batch_size, features]
+        net_input_reg_initial = self.lib.gather_last(initial_state, self.indices_inputs_reg)  # [batch_size, features]
 
         self.lib.assign(self.net_input_reg_initial_normed, self.normalize_inputs(net_input_reg_initial))
 
@@ -240,7 +240,7 @@ class predictor_autoregressive_tf(predictor):
 
         if self.differential_network:
             initial_state_normed = self.normalize_state(initial_state)
-            output = self.lib.gather(initial_state_normed, self.indices_state_to_output, a=-1)
+            output = self.lib.gather_last(initial_state_normed, self.indices_state_to_output)
 
         for i in self.lib.arange(self.horizon):
 
@@ -256,7 +256,7 @@ class predictor_autoregressive_tf(predictor):
 
             if self.differential_network:
                 output = output + self.rescale_output_diff_net(net_output)
-                next_net_input = self.lib.gather(output, self.indices_output_to_input, a=-1)
+                next_net_input = self.lib.gather_last(output, self.indices_output_to_input)
             else:
                 output = net_output
                 next_net_input = net_output
@@ -275,7 +275,7 @@ class predictor_autoregressive_tf(predictor):
         # Augment
         outputs_augmented = self.augmentation.augment(outputs)
 
-        outputs_augmented = self.lib.gather(outputs_augmented, self.indices_outputs, a=-1)
+        outputs_augmented = self.lib.gather_last(outputs_augmented, self.indices_outputs)
 
         outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), a=1)
 
@@ -304,7 +304,7 @@ class predictor_autoregressive_tf(predictor):
             pass
         else:
 
-            net_input_reg = self.lib.gather(s, self.indices_inputs_reg, a=-1)  # [batch_size, features]
+            net_input_reg = self.lib.gather_last(s, self.indices_inputs_reg)  # [batch_size, features]
 
             net_input_reg_normed = self.normalize_inputs(net_input_reg)
 
