@@ -113,7 +113,7 @@ class predictor_autoregressive_tf(predictor):
         if self.net_info.library == 'TF':
             from Control_Toolkit.others.environment import TensorFlowLibrary
             self.lib = TensorFlowLibrary
-            from tensorflow import Variable, TensorArray
+            from tensorflow import TensorArray
             from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
             self.copy_internal_states_from_ref = _copy_internal_states_from_ref
             self.copy_internal_states_to_ref = _copy_internal_states_to_ref
@@ -175,9 +175,9 @@ class predictor_autoregressive_tf(predictor):
         self.net_input_reg_initial_normed = self.lib.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=self.lib.float32)
         self.last_initial_state = self.lib.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
 
-        if self.lib.lib == 'TF':
-            self.net_input_reg_initial_normed = Variable(self.net_input_reg_initial_normed)
-            self.last_initial_state = Variable(self.last_initial_state)
+        # Next conversion only relevant for TF
+        self.net_input_reg_initial_normed = self.lib.to_variable(self.net_input_reg_initial_normed)
+        self.last_initial_state = self.lib.to_variable(self.last_initial_state)
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
                                dtype=np.float32)
@@ -221,19 +221,11 @@ class predictor_autoregressive_tf(predictor):
 
     def _predict_tf(self, initial_state, Q):
 
-        if self.lib.lib == 'TF':
-            self.last_initial_state.assign(initial_state)
-        else:
-            self.last_initial_state = initial_state
+        self.lib.assign(self.last_initial_state, initial_state)
 
         net_input_reg_initial = self.lib.gather(initial_state, self.indices_inputs_reg, a=-1)  # [batch_size, features]
 
-        if self.lib.lib == 'TF':
-            self.net_input_reg_initial_normed.assign(
-                self.normalize_inputs(net_input_reg_initial)
-            )
-        else:
-            self.net_input_reg_initial_normed = self.normalize_inputs(net_input_reg_initial)
+        self.lib.assign(self.net_input_reg_initial_normed, self.normalize_inputs(net_input_reg_initial))
 
         next_net_input = self.net_input_reg_initial_normed
 
@@ -292,10 +284,9 @@ class predictor_autoregressive_tf(predictor):
 
         if self.update_before_predicting:
             self.last_optimal_control_input = Q0
-            if self.lib.lib == 'TF':
-                self.last_initial_state.assign(s)
-            else:
-                self.last_initial_state = s
+
+            self.lib.assign(self.last_initial_state, s)
+
         else:
             self.update_internal_state_tf(Q0, s)
 
