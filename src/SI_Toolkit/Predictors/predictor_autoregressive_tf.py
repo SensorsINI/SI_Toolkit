@@ -113,9 +113,16 @@ class predictor_autoregressive_tf(predictor):
         if self.net_info.library == 'TF':
             from Control_Toolkit.others.environment import TensorFlowLibrary
             self.lib = TensorFlowLibrary
+            from tensorflow import Variable, TensorArray
+            from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
+            self.copy_internal_states_from_ref = _copy_internal_states_from_ref
+            self.copy_internal_states_to_ref = _copy_internal_states_to_ref
         elif self.net_info.library == 'Pytorch':
             from Control_Toolkit.others.environment import PyTorchLibrary
             self.lib = PyTorchLibrary
+            from SI_Toolkit.Functions.Pytorch.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
+            self.copy_internal_states_from_ref = _copy_internal_states_from_ref
+            self.copy_internal_states_to_ref = _copy_internal_states_to_ref
         else:
             raise NotImplementedError('predictor_autoregressive_neural defined only for TF and Pytorch')
 
@@ -223,7 +230,7 @@ class predictor_autoregressive_tf(predictor):
         Q_normed = self.normalize_control_inputs(Q)
 
         # load internal RNN state if applies
-        _copy_internal_states_from_ref(self.net, self.layers_ref)
+        self.copy_internal_states_from_ref(self.net, self.layers_ref)
 
         outputs = tf.TensorArray(tf.float32, size=self.horizon)
 
@@ -291,14 +298,14 @@ class predictor_autoregressive_tf(predictor):
 
             Q0_normed = self.normalize_control_inputs(Q0)
 
-            _copy_internal_states_from_ref(self.net, self.layers_ref)
+            self.copy_internal_states_from_ref(self.net, self.layers_ref)
 
             net_input = tf.reshape(tf.concat([Q0_normed[:, 0, :], net_input_reg_normed], axis=1),
                                    [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
 
-            _copy_internal_states_to_ref(self.net, self.layers_ref)
+            self.copy_internal_states_to_ref(self.net, self.layers_ref)
 
 
     def reset(self):
