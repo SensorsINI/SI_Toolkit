@@ -5,6 +5,8 @@ from time import sleep
 
 import glob
 
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 
 from derivative import dxdt
@@ -48,6 +50,15 @@ def get_paths_to_datafiles(paths_to_data_information):
 
     list_of_paths_to_datafiles = []
 
+    def get_exp_number(path:str):   # function to sort load data
+        experiment = path.split('Experiment')
+        if experiment[-1] == '.csv':
+            return 0
+        else:
+            experiment = experiment[-1].replace('-', '')
+            experiment = int(experiment.split('.')[0])
+            return experiment
+
     def list_of_paths_from_norminfo():
 
         with open(paths_to_data_information, 'r', newline='') as cmt_file:  # open file
@@ -86,8 +97,9 @@ def get_paths_to_datafiles(paths_to_data_information):
             # list_of_paths_to_datafiles = glob.glob(paths_to_data_information + '*.csv')
     else:
         raise TypeError('Unsupported type of input argument to get_paths_to_datafiles')
+    list_of_paths_to_datafiles.sort(key=get_exp_number)
 
-    return sorted(list_of_paths_to_datafiles)
+    return list_of_paths_to_datafiles
 
 
 def get_full_paths_to_csvs(default_locations='', csv_names=None):
@@ -195,9 +207,8 @@ def load_data(list_of_paths_to_datafiles=None):
     all_dfs = []  # saved separately to get normalization
     print('Loading data files:')
     sleep(0.1)
-    for file_number in trange(len(list_of_paths_to_datafiles)):
+    for file_number in trange(len(sorted(list_of_paths_to_datafiles))):
         filepath = list_of_paths_to_datafiles[file_number]
-        # print(filepath)
         # Read column names from file
         df = pd.read_csv(filepath, comment='#')
 
