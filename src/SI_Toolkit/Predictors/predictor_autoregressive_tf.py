@@ -53,6 +53,8 @@ from types import SimpleNamespace
 import os
 import yaml
 
+import copy
+
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
