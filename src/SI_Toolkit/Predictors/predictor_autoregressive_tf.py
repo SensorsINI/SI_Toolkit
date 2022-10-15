@@ -105,9 +105,7 @@ class predictor_autoregressive_tf(predictor):
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
 
-        net, _ = \
-            get_net(a, time_series_length=1,
-                    batch_size=self.batch_size, stateful=True)
+        net = copy.deepcopy(self.net)
 
         if self.net_info.library == 'TF':
             from Control_Toolkit.others.environment import TensorFlowLibrary
