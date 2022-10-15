@@ -12,11 +12,10 @@ from gpflow.ci_utils import ci_niter
 import matplotlib.pyplot as plt
 
 
-from SI_Toolkit.GP.Parameters import args
+from SI_Toolkit.GP import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, \
     normalize_df, denormalize_df, normalize_numpy_array, denormalize_numpy_array
 from SI_Toolkit.GP.DataSelector import DataSelector
-from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
 
 gpf.config.set_default_float(tf.float64)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
@@ -96,7 +95,7 @@ if __name__ == '__main__':
 import tensorflow as tf
 import numpy as np
 from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.GP.Parameters import args
+from SI_Toolkit.GP import args
 
 a = args()
 save_dir = a.path_to_models + "GPR_model"

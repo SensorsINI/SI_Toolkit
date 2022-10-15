@@ -1,5 +1,5 @@
 from typing import Callable, Optional
-from CartPoleSimulation.CartPole.state_utilities import STATE_VARIABLES
+
 from Control_Toolkit.others.environment import TensorType
 
 from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE_tf

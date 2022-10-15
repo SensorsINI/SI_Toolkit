@@ -1,5 +1,5 @@
 from SI_Toolkit.Testing.Parameters_for_testing import args
-from SI_Toolkit.GP.Parameters import args as args_GP
+from SI_Toolkit.GP import args as args_GP
 
 import matplotlib.pyplot as plt
 import yaml

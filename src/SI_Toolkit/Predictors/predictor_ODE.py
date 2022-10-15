@@ -9,7 +9,7 @@ While designing the controller you just chose the predictor you want,
 
 from typing import Callable, Optional
 import numpy as np
-from CartPoleSimulation.CartPole.state_utilities import STATE_VARIABLES
+from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES
 from Control_Toolkit.others.environment import TensorType
 from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE
 from SI_Toolkit.Predictors import template_predictor

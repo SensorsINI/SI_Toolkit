@@ -1,6 +1,7 @@
 import numpy as np
-from CartPole.state_utilities import CONTROL_INPUTS, STATE_VARIABLES
 from tqdm import trange
+
+from SI_Toolkit_ASF.predictors_customization_tf import STATE_VARIABLES, CONTROL_INPUTS
 
 try:
     from SI_Toolkit_ASF.predictors_customization import STATE_INDICES

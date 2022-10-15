@@ -8,7 +8,7 @@ import random
 import tensorflow as tf
 import numpy as np
 
-from SI_Toolkit.GP.Parameters import args
+from SI_Toolkit.GP import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, normalize_df
 from SI_Toolkit.GP.DataSelector import DataSelector
 
@@ -133,7 +133,7 @@ initialization = '''
 import tensorflow as tf
 import numpy as np
 from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.GP.Parameters import args
+from SI_Toolkit.GP import args
 
 a = args()
 save_dir = a.path_to_models + "GPR_model"
