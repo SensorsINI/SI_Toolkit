@@ -2,7 +2,7 @@ from typing import Callable, Optional
 
 from Control_Toolkit.others.environment import TensorType
 
-from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE_tf
+from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE_tf, STATE_VARIABLES
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 from SI_Toolkit.Predictors import template_predictor
 
