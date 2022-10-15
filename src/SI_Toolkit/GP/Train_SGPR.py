@@ -11,7 +11,7 @@ import tensorflow as tf
 import numpy as np
 
 import matplotlib
-from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
+# from CartPole.state_utilities import ANGLE_IDX, ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
 from SI_Toolkit.Functions.General.load_parameters_for_training import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, \
     normalize_df, denormalize_df, normalize_numpy_array, denormalize_numpy_array
@@ -182,7 +182,7 @@ X, Y = DS.return_dataset_for_training(shuffle=True,
 X = X.squeeze()
 Y = Y.squeeze()
 data = (X, Y)
-test_indices = random.sample(range(X.shape[0]), 1000)
+test_indices = random.sample(range(X.shape[0]), 100)
 data_subsampled = (data[0][test_indices], data[1][test_indices])
 
 errs = state_space_pred_err(model, data_subsampled, save_dir=save_dir+"info/ss_error/")
@@ -201,7 +201,7 @@ initialization = '''
 import tensorflow as tf
 import numpy as np
 from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.GP.Parameters import args
+from SI_Toolkit.Functions.General.load_parameters_for_training import args
 
 a = args()
 save_dir = a.path_to_models + "/SGP_{}/"

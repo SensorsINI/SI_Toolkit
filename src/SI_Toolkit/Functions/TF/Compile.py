@@ -2,6 +2,8 @@ import logging
 import tensorflow as tf
 import platform
 
+# from Control_Toolkit.others.environment import ComputationLibrary # Fixme: throws an error of circular import
+
 try:
     from SI_Toolkit_ASF import GLOBALLY_DISABLE_COMPILATION, USE_JIT_COMPILATION
 except ImportError:
@@ -21,12 +23,27 @@ def identity(func):
 
 
 if GLOBALLY_DISABLE_COMPILATION:
-    Compile = identity
+    CompileTF = identity
 else:
     if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
-        Compile = tf.function
+        CompileTF = tf.function
     elif not USE_JIT_COMPILATION:
-        Compile = tf.function
+        CompileTF = tf.function
     else:
-        Compile = tf_function_jit
-        # Compile = tf_function_experimental # Should be same as tf_function_jit, not appropriate for newer version of TF
+        CompileTF = tf_function_jit
+        # CompileTF = tf_function_experimental # Should be same as tf_function_jit, not appropriate for newer version of TF
+
+def CompileAdaptive(fun):
+    instance = fun.__self__
+    assert hasattr(instance, "lib"), "Instance with this method has no computation library defined"
+    # computation_library: ComputationLibrary = instance.lib # Fixme: throws an error of circular import
+    computation_library = instance.lib
+    lib_name = computation_library.lib
+
+    if GLOBALLY_DISABLE_COMPILATION:
+        return identity(fun)
+    elif lib_name == 'TF':
+        return CompileTF(fun)
+    else:
+        print('Jit compilation for Pytorch not yet implemented.')
+        return identity(fun)

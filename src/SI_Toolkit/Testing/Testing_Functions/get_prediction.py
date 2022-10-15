@@ -33,12 +33,12 @@ def get_prediction(a, dataset, predictor_name, dt, intermediate_steps):
     elif 'predictor_ODE' in predictor_name:
         from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
         predictor = predictor_ODE(horizon=a.test_max_horizon, dt=dt, intermediate_steps=intermediate_steps, batch_size=a.test_len)
-    elif 'predictor_autoregressive_GP' in predictor_name:
+    elif 'SGP' in predictor_name:
         from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
         if mode == 'batch':
-            predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=a.test_max_horizon, num_rollouts=a.test_len)
+            predictor = predictor_autoregressive_GP(net_name=predictor_name, horizon=a.test_max_horizon, batch_size=a.test_len)
         else:
-            predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=a.test_max_horizon)
+            predictor = predictor_autoregressive_GP(net_name=predictor_name, horizon=a.test_max_horizon)
     else:
         from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
         if mode == 'batch':

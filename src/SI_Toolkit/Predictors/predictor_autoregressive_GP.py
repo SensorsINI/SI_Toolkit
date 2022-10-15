@@ -1,6 +1,8 @@
+from Control_Toolkit.others.environment import TensorFlowLibrary
+
 from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.Functions.TF.Normalising import get_normalization_function_tf, get_denormalization_function_tf
-from SI_Toolkit.Functions.TF.Compile import Compile
+from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function
+from SI_Toolkit.Functions.TF.Compile import CompileTF
 
 from types import SimpleNamespace
 import os
@@ -25,13 +27,7 @@ PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
 
 
 class predictor_autoregressive_GP(predictor):
-    def __init__(
-        self,
-        horizon: int,
-        net_name: str,
-        batch_size=1,
-        **kwargs
-    ):
+    def __init__(self, net_name, horizon, batch_size=1, **kwargs):
         # tf.config.run_functions_eagerly(True)
         a = SimpleNamespace()
 
@@ -43,13 +39,19 @@ class predictor_autoregressive_GP(predictor):
             a.net_name = net_name
 
         super().__init__(horizon=horizon, batch_size=batch_size)
+        self.lib = TensorFlowLibrary
+        self.batch_size = self.batch_size
         self.model = load_model(PATH_TO_MODEL+net_name)
         self.inputs = self.model.state_inputs + self.model.control_inputs
 
-        self.normalize_tf = get_normalization_function_tf(self.model.norm_info,
-                                                          self.model.state_inputs)
-        self.denormalize_tf = get_denormalization_function_tf(self.model.norm_info,
-                                                              self.model.outputs)
+        self.normalize_tf = get_normalization_function(self.model.norm_info,
+                                                       self.model.state_inputs,
+                                                       self.lib
+                                                       )
+        self.denormalize_tf = get_denormalization_function(self.model.norm_info,
+                                                           self.model.outputs,
+                                                           self.lib
+                                                           )
         self.indices = [STATE_INDICES.get(key) for key in self.model.outputs]
 
         self.initial_state = tf.random.uniform(shape=[self.batch_size, 6], dtype=tf.float32)
@@ -64,7 +66,7 @@ class predictor_autoregressive_GP(predictor):
         outputs = self.predict_tf(initial_state, Q_seq)
         return outputs.numpy()
 
-    @Compile
+    @CompileTF
     def step(self, s, Q):
         x = tf.concat([s, Q], axis=1)
         s, _ = self.model.predict_f(x)
@@ -73,7 +75,7 @@ class predictor_autoregressive_GP(predictor):
         return s
 
     """
-    @Compile
+    @CompileTF
     def step_mean(self, s, Q):
         x = tf.concat([s, Q], axis=1)
         s = self.model.predict_mean(x)
@@ -124,7 +126,7 @@ class predictor_autoregressive_GP(predictor):
         return self.outputs
 
     """
-    @Compile
+    @CompileTF
     def predict_tf_mean(self, initial_state, Q_seq):
         # initial_state = tf.expand_dims(initial_state, axis=0)  # COMMENT OUT FOR TF MPPI
         self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
@@ -179,11 +181,11 @@ import numpy as np
 import tensorflow as tf
 
 horizon = 10
-num_rollouts = 1000
-predictor = predictor_autoregressive_GP(horizon=horizon, num_rollouts=num_rollouts)
+batch_size = 1000
+predictor = predictor_autoregressive_GP(horizon=horizon, batch_size=batch_size)
 
-initial_state = tf.random.uniform(shape=[num_rollouts, 6], dtype=tf.float32)
-Q = tf.random.uniform(shape=[num_rollouts, horizon, 1], dtype=tf.float32)
+initial_state = tf.random.uniform(shape=[batch_size, 6], dtype=tf.float32)
+Q = tf.random.uniform(shape=[batch_size, horizon, 1], dtype=tf.float32)
 '''
 
     code = '''\

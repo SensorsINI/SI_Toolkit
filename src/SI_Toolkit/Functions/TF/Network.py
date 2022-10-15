@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import tensorflow as tf
 
-from SI_Toolkit.Functions.TF.Compile import Compile
+from SI_Toolkit.Functions.TF.Compile import CompileTF
 
 def load_pretrained_net_weights(net, ckpt_path):
     """
@@ -22,7 +22,9 @@ def compose_net_from_net_name(net_name,
                               outputs_list,
                               time_series_length,
                               batch_size=None,
-                              stateful=False):
+                              stateful=False,
+                              **kwargs,
+                              ):
 
     # Get the information about network architecture from the network name
     # Split the names into "LSTM/GRU", "128H1", "64H2" etc.
@@ -119,5 +121,5 @@ def _copy_internal_states_from_ref(net, layers_ref):
             pass
 
 
-copy_internal_states_to_ref = Compile(_copy_internal_states_to_ref)
-copy_internal_states_from_ref = Compile(_copy_internal_states_from_ref)
+copy_internal_states_to_ref = CompileTF(_copy_internal_states_to_ref)
+copy_internal_states_from_ref = CompileTF(_copy_internal_states_from_ref)

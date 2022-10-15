@@ -14,7 +14,7 @@ import tensorflow as tf
 from gpflow.utilities import print_summary
 from gpflow import posteriors
 
-from CartPole.state_utilities import ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
+from CartPoleSimulation.CartPole.state_utilities import ANGLE_SIN_IDX, ANGLE_COS_IDX, ANGLED_IDX, POSITION_IDX, POSITIOND_IDX
 from SI_Toolkit.load_and_normalize import load_normalization_info, \
     normalize_numpy_array
 
@@ -106,29 +106,29 @@ class MultiOutGPR(tf.Module):
     @tf.function(input_signature=[tf.TensorSpec(shape=[None, None], dtype=gpf.default_float())],
                  jit_compile=False)  # predictor runs faster on MPPI if only outer predictor function uses XLA; set to True if you use predict_f directly
     def predict_f(self, x):
-        # means = tf.TensorArray(gpf.default_float(), size=len(self.models))
-        # vars = tf.TensorArray(gpf.default_float(), size=len(self.models))
+        means = tf.TensorArray(gpf.default_float(), size=len(self.models))
+        vars = tf.TensorArray(gpf.default_float(), size=len(self.models))
 
-        # i = 0
-        """
+        i = 0
+
         for p in self.posteriors:
-            mn, _ = p.predict_f(x)
+            mn, vr = p.predict_f(x)
             # mn, _ = p._conditional_with_precompute(x)
             means = means.write(i, mn)
-            # vars = vars.write(i, vr)
+            vars = vars.write(i, vr)
             i += 1
-        """
-        mn1, var1 = self.posteriors[0].predict_f(x)
-        mn2, var2 = self.posteriors[1].predict_f(x)
-        mn3, var3 = self.posteriors[2].predict_f(x)
-        mn4, var4 = self.posteriors[3].predict_f(x)
-        mn5, var5 = self.posteriors[4].predict_f(x)
+
+        # mn1, var1 = self.posteriors[0].predict_f(x)
+        # mn2, var2 = self.posteriors[1].predict_f(x)
+        # mn3, var3 = self.posteriors[2].predict_f(x)
+        # mn4, var4 = self.posteriors[3].predict_f(x)
+        # mn5, var5 = self.posteriors[4].predict_f(x)
 
         # means = tf.concat([p.predict_f(x)[0] for p in self.posteriors], axis=1)
-        means = tf.concat([mn1, mn2, mn3, mn4, mn5], axis=1)
-        vars = tf.concat([var1, var2, var3, var4, var5], axis=1)
-        # means = tf.squeeze(tf.transpose(means.stack(), perm=[1, 0, 2]))
-        # vars = tf.squeeze(tf.transpose(vars.stack(), perm=[1, 0, 2]))
+        # means = tf.concat([mn1, mn2, mn3, mn4, mn5], axis=1)
+        # vars = tf.concat([var1, var2, var3, var4, var5], axis=1)
+        means = tf.squeeze(tf.transpose(means.stack(), perm=[1, 0, 2]))
+        vars = tf.squeeze(tf.transpose(vars.stack(), perm=[1, 0, 2]))
 
         return means, vars
 

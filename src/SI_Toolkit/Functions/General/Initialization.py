@@ -33,7 +33,6 @@ def get_net(a,
             time_series_length=None,
             batch_size=None,
             stateful=False,
-            library='TF'
             ):
     """
     A quite big (too big?) chunk of creating a network, its associated net_info variable
@@ -48,11 +47,6 @@ def get_net(a,
     The action to take is decided based on provided net_name.
     It also deletes the folder if txt or ckpt file is missing.
     """
-
-    if library == 'TF':
-        from SI_Toolkit.Functions.TF.Network import compose_net_from_net_name, load_pretrained_net_weights
-    else:
-        from SI_Toolkit.Functions.Pytorch.Network import compose_net_from_net_name, load_pretrained_net_weights
 
     # region If length of timeseries to be fed into net not provided get it as a sum: wash_out_len + post_wash_out_len
     if time_series_length is None:
@@ -74,9 +68,8 @@ def get_net(a,
 
     # We load a pretrained network
     if load_pretrained:
-        net_not_found = True
         # In case net_name is 'last' iterate till a valid file is found
-        while net_not_found:
+        while True:  # Exit from while loop is done with break statement or when getting an error
             # region In case net_name is 'last' we have to first find (full) name of the last trained net
             if a.net_name == 'last':
                 try:
@@ -91,7 +84,21 @@ def get_net(a,
                 parent_net_name = a.net_name
 
             # After above if statement we have parent_net_name and can load it
-            print('Loading a pretrained network with the full name: {}'.format(parent_net_name))
+
+            # region check for DeltaGRU, and alternatively load normal GRU printing a warning
+            convert_to_delta = False
+            if os.path.isdir(a.path_to_models + parent_net_name):
+                print('Loading a pretrained network with the full name: {}'.format(parent_net_name))
+            else:
+                if parent_net_name[:5] == 'Delta':
+                    if os.path.isdir(a.path_to_models + parent_net_name[5:]):
+                        convert_to_delta = True
+                        print('{} not found, loading {} instead'.format(parent_net_name, parent_net_name[5:]))
+                        parent_net_name = parent_net_name[5:]
+                    else:
+                        raise FileNotFoundError('Neither specified DeltaGRU nor a normal GRU (Delta){} was found'.format(parent_net_name))
+                else:
+                    raise FileNotFoundError('{} not found'.format(parent_net_name))
             print('')
 
             # endregion
@@ -120,8 +127,13 @@ def get_net(a,
                 lines = f.read().splitlines()
 
             for i in range(len(lines)):
+                if lines[i] == 'LIBRARY:':
+                    library = lines[i + 1].rstrip("\n")
+                    continue
                 if lines[i] == 'NET NAME:':
                     net_name = lines[i + 1].rstrip("\n")
+                    if convert_to_delta:
+                        net_name = 'Delta'+net_name
                     continue
                 if lines[i] == 'NET FULL NAME:':
                     net_full_name = lines[i + 1].rstrip("\n")
@@ -136,13 +148,18 @@ def get_net(a,
                     net_type = lines[i + 1].rstrip("\n").split(sep=', ')
                     continue
                 if lines[i] == 'NORMALIZATION:':
-                    path_to_normalization_info = lines[i + 1].rstrip("\n")
+                    path_to_normalization_info_old = lines[i + 1].rstrip("\n")
+                    path_to_normalization_info = os.path.join(a.path_to_models, parent_net_name,
+                                                         os.path.basename(path_to_normalization_info_old))
                     continue
                 if lines[i] == 'SAMPLING INTERVAL:':
                     net_sampling_interval = float(lines[i + 1].rstrip("\n")[:-2])
                     continue
                 if lines[i] == 'WASH OUT LENGTH:':
                     net_wash_out_len = float(lines[i + 1].rstrip("\n"))
+                    continue
+                if lines[i] == 'CONSTRUCT NETWORK:':
+                    construct_network = lines[i + 1].rstrip("\n")
                     continue
 
             print('Inputs to the loaded network: {}'.format(', '.join(map(str, inputs))))
@@ -151,12 +168,13 @@ def get_net(a,
 
             # endregion
 
-            # region Recreate pretrained network
-
-            # Recreate network architecture
-            net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
-                                                      time_series_length=time_series_length,
-                                                      batch_size=batch_size, stateful=stateful)
+            if 'library' not in locals():
+                print()
+                print('No information about library of pretrained network (TF/Pytorch) found \n'
+                      'Set to default: TF \n'
+                      "We suggest adding the information manually to network's txt file \n")
+                library = 'TF'
+                print()
 
             # region Load weights from checkpoint file
             if library == 'TF':
@@ -189,31 +207,17 @@ def get_net(a,
                 else:
                     raise FileNotFoundError(ckpt_not_found_str)
 
-            # Load the pretrained weights
-            load_pretrained_net_weights(net, ckpt_path)
+            if 'construct_network' not in locals():
+                print()
+                print('No information about weather to construct network with modules or cells found \n'
+                      'Set to default: construct with cells \n'
+                      "We suggest adding the information manually to network's txt file \n")
+                construct_network = 'with cells'
+                print()
 
-            # net_info.wash_out_len = a.wash_out_len
+            break  # If we got to this point without hitting "continue" statement, network is found
 
-            # endregion
-            print('Model loaded from a checkpoint.')
-
-            # If we got to this point we know that the network was found and we do not need to repeat while loop
-            net_not_found = False
-
-            # endregion
-
-            # region Save the path to associated normalization file to net_info
-            net_info.path_to_normalization_info = path_to_normalization_info
-            # endregion
-
-            net_info.parent_net_name = parent_net_name
-            # This is the full name of pretrained net. A new full name will be given if the training is resumed
-            net_info.net_full_name = net_full_name
-
-            net_info.path_to_net = a.path_to_models + parent_net_name
-
-            # endregion
-
+        # endregion
 
     else:
 
@@ -223,22 +227,70 @@ def get_net(a,
         print('No pretrained network specified. I will train a network from scratch.')
         print('')
 
-        net, net_info = compose_net_from_net_name(a.net_name, a.inputs, a.outputs,
-                                                  time_series_length=time_series_length,
-                                                  batch_size=batch_size, stateful=stateful)
+        net_name = a.net_name
+        inputs = a.inputs
+        outputs = a.outputs
+
+        library = a.library
+        construct_network = a.construct_network
+
+
 
         # endregion
 
+
+
+    if library == 'TF':
+        from SI_Toolkit.Functions.TF.Network import compose_net_from_net_name, load_pretrained_net_weights
+    else:
+        from SI_Toolkit.Functions.Pytorch.Network import compose_net_from_net_name, load_pretrained_net_weights
+
+    # Create network architecture
+    net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
+                                              time_series_length=time_series_length,
+                                              batch_size=batch_size, stateful=stateful,
+                                              construct_network=construct_network)
+
+
+    # We load a pretrained network
+    if load_pretrained:
+
+        # Load the pretrained weights
+        load_pretrained_net_weights(net, ckpt_path)
+
+        # net_info.wash_out_len = a.wash_out_len
+
+        # endregion
+        print('Model loaded from a checkpoint.')
+
+        # endregion
+
+        # region Save the path to associated normalization file to net_info
+        net_info.path_to_normalization_info = path_to_normalization_info
+        # endregion
+
+        net_info.parent_net_name = parent_net_name
+        # This is the full name of pretrained net. A new full name will be given if the training is resumed
+        net_info.net_full_name = net_full_name
+
+        net_info.path_to_net = a.path_to_models + parent_net_name
+
+        # endregion
+
+    else:
         # region Save the path to associated normalization file to net_info
         if a.path_to_normalization_info is not None:
             net_info.path_to_normalization_info = a.path_to_normalization_info
         else:
             net_info.path_to_normalization_info = None
-
         # endregion
 
         net_info.parent_net_name = 'Network trained from scratch'
         net_info.path_to_net = None  # Folder for net not yer created
+
+
+    net_info.library = library
+    net_info.construct_network = construct_network
 
     try:
         net_info.wash_out_len = a.wash_out_len
@@ -269,8 +321,10 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
         #  however it is also compatible with older version of the program with normalization info placed in a different folder
         if net_info.path_to_normalization_info is None:
             raise ValueError('You must provide normalization info for retraining existing network')
-        try: shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
-        except: pass
+        try:
+            shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
+        except shutil.SameFileError:
+            pass
         net_info.path_to_normalization_info = os.path.join(net_info.path_to_net, os.path.basename(
             net_info.path_to_normalization_info))
         normalization_info = load_normalization_info(net_info.path_to_normalization_info)
@@ -290,7 +344,13 @@ def create_full_name(net_info, path_to_models):
                     + net_info.net_name[idx_end_prefix + 1:] \
                     + '-' + str(len(net_info.outputs)) + 'OUT'
 
-    net_index = 0
+    if net_info.parent_net_name == 'Network trained from scratch':
+        net_index = 0
+    else:
+        parent_index = int(net_info.parent_net_name.split('-')[-1])
+        net_index = parent_index + 1
+
+
     while True:
         path_to_dir = path_to_models + net_full_name + '-' + str(net_index)
         if os.path.isdir(path_to_dir):
@@ -323,6 +383,8 @@ def create_log_file(net_info, a):
     f.write(date_now + ' at time ' + time_now)
     f.write('\n\nWITH GIT REVISION:\n')
     f.write(git_revision)
+    f.write('\n\nLIBRARY:\n')
+    f.write(net_info.library)
     f.write('\n\nNET NAME:\n')
     f.write(net_info.net_name)
     f.write('\n\nNET FULL NAME:\n')
@@ -339,6 +401,8 @@ def create_log_file(net_info, a):
     f.write(net_info.parent_net_name)
     f.write('\n\nWASH OUT LENGTH:\n')
     f.write(str(net_info.wash_out_len))
+    f.write('\n\nCONSTRUCT NETWORK:\n')
+    f.write(net_info.construct_network)
 
     f.write('\n\nTRAINING_FILES:\n')
     if type(a.training_files) is list:
