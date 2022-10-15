@@ -9,6 +9,8 @@ class DatasetTemplate:
                  outputs=None,
                  exp_len=None,
                  shuffle=True,
+                 batch_size=None,
+                 use_only_full_batches=True,
                  ):
         'Initialization - divide data in features and labels'
 
@@ -48,13 +50,30 @@ class DatasetTemplate:
         self.warm_up_len = self.args.wash_out_len
         self.df_lengths = []
         self.df_lengths_cs = []
-        self.number_of_samples = 0
+
         self.indices = []
+        self.number_of_samples = 0
+        self.number_of_batches = 0
+
+        self.indices_to_use = []
+        self.number_of_samples_to_use = 0
+        self.number_of_batches_to_use = 0
+
+        self.indices_subset = []
+        self.number_of_samples_in_subset = 0
+        self.number_of_batches_in_subset = 0
 
         self.shuffle = shuffle
 
+        self.use_only_full_batches = use_only_full_batches
+
         self.reset_exp_len(exp_len=exp_len)
+        self.reset_number_of_samples()
         self.shuffle_dataset()
+
+        # Batch is of relevance only for TF, Pytorch does not use Dataset to form batches.
+        self.batch_size = 1
+        self.reset_batch_size(batch_size=batch_size)
 
     def reset_exp_len(self, exp_len=None):
         """
@@ -73,6 +92,9 @@ class DatasetTemplate:
             else:
                 raise ValueError('Experiment length (exp_len) must be 1 at least!')
 
+
+    def reset_number_of_samples(self):
+
         self.df_lengths = []
         self.df_lengths_cs = []
         if type(self.data) == list:
@@ -90,8 +112,12 @@ class DatasetTemplate:
         if np.any(np.array(self.df_lengths) < 1):
             raise ValueError('One of the datasets is too short to use it for training. Remove it manually and try again.')
 
-    def shuffle_dataset(self):
         self.indices = np.arange(self.number_of_samples)
+        self.indices_to_use = self.indices
+        self.number_of_samples_to_use = self.number_of_samples
+
+
+    def shuffle_dataset(self):
         if self.shuffle:
             np.random.shuffle(self.indices)
 
@@ -136,3 +162,60 @@ class DatasetTemplate:
 
     def __getitem__(self, idx):
         raise NotImplementedError('You need to implement __getitem__ method for Dataset class.')
+
+    # region Batch is of relevance only for TF, Pytorch does not use Dataset to form batches.
+    def get_batch(self, idx_batch):
+        features_batch = []
+        targets_batch = []
+        sample_idx = self.indices_to_use[self.batch_size * idx_batch: self.batch_size * (idx_batch + 1)]
+        for i in sample_idx:
+            features, targets = self.get_series(i)
+            features_batch.append(features)
+            targets_batch.append(targets)
+        features_batch = np.stack(features_batch)
+        targets_batch = np.stack(targets_batch)
+
+        return features_batch, targets_batch
+
+    def reset_batch_size(self, batch_size=None):
+
+        if batch_size is None:
+            self.batch_size = self.args.batch_size
+        else:
+            self.batch_size = batch_size
+
+        self.number_of_batches = self.calculate_number_of_batches(self.number_of_samples, self.batch_size, self.use_only_full_batches)
+        self.number_of_batches_to_use = self.number_of_batches
+
+    @staticmethod
+    def calculate_number_of_batches(number_of_samples, batch_size, use_only_full_batches=True):
+        if use_only_full_batches:
+            return int(np.floor(number_of_samples / float(batch_size)))
+        else:
+            return int(np.ceil(number_of_samples / float(batch_size)))
+
+    # endregion
+
+    def create_subset(self, number_of_samples_in_subset=None, shuffle=True):
+        if number_of_samples_in_subset is None:
+            number_of_samples_in_subset = self.number_of_samples
+        if number_of_samples_in_subset > self.number_of_samples:
+            raise ValueError('Requested subset bigger than whole dataset')
+
+        self.number_of_samples_in_subset = number_of_samples_in_subset
+        if shuffle:
+            self.indices_subset = np.random.choice(self.number_of_samples, number_of_samples_in_subset, replace=False)
+        else:
+            self.indices_subset = self.indices[:number_of_samples_in_subset]
+
+        self.number_of_batches_in_subset = self.calculate_number_of_batches(number_of_samples_in_subset, self.batch_size, self.use_only_full_batches)
+
+    def use_subset(self):
+        self.indices_to_use = self.indices_subset
+        self.number_of_samples_to_use = self.number_of_samples_in_subset
+        self.number_of_batches_to_use = self.number_of_batches_in_subset
+
+    def use_full_set(self):
+        self.indices_to_use = self.indices
+        self.number_of_samples_to_use = self.number_of_samples
+        self.number_of_batches_to_use = self.number_of_batches
