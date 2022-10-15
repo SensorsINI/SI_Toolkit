@@ -38,10 +38,10 @@ Using predictor:
 # "Command line" parameters
 from SI_Toolkit.Functions.General.Initialization import (get_net,
                                                          get_norm_info_for_net)
-from SI_Toolkit.Functions.TF.Compile import Compile
+from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
 from SI_Toolkit.Functions.TF.Network import (_copy_internal_states_from_ref,
                                              _copy_internal_states_to_ref)
-from SI_Toolkit.Functions.General.Normalising import get_scaling_function_for_output_of_differential_network
+from SI_Toolkit.Functions.General.Normalising import get_denormalization_function, get_normalization_function, get_scaling_function_for_output_of_differential_network
 from SI_Toolkit.Predictors import template_predictor
 from SI_Toolkit_ASF.predictors_customization import CONTROL_INPUTS, STATE_INDICES, STATE_VARIABLES
 from SI_Toolkit_ASF.predictors_customization_tf import predictor_output_augmentation_tf
