@@ -259,3 +259,11 @@ def get_device():
     else:
         device = torch.device('cpu')
     return device
+
+
+def _copy_internal_states_to_ref(net, layers_ref):
+    pass
+
+
+def _copy_internal_states_from_ref(net, layers_ref):
+    pass

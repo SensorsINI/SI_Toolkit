@@ -1,6 +1,6 @@
 from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.Functions.TF.Normalising import normalize_tf, denormalize_tf
-from SI_Toolkit.Functions.TF.Compile import Compile
+from SI_Toolkit.Functions.TF.Compile import CompileTF
 
 import os
 import yaml
@@ -50,7 +50,7 @@ class predictor_autoregressive_GP:
         #    s = tf.expand_dims(s, axis=0)
         return s
 
-    @Compile
+    @CompileTF
     def predict_tf(self, initial_state, Q_seq):
         initial_state = tf.expand_dims(initial_state, axis=0)
         s = tf.cast(initial_state, dtype=tf.float64)

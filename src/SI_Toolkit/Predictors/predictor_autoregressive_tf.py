@@ -37,10 +37,10 @@ Using predictor:
 
 # "Command line" parameters
 from SI_Toolkit.Functions.General.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.Functions.TF.Normalising import get_normalization_function_tf, get_denormalization_function_tf, \
+from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function, \
     get_scaling_function_for_output_of_differential_network
-from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
-from SI_Toolkit.Functions.TF.Compile import Compile
+
+from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
 
 from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
     CONTROL_INPUTS
@@ -53,7 +53,6 @@ from types import SimpleNamespace
 import os
 import yaml
 
-import tensorflow as tf
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
@@ -63,29 +62,32 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
 PATH_TO_NN = config['testing']['PATH_TO_NN']
 
 
-def check_dimensions(s, Q):
+def check_dimensions(s, Q, lib):
     # Make sure the input is at least 2d
     if s is not None:
-        if tf.rank(s) == 1:
-            s = s[tf.newaxis, :]
+        if lib.ndim(s) == 1:
+            s = s[lib.newaxis, :]
 
-    if tf.rank(Q) == 3:  # Q.shape = [batch_size, timesteps, features]
+    if lib.ndim(Q) == 3:  # Q.shape = [batch_size, timesteps, features]
         pass
-    elif tf.rank(Q) == 2:  # Q.shape = [timesteps, features]
-        Q = Q[tf.newaxis, :, :]
-    else:  # Q.shape = [features;  tf.rank(Q) == 1
-        Q = Q[tf.newaxis, tf.newaxis, :]
+    elif lib.ndim(Q) == 2:  # Q.shape = [timesteps, features]
+        Q = Q[lib.newaxis, :, :]
+    else:  # Q.shape = [features;  rank(Q) == 1
+        Q = Q[lib.newaxis, lib.newaxis, :]
 
     return s, Q
 
-
-def convert_to_tensors(s, Q):
-    return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
-
-
 class predictor_autoregressive_tf(predictor):
-    def __init__(self, horizon=None, batch_size=None, net_name=None, update_before_predicting=True, disable_individual_compilation=False, dt=None, **kwargs):
-
+    def __init__(
+        self,
+        horizon=None,
+        dt=None,
+        batch_size=None,
+        disable_individual_compilation=False,
+        net_name=None,
+        update_before_predicting=True,
+        **kwargs
+    ):
         super().__init__(horizon=horizon, batch_size=batch_size)
         self.dt = dt
 
@@ -107,6 +109,22 @@ class predictor_autoregressive_tf(predictor):
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
 
+        if self.net_info.library == 'TF':
+            from Control_Toolkit.others.environment import TensorFlowLibrary
+            self.lib = TensorFlowLibrary
+            from tensorflow import TensorArray
+            self.TensorArray = TensorArray
+            from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
+        elif self.net_info.library == 'Pytorch':
+            from Control_Toolkit.others.environment import PyTorchLibrary
+            self.lib = PyTorchLibrary
+            from SI_Toolkit.Functions.Pytorch.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
+        else:
+            raise NotImplementedError('predictor_autoregressive_neural defined only for TF and Pytorch')
+
+        self.copy_internal_states_from_ref = _copy_internal_states_from_ref
+        self.copy_internal_states_to_ref = _copy_internal_states_to_ref
+
         if np.any(['D_' in output_name for output_name in self.net_info.outputs]):
             self.differential_network = True
             if self.dt is None:
@@ -122,59 +140,67 @@ class predictor_autoregressive_tf(predictor):
 
         self.normalization_info = get_norm_info_for_net(self.net_info)
 
-        self.normalize_state_tf = get_normalization_function_tf(self.normalization_info, STATE_VARIABLES)
-        self.normalize_inputs_tf = get_normalization_function_tf(self.normalization_info, self.net_info.inputs[len(CONTROL_INPUTS):])
-        self.normalize_control_inputs_tf = get_normalization_function_tf(self.normalization_info, self.net_info.inputs[:len(CONTROL_INPUTS)])
+        self.normalize_state = get_normalization_function(self.normalization_info, STATE_VARIABLES, self.lib)
+        self.normalize_inputs = get_normalization_function(self.normalization_info, self.net_info.inputs[len(CONTROL_INPUTS):], self.lib)
+        self.normalize_control_inputs = get_normalization_function(self.normalization_info, self.net_info.inputs[:len(CONTROL_INPUTS)], self.lib)
 
-        self.indices_inputs_reg = tf.convert_to_tensor(
-            [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
+        self.indices_inputs_reg = self.lib.to_tensor(
+            [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int64)
 
         if self.differential_network:
 
             self.rescale_output_diff_net = get_scaling_function_for_output_of_differential_network(
                 self.normalization_info,
                 self.net_info.outputs,
-                self.dt
+                self.dt,
+                self.lib
             )
 
             outputs_names = np.array([x[2:] for x in self.net_info.outputs])
 
-            self.indices_state_to_output = tf.convert_to_tensor([STATE_INDICES.get(key) for key in outputs_names])
+            self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names], dtype=self.lib.int64)
             output_indices = {x: np.where(outputs_names == x)[0][0] for x in outputs_names}
-            self.indices_output_to_input = tf.convert_to_tensor([output_indices.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]])
+            self.indices_output_to_input = self.lib.to_tensor([output_indices.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int64)
 
         else:
             outputs_names = self.net_info.outputs
 
-        self.denormalize_outputs_tf = get_denormalization_function_tf(self.normalization_info, outputs_names)
+        self.denormalize_outputs = get_denormalization_function(self.normalization_info, outputs_names, self.lib)
         self.indices_outputs = [STATE_INDICES.get(key) for key in outputs_names]
-        self.augmentation = predictor_output_augmentation_tf(self.net_info, differential_network=self.differential_network)
+        self.augmentation = predictor_output_augmentation_tf(self.net_info, self.lib, differential_network=self.differential_network)
         self.indices_augmentation = self.augmentation.indices_augmentation
-        self.indices_outputs = tf.convert_to_tensor(np.argsort(self.indices_outputs + self.indices_augmentation))
+        self.indices_outputs = self.lib.to_tensor(np.argsort(self.indices_outputs + self.indices_augmentation), dtype=self.lib.int64)
 
-        self.net_input_reg_initial_normed = tf.Variable(
-            tf.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=tf.float32))
-        self.last_initial_state = tf.Variable(tf.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=tf.float32))
+        self.net_input_reg_initial_normed = self.lib.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=self.lib.float32)
+        self.last_initial_state = self.lib.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
+
+        # Next conversion only relevant for TF
+        self.net_input_reg_initial_normed = self.lib.to_variable(self.net_input_reg_initial_normed)
+        self.last_initial_state = self.lib.to_variable(self.last_initial_state)
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
                                dtype=np.float32)
+
+        self.predict_with_update_tf = CompileAdaptive(self._predict_with_update_tf)
 
         if disable_individual_compilation:
             self.predict_tf = self._predict_tf
             self.update_internal_state_tf = self._update_internal_state_tf
         else:
-            self.predict_tf = Compile(self._predict_tf)
-            self.update_internal_state_tf = Compile(self._update_internal_state_tf)
+            self.predict_tf = CompileAdaptive(self._predict_tf)
+            self.update_internal_state_tf = CompileAdaptive(self._update_internal_state_tf)
 
         print('Init done')
 
     def predict(self, initial_state, Q, last_optimal_control_input=None) -> np.array:
 
-        initial_state, Q = convert_to_tensors(initial_state, Q)
-        if last_optimal_control_input is not None:
-            last_optimal_control_input = tf.convert_to_tensor(last_optimal_control_input, dtype=tf.float32)
+        initial_state = self.lib.to_tensor(initial_state, dtype=self.lib.float32)
+        Q = self.lib.to_tensor(Q, dtype=self.lib.float32)
 
-        initial_state, Q = check_dimensions(initial_state, Q)
+        if last_optimal_control_input is not None:
+            last_optimal_control_input = self.lib.to_tensor(last_optimal_control_input, dtype=self.lib.float32)
+
+        initial_state, Q = check_dimensions(initial_state, Q, self.lib)
 
         if self.update_before_predicting and self.last_initial_state is not None and (
                 last_optimal_control_input is not None or self.last_optimal_control_input is not None):
@@ -185,82 +211,90 @@ class predictor_autoregressive_tf(predictor):
         else:
             output = self.predict_tf(initial_state, Q)
 
-        self.output = output.numpy()
+        self.output = self.lib.to_numpy(output)
         return self.output
 
-    @Compile
-    def predict_with_update_tf(self, initial_state, Q, last_initial_state, last_optimal_control_input):
+    def _predict_with_update_tf(self, initial_state, Q, last_initial_state, last_optimal_control_input):
         self._update_internal_state_tf(last_optimal_control_input, last_initial_state)
         return self._predict_tf(initial_state, Q)
 
     def _predict_tf(self, initial_state, Q):
 
-        self.last_initial_state.assign(initial_state)
+        self.lib.assign(self.last_initial_state, initial_state)
 
-        net_input_reg_initial = tf.gather(initial_state, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
+        net_input_reg_initial = self.lib.gather_last(initial_state, self.indices_inputs_reg)  # [batch_size, features]
 
-        self.net_input_reg_initial_normed.assign(
-            self.normalize_inputs_tf(net_input_reg_initial)
-        )
+        self.lib.assign(self.net_input_reg_initial_normed, self.normalize_inputs(net_input_reg_initial))
 
         next_net_input = self.net_input_reg_initial_normed
 
-        Q_normed = self.normalize_control_inputs_tf(Q)
+        Q_normed = self.normalize_control_inputs(Q)
 
         # load internal RNN state if applies
-        _copy_internal_states_from_ref(self.net, self.layers_ref)
+        self.copy_internal_states_from_ref(self.net, self.layers_ref)
 
-        outputs = tf.TensorArray(tf.float32, size=self.horizon)
+        if self.lib.lib == 'TF':
+            outputs = self.TensorArray(self.lib.float32, size=self.horizon)
+        else:
+            outputs = self.lib.zeros([self.batch_size, self.horizon, len(self.net_info.outputs)])
 
         if self.differential_network:
-            initial_state_normed = self.normalize_state_tf(initial_state)
-            output = tf.gather(initial_state_normed, self.indices_state_to_output, axis=-1)
+            initial_state_normed = self.normalize_state(initial_state)
+            output = self.lib.gather_last(initial_state_normed, self.indices_state_to_output)
 
-        for i in tf.range(self.horizon):
+        for i in self.lib.arange(self.horizon):
 
             Q_current = Q_normed[:, i, :]
 
-            net_input = tf.reshape(
-                tf.concat([Q_current, next_net_input], axis=1),
+            net_input = self.lib.reshape(
+                self.lib.concat([Q_current, next_net_input], axis=1),
                 shape=[-1, 1, len(self.net_info.inputs)])
 
             net_output = self.net(net_input)
 
-            net_output = tf.reshape(net_output, [-1, len(self.net_info.outputs)])
+            net_output = self.lib.reshape(net_output, [-1, len(self.net_info.outputs)])
 
             if self.differential_network:
                 output = output + self.rescale_output_diff_net(net_output)
-                next_net_input = tf.gather(output, self.indices_output_to_input, axis=-1)
+                next_net_input = self.lib.gather_last(output, self.indices_output_to_input)
             else:
                 output = net_output
                 next_net_input = net_output
-            outputs = outputs.write(i, output)
 
-        outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
+            if self.lib.lib == 'TF':
+                outputs = outputs.write(i, output)
+            else:
+                outputs[:, i, :] = output
 
-        outputs = self.denormalize_outputs_tf(outputs)
+        if self.lib.lib == 'TF':
+            outputs = self.lib.permute(outputs.stack(), [1, 0, 2])
+
+
+        outputs = self.denormalize_outputs(outputs)
 
         # Augment
         outputs_augmented = self.augmentation.augment(outputs)
 
-        outputs_augmented = tf.gather(outputs_augmented, self.indices_outputs, axis=-1)
+        outputs_augmented = self.lib.gather_last(outputs_augmented, self.indices_outputs)
 
-        outputs_augmented = tf.concat((initial_state[:, tf.newaxis, :], outputs_augmented), axis=1)
+        outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), axis=1)
 
         return outputs_augmented
 
     def update_internal_state(self, Q0=None, s=None):
 
-        s, Q0 = check_dimensions(s, Q0)
+        s, Q0 = check_dimensions(s, Q0, self.lib)
         if Q0 is not None:
-            Q0 = tf.convert_to_tensor(Q0, dtype=tf.float32)
+            Q0 = self.lib.to_tensor(Q0, dtype=self.lib.float32)
 
         if s is None:
             s = self.last_initial_state
 
         if self.update_before_predicting:
             self.last_optimal_control_input = Q0
-            self.last_initial_state.assign(s)
+
+            self.lib.assign(self.last_initial_state, s)
+
         else:
             self.update_internal_state_tf(Q0, s)
 
@@ -270,20 +304,20 @@ class predictor_autoregressive_tf(predictor):
             pass
         else:
 
-            net_input_reg = tf.gather(s, self.indices_inputs_reg, axis=-1)  # [batch_size, features]
+            net_input_reg = self.lib.gather_last(s, self.indices_inputs_reg)  # [batch_size, features]
 
-            net_input_reg_normed = self.normalize_inputs_tf(net_input_reg)
+            net_input_reg_normed = self.normalize_inputs(net_input_reg)
 
-            Q0_normed = self.normalize_control_inputs_tf(Q0)
+            Q0_normed = self.normalize_control_inputs(Q0)
 
-            _copy_internal_states_from_ref(self.net, self.layers_ref)
+            self.copy_internal_states_from_ref(self.net, self.layers_ref)
 
-            net_input = tf.reshape(tf.concat([Q0_normed[:, 0, :], net_input_reg_normed], axis=1),
+            net_input = self.lib.reshape(self.lib.concat([Q0_normed[:, 0, :], net_input_reg_normed], axis=1),
                                    [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
 
-            _copy_internal_states_to_ref(self.net, self.layers_ref)
+            self.copy_internal_states_to_ref(self.net, self.layers_ref)
 
 
     def reset(self):

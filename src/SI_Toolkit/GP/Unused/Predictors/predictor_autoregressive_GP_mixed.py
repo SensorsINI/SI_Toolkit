@@ -1,6 +1,6 @@
 from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.Functions.TF.Normalising import normalize_tf, denormalize_tf
-from SI_Toolkit.Functions.TF.Compile import Compile
+from SI_Toolkit.Functions.TF.Compile import CompileTF
 
 import os
 import yaml
@@ -49,7 +49,7 @@ class predictor_autoregressive_GP:
         outputs = self.predict_tf(initial_state, Q_seq)
         return outputs.numpy()
 
-    # @Compile
+    # @CompileTF
     def step(self, s, Q):
         p = tf.gather(s, self.indices_p, axis=1)
         r = tf.gather(s, self.indices_r, axis=1)
@@ -63,7 +63,7 @@ class predictor_autoregressive_GP:
         print(s)
         return s
 
-    # @Compile
+    # @CompileTF
     def predict_tf(self, initial_state, Q_seq):
         # initial_state = tf.expand_dims(initial_state, axis=0)  # COMMENT OUT FOR TF MPPI
         self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
