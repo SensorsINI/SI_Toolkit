@@ -10,7 +10,7 @@ import yaml
 
 import tensorflow as tf
 
-from SI_Toolkit.Predictors import predictor
+from SI_Toolkit.Predictors import template_predictor
 
 try:
     from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
@@ -26,7 +26,7 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
 PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
 
 
-class predictor_autoregressive_GP(predictor):
+class predictor_autoregressive_GP(template_predictor):
     def __init__(self, net_name, horizon, batch_size=1, **kwargs):
         # tf.config.run_functions_eagerly(True)
         a = SimpleNamespace()

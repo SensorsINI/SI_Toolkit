@@ -1,10 +1,10 @@
 from typing import Callable, Optional
-from CartPole.state_utilities import STATE_VARIABLES
+from CartPoleSimulation.CartPole.state_utilities import STATE_VARIABLES
 from Control_Toolkit.others.environment import TensorType
 
 from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE_tf
 from SI_Toolkit.Functions.TF.Compile import CompileTF
-from SI_Toolkit.Predictors import predictor
+from SI_Toolkit.Predictors import template_predictor
 
 import tensorflow as tf
 
@@ -28,7 +28,7 @@ def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
 
-class predictor_ODE_tf(predictor):
+class predictor_ODE_tf(template_predictor):
     def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, disable_individual_compilation=False, batch_size=1, planning_environment=None, **kwargs):
         self.disable_individual_compilation = disable_individual_compilation
 

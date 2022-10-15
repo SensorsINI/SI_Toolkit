@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
-class predictor:
+class template_predictor:
     def __init__(self, horizon: float, batch_size: int) -> None:
         self.horizon = horizon
         self.batch_size = batch_size
