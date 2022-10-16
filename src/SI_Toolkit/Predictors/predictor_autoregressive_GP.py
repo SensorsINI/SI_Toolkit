@@ -29,19 +29,19 @@ PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
 class predictor_autoregressive_GP(predictor):
     def __init__(self,
                  model_name=None,
-                 path_to_models=None,
+                 path_to_model=None,
                  horizon=None,
                  batch_size=1,
                  **kwargs):
 
         a = SimpleNamespace()
 
-        if path_to_models is not None:
-            a.path_to_models = path_to_models
-            a.model_name = model_name
+        if path_to_model is not None:
+            a.path_to_models = path_to_model
+            a.net_name = model_name
         else:
             a.path_to_models = os.path.join(*model_name.split("/")[:-1]) + '/'
-            a.model_name = model_name.split("/")[-1]
+            a.net_name = model_name.split("/")[-1]
 
         super().__init__(horizon=horizon, batch_size=batch_size)
         self.lib = TensorFlowLibrary

@@ -77,7 +77,7 @@ class predictor_autoregressive_tf(predictor):
     def __init__(
         self,
         model_name=None,
-        path_to_models=None,
+        path_to_model=None,
         horizon=None,
         dt=None,
         batch_size=None,
@@ -90,19 +90,21 @@ class predictor_autoregressive_tf(predictor):
 
         a = SimpleNamespace()
 
-        if path_to_models is not None:
-            a.path_to_models = path_to_models
-            a.model_name = model_name
+        if path_to_model is not None:
+            a.path_to_models = path_to_model
+            a.net_name = model_name
         else:
             a.path_to_models = os.path.join(*model_name.split("/")[:-1]) + '/'
-            a.model_name = model_name.split("/")[-1]
+            a.net_name = model_name.split("/")[-1]
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
         self.net, self.net_info = \
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
 
-        net = copy.deepcopy(self.net)
+        net, _ = \
+            get_net(a, time_series_length=1,
+                    batch_size=self.batch_size, stateful=True)
 
         if self.net_info.library == 'TF':
             from Control_Toolkit.others.environment import TensorFlowLibrary
