@@ -1,21 +1,18 @@
 from SI_Toolkit.load_and_normalize import \
     load_data, get_sampling_interval_from_datafile, get_full_paths_to_csvs
 
-def preprocess_for_brunton(config_testing):
 
-    test_file = config_testing['TEST_FILE']
-    path_to_testfile = config_testing['PATH_TO_TEST_FILE']
-
-    features_to_plot = config_testing['FEATURES_TO_PLOT']
-    control_inputs = config_testing['CONTROL_INPUTS']
-
-    test_len = config_testing['TEST_LEN']
-    test_max_horizon = config_testing['MAX_HORIZON']
-    test_start_idx = config_testing['START_IDX']
-
-    decimation = config_testing['DECIMATION']
-
-
+def preprocess_for_brunton(
+        test_file: str,
+        path_to_testfile: str,
+        features_to_plot: list,
+        control_inputs: list,
+        test_len: int,
+        test_max_horizon: int,
+        test_start_idx: int,
+        decimation: int,
+        **kwargs,
+):
 
     # Get dataset:
     path_to_testfile = get_full_paths_to_csvs(default_locations=path_to_testfile, csv_names=test_file)
@@ -28,7 +25,6 @@ def preprocess_for_brunton(config_testing):
                                 'a.test_file is {}'.format(path_to_testfile, path_to_testfile, test_file))
     if test_len == 'max':
         test_len = len(test_dfs[0]) - test_max_horizon - test_start_idx  # You could have +1; then, for last prediction you don not have ground truth to compare with, but you can still calculate it.
-        config_testing['TEST_LEN'] = test_len
     dataset = test_dfs[0]
     dataset = dataset.iloc[::decimation, :]
     dataset = dataset.iloc[test_start_idx:test_start_idx + test_len + test_max_horizon, :]

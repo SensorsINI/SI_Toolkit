@@ -1,8 +1,5 @@
-import copy
 import numpy as np
 from tqdm import trange
-
-from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 
 try:
     from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
@@ -10,42 +7,16 @@ try:
 except ModuleNotFoundError:
     print('SI_Toolkit_ASF not yet created')
 
-def get_predictor(predictor_specification, config_predictors):
 
-    config_predictors_local = copy.deepcopy(config_predictors)
+def get_prediction(
+        dataset,
+        predictor,
+        features_to_plot: list,
+        test_max_horizon: int,
+        **kwargs,
+):
 
-    # Sort out predictor name from component specification
-    predictor_name_components = predictor_specification.split(":")
-
-    networks_names = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM']
-    if any(network_name in predictor_specification for network_name in networks_names):
-        predictor_name = 'neural'
-        model_name = predictor_specification
-    elif 'SGP' in predictor_specification:
-        predictor_name = 'GP'
-        model_name = predictor_specification
-    else:
-        predictor_name = predictor_name_components[0]
-        model_name = None
-
-    config_predictors_local['predictor_name_main'] = predictor_name
-
-    predictor = PredictorWrapper(config_predictors_local)
-
-    if model_name is not None:
-        predictor.model_name = model_name
-
-    if isinstance(predictor_specification, list) and len(predictor_specification) > 1:
-        predictor.model_name = predictor_specification[1]
-
-    return predictor
-
-
-def get_prediction(config_testing, dataset, predictor):
-
-    test_max_horizon = config_testing['MAX_HORIZON']
-    test_len = config_testing['TEST_LEN']
-    features_to_plot = config_testing['FEATURES_TO_PLOT']
+    test_len = dataset.shape[0]-test_max_horizon # Overwrites the config which might be string ('max') with a value computed at preprocessing
 
     states_0 = dataset[STATE_VARIABLES].to_numpy()[:-test_max_horizon, :]
 
@@ -67,9 +38,9 @@ def get_prediction(config_testing, dataset, predictor):
     # mode = 'batch'
 
     if mode == 'batch':
-        predictor.initialize_with_compilation(batch_size=test_len, horizon=test_max_horizon)
+        predictor.configure_with_compilation(batch_size=test_len, horizon=test_max_horizon)
     else:
-        predictor.initialize_with_compilation(batch_size=1, horizon=test_max_horizon)
+        predictor.configure_with_compilation(batch_size=1, horizon=test_max_horizon)
 
     if mode == 'batch':
         output = predictor.predict(states_0, Q_array)
