@@ -63,11 +63,12 @@ class PredictorWrapper:
 
         if predictor_specification is None:  # The default values are not modified
             return
-        if predictor_specification is 'default':
+        if predictor_specification == 'default':
             self.predictor_name: str = self.predictor_name_main
             self.predictor_config = dcp(self.predictors_config['predictors'][self.predictor_name])
             self.predictor_type: str = self.predictor_config['predictor_type']
             self.model_name: str = self.predictor_config['model_name']
+
 
         predictor_name = None
         model_name = None
@@ -78,9 +79,19 @@ class PredictorWrapper:
 
         # Search if predictor with this name exists:
 
-        for predefined_predictor in self.predictors_config.keys():
-            if predictor_specification_components[0] == predefined_predictor:
-                predictor_name = predictor_specification_components[0]
+        if predictor_specification_components[0] == 'ODE':
+            predictor_name = 'ODE_default'
+        if predictor_specification_components[0] == 'ODE_TF':
+            predictor_name = 'ODE_TF_default'
+        if predictor_specification_components[0] == 'neural':
+            predictor_name = 'neural_default'
+        if predictor_specification_components[0] == 'GP':
+            predictor_name = 'GP_default'
+
+        if predictor_name is None:
+            for predefined_predictor in self.predictors_config.keys():
+                if predictor_specification_components[0] == predefined_predictor:
+                    predictor_name = predictor_specification_components[0]
 
         # Search if the specification gives a network name from which you can construct predictor
         if predictor_name is None:

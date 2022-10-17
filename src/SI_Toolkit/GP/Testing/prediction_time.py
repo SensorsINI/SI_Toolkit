@@ -23,28 +23,22 @@ if __name__ == '__main__':
     a_GP = args_GP()
 
     initialization = '''
-from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
+from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 import numpy as np
 import tensorflow as tf
 
-predictor_name = {}
+predictor_specification = {}
 horizon = {}
 num_rollouts = {}
 
-if 'predictor_ODE_tf' in predictor_name:
-    predictor = predictor_ODE_tf(horizon=horizon, dt=0.02)
-elif 'predictor_autoregressive_GP' in predictor_name:
-    predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=horizon)
-else:
-    predictor = predictor_autoregressive_tf(horizon=horizon, batch_size=num_rollouts, net_name=predictor_name)
+self.predictor = PredictorWrapper()
+self.predictor.configure(batch_size=self.num_rollouts, horizon=self.cem_samples, predictor_specification=predictor_specification)
 
 initial_state = tf.random.uniform(shape=[num_rollouts, 6], dtype=tf.float32)
 Q = tf.random.uniform(shape=[num_rollouts, horizon, 1], dtype=tf.float32)
 
 predictor.predict_tf(initial_state, Q)
-predictor.update_internal_state(Q)
+predictor.update(Q)
 predictor.predict_tf(initial_state, Q)
 '''
 
@@ -67,11 +61,11 @@ predictor.predict_tf(initial_state, Q)
         for h in horizons:
             print("HORIZONS: {}".format(h))
             j = 0
-            for predictor_name in a.tests:
-                prediction_time = timeit.timeit(code, number=100, setup=initialization.format('"'+predictor_name+'"', h, r))/ 100.0
+            for predictor_specification in a.tests:
+                prediction_time = timeit.timeit(code, number=100, setup=initialization.format('"'+predictor_specification+'"', h, r))/ 100.0
 
                 results[i, j] = prediction_time * 1000  # convert to milliseconds
-                print("{}: {}".format(predictor_name, prediction_time))
+                print("{}: {}".format(predictor_specification, prediction_time))
                 j += 1
 
             i += 1
