@@ -52,15 +52,11 @@ from types import SimpleNamespace
 import os
 import yaml
 
+import copy
+
 
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
-
-config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'),
-                   Loader=yaml.FullLoader)
-
-PATH_TO_NN = config['testing']['PATH_TO_NN']
-
 
 def check_dimensions(s, Q, lib):
     # Make sure the input is at least 2d
@@ -81,11 +77,12 @@ def check_dimensions(s, Q, lib):
 class predictor_autoregressive_tf(template_predictor):
     def __init__(
         self,
+        model_name=None,
+        path_to_model=None,
         horizon=None,
         dt=None,
         batch_size=None,
         disable_individual_compilation=False,
-        net_name=None,
         update_before_predicting=True,
         **kwargs
     ):
@@ -94,12 +91,12 @@ class predictor_autoregressive_tf(template_predictor):
 
         a = SimpleNamespace()
 
-        if '/' in net_name:
-            a.path_to_models = os.path.join(*net_name.split("/")[:-1])+'/'
-            a.net_name = net_name.split("/")[-1]
+        if path_to_model is not None:
+            a.path_to_models = path_to_model
+            a.net_name = model_name
         else:
-            a.path_to_models = PATH_TO_NN
-            a.net_name = net_name
+            a.path_to_models = os.path.join(*model_name.split("/")[:-1]) + '/'
+            a.net_name = model_name.split("/")[-1]
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
         self.net, self.net_info = \
@@ -331,7 +328,7 @@ if __name__ == '__main__':
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=True, dt=0.01)
+predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, model_name=model_name, update_before_predicting=True, dt=0.01)
 '''
 
     timer_predictor(initialisation)

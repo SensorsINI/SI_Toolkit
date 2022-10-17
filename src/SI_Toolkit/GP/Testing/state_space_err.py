@@ -102,15 +102,6 @@ if __name__ == '__main__':
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    """
-    if 'predictor_ODE_tf' in predictor_name:
-        predictor = predictor_ODE_tf(horizon=1, dt=0.02)
-    elif 'predictor_autoregressive_GP' in predictor_name:
-        predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=1)
-    else:
-        predictor = predictor_autoregressive_tf(horizon=1, batch_size=1000, net_name=predictor_name)
-    """
-
     path_test = get_paths_to_datafiles(a_GP.test_files)
 
     data_test = load_data(path_test)
