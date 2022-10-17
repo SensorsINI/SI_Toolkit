@@ -15,9 +15,9 @@ class PredictorWrapper:
         self.predictor = None
 
         self.predictors_config = dcp(predictors_config['predictors'])  # TODO: This must be read only!
-        self.predictor_name_main: str = predictors_config['predictor_name_main']
+        self.predictor_name_default: str = predictors_config['predictor_name_default']
 
-        self.predictor_name: str = self.predictor_name_main
+        self.predictor_name: str = self.predictor_name_default
         self.predictor_config = dcp(self.predictors_config[self.predictor_name])
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
@@ -64,7 +64,7 @@ class PredictorWrapper:
         if predictor_specification is None:  # The default values are not modified
             return
         if predictor_specification == 'default':
-            self.predictor_name: str = self.predictor_name_main
+            self.predictor_name: str = self.predictor_name_default
             self.predictor_config = dcp(self.predictors_config['predictors'][self.predictor_name])
             self.predictor_type: str = self.predictor_config['predictor_type']
             self.model_name: str = self.predictor_config['model_name']
