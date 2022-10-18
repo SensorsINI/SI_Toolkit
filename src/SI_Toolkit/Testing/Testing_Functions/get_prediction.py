@@ -1,9 +1,10 @@
 import numpy as np
 from tqdm import trange
 
+from SI_Toolkit_ASF.predictors_customization_tf import STATE_VARIABLES, CONTROL_INPUTS
+
 try:
-    from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
-        CONTROL_INPUTS, CONTROL_INDICES
+    from SI_Toolkit_ASF.predictors_customization import STATE_INDICES
 except ModuleNotFoundError:
     print('SI_Toolkit_ASF not yet created')
 

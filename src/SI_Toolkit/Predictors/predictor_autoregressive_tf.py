@@ -35,22 +35,23 @@ Using predictor:
 
 # TODO: Make horizon updatable in runtime
 
-# "Command line" parameters
-from SI_Toolkit.Functions.General.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function, \
-    get_scaling_function_for_output_of_differential_network
-
-from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
-
-from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
-    CONTROL_INPUTS
-from SI_Toolkit_ASF.predictors_customization_tf import predictor_output_augmentation_tf
-from SI_Toolkit.Predictors import predictor
+import os
+from types import SimpleNamespace
+from SI_Toolkit.Predictors import template_predictor
 
 import numpy as np
-
-from types import SimpleNamespace
-import os
+# "Command line" parameters
+from SI_Toolkit.Functions.General.Initialization import (get_net,
+                                                         get_norm_info_for_net)
+from SI_Toolkit.Functions.General.Normalising import (
+    get_denormalization_function, get_normalization_function,
+    get_scaling_function_for_output_of_differential_network)
+from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
+from SI_Toolkit_ASF.predictors_customization import (CONTROL_INPUTS,
+                                                     STATE_INDICES,
+                                                     STATE_VARIABLES)
+from SI_Toolkit_ASF.predictors_customization_tf import \
+    predictor_output_augmentation_tf
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
@@ -69,7 +70,8 @@ def check_dimensions(s, Q, lib):
 
     return s, Q
 
-class predictor_autoregressive_tf(predictor):
+
+class predictor_autoregressive_tf(template_predictor):
     def __init__(
         self,
         model_name=None,
@@ -113,11 +115,13 @@ class predictor_autoregressive_tf(predictor):
             self.lib = TensorFlowLibrary
             from tensorflow import TensorArray
             self.TensorArray = TensorArray
-            from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
+            from SI_Toolkit.Functions.TF.Network import (
+                _copy_internal_states_from_ref, _copy_internal_states_to_ref)
         elif self.net_info.library == 'Pytorch':
             from SI_Toolkit.computation_library import PyTorchLibrary
             self.lib = PyTorchLibrary
-            from SI_Toolkit.Functions.Pytorch.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
+            from SI_Toolkit.Functions.Pytorch.Network import (
+                _copy_internal_states_from_ref, _copy_internal_states_to_ref)
         else:
             raise NotImplementedError('predictor_autoregressive_neural defined only for TF and Pytorch')
 

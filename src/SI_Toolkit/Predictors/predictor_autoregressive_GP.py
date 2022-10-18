@@ -1,20 +1,20 @@
-from SI_Toolkit.computation_library import TensorFlowLibrary
-
-from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function
-from SI_Toolkit.Functions.TF.Compile import CompileTF
-
-from types import SimpleNamespace
 import os
-import yaml
+from types import SimpleNamespace
 
 import tensorflow as tf
-
-from SI_Toolkit.Predictors import predictor
+import yaml
+from SI_Toolkit.computation_library import TensorFlowLibrary
+from SI_Toolkit.Functions.General.Normalising import (
+    get_denormalization_function, get_normalization_function)
+from SI_Toolkit.Functions.TF.Compile import CompileTF
+from SI_Toolkit.GP.Models import load_model
+from SI_Toolkit.Predictors import template_predictor
+from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 
 try:
-    from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
-        CONTROL_INPUTS, augment_predictor_output
+    from SI_Toolkit_ASF.predictors_customization import (
+        CONTROL_INPUTS, STATE_INDICES, STATE_VARIABLES,
+        augment_predictor_output)
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
@@ -26,7 +26,7 @@ config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r
 PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
 
 
-class predictor_autoregressive_GP(predictor):
+class predictor_autoregressive_GP(template_predictor):
     def __init__(self,
                  model_name=None,
                  path_to_model=None,

@@ -7,21 +7,31 @@ While designing the controller you just chose the predictor you want,
 
 """
 
+from typing import Callable, Optional
+from SI_Toolkit.Predictors import template_predictor
 import numpy as np
-from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES
-from SI_Toolkit.Predictors import predictor
+from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES
+from SI_Toolkit.computation_library import TensorType
+from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE
 
 
-class predictor_ODE(predictor):
-    def __init__(self, horizon, dt, intermediate_steps=1, batch_size=1, **kwargs):
+class predictor_ODE(template_predictor):
+    def __init__(
+        self,
+        horizon: int,
+        dt: float,
+        intermediate_steps: int,
+        batch_size=1,
+        **kwargs
+    ):
         super().__init__(horizon=horizon, batch_size=batch_size)
 
         self.initial_state = None
         self.output = None
 
-        # Part specific to cartpole
-        self.next_step_predictor = next_state_predictor_ODE(dt, intermediate_steps, self.batch_size)
-
+        self.next_step_predictor = next_state_predictor_ODE(
+            dt=dt, intermediate_steps=intermediate_steps, batch_size=batch_size
+        )
 
     def predict(self, initial_state: np.ndarray, Q: np.ndarray, params=None) -> np.ndarray:
 
