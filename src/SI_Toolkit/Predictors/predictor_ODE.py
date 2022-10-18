@@ -11,9 +11,8 @@ from typing import Callable, Optional
 from SI_Toolkit.Predictors import template_predictor
 import numpy as np
 from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES
-from Control_Toolkit.others.environment import TensorType
+from SI_Toolkit.computation_library import TensorType
 from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE
-from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 
 
 class predictor_ODE(template_predictor):

@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import tensorflow as tf
 import yaml
-from Control_Toolkit.others.environment import TensorFlowLibrary
+from SI_Toolkit.computation_library import TensorFlowLibrary
 from SI_Toolkit.Functions.General.Normalising import (
     get_denormalization_function, get_normalization_function)
 from SI_Toolkit.Functions.TF.Compile import CompileTF

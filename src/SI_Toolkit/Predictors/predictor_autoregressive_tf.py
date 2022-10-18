@@ -88,12 +88,18 @@ class predictor_autoregressive_tf(template_predictor):
 
         a = SimpleNamespace()
 
-        if path_to_model is not None:
+        if len(os.path.normpath(model_name).split(os.path.sep)) > 1:
+            model_name_contains_path_to_model = True
+        else:
+            model_name_contains_path_to_model = False
+
+
+        if model_name_contains_path_to_model:
+            a.path_to_models = os.path.join(model_name.split(os.path.sep)[:-1]) + '/'
+            a.net_name = model_name.split(os.path.sep)[-1]
+        else:
             a.path_to_models = path_to_model
             a.net_name = model_name
-        else:
-            a.path_to_models = os.path.join(*model_name.split("/")[:-1]) + '/'
-            a.net_name = model_name.split("/")[-1]
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
         self.net, self.net_info = \
@@ -105,14 +111,14 @@ class predictor_autoregressive_tf(template_predictor):
                     batch_size=self.batch_size, stateful=True)
 
         if self.net_info.library == 'TF':
-            from Control_Toolkit.others.environment import TensorFlowLibrary
+            from SI_Toolkit.computation_library import TensorFlowLibrary
             self.lib = TensorFlowLibrary
             from tensorflow import TensorArray
             self.TensorArray = TensorArray
             from SI_Toolkit.Functions.TF.Network import (
                 _copy_internal_states_from_ref, _copy_internal_states_to_ref)
         elif self.net_info.library == 'Pytorch':
-            from Control_Toolkit.others.environment import PyTorchLibrary
+            from SI_Toolkit.computation_library import PyTorchLibrary
             self.lib = PyTorchLibrary
             from SI_Toolkit.Functions.Pytorch.Network import (
                 _copy_internal_states_from_ref, _copy_internal_states_to_ref)

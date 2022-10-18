@@ -1,10 +1,13 @@
 import os
 import yaml
 from copy import deepcopy as dcp
+from types import MappingProxyType
+
 
 # predictors config
 predictors_config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_predictors.yml'), 'r'), Loader=yaml.FullLoader)
 
+NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM']
 
 class PredictorWrapper:
     def __init__(self):
@@ -14,14 +17,13 @@ class PredictorWrapper:
 
         self.predictor = None
 
-        self.predictors_config = dcp(predictors_config['predictors'])  # TODO: This must be read only!
-        self.predictor_name_main: str = predictors_config['predictor_name_main']
+        self.predictors_config = MappingProxyType(predictors_config['predictors'])  # Makes it read only
+        self.predictor_name_default: str = predictors_config['predictor_name_default']
 
-        self.predictor_name: str = self.predictor_name_main
+        self.predictor_name: str = self.predictor_name_default
         self.predictor_config = dcp(self.predictors_config[self.predictor_name])
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
-
 
     def configure(self, batch_size, horizon, predictor_specification=None, compile_standalone=False):
 
@@ -57,14 +59,14 @@ class PredictorWrapper:
         use this for standalone predictors (like in Brunton test)
         but not predictors within controllers
         """
-        self.configure(batch_size, horizon, compile_standalone=True)
+        self.configure(batch_size, horizon, predictor_specification, compile_standalone=True)
 
     def update_predictor_config_from_specification(self, predictor_specification: str = None):
 
         if predictor_specification is None:  # The default values are not modified
             return
         if predictor_specification == 'default':
-            self.predictor_name: str = self.predictor_name_main
+            self.predictor_name: str = self.predictor_name_default
             self.predictor_config = dcp(self.predictors_config['predictors'][self.predictor_name])
             self.predictor_type: str = self.predictor_config['predictor_type']
             self.model_name: str = self.predictor_config['model_name']
@@ -96,8 +98,7 @@ class PredictorWrapper:
         # Search if the specification gives a network name from which you can construct predictor
         if predictor_name is None:
 
-            networks_names = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM']
-            if any(network_name in predictor_specification for network_name in networks_names):
+            if any(network_name in predictor_specification for network_name in NETWORK_NAMES):
                 predictor_name = 'neural_default'
                 model_name = predictor_specification_components[0]
             elif 'SGP' in predictor_specification:
@@ -133,4 +134,17 @@ class PredictorWrapper:
         if self.predictor_type == 'neural':
             self.predictor.update_internal_state_tf(s=s, Q0=Q0)
 
+    def copy(self):
+        """
+        Makes a copy of a predictor, specification get preserved, configuration (batch_size, horizon) not
+        The predictor needs to be reconfigured, however the specification needs not to be provided. 
+        """
+        predictor_copy = PredictorWrapper()   
+        
+        predictor_copy.predictor_name = self.predictor_name
+        predictor_copy.predictor_config = dcp(self.predictor_config)
+        predictor_copy.predictor_type = self.predictor_type
+        predictor_copy.model_name = self.model_name
+        
+        return predictor_copy
 
