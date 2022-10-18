@@ -59,7 +59,7 @@ class PredictorWrapper:
         use this for standalone predictors (like in Brunton test)
         but not predictors within controllers
         """
-        self.configure(batch_size, horizon, compile_standalone=True)
+        self.configure(batch_size, horizon, predictor_specification, compile_standalone=True)
 
     def update_predictor_config_from_specification(self, predictor_specification: str = None):
 
