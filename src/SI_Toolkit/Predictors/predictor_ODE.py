@@ -21,7 +21,6 @@ class predictor_ODE(template_predictor):
         horizon: int,
         dt: float,
         intermediate_steps: int,
-        step_fun: Optional[Callable[[TensorType, TensorType, float], TensorType]]=None,
         batch_size=1,
         **kwargs
     ):
@@ -31,7 +30,7 @@ class predictor_ODE(template_predictor):
         self.output = None
 
         self.next_step_predictor = next_state_predictor_ODE(
-            dt=dt, intermediate_steps=intermediate_steps, batch_size=batch_size, step_fun=step_fun
+            dt=dt, intermediate_steps=intermediate_steps, batch_size=batch_size
         )
 
     def predict(self, initial_state: np.ndarray, Q: np.ndarray, params=None) -> np.ndarray:
