@@ -1,3 +1,4 @@
+library: 'TF'  # TF or Pytorch
 modeling:
   NET_NAME: 'GRU-32H1-32H2'
 paths:
@@ -11,6 +12,7 @@ training_default:
   state_inputs: ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
   setpoint_inputs: []  # Can be only 'target' or empty for CartPole
   outputs: ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
+  translation_invariant_variables: []
   # For training open loop dynamics model:
   # inputs = ['position', 'positionD', 'angle_sin', 'angle_cos', 'angleD']
   # outputs = inputs_list
@@ -26,4 +28,6 @@ training_default:
   ON_FLY_DATA_GENERATION: False
   NORMALIZE: True
   SHIFT_LABELS: 1  # for k, as a label to row i is taken row i+k
+  USE_NNI: False  # Decide if you want to use NNI package
+  CONSTRUCT_NETWORK: 'with cells'  # Matters only for Pytorch
 
