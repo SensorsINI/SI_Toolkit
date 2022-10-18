@@ -3,9 +3,9 @@ import tensorflow as tf
 import os
 import timeit
 
-from SI_Toolkit.Testing.Parameters_for_testing import args
+from SI_Toolkit.Obsolete.Testing.Parameters_for_testing import args
 from SI_Toolkit.load_and_normalize import normalize_numpy_array, load_normalization_info
-from SI_Toolkit.GP import args as args_GP
+from SI_Toolkit.Functions.General.load_parameters_for_training import args as args_GP
 import matplotlib.pyplot as plt
 from tqdm import trange
 

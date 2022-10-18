@@ -1,5 +1,4 @@
-from SI_Toolkit.Testing.Parameters_for_testing import args
-from SI_Toolkit.GP import args as args_GP
+from SI_Toolkit.Functions.General.load_parameters_for_training import args as args_GP
 
 import matplotlib.pyplot as plt
 import yaml
@@ -88,7 +87,6 @@ def state_space_pred_err(net, data, save_dir=None):
     return np.sum(errs)
 
 if __name__ == '__main__':
-    a = args()
     a_GP = args_GP()
 
     net_name = "GRU-6IN-32H1-32H2-5OUT-3"
