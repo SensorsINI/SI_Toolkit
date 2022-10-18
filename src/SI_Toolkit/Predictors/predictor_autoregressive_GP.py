@@ -1,20 +1,20 @@
-from Control_Toolkit.others.environment import TensorFlowLibrary
-
-from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function
-from SI_Toolkit.Functions.TF.Compile import CompileTF
-
-from types import SimpleNamespace
 import os
-import yaml
+from types import SimpleNamespace
 
 import tensorflow as tf
-
+import yaml
+from Control_Toolkit.others.environment import TensorFlowLibrary
+from SI_Toolkit.Functions.General.Normalising import (
+    get_denormalization_function, get_normalization_function)
+from SI_Toolkit.Functions.TF.Compile import CompileTF
+from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.Predictors import template_predictor
+from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 
 try:
-    from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
-        CONTROL_INPUTS, augment_predictor_output
+    from SI_Toolkit_ASF.predictors_customization import (
+        CONTROL_INPUTS, STATE_INDICES, STATE_VARIABLES,
+        augment_predictor_output)
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
