@@ -90,12 +90,18 @@ class predictor_autoregressive_tf(predictor):
 
         a = SimpleNamespace()
 
-        if path_to_model is not None:
+        if len(os.path.normpath(model_name).split(os.path.sep)) > 1:
+            model_name_contains_path_to_model = True
+        else:
+            model_name_contains_path_to_model = False
+
+
+        if model_name_contains_path_to_model:
+            a.path_to_models = os.path.join(model_name.split(os.path.sep)[:-1]) + '/'
+            a.net_name = model_name.split(os.path.sep)[-1]
+        else:
             a.path_to_models = path_to_model
             a.net_name = model_name
-        else:
-            a.path_to_models = os.path.join(*model_name.split("/")[:-1]) + '/'
-            a.net_name = model_name.split("/")[-1]
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
         self.net, self.net_info = \
