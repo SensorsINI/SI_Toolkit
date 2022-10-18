@@ -1,6 +1,8 @@
 import os
 import yaml
 from copy import deepcopy as dcp
+from types import MappingProxyType
+
 
 # predictors config
 predictors_config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_predictors.yml'), 'r'), Loader=yaml.FullLoader)
@@ -14,7 +16,7 @@ class PredictorWrapper:
 
         self.predictor = None
 
-        self.predictors_config = dcp(predictors_config['predictors'])  # TODO: This must be read only!
+        self.predictors_config = self.predictors_config = MappingProxyType(predictors_config['predictors'])  # Makes it read only
         self.predictor_name_default: str = predictors_config['predictor_name_default']
 
         self.predictor_name: str = self.predictor_name_default
