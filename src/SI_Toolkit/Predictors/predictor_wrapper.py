@@ -134,4 +134,17 @@ class PredictorWrapper:
         if self.predictor_type == 'neural':
             self.predictor.update_internal_state_tf(s=s, Q0=Q0)
 
+    def copy(self):
+        """
+        Makes a copy of a predictor, specification get preserved, configuration (batch_size, horizon) not
+        The predictor needs to be reconfigured, however the specification needs not to be provided. 
+        """
+        predictor_copy = PredictorWrapper()   
+        
+        predictor_copy.predictor_name = self.predictor_name
+        predictor_copy.predictor_config = dcp(self.predictor_config)
+        predictor_copy.predictor_type = self.predictor_type
+        predictor_copy.model_name = self.model_name
+        
+        return predictor_copy
 
