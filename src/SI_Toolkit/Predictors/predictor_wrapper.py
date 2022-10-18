@@ -7,6 +7,7 @@ from types import MappingProxyType
 # predictors config
 predictors_config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_predictors.yml'), 'r'), Loader=yaml.FullLoader)
 
+NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM']
 
 class PredictorWrapper:
     def __init__(self):
@@ -97,8 +98,7 @@ class PredictorWrapper:
         # Search if the specification gives a network name from which you can construct predictor
         if predictor_name is None:
 
-            networks_names = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM']
-            if any(network_name in predictor_specification for network_name in networks_names):
+            if any(network_name in predictor_specification for network_name in NETWORK_NAMES):
                 predictor_name = 'neural_default'
                 model_name = predictor_specification_components[0]
             elif 'SGP' in predictor_specification:
