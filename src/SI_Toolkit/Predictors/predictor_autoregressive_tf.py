@@ -51,10 +51,6 @@ import numpy as np
 
 from types import SimpleNamespace
 import os
-import yaml
-
-import copy
-
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
@@ -113,13 +109,13 @@ class predictor_autoregressive_tf(predictor):
                     batch_size=self.batch_size, stateful=True)
 
         if self.net_info.library == 'TF':
-            from Control_Toolkit.others.environment import TensorFlowLibrary
+            from SI_Toolkit.computation_library import TensorFlowLibrary
             self.lib = TensorFlowLibrary
             from tensorflow import TensorArray
             self.TensorArray = TensorArray
             from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
         elif self.net_info.library == 'Pytorch':
-            from Control_Toolkit.others.environment import PyTorchLibrary
+            from SI_Toolkit.computation_library import PyTorchLibrary
             self.lib = PyTorchLibrary
             from SI_Toolkit.Functions.Pytorch.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
         else:

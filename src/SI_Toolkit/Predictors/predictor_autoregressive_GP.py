@@ -1,4 +1,4 @@
-from Control_Toolkit.others.environment import TensorFlowLibrary
+from SI_Toolkit.computation_library import TensorFlowLibrary
 
 from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function
