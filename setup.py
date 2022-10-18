@@ -30,7 +30,13 @@ if 'Ubuntu' in version and '18.04' in version:
 else:
     PyQt_requirements = ['PyQt6']
 
-requirements = []
+requirements = [
+    'matplotlib',
+    'numpy',
+    'pandas',
+    'torch',
+    'derivative',
+]
 requirements = requirements + tensorflow_requirements + PyQt_requirements
 
 with open("README.md", "r", encoding="utf-8") as fh:

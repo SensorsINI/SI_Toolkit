@@ -14,3 +14,6 @@ testing:
   TEST_LEN: 'max'
   MAX_HORIZON: 50  # Indicates prediction horizon for testing
   START_IDX: 0  # Indicates from which point data from test file should be taken
+
+  decimation: 1  # If your dataset has sampling frequency being multiple of your network's sampling frequency
+
