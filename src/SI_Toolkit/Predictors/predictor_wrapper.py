@@ -16,14 +16,13 @@ class PredictorWrapper:
 
         self.predictor = None
 
-        self.predictors_config = self.predictors_config = MappingProxyType(predictors_config['predictors'])  # Makes it read only
+        self.predictors_config = MappingProxyType(predictors_config['predictors'])  # Makes it read only
         self.predictor_name_default: str = predictors_config['predictor_name_default']
 
         self.predictor_name: str = self.predictor_name_default
         self.predictor_config = dcp(self.predictors_config[self.predictor_name])
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
-
 
     def configure(self, batch_size, horizon, predictor_specification=None, compile_standalone=False):
 
