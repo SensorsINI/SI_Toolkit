@@ -178,8 +178,8 @@ class predictor_autoregressive_tf(template_predictor):
         self.last_initial_state = self.lib.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
 
         # Next conversion only relevant for TF
-        self.net_input_reg_initial_normed = self.lib.to_variable(self.net_input_reg_initial_normed)
-        self.last_initial_state = self.lib.to_variable(self.last_initial_state)
+        self.net_input_reg_initial_normed = self.lib.to_variable(self.net_input_reg_initial_normed, self.lib.float32)
+        self.last_initial_state = self.lib.to_variable(self.last_initial_state, self.lib.float32)
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
                                dtype=np.float32)
