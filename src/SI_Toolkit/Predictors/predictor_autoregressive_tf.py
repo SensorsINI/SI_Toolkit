@@ -88,16 +88,22 @@ class predictor_autoregressive_tf(template_predictor):
 
         a = SimpleNamespace()
 
-        if len(os.path.normpath(model_name).split(os.path.sep)) > 1:
+        model_name = os.path.normpath(model_name)
+        if path_to_model is not None:
+            path_to_model = os.path.normpath(path_to_model)
+
+        if len(model_name.split(os.path.sep)) > 1:
             model_name_contains_path_to_model = True
         else:
             model_name_contains_path_to_model = False
 
 
         if model_name_contains_path_to_model:
-            a.path_to_models = os.path.join(model_name.split(os.path.sep)[:-1]) + '/'
+            a.path_to_models = os.path.join(*model_name.split(os.path.sep)[:-1]) + os.path.sep
             a.net_name = model_name.split(os.path.sep)[-1]
         else:
+            if path_to_model[-1] != os.path.sep:
+                path_to_model = path_to_model + os.path.sep
             a.path_to_models = path_to_model
             a.net_name = model_name
 
