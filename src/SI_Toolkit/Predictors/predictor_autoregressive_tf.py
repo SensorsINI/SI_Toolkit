@@ -113,9 +113,14 @@ class predictor_autoregressive_tf(template_predictor):
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
 
-        net, _ = \
-            get_net(a, time_series_length=1,
-                    batch_size=self.batch_size, stateful=True)
+        if self.net_info.library == 'TF':
+            net, _ = \
+                get_net(a, time_series_length=1,
+                        batch_size=self.batch_size, stateful=True)
+            self.memory_states_ref = net.layers
+        elif self.net_info.library == 'Pytorch':
+            self.net.reset_internal_states()
+            self.memory_states_ref = self.net.return_internal_states()
 
         if self.net_info.library == 'TF':
             from SI_Toolkit.computation_library import TensorFlowLibrary
@@ -145,8 +150,6 @@ class predictor_autoregressive_tf(template_predictor):
         self.update_before_predicting = update_before_predicting
         self.last_net_input_reg_initial = None
         self.last_optimal_control_input = None
-
-        self.layers_ref = net.layers
 
         self.normalization_info = get_norm_info_for_net(self.net_info)
 
@@ -241,7 +244,7 @@ class predictor_autoregressive_tf(template_predictor):
         Q_normed = self.normalize_control_inputs(Q)
 
         # load internal RNN state if applies
-        self.copy_internal_states_from_ref(self.net, self.layers_ref)
+        self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
         if self.lib.lib == 'TF':
             outputs = self.TensorArray(self.lib.float32, size=self.horizon)
@@ -320,14 +323,14 @@ class predictor_autoregressive_tf(template_predictor):
 
             Q0_normed = self.normalize_control_inputs(Q0)
 
-            self.copy_internal_states_from_ref(self.net, self.layers_ref)
+            self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
             net_input = self.lib.reshape(self.lib.concat([Q0_normed[:, 0, :], net_input_reg_normed], axis=1),
                                    [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
 
-            self.copy_internal_states_to_ref(self.net, self.layers_ref)
+            self.copy_internal_states_to_ref(self.net, self.memory_states_ref)
 
 
     def reset(self):

@@ -97,8 +97,8 @@ def compose_net_from_net_name(net_name,
     return net, net_info
 
 
-def _copy_internal_states_to_ref(net, layers_ref):
-    for layer, layer_ref in zip(net.layers, layers_ref):
+def _copy_internal_states_to_ref(net, memory_states_ref):
+    for layer, layer_ref in zip(net.layers, memory_states_ref):
         if (('gru' in layer.name) or
                 ('lstm' in layer.name) or
                 ('rnn' in layer.name)):
@@ -109,8 +109,8 @@ def _copy_internal_states_to_ref(net, layers_ref):
             pass
 
 
-def _copy_internal_states_from_ref(net, layers_ref):
-    for layer, layer_ref in zip(net.layers, layers_ref):
+def _copy_internal_states_from_ref(net, memory_states_ref):
+    for layer, layer_ref in zip(net.layers, memory_states_ref):
         if (('gru' in layer.name) or
                 ('lstm' in layer.name) or
                 ('rnn' in layer.name)):
