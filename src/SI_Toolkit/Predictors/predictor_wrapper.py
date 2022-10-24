@@ -57,7 +57,7 @@ class PredictorWrapper:
         
         # computation_library defaults to None. In that case, do not check for conformity.
         if computation_library is not None and computation_library not in self.predictor.supported_computation_libraries:
-            raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library}")
+            raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__name__}")
 
     def configure_with_compilation(self, batch_size, horizon, predictor_specification=None):
         """
