@@ -1,32 +1,37 @@
 import timeit
 
-## TIMING PREDICTION WITH LOADED MODEL
-initialization = '''
-import tensorflow as tf
-import numpy as np
-from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.Functions.General.load_parameters_for_training import args
+gp_path = './SI_Toolkit_ASF/Experiments/Pretrained-RNN-1/'
+gp_name = 'SGP_10'
 
-a = args()
-save_dir = a.path_to_models + "/SGP_10/"
+def timing_script_init():
+    import tensorflow as tf
+    from SI_Toolkit.GP.Models import load_model
 
-# load model
-print("Loading...")
-m_loaded = load_model(save_dir)
-print("Done!")
+    save_dir = gp_path + "/" + gp_name + "/"
 
-num_rollouts = 2000
-horizon = 35
+    # load model
+    print("Loading...")
+    m_loaded = load_model(save_dir)
+    print("Done!")
 
-s = tf.zeros(shape=[num_rollouts, 6], dtype=tf.float64)
-m_loaded.predict_f(s)
-'''
+    num_rollouts = 2000
+    horizon = 35
 
-code = '''\
+    s = tf.zeros(shape=[num_rollouts, 6], dtype=tf.float64)
+    m_loaded.predict_f(s)
+
+    return m_loaded, s
+
+
+if __name__ == '__main__':
+
+    initialization = '''\
+from SI_Toolkit.GP.TimeGP import timing_script_init
+m_loaded, s = timing_script_init()
+    '''
+
+    code = '''\
 mn = m_loaded.predict_f(s)
-'''
+    '''
 
-print(timeit.timeit(code, number=35, setup=initialization))
-
-# plot_test(model, data_val, closed_loop=True)  # plot posterior predictions with loaded trained model
-
+    print(timeit.timeit(code, number=35, setup=initialization))
