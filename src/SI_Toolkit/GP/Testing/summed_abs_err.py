@@ -26,7 +26,7 @@ except ModuleNotFoundError:
     print('SI_Toolkit_ASF not yet created')
 
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
+from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
 from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
 
 matplotlib.rcParams.update({'font.size': 24})

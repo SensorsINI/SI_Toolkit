@@ -72,7 +72,7 @@ def check_dimensions(s, Q, lib):
     return s, Q
 
 
-class predictor_autoregressive_tf(template_predictor):
+class predictor_autoregressive_neural(template_predictor):
     supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
     
     def __init__(
@@ -342,8 +342,8 @@ if __name__ == '__main__':
     from SI_Toolkit.Predictors.timer_predictor import timer_predictor
 
     initialisation = '''
-from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, model_name=model_name, update_before_predicting=True, dt=0.01)
+from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
+predictor = predictor_autoregressive_neural(horizon, batch_size=batch_size, model_name=model_name, update_before_predicting=True, dt=0.01)
 '''
 
     timer_predictor(initialisation)

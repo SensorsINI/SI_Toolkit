@@ -37,8 +37,8 @@ class PredictorWrapper:
         self.horizon = horizon
 
         if self.predictor_type == 'neural':
-            from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-            self.predictor = predictor_autoregressive_tf(horizon=self.horizon, batch_size=self.batch_size, **self.predictor_config, **compile_standalone)
+            from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
+            self.predictor = predictor_autoregressive_neural(horizon=self.horizon, batch_size=self.batch_size, **self.predictor_config, **compile_standalone)
 
         elif self.predictor_type == 'GP':
             from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
