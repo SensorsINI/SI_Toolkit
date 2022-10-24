@@ -66,8 +66,7 @@ if __name__ == '__main__':
     predictors = []
     for predictor_specification in a.tests:
         predictor = PredictorWrapper()
-        predictor.configure(batch_size=1, horizon=50,
-                            predictor_specification=predictor_specification)
+        predictor.configure(batch_size=1, horizon=50, predictor_specification=predictor_specification)
 
     i, j = 0, 0
     for predictor in predictors:

@@ -11,11 +11,13 @@ from typing import Callable, Optional
 from SI_Toolkit.Predictors import template_predictor
 import numpy as np
 from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES
-from SI_Toolkit.computation_library import TensorType
+from SI_Toolkit.computation_library import NumpyLibrary, TensorType
 from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE
 
 
 class predictor_ODE(template_predictor):
+    supported_computation_libraries = {NumpyLibrary}  # Overwrites default from parent
+    
     def __init__(
         self,
         horizon: int,

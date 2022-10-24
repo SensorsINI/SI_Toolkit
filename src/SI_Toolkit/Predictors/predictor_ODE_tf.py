@@ -1,5 +1,6 @@
 
 from SI_Toolkit.Predictors import template_predictor
+from SI_Toolkit.computation_library import TensorFlowLibrary
 
 
 from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE_tf, STATE_VARIABLES
@@ -28,6 +29,8 @@ def convert_to_tensors(s, Q):
 
 
 class predictor_ODE_tf(template_predictor):
+    supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
+    
     def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, disable_individual_compilation=False, batch_size=1, planning_environment=None, **kwargs):
         self.disable_individual_compilation = disable_individual_compilation
 

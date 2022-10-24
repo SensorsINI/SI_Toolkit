@@ -32,7 +32,7 @@ horizon = {}
 num_rollouts = {}
 
 self.predictor = PredictorWrapper()
-self.predictor.configure(batch_size=self.num_rollouts, horizon=self.cem_samples, predictor_specification=predictor_specification)
+self.predictor.configure(batch_size=self.num_rollouts, horizon=self.cem_samples, computation_library=NumpyLibrary, predictor_specification=predictor_specification)
 
 initial_state = tf.random.uniform(shape=[num_rollouts, 6], dtype=tf.float32)
 Q = tf.random.uniform(shape=[num_rollouts, horizon, 1], dtype=tf.float32)

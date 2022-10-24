@@ -1,4 +1,6 @@
 import os
+from typing import Optional
+from SI_Toolkit.computation_library import ComputationLibrary
 import yaml
 from copy import deepcopy as dcp
 from types import MappingProxyType
@@ -25,7 +27,7 @@ class PredictorWrapper:
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
 
-    def configure(self, batch_size, horizon, predictor_specification=None, compile_standalone=False):
+    def configure(self, batch_size, horizon, computation_library: "Optional[type[ComputationLibrary]]"=None, predictor_specification=None, compile_standalone=False):
 
         self.update_predictor_config_from_specification(predictor_specification)
 
@@ -52,6 +54,10 @@ class PredictorWrapper:
 
         else:
             raise NotImplementedError('Type of the predictor not recognised.')
+        
+        # computation_library defaults to None. In that case, do not check for conformity.
+        if computation_library is not None and computation_library not in self.predictor.supported_computation_libraries:
+            raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library}")
 
     def configure_with_compilation(self, batch_size, horizon, predictor_specification=None):
         """
@@ -59,7 +65,7 @@ class PredictorWrapper:
         use this for standalone predictors (like in Brunton test)
         but not predictors within controllers
         """
-        self.configure(batch_size, horizon, predictor_specification, compile_standalone=True)
+        self.configure(batch_size, horizon, predictor_specification=predictor_specification, compile_standalone=True)
 
     def update_predictor_config_from_specification(self, predictor_specification: str = None):
 

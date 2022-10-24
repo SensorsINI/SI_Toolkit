@@ -1,7 +1,10 @@
+from SI_Toolkit.computation_library import NumpyLibrary, PyTorchLibrary, TensorFlowLibrary
 import tensorflow as tf
 import numpy as np
 
 class template_predictor:
+    supported_computation_libraries: set = {NumpyLibrary, TensorFlowLibrary, PyTorchLibrary}
+    
     def __init__(self, horizon: float, batch_size: int) -> None:
         self.horizon = horizon
         self.batch_size = batch_size

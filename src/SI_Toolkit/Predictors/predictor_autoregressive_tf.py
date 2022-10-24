@@ -38,6 +38,7 @@ Using predictor:
 import os
 from types import SimpleNamespace
 from SI_Toolkit.Predictors import template_predictor
+from SI_Toolkit.computation_library import TensorFlowLibrary
 
 import numpy as np
 # "Command line" parameters
@@ -72,6 +73,8 @@ def check_dimensions(s, Q, lib):
 
 
 class predictor_autoregressive_tf(template_predictor):
+    supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
+    
     def __init__(
         self,
         model_name=None,

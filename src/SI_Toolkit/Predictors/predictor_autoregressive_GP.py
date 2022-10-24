@@ -9,7 +9,6 @@ from SI_Toolkit.Functions.General.Normalising import (
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 from SI_Toolkit.GP.Models import load_model
 from SI_Toolkit.Predictors import template_predictor
-from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 
 try:
     from SI_Toolkit_ASF.predictors_customization import (
@@ -27,6 +26,8 @@ PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
 
 
 class predictor_autoregressive_GP(template_predictor):
+    supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
+    
     def __init__(self,
                  model_name=None,
                  path_to_model=None,
