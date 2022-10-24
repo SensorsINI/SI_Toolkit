@@ -26,6 +26,7 @@ from matplotlib import colors
 
 # Other imports for GUI
 import sys
+import numpy as np
 
 try:
     # pass
@@ -105,6 +106,9 @@ class MainWindow(QMainWindow):
         self.current_point_at_timeaxis = (self.time_axis.shape[0]-self.max_horizon)//2
         self.feature_to_display = self.features[0]
 
+        self.MSE_at_horizon: float = 0.0
+        self.sqrt_MSE_at_horizon: float = 0.0
+
         # region - Create container for top level layout
         layout = QVBoxLayout()
         # endregion
@@ -118,7 +122,6 @@ class MainWindow(QMainWindow):
         self.fig = Figure(figsize=(25, 10))  # Regulates the size of Figure in inches, before scaling to window size.
         self.canvas = FigureCanvas(self.fig)
         self.fig.Ax = self.canvas.figure.add_subplot(111)
-        self.redraw_canvas()
 
         self.toolbar = NavigationToolbar(self.canvas, self)
 
@@ -170,26 +173,10 @@ class MainWindow(QMainWindow):
         layout.addLayout(l_sl)
 
 
-        # region - Make strip of layout for checkboxes and compobox
-        l_cb = QHBoxLayout()
+        # region - Define Model
+        l_model = QHBoxLayout()
 
-        # region -- Checkbox: Show all
-        self.cb_show_all = QCheckBox('Show all', self)
-        if self.show_all:
-            self.cb_show_all.toggle()
-        self.cb_show_all.toggled.connect(self.cb_show_all_f)
-        l_cb.addWidget(self.cb_show_all)
-        # endregion
-
-        # region -- Checkbox: Save/don't save experiment recording
-        self.cb_downsample = QCheckBox('Downsample predictions (X2)', self)
-        if self.downsample:
-            self.cb_downsample.toggle()
-        self.cb_downsample.toggled.connect(self.cb_downsample_f)
-        l_cb.addWidget(self.cb_downsample)
-        # endregion
-
-        # region Radio buttons to chose the dataset
+        # region Radio buttons to chose the model
 
         self.rbs_datasets = []
 
@@ -203,20 +190,43 @@ class MainWindow(QMainWindow):
 
         lr_d = QHBoxLayout()
         lr_d.addStretch(1)
-        lr_d.addWidget(QLabel('Dataset:'))
+        lr_d.addWidget(QLabel('Model:'))
         for rb in self.rbs_datasets:
             rb.clicked.connect(self.RadioButtons_detaset_selection)
             lr_d.addWidget(rb)
         lr_d.addStretch(1)
 
         self.rbs_datasets[0].setChecked(True)
-        # if len(self.predictions_list) < 2:
-        #     self.rbs_datasets[1].setEnabled(False)
-        #     # self.rbs_datasets[2].setEnabled(False)
 
-        l_cb.addLayout(lr_d)
+        l_model.addLayout(lr_d)
+
+        # Add MSE at horizon
+        self.lab_MSE = QLabel('sqrt(MSE) at horizon:')
+        l_model.addWidget(self.lab_MSE)
+
+        layout.addLayout(l_model)
 
         # endregion
+
+        l_cb = QHBoxLayout()
+
+        # region -- Checkbox: Show all
+        self.cb_show_all = QCheckBox('Show all', self)
+        if self.show_all:
+            self.cb_show_all.toggle()
+        self.cb_show_all.toggled.connect(self.cb_show_all_f)
+        l_cb.addWidget(self.cb_show_all)
+        # endregion
+
+        # region -- Checkbox: Downsample predictions
+        self.cb_downsample = QCheckBox('Downsample predictions (X2)', self)
+        if self.downsample:
+            self.cb_downsample.toggle()
+        self.cb_downsample.toggled.connect(self.cb_downsample_f)
+        l_cb.addWidget(self.cb_downsample)
+        # endregion
+
+        l_cb.addStretch(1)
 
         # region -- Combobox: Select feature to plot
         l_cb.addWidget(QLabel('Feature to plot:'))
@@ -248,6 +258,8 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Testing System Model')
 
         # endregion
+
+        self.redraw_canvas()
 
 
     def slider_position_f(self, value):
@@ -314,9 +326,27 @@ class MainWindow(QMainWindow):
                        horizon=self.horizon,
                        show_all=self.show_all,
                        downsample=self.downsample)
-        
+
+        self.get_sqrt_MSE_at_horizon()
+        self.lab_MSE.setText("sqrt(MSE) at horizon: {:.2f}".format(self.sqrt_MSE_at_horizon))
         self.fig.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.canvas.draw()
+
+    def get_sqrt_MSE_at_horizon(self):
+
+        feature_idx = self.features.index(self.feature_to_display)
+
+        if self.show_all:
+            predictions_at_horizon = self.dataset[:-self.horizon, self.horizon, feature_idx]
+            self.MSE_at_horizon = np.mean(
+                    (self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon) ** 2)
+
+        else:
+            predictions_at_horizon = self.dataset[self.current_point_at_timeaxis, self.horizon, feature_idx]
+            self.MSE_at_horizon = np.mean(
+                (self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - predictions_at_horizon) ** 2)
+
+        self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
 
 
 
