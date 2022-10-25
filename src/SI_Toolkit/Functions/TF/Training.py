@@ -1,14 +1,15 @@
 import numpy as np
-
+import pandas as pd
 from tensorflow import keras
 
 from SI_Toolkit.Functions.TF.Dataset import Dataset
+
+from SI_Toolkit.Functions.TF.CustomTraining import fit_autoregressive
 
 try:
     from SI_Toolkit_ASF.DataSelector import DataSelector
 except:
     print('No DataSelector found.')
-
 
 
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
@@ -84,19 +85,22 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
 
     # endregion
 
-    # region Training loop
+    # check if standard training or autoregressive training - training loop
+    prefix = a.net_name.split('-')[0]
+    if prefix == 'Autoregressive':
+        loss, validation_loss = fit_autoregressive(net, net_info, training_dataset, validation_dataset, test_dataset, a)
+    else:
+        history = net.fit(
+            training_dataset,
+            epochs=a.num_epochs,
+            verbose=True,
+            shuffle=False,
+            validation_data=validation_dataset,
+            callbacks=callbacks_for_training,
+        )
 
-    history = net.fit(
-        training_dataset,
-        epochs=a.num_epochs,
-        verbose=True,
-        shuffle=False,
-        validation_data=validation_dataset,
-        callbacks=callbacks_for_training,
-    )
-
-    loss = history.history['loss']
-    validation_loss = history.history['val_loss']
+        loss = history.history['loss']
+        validation_loss = history.history['val_loss']
 
     # endregion
 

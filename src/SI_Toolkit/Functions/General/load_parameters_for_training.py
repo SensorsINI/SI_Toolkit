@@ -36,6 +36,7 @@ control_inputs = config['training_default']['control_inputs']
 state_inputs = config['training_default']['state_inputs']
 setpoint_inputs = config['training_default']['setpoint_inputs']
 outputs = config['training_default']['outputs']
+first_guess_pole_length = config['training_default']['first_guess_pole_length']
 translation_invariant_variables = config['training_default']['translation_invariant_variables']
 
 EPOCHS = config['training_default']['EPOCHS']
@@ -88,6 +89,8 @@ def args():
                         help='List of setpoint inputs to neural network')
     parser.add_argument('--outputs', default=outputs,
                         help='List of outputs from neural network')
+    parser.add_argument('--first_guess_pole_length', default=first_guess_pole_length,
+                        help='Guess of the pole length for the first input of the autoregressive network')
     parser.add_argument('--translation_invariant_variables', default=translation_invariant_variables,
                         help='List of translation_invariant_variables to neural network - shift of the whole series does not change the result')
 

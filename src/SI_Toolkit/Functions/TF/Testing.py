@@ -18,17 +18,14 @@ from others.globals_and_utils import load_config
 To see pole length prediction specify the exact name of the network in config_training.yml and the experiment 
 length in config_data_gen.yml
 '''
-
 config = load_config('config_data_gen.yml')
-dt = config['dt']['saving']
-time_of_exp = config['length_of_experiment']
-each_exp_length = time_of_exp/dt
-
 config_training = yaml.load(open(os.path.join("SI_Toolkit_ASF", "config_training.yml"), "r"), yaml.FullLoader)
 
+dt = config['dt']['saving']
 
 def testing(net, net_info, test_dfs_norm, a):
 
+    a.post_wash_out_len = 1
     test_dataset = Dataset(test_dfs_norm, a, shuffle=False, inputs=net_info.inputs, outputs=net_info.outputs)
 
     del test_dfs_norm
@@ -66,6 +63,11 @@ def test_network_pole_length():
     normalization_info = get_norm_info_for_net(net_info, files_for_normalization=a.training_files)
     paths_to_datafiles_test = get_paths_to_datafiles(a.test_files)
     test_dfs = load_data(paths_to_datafiles_test)
+
+    # check experiment length
+    temp = np.array(test_dfs[0].time)
+    each_exp_length = len(temp)-1  # in [number of elements]
+    # end section
 
     # ground truth
     y = np.zeros((int(each_exp_length), 0))
@@ -114,13 +116,13 @@ def test_network_pole_length():
 
     fig, axs = plt.subplots(len(num_exp))
     fig.suptitle(net_info.net_full_name)
-    fig.supxlabel("Time")
-    fig.supylabel("Length")
+    fig.supxlabel("Time [s]")
+    fig.supylabel("Length [m]")
     plt.xlim()
     for i in range(len(num_exp)):
-        axs[i].plot([j*dt for j in range(len(y[:, num_exp[i]]))], y[:, num_exp[i]], label='true pole length')
-        axs[i].plot([j*dt for j in range(len(y_pred[:, num_exp[i]]))], y_pred[:, num_exp[i]], label='estimated pole length')
-        axs[i].set_ylim([0, normalization_info._get_value('max', 'pole_length')+0.3])
+        axs[i].plot([j*dt for j in range(len(y[:, num_exp[i]]))], y[:, num_exp[i]], label='True pole length')
+        axs[i].plot([j*dt for j in range(len(y_pred[:, num_exp[i]]))], y_pred[:, num_exp[i]], label='Estimated pole length')
+        axs[i].set_ylim([0, 1])
     handles, labels = plt.gca().get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right')
 
@@ -138,6 +140,11 @@ def test_network_control_input():
     normalization_info = get_norm_info_for_net(net_info, files_for_normalization=a.training_files)
     paths_to_datafiles_test = get_paths_to_datafiles(a.test_files)
     test_dfs = load_data(paths_to_datafiles_test)
+
+    # check experiment length
+    temp = np.array(test_dfs[0].time)
+    each_exp_length = len(temp)-1  # in [number of elements]
+    # end section
 
     # ground truth
     y = np.zeros((int(each_exp_length), 0))
@@ -192,15 +199,13 @@ def test_network_control_input():
     for i in range(len(num_exp)):
         axs[i].plot([j * dt for j in range(len(y[:, num_exp[i]]))], y[:, num_exp[i]], label='mppi_tf Q')
         axs[i].plot([j * dt for j in range(len(y_pred[:, num_exp[i]]))], y_pred[:, num_exp[i]],
-                    label='GRU Q')
+                    label='Estimated Q')
     handles, labels = plt.gca().get_legend_handles_labels()
     fig.legend(handles, labels, loc='upper right')
 
     plt.savefig(net_info.path_to_net + '/Q_predictions' + '.png')
     plt.show()
     # end section
-
-
 
 
 

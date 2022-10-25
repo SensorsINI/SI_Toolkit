@@ -10,57 +10,100 @@ except:
     print('No DataSelector found.')
 
 
-def loss_fn(y_batch, predictions):
+def giveme_idx(training_ids, dataset):
 
-    return
+    idx_list = dataset.df_lengths_cs
+    exp_ids = []
+    for j in training_ids:
+        for i in idx_list:
+            if j < i:
+                exp_ids.append(idx_list.index(i))
+                break
+        if j == max(idx_list):
+            exp_ids.append(len(idx_list) - 1)
+
+    return exp_ids
+
+
+def validation_step(net, validation_dataset, a):
+
+    loss_fn = keras.losses.MeanSquaredError()
+    loss = []
+    pole_lengths = {}
+    for i in range(len(validation_dataset.df_lengths)):
+        pole_lengths[i] = a.first_guess_pole_length
+
+    for batch in tf.range(len(validation_dataset)):  # Iterate over the batches of the dataset.
+
+        x_batch, y_batch = validation_dataset[batch]
+        current_batch_size = np.shape(x_batch)[0]
+        training_ids = validation_dataset.indexes[
+                       batch * validation_dataset.batch_size:batch * validation_dataset.batch_size + current_batch_size]
+        exp_ids = giveme_idx(training_ids, validation_dataset)
+        net_input = x_batch[:, :, 1:]
+        input_pole_length = np.expand_dims(x_batch[:, :, 0], axis=2)
+
+        for i in exp_ids:
+            input_pole_length[exp_ids.index(i), :, 0] = pole_lengths[i]
+
+        net_input = np.concatenate((input_pole_length, net_input), axis=2)
+        net_output = net(net_input, training=False)
+        predictions = np.array(net_output[:, :, 1])
+
+        # Use the mean across washout+post_washout predictions
+        means = np.mean(predictions, axis=1)
+        for i in range(current_batch_size):
+            pole_lengths[exp_ids[i]] = means[i]
+
+        # Compute the loss value for this minibatch.
+        loss_value = loss_fn(y_batch, net_output)
+        loss.append(loss_value)
+
+    return np.mean(loss)
 
 
 def fit_autoregressive(net, net_info, training_dataset, validation_dataset, test_dataset, a):
 
     epochs = a.num_epochs
     optimizer = keras.optimizers.Adam(a.lr)
-    horizon = a.post_wash_out_len + a.wash_out_len
-    first_iteration = True
+    loss_fn = keras.losses.MeanSquaredError()
+    loss = []
+    training_loss = []
+    validation_loss = []
+    pole_lengths = {}
+    for i in range(len(training_dataset.df_lengths)):
+        pole_lengths[i] = a.first_guess_pole_length
 
-    #  adapt the code to allow shuffled training dataset
     for epoch in range(epochs):
+        # validation_loss.append(validation_step(net, validation_dataset, a))
         print("\nStart of epoch %d" % (epoch,))
-
         for batch in tf.range(len(training_dataset)):   # Iterate over the batches of the dataset.
 
-            #  fix initial guess for each experiment
             x_batch, y_batch = training_dataset[batch]
-            Q_estimates = np.ones_like(y_batch[:, -1, 0])
-            if first_iteration is False:
-                pole_length_estimates = last_pole_length_previous_batch
-            else:
-                pole_length_estimates = np.ones_like(y_batch[:, -1, 1])
-            net_input = np.ones((16,0,2))
+            current_batch_size = np.shape(x_batch)[0]
+            training_ids = training_dataset.indexes[
+                           batch*training_dataset.batch_size:batch*training_dataset.batch_size+current_batch_size]
+            exp_ids = giveme_idx(training_ids, training_dataset)
+            net_input = x_batch[:, :, 1:]
+            temp = np.copy(x_batch[:, :, 0])
+            input_pole_length = np.expand_dims(temp, axis=2)
             with tf.GradientTape() as tape:
-                for j in range(horizon):
-                    # Put previous pole_length as input
-                    if first_iteration is True:
-                        previous_pole_length = a.first_guess_pole_length*np.ones_like(y_batch[:, -1, 1])
-                        first_iteration = False
-                    else:
-                        if j == 0:  #  adapt if pole_length from previous iteration belongs to same experiment
-                            previous_pole_length = pole_length_estimates[:, j, 1]
-                        else:
-                            previous_pole_length = pole_length_estimates[:, j-1, 1]
 
-                    net_input_col = np.copy(x_batch[:, j, :])
-                    net_input_col[:, 0] = previous_pole_length
-                    net_input = np.concatenate((net_input, net_input_col), axis=1)
-                    if j == (horizon-1):
-                        last_pole_length_previous_batch = pole_length_estimates[j]
+                for i in exp_ids:
+                    input_pole_length[exp_ids.index(i), :, 0] = pole_lengths[i]
 
-                    # end section
-                net_output = net.evaluate(net_input)
-                pole_length_estimates[j], Q_estimates[j] = net_output
+                net_input = np.concatenate((input_pole_length, net_input), axis=2)
+                net_output = net(net_input, training=True)
+                PL_predictions = np.array(net_output[:, :, 1])
 
-                predictions = np.column_stack((np.array(Q_estimates), np.array(pole_length_estimates)))
+                # Use the mean across washout+post_washout predictions
+                means = np.mean(PL_predictions, axis=1)
+                for i in range(current_batch_size):
+                    pole_lengths[exp_ids[i]] = means[i]
+
                 # Compute the loss value for this minibatch.
-                loss_value = loss_fn(y_batch, predictions)
+                loss_value = loss_fn(y_batch, net_output)
+                loss.append(loss_value)
 
             # Use the gradient tape to automatically retrieve
             # the gradients of the trainable variables with respect to the loss.
@@ -78,4 +121,8 @@ def fit_autoregressive(net, net_info, training_dataset, validation_dataset, test
                 )
                 print("Seen so far: %s samples" % ((batch + 1) * a.batch_size))
 
-    return
+        # validation
+        training_loss.append(np.mean(loss))
+        validation_loss.append(validation_step(net, validation_dataset, a))
+
+    return np.array(loss), validation_loss
