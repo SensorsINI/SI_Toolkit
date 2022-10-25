@@ -1,11 +1,11 @@
 import timeit
 
-gp_path = './SI_Toolkit_ASF/Experiments/Pretrained-RNN-1/'
+gp_path = './SI_Toolkit_ASF/Experiments/Experiment-Xi/Models'
 gp_name = 'SGP_10'
 
 def timing_script_init():
     import tensorflow as tf
-    from SI_Toolkit.GP.Models import load_model
+    from SI_Toolkit.GP.Functions.save_and_load import load_model
 
     save_dir = gp_path + "/" + gp_name + "/"
 

@@ -1,4 +1,6 @@
-from SI_Toolkit.GP.Models import MultiOutGPR, save_model, load_model, plot_samples, plot_test, state_space_pred_err
+from SI_Toolkit.GP.Models import MultiOutGPR
+from SI_Toolkit.GP.Functions.save_and_load import load_model, save_model
+from SI_Toolkit.GP.Functions.plot import plot_samples, plot_test, state_space_pred_err
 
 import os
 import timeit
