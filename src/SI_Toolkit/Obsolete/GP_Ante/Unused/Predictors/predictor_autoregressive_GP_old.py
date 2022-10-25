@@ -1,4 +1,4 @@
-from SI_Toolkit.GP.Models import load_model
+from SI_Toolkit.GP.Functions.save_and_load import load_model
 from SI_Toolkit.Functions.TF.Normalising import normalize_tf, denormalize_tf
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 
