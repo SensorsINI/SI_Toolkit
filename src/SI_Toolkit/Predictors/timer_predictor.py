@@ -71,19 +71,19 @@ predictor = predictor_ODE_tf(horizon, 0.02, 10)
 '''
 
     initialisation_autoregressive_tf = '''
-from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=False)
+from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
+predictor = predictor_autoregressive_neural(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=False)
 '''
 
     initialisation_autoregressive_tf_integrated_update = '''
-from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=True)
+from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
+predictor = predictor_autoregressive_neural(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=True)
 '''
 
 # Predictor of Jerome, now in others
 #     initialisation_autoregressive_tf_Jerome = '''
-# from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_tf
-# predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name='GRU-6IN-32H1-32H2-5OUT-0')
+# from SI_Toolkit.Predictors.predictor_autoregressive_tf_Jerome import predictor_autoregressive_neural
+# predictor = predictor_autoregressive_neural(horizon, batch_size=batch_size, net_name='GRU-6IN-32H1-32H2-5OUT-0')
 # '''
 
 
@@ -111,7 +111,7 @@ predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name
 
         print('')
         print('')
-        print('predictor_autoregressive_tf')
+        print('predictor_autoregressive_neural')
         timer_predictor(initialisation_autoregressive_tf)
 
 

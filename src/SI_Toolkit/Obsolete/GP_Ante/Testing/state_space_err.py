@@ -1,5 +1,4 @@
-from SI_Toolkit.Testing.Parameters_for_testing import args
-from SI_Toolkit.GP.Parameters import args as args_GP
+from SI_Toolkit.Functions.General.load_parameters_for_training import args as args_GP
 
 import matplotlib.pyplot as plt
 import yaml
@@ -88,7 +87,6 @@ def state_space_pred_err(net, data, save_dir=None):
     return np.sum(errs)
 
 if __name__ == '__main__':
-    a = args()
     a_GP = args_GP()
 
     net_name = "GRU-6IN-32H1-32H2-5OUT-3"
@@ -101,15 +99,6 @@ if __name__ == '__main__':
     save_dir = PATH_TO_NN + net_name
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-
-    """
-    if 'predictor_ODE_tf' in predictor_name:
-        predictor = predictor_ODE_tf(horizon=1, dt=0.02)
-    elif 'predictor_autoregressive_GP' in predictor_name:
-        predictor = predictor_autoregressive_GP(model_name=predictor_name, horizon=1)
-    else:
-        predictor = predictor_autoregressive_tf(horizon=1, batch_size=1000, net_name=predictor_name)
-    """
 
     path_test = get_paths_to_datafiles(a_GP.test_files)
 

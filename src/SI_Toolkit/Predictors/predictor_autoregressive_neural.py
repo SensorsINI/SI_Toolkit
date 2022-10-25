@@ -35,32 +35,26 @@ Using predictor:
 
 # TODO: Make horizon updatable in runtime
 
-# "Command line" parameters
-from SI_Toolkit.Functions.General.Initialization import get_net, get_norm_info_for_net
-from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function, \
-    get_scaling_function_for_output_of_differential_network
-
-from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
-
-from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
-    CONTROL_INPUTS
-from SI_Toolkit_ASF.predictors_customization_tf import predictor_output_augmentation_tf
-from SI_Toolkit.Predictors import predictor
+import os
+from types import SimpleNamespace
+from SI_Toolkit.Predictors import template_predictor
+from SI_Toolkit.computation_library import TensorFlowLibrary
 
 import numpy as np
-
-from types import SimpleNamespace
-import os
-import yaml
-
+# "Command line" parameters
+from SI_Toolkit.Functions.General.Initialization import (get_net,
+                                                         get_norm_info_for_net)
+from SI_Toolkit.Functions.General.Normalising import (
+    get_denormalization_function, get_normalization_function,
+    get_scaling_function_for_output_of_differential_network)
+from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
+from SI_Toolkit_ASF.predictors_customization import (CONTROL_INPUTS,
+                                                     STATE_INDICES,
+                                                     STATE_VARIABLES)
+from SI_Toolkit_ASF.predictors_customization_tf import \
+    predictor_output_augmentation_tf
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
-
-config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'),
-                   Loader=yaml.FullLoader)
-
-PATH_TO_NN = config['testing']['PATH_TO_NN']
-
 
 def check_dimensions(s, Q, lib):
     # Make sure the input is at least 2d
@@ -77,14 +71,18 @@ def check_dimensions(s, Q, lib):
 
     return s, Q
 
-class predictor_autoregressive_tf(predictor):
+
+class predictor_autoregressive_neural(template_predictor):
+    supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
+    
     def __init__(
         self,
+        model_name=None,
+        path_to_model=None,
         horizon=None,
         dt=None,
         batch_size=None,
         disable_individual_compilation=False,
-        net_name=None,
         update_before_predicting=True,
         **kwargs
     ):
@@ -92,33 +90,50 @@ class predictor_autoregressive_tf(predictor):
         self.dt = dt
 
         a = SimpleNamespace()
+        
+        # Convert to platform-independent paths
+        model_name: str = os.path.normpath(model_name)
+        if path_to_model is not None:
+            path_to_model: str = os.path.normpath(path_to_model)
 
-        if '/' in net_name:
-            a.path_to_models = os.path.join(*net_name.split("/")[:-1])+'/'
-            a.net_name = net_name.split("/")[-1]
+        if len(model_name.split(os.sep)) > 1:
+            model_name_contains_path_to_model = True
         else:
-            a.path_to_models = PATH_TO_NN
-            a.net_name = net_name
+            model_name_contains_path_to_model = False
+
+        if model_name_contains_path_to_model:
+            a.path_to_models = os.path.join(model_name.split(os.sep)[:-1]) + os.sep
+            a.net_name = model_name.split(os.sep)[-1]
+        else:
+            a.path_to_models = path_to_model + os.sep
+            a.net_name = model_name
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
         self.net, self.net_info = \
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
 
-        net, _ = \
-            get_net(a, time_series_length=1,
-                    batch_size=self.batch_size, stateful=True)
+        if self.net_info.library == 'TF':
+            net, _ = \
+                get_net(a, time_series_length=1,
+                        batch_size=self.batch_size, stateful=True)
+            self.memory_states_ref = net.layers
+        elif self.net_info.library == 'Pytorch':
+            self.net.reset_internal_states()
+            self.memory_states_ref = self.net.return_internal_states()
 
         if self.net_info.library == 'TF':
-            from Control_Toolkit.others.environment import TensorFlowLibrary
+            from SI_Toolkit.computation_library import TensorFlowLibrary
             self.lib = TensorFlowLibrary
             from tensorflow import TensorArray
             self.TensorArray = TensorArray
-            from SI_Toolkit.Functions.TF.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
+            from SI_Toolkit.Functions.TF.Network import (
+                _copy_internal_states_from_ref, _copy_internal_states_to_ref)
         elif self.net_info.library == 'Pytorch':
-            from Control_Toolkit.others.environment import PyTorchLibrary
+            from SI_Toolkit.computation_library import PyTorchLibrary
             self.lib = PyTorchLibrary
-            from SI_Toolkit.Functions.Pytorch.Network import _copy_internal_states_from_ref, _copy_internal_states_to_ref
+            from SI_Toolkit.Functions.Pytorch.Network import (
+                _copy_internal_states_from_ref, _copy_internal_states_to_ref)
         else:
             raise NotImplementedError('predictor_autoregressive_neural defined only for TF and Pytorch')
 
@@ -135,8 +150,6 @@ class predictor_autoregressive_tf(predictor):
         self.update_before_predicting = update_before_predicting
         self.last_net_input_reg_initial = None
         self.last_optimal_control_input = None
-
-        self.layers_ref = net.layers
 
         self.normalization_info = get_norm_info_for_net(self.net_info)
 
@@ -175,8 +188,8 @@ class predictor_autoregressive_tf(predictor):
         self.last_initial_state = self.lib.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
 
         # Next conversion only relevant for TF
-        self.net_input_reg_initial_normed = self.lib.to_variable(self.net_input_reg_initial_normed)
-        self.last_initial_state = self.lib.to_variable(self.last_initial_state)
+        self.net_input_reg_initial_normed = self.lib.to_variable(self.net_input_reg_initial_normed, self.lib.float32)
+        self.last_initial_state = self.lib.to_variable(self.last_initial_state, self.lib.float32)
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
                                dtype=np.float32)
@@ -231,7 +244,7 @@ class predictor_autoregressive_tf(predictor):
         Q_normed = self.normalize_control_inputs(Q)
 
         # load internal RNN state if applies
-        self.copy_internal_states_from_ref(self.net, self.layers_ref)
+        self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
         if self.lib.lib == 'TF':
             outputs = self.TensorArray(self.lib.float32, size=self.horizon)
@@ -310,14 +323,14 @@ class predictor_autoregressive_tf(predictor):
 
             Q0_normed = self.normalize_control_inputs(Q0)
 
-            self.copy_internal_states_from_ref(self.net, self.layers_ref)
+            self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
             net_input = self.lib.reshape(self.lib.concat([Q0_normed[:, 0, :], net_input_reg_normed], axis=1),
                                    [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
 
-            self.copy_internal_states_to_ref(self.net, self.layers_ref)
+            self.copy_internal_states_to_ref(self.net, self.memory_states_ref)
 
 
     def reset(self):
@@ -329,8 +342,8 @@ if __name__ == '__main__':
     from SI_Toolkit.Predictors.timer_predictor import timer_predictor
 
     initialisation = '''
-from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
-predictor = predictor_autoregressive_tf(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=True, dt=0.01)
+from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
+predictor = predictor_autoregressive_neural(horizon, batch_size=batch_size, model_name=model_name, update_before_predicting=True, dt=0.01)
 '''
 
     timer_predictor(initialisation)

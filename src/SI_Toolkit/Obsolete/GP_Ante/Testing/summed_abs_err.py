@@ -1,12 +1,18 @@
 import numpy as np
-import tensorflow as tf
-import os
 
-from SI_Toolkit.Testing.Parameters_for_testing import args
+import os
+import yaml
+
+# predictors config
+config_testing = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
+
+from types import SimpleNamespace
+
+from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
+
 from SI_Toolkit.Testing.Testing_Functions.preprocess_for_brunton import preprocess_for_brunton
-from SI_Toolkit.Testing.Testing_Functions.get_prediction import get_prediction
 from SI_Toolkit.load_and_normalize import normalize_numpy_array, load_normalization_info
-from SI_Toolkit.GP.Parameters import args as args_GP
+from SI_Toolkit.Functions.General.load_parameters_for_training import args as args_GP
 import matplotlib
 import matplotlib.pyplot as plt
 from tqdm import trange
@@ -20,7 +26,7 @@ except ModuleNotFoundError:
     print('SI_Toolkit_ASF not yet created')
 
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-from SI_Toolkit.Predictors.predictor_autoregressive_tf import predictor_autoregressive_tf
+from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
 from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
 
 matplotlib.rcParams.update({'font.size': 24})
@@ -34,8 +40,9 @@ def summed_normed_error(Y_pred, Y):
 if __name__ == '__main__':
     # NOTE: quickly coded and very slow
 
-    a = args()
     a_GP = args_GP()
+
+    a = SimpleNamespace(**config_testing)
 
     norm_info = load_normalization_info(a_GP.path_to_normalization_info)
 
@@ -57,18 +64,14 @@ if __name__ == '__main__':
         ground_truth_list.append(ground_truth)
 
     predictors = []
-    for predictor_name in a.tests:
-        if 'predictor_ODE_tf' in predictor_name:
-            predictors.append(predictor_ODE_tf(horizon=50, dt=0.02))
-        elif 'predictor_autoregressive_GP' in predictor_name:
-            predictors.append(predictor_autoregressive_GP(model_name=predictor_name, horizon=50))
-        else:
-            predictors.append(predictor_autoregressive_tf(horizon=50, batch_size=1, net_name=predictor_name))
+    for predictor_specification in a.tests:
+        predictor = PredictorWrapper()
+        predictor.configure(batch_size=1, horizon=50, predictor_specification=predictor_specification)
 
     i, j = 0, 0
     for predictor in predictors:
-        predictor_name = a.tests[i]
-        print("PREDICTOR: {}".format(predictor_name))
+        predictor_specification = a.tests[i]
+        print("PREDICTOR: {}".format(predictor_specification))
         errs = np.zeros(shape=[len(horizons), len(test_files)])
         for k in range(len(dataset_list)):
             a.test_file = test_files[k]
@@ -85,7 +88,7 @@ if __name__ == '__main__':
                                     dtype=np.float32)
 
             stateful_components = ['RNN', 'GRU', 'LSTM']
-            if any(stateful_component in predictor_name for stateful_component in stateful_components):
+            if any(stateful_component in predictor_specification for stateful_component in stateful_components):
                 output = np.zeros([a.test_len, a.test_max_horizon + 1, len(a.features)],
                                   dtype=np.float32)
                 for timestep in trange(a.test_len):
@@ -93,7 +96,7 @@ if __name__ == '__main__':
                     s0 = states_0[np.newaxis, timestep, :]
                     output[timestep, :, :] = predictor.predict(s0, Q_current_timestep)
                     if a.test_max_horizon > 1:
-                        predictor.update_internal_state(Q_current_timestep[:, np.newaxis, 1, :])
+                        predictor.update(Q_current_timestep[:, np.newaxis, 1, :])
 
                 output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in a.features]]
             else:

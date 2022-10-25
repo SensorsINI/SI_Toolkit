@@ -1,4 +1,6 @@
-from SI_Toolkit.GP.Models import MultiOutGPR, save_model, load_model, plot_samples, plot_test, state_space_pred_err
+from SI_Toolkit.GP.Models import MultiOutGPR
+from SI_Toolkit.GP.Functions.save_and_load import load_model, save_model
+from SI_Toolkit.GP.Functions.plot import plot_samples, plot_test, state_space_pred_err
 
 import os
 import timeit
@@ -8,7 +10,7 @@ import random
 import tensorflow as tf
 import numpy as np
 
-from SI_Toolkit.GP.Parameters import args
+from SI_Toolkit.GP import args
 from SI_Toolkit.load_and_normalize import load_data, get_paths_to_datafiles, load_normalization_info, normalize_df
 from SI_Toolkit.GP.DataSelector import DataSelector
 
@@ -133,7 +135,7 @@ initialization = '''
 import tensorflow as tf
 import numpy as np
 from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.GP.Parameters import args
+from SI_Toolkit.GP import args
 
 a = args()
 save_dir = a.path_to_models + "GPR_model"

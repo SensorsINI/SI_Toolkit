@@ -4,6 +4,7 @@ from SI_Toolkit.Functions.Pytorch.DeltaGRU.deltagru import DeltaGRU
 
 import collections
 from types import SimpleNamespace
+from copy import deepcopy as dcp
 
 
 def load_pretrained_net_weights(net, pt_path):
@@ -183,7 +184,7 @@ class Sequence(nn.Module):
         if self.batch_size is None:
             batch_size = network_input.size(1)
             if self.h[0] is None:
-                self.reset_internal_states(batch_size)
+                self.reset_internal_states(batch_size=batch_size)
 
         if self.construct_network == 'with cells':
             outputs = []
@@ -218,25 +219,53 @@ class Sequence(nn.Module):
 
         return outputs
 
-    def reset_internal_states(self, batch_size=None):
+    def reset_internal_states(self, memory_states_ref=None, batch_size=None):
 
-        if batch_size is None:
-            batch_size = self.batch_size
-
-        if batch_size is None:
-            self.h = [None] * len(self.h_size)
-            self.c = [None] * len(self.h_size)  # Internal state cell - only matters for LSTM
+        if memory_states_ref is not None:
+            self.h = dcp(memory_states_ref[0])
+            self.c = dcp(memory_states_ref[1])
         else:
-            if self.construct_network == 'with cells':
-                for i in range(len(self.h_size)):  # For Dense network h keeps intermediate results
-                    self.h[i] = torch.zeros(batch_size, self.h_size[i], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
-                    if self.net_type == 'LSTM':
-                        self.c[i] = torch.zeros(batch_size, self.h_size[i], dtype=torch.float).to(self.device)
-            else:
-                self.h = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
-                if self.net_type == 'LSTM':
-                    self.c = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)
+            if batch_size is None:
+                batch_size = self.batch_size
 
+            if batch_size is None:
+                self.h = [None] * len(self.h_size)
+                self.c = [None] * len(self.h_size)  # Internal state cell - only matters for LSTM
+            else:
+                if self.construct_network == 'with cells':
+                    for i in range(len(self.h_size)):  # For Dense network h keeps intermediate results
+                        self.h[i] = torch.zeros(batch_size, self.h_size[i], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
+                        if self.net_type == 'LSTM':
+                            self.c[i] = torch.zeros(batch_size, self.h_size[i], dtype=torch.float).to(self.device)
+                else:
+                    self.h = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
+                    if self.net_type == 'LSTM':
+                        self.c = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)
+
+    def return_internal_states(self):
+        # Different scenarios might happen depending if the network is build with modules or not
+        if isinstance(self.h, list):
+            h_ref = []
+            for i in range(len(self.h)):
+                if self.h[i] is None:
+                    h_ref.append(None)
+                else:
+                    h_ref.append(self.h[i].detach().clone())
+        else:
+            h_ref = self.h.detach().clone()
+
+        if isinstance(self.c, list):
+            c_ref = []
+            for i in range(len(self.c)):
+                if self.c[i] is None:
+                    c_ref.append(None)
+                else:
+                    c_ref.append(self.c[i].detach().clone())
+        else:
+            c_ref = self.c.detach().clone()
+
+
+        return [h_ref, c_ref]
 
 # Print parameter count
 # https://stackoverflow.com/questions/49201236/check-the-total-number-of-parameters-in-a-pytorch-model
@@ -261,9 +290,12 @@ def get_device():
     return device
 
 
-def _copy_internal_states_to_ref(net, layers_ref):
-    pass
+def _copy_internal_states_to_ref(net, memory_states_ref):
+    new_states = net.return_internal_states()
+    for i in range(len(memory_states_ref)):
+        memory_states_ref[i] = new_states[i]
 
 
-def _copy_internal_states_from_ref(net, layers_ref):
-    pass
+
+def _copy_internal_states_from_ref(net, memory_states_ref):
+    net.reset_internal_states(memory_states_ref=memory_states_ref)
