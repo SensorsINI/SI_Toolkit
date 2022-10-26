@@ -47,6 +47,7 @@ class ComputationLibrary:
     int64 = None
     bool = None
     tile: Callable[[TensorType, "tuple[int]"], TensorType] = None
+    repeat: Callable[[TensorType, int, int], TensorType] = None
     gather: Callable[[TensorType, TensorType, int], TensorType] = None
     gather_last: Callable[[TensorType, TensorType], TensorType] = None
     arange: Callable[[Optional[NumericType], NumericType, Optional[NumericType]], TensorType] = None
@@ -111,6 +112,7 @@ class NumpyLibrary(ComputationLibrary):
     int64 = np.int64
     bool = np.bool_
     tile = np.tile
+    repeat = lambda x, k, a: np.repeat(x, repeats=k, axis=a)
     gather = lambda x, i, a: np.take(x, i, axis=a)
     gather_last = lambda x, i: np.take(x, i, axis=-1)
     arange = np.arange
@@ -175,6 +177,7 @@ class TensorFlowLibrary(ComputationLibrary):
     int64 = tf.int64
     bool = tf.bool
     tile = tf.tile
+    repeat = lambda x, k, a: tf.repeat(x, repeats=k, axis=a)
     gather = lambda x, i, a: tf.gather(x, i, axis=a)
     gather_last = lambda x, i: tf.gather(x, i, axis=-1)
     arange = tf.range
@@ -244,6 +247,7 @@ class PyTorchLibrary(ComputationLibrary):
     int64 = torch.int64
     bool = torch.bool
     tile = torch.tile
+    repeat = lambda x, k, a: torch.repeat_interleave(x, repeats=k, dim=a)
     gather = lambda x, i, a: torch.gather(x, dim=a, index=i)  # FIXME: It works very differently to TF!!!
     gather_last = gather_last_pytorch
     arange = torch.arange
