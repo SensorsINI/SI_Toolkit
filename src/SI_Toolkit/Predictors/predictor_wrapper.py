@@ -59,13 +59,13 @@ class PredictorWrapper:
         if computation_library is not None and computation_library not in self.predictor.supported_computation_libraries:
             raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__name__}")
 
-    def configure_with_compilation(self, batch_size, horizon, predictor_specification=None):
+    def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None):
         """
         To get max performance
         use this for standalone predictors (like in Brunton test)
         but not predictors within controllers
         """
-        self.configure(batch_size, horizon, predictor_specification=predictor_specification, compile_standalone=True)
+        self.configure(batch_size, horizon, dt, predictor_specification=predictor_specification, compile_standalone=True)
 
     def update_predictor_config_from_specification(self, predictor_specification: str = None):
 
