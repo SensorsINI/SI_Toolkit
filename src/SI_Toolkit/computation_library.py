@@ -42,6 +42,8 @@ class ComputationLibrary:
     stack: Callable[["list[TensorType]", int], TensorType] = None
     cast: Callable[[TensorType, type], TensorType] = None
     floormod: Callable[[TensorType], TensorType] = None
+    floor: Callable[[TensorType], TensorType] = None
+    ceil: Callable[[TensorType], TensorType] = None
     float32 = None
     int32 = None
     int64 = None
@@ -107,6 +109,8 @@ class NumpyLibrary(ComputationLibrary):
     stack = np.stack
     cast = lambda x, t: x.astype(t)
     floormod = np.mod
+    floor = np.floor
+    ceil = np.ceil
     float32 = np.float32
     int32 = np.int32
     int64 = np.int64
@@ -172,6 +176,8 @@ class TensorFlowLibrary(ComputationLibrary):
     stack = tf.stack
     cast = lambda x, t: tf.cast(x, dtype=t)
     floormod = tf.math.floormod
+    floor = tf.math.floor
+    ceil = tf.math.ceil
     float32 = tf.float32
     int32 = tf.int32
     int64 = tf.int64
@@ -242,6 +248,8 @@ class PyTorchLibrary(ComputationLibrary):
     stack = torch.stack
     cast = lambda x, t: x.type(t)
     floormod = torch.remainder
+    floor = torch.floor
+    ceil = torch.ceil
     float32 = torch.float32
     int32 = torch.int32
     int64 = torch.int64
