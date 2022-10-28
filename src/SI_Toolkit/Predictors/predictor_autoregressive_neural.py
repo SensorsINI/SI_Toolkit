@@ -102,7 +102,7 @@ class predictor_autoregressive_neural(template_predictor):
             model_name_contains_path_to_model = False
 
         if model_name_contains_path_to_model:
-            a.path_to_models = os.path.join(model_name.split(os.sep)[:-1]) + os.sep
+            a.path_to_models = os.path.join(*model_name.split(os.sep)[:-1]) + os.sep
             a.net_name = model_name.split(os.sep)[-1]
         else:
             a.path_to_models = path_to_model + os.sep
