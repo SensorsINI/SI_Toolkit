@@ -6,6 +6,14 @@ from matplotlib import pyplot as plt
 
 
 def plot_samples(data, save_dir=None, show=True):
+    """
+    (cartpole specific)
+    Plots given data in different projections of the state space:
+    - cos(theta) wrt sin(theta) (illustrates different pole angles)
+    - theta wrt dtheta/dt
+    - x wrt dx/dt
+    - dx/dt wrt Q
+    """
     X = data
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
@@ -54,6 +62,10 @@ def plot_samples(data, save_dir=None, show=True):
 
 
 def plot_test(model, data, closed_loop=False):
+    """
+    Plots model outputs over time for given inputs
+    if closed_loop is set to True, previous predictions will be used as input instead of ground truth
+    """
     data = data[0]  # TODO take random file from test folder
     t = data["time"][1:]
     X = data[model.state_inputs + model.control_inputs][:-1]
@@ -117,7 +129,16 @@ def plot_test(model, data, closed_loop=False):
         plt.show()
 
 
-def state_space_pred_err(model, data, save_dir=None):
+def state_space_prediction_error(model, data, save_dir=None):
+    """
+    (cartpole specific)
+    Plots normed difference between prediction and ground truth in different projections of the state space:
+    - cos(theta) wrt sin(theta) (illustrates different pole angles)
+    - theta wrt dtheta/dt
+    - x wrt dx/dt
+    - dx/dt wrt Q
+    Error is represented by color
+    """
     X, Y = data
     Y_pred, _ = model.predict_f(tf.cast(X, dtype=tf.float64))
     errs = np.linalg.norm(Y_pred.numpy() - Y, axis=1)
@@ -186,13 +207,16 @@ def state_space_pred_err(model, data, save_dir=None):
     return np.sum(errs)
 
 
-def val_MAE(model, maxiter, logf_val, save_dir):
+def plot_error(model, maxiter, logf, save_dir):
+    """
+    Plots logged errors through training epochs
+    """
     plt.figure(figsize=(10, 10))
     for i in range(len(model.outputs)):
-        plt.plot(np.arange(maxiter+1)[::10], logf_val[i])
+        plt.plot(np.arange(maxiter+1)[::10], logf[i])
     plt.legend(model.outputs)
     plt.xlabel("Epoch")
-    plt.ylabel("MAE")
+    plt.ylabel("Error")
     plt.grid()
-    plt.savefig(save_dir+'info/val_MAE.pdf')
+    plt.savefig(save_dir+'info/Error.pdf')
     plt.show()
