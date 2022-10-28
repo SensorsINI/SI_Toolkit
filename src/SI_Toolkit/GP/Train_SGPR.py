@@ -2,7 +2,7 @@
 from SI_Toolkit.GP.Models import MultiOutSGPR
 from SI_Toolkit.GP.Functions.save_and_load import get_normalized_data_for_training, save_model
 from SI_Toolkit.GP.DataSelector import DataSelector
-from SI_Toolkit.GP.Functions.plot import plot_samples, plot_test, state_space_pred_err, val_MAE
+from SI_Toolkit.GP.Functions.plot import plot_samples, plot_test, state_space_prediction_error, plot_error
 
 import os
 import shutil
@@ -118,7 +118,7 @@ logf, logf_val, train_time = model.optimize("Adam", iters=maxiter, lr=0.08, val_
 with open(save_dir+'info/training_time.txt', "w") as f:
     f.write(str(train_time))
 
-val_MAE(model, maxiter, logf_val, save_dir)
+plot_error(model, maxiter, logf_val, save_dir)
 
 ## SAMPLING FROM STATE TRAJECTORY
 a.num = 10
@@ -135,7 +135,7 @@ data = (X, Y)
 test_indices = random.sample(range(X.shape[0]), 100)
 data_subsampled = (data[0][test_indices], data[1][test_indices])
 
-errs = state_space_pred_err(model, data_subsampled, save_dir=save_dir+"info/ss_error/")
+errs = state_space_prediction_error(model, data_subsampled, save_dir=save_dir+"info/ss_error/")
 
 ## PLOTTING 1s CLOSED-LOOP PREDICTION FROM TEST RECORDING
 plot_test(model, data_test, closed_loop=True)

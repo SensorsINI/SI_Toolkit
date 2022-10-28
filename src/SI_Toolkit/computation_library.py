@@ -42,11 +42,14 @@ class ComputationLibrary:
     stack: Callable[["list[TensorType]", int], TensorType] = None
     cast: Callable[[TensorType, type], TensorType] = None
     floormod: Callable[[TensorType], TensorType] = None
+    floor: Callable[[TensorType], TensorType] = None
+    ceil: Callable[[TensorType], TensorType] = None
     float32 = None
     int32 = None
     int64 = None
     bool = None
     tile: Callable[[TensorType, "tuple[int]"], TensorType] = None
+    repeat: Callable[[TensorType, int, int], TensorType] = None
     gather: Callable[[TensorType, TensorType, int], TensorType] = None
     gather_last: Callable[[TensorType, TensorType], TensorType] = None
     arange: Callable[[Optional[NumericType], NumericType, Optional[NumericType]], TensorType] = None
@@ -78,6 +81,7 @@ class ComputationLibrary:
     sqrt: Callable[[TensorType], TensorType] = None
     argpartition: Callable[[TensorType, int], TensorType] = None
     norm: Callable[[TensorType, int], bool] = None
+    matmul: Callable[[TensorType, TensorType], TensorType] = None
     cross: Callable[[TensorType, TensorType], TensorType] = None
     dot: Callable[[TensorType, TensorType], TensorType] = None
     stop_gradient: Callable[[TensorType], TensorType] = None
@@ -106,11 +110,14 @@ class NumpyLibrary(ComputationLibrary):
     stack = np.stack
     cast = lambda x, t: x.astype(t)
     floormod = np.mod
+    floor = np.floor
+    ceil = np.ceil
     float32 = np.float32
     int32 = np.int32
     int64 = np.int64
     bool = np.bool_
     tile = np.tile
+    repeat = lambda x, k, a: np.repeat(x, repeats=k, axis=a)
     gather = lambda x, i, a: np.take(x, i, axis=a)
     gather_last = lambda x, i: np.take(x, i, axis=-1)
     arange = np.arange
@@ -142,6 +149,7 @@ class NumpyLibrary(ComputationLibrary):
     sqrt = np.sqrt
     argpartition = lambda x, k: np.argpartition(x, k)[..., :k]
     norm = lambda x, axis: np.linalg.norm(x, axis=axis)
+    matmul = np.matmul
     cross = np.cross
     dot = np.dot
     stop_gradient = lambda x: x
@@ -170,11 +178,14 @@ class TensorFlowLibrary(ComputationLibrary):
     stack = tf.stack
     cast = lambda x, t: tf.cast(x, dtype=t)
     floormod = tf.math.floormod
+    floor = tf.math.floor
+    ceil = tf.math.ceil
     float32 = tf.float32
     int32 = tf.int32
     int64 = tf.int64
     bool = tf.bool
     tile = tf.tile
+    repeat = lambda x, k, a: tf.repeat(x, repeats=k, axis=a)
     gather = lambda x, i, a: tf.gather(x, i, axis=a)
     gather_last = lambda x, i: tf.gather(x, i, axis=-1)
     arange = tf.range
@@ -206,6 +217,7 @@ class TensorFlowLibrary(ComputationLibrary):
     sqrt = tf.sqrt
     argpartition = lambda x, k: tf.math.top_k(-x, k, sorted=False)[1]
     norm = lambda x, axis: tf.norm(x, axis=axis)
+    matmul = tf.linalg.matmul
     cross = tf.linalg.cross
     dot = lambda a, b: tf.tensordot(a, b, 1)
     stop_gradient = tf.stop_gradient
@@ -239,11 +251,14 @@ class PyTorchLibrary(ComputationLibrary):
     stack = torch.stack
     cast = lambda x, t: x.type(t)
     floormod = torch.remainder
+    floor = lambda x: torch.floor(torch.as_tensor(x))
+    ceil = lambda x: torch.ceil(torch.as_tensor(x))
     float32 = torch.float32
     int32 = torch.int32
     int64 = torch.int64
     bool = torch.bool
     tile = torch.tile
+    repeat = lambda x, k, a: torch.repeat_interleave(x, repeats=k, dim=a)
     gather = lambda x, i, a: torch.gather(x, dim=a, index=i)  # FIXME: It works very differently to TF!!!
     gather_last = gather_last_pytorch
     arange = torch.arange
@@ -279,6 +294,7 @@ class PyTorchLibrary(ComputationLibrary):
     sqrt = torch.sqrt
     argpartition = torch.topk
     norm = lambda x, axis: torch.linalg.norm(x, dim=axis)
+    matmul = torch.matmul
     cross = torch.linalg.cross
     dot = torch.dot
     stop_gradient = tf.stop_gradient # FIXME: How to imlement this in torch?
