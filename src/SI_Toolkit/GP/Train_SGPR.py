@@ -1,19 +1,19 @@
-
 from SI_Toolkit.GP.Models import MultiOutSGPR
-from SI_Toolkit.GP.Functions.save_and_load import get_normalized_data_for_training, save_model
-from SI_Toolkit.GP.DataSelector import DataSelector
+
+from SI_Toolkit.GP.Functions.save_and_load import get_normalized_data_for_training, save_model, save_training_time, save_training_script
 from SI_Toolkit.GP.Functions.plot import plot_samples, plot_test, state_space_prediction_error, plot_error
+from SI_Toolkit.GP.Functions.other import reformat_data_for_vaidation, preselect_data_for_GPs
+from SI_Toolkit.GP.Functions.GP_ASF import get_kernels
 
 import os
-import shutil
 
 import gpflow as gpf
 import random
 import tensorflow as tf
-import numpy as np
 
 import matplotlib
 from SI_Toolkit.Functions.General.load_parameters_for_training import args
+
 
 gpf.config.set_default_float(tf.float64)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
@@ -24,124 +24,63 @@ a = args()
 inputs = a.state_inputs + a.control_inputs
 a.wash_out_len = 0
 a.post_wash_out_len = 1
+outputs = a.outputs
+batch_size = a.batch_size
+
+number_of_inducing_points = 10
+
+save_dir = a.path_to_models + "SGP_{}/".format(number_of_inducing_points)
+save_training_script(save_dir)
+
 data_train, data_val, data_test = get_normalized_data_for_training(a)
 
-## SAMPLING FROM STATE TRAJECTORY
-a.num = 10
-a.training = True
-DS = DataSelector(a)
-DS.load_data_into_selector(data_train)
-X, Y = DS.return_dataset_for_training(shuffle=True,
-                                      inputs=inputs,
-                                      outputs=a.outputs,
-                                      raw=True)
-X = X.squeeze()
-Y = Y.squeeze()
-
-data = (X, Y)
-
-## SUBSAMPLING FOR GP
-# random.seed(10)
-# sample_indices = random.sample(range(X.shape[0]), 100000)
-X_samples = X  # [sample_indices]
-Y_samples = Y  # [sample_indices]
-data_samples = (X_samples, Y_samples)
+## PRESELECTING DATA: See preselect_data_for_GPs docstring
+number_of_bins = 11
+training = True
+X, Y = preselect_data_for_GPs(data_train, inputs, outputs, number_of_bins, training, batch_size)
 
 ## DEFINING KERNELS
-indices = {key: inputs.index(key) for key in inputs}
-kernels = {"position": gpf.kernels.RBF(lengthscales=[1, 1, 1],
-                                       active_dims=[indices["position"],
-                                                    # indices["angleD"],
-                                                    indices["positionD"],
-                                                    indices["Q"]
-                                                    ]),
+kernels = get_kernels(inputs)
 
-           "positionD": gpf.kernels.RBF(lengthscales=[1, 1],
-                                        active_dims=[# indices["angle_sin"],
-                                                     # indices["angle_cos"],
-                                                     # indices["angleD"],
-                                                     indices["positionD"],
-                                                     indices["Q"]
-                                                     ]),
+# FROM PRESELECTED DATA RANDOMLY CHOOSE POINTS TO SERVE AS FIRST GUESS OF INDUCING POINTS
+sample_indices = random.sample(range(X.shape[0]), number_of_inducing_points)
 
-           "angle_sin": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
-                                        active_dims=[indices["angle_sin"],
-                                                     indices["angle_cos"],
-                                                     indices["angleD"],
-                                                     indices["positionD"],
-                                                     indices["Q"]
-                                                     ]),
-
-           "angle_cos": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
-                                        active_dims=[indices["angle_sin"],
-                                                     indices["angle_cos"],
-                                                     indices["angleD"],
-                                                     indices["positionD"],
-                                                     indices["Q"]
-                                                     ]),
-
-           "angleD": gpf.kernels.RBF(lengthscales=[1, 1, 1, 1, 1],
-                                             active_dims=[indices["angle_sin"],
-                                                          indices["angle_cos"],
-                                                          indices["angleD"],
-                                                          indices["positionD"],
-                                                          indices["Q"]
-                                                          ])
-
-}
+## PLOTTING PHASE DIAGRAMS OF PRESELECTED DATA AND INDUCING POINTS GUESS.
+plot_samples(X[sample_indices], save_dir=save_dir+"info/initial_ip/")
+plot_samples(X, save_dir=save_dir+"info/training_ss/")
 
 ## DEFINING MULTI OUTPUT SGPR MODEL
-sample_indices = random.sample(range(X_samples.shape[0]), 10)
-data_subsampled = (data_samples[0][sample_indices], data_samples[1][sample_indices])
-
-## PLOTTING PHASE DIAGRAMS OF SUBSAMPLED DATA
-save_dir = a.path_to_models + "SGP_{}/".format(len(sample_indices))
-if not os.path.exists(save_dir):
-    os.makedirs(save_dir+'info')
-shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_SGPR.py", save_dir+"info/training_file.py")
-plot_samples(data_subsampled[0], save_dir=save_dir+"info/initial_ip/")
-plot_samples(data[0], save_dir=save_dir+"info/training_ss/")
-
 model = MultiOutSGPR(a)
-model.setup(data_samples, kernels, X_samples[sample_indices])
+model.setup((X, Y), kernels, X[sample_indices])
 
-X_val = np.empty(shape=[0, 6])
-Y_val = np.empty(shape=[0, 5])
-for df in data_val:
-    df = df[inputs].to_numpy()
-    X_val = np.vstack([X_val, df[:-1, :]])
-    Y_val = np.vstack([Y_val, df[1:, :-1]])
+X_val, Y_val = reformat_data_for_vaidation(data_val, inputs)
 
 ## MODEL OPTIMIZATION
 maxiter = 400
-logf, logf_val, train_time = model.optimize("Adam", iters=maxiter, lr=0.08, val_data=(X_val, Y_val))
-with open(save_dir+'info/training_time.txt', "w") as f:
-    f.write(str(train_time))
+learning_rate = 0.08
+logf, logf_val, train_time = model.optimize("Adam", iters=maxiter, lr=learning_rate, val_data=(X_val, Y_val))
+save_training_time(train_time, save_dir)
+
+# PLOT FINAL INDUCING POINTS (FIXME: In current implementation one does not know which plot is for which kernel)
+# for i in len(kernels):
+#     plot_samples(model.models[i].inducing_variable.Z.numpy(), save_dir=save_dir + model.outputs[i], show=False)
 
 plot_error(model, maxiter, logf_val, save_dir)
 
-## SAMPLING FROM STATE TRAJECTORY
-a.num = 10
-a.training = False
-DS = DataSelector(a)
-DS.load_data_into_selector(data_test)
-X, Y = DS.return_dataset_for_training(shuffle=True,
-                                      inputs=inputs,
-                                      outputs=a.outputs,
-                                      raw=True)
-X = X.squeeze()
-Y = Y.squeeze()
-data = (X, Y)
-test_indices = random.sample(range(X.shape[0]), 100)
-data_subsampled = (data[0][test_indices], data[1][test_indices])
-
-errs = state_space_prediction_error(model, data_subsampled, save_dir=save_dir+"info/ss_error/")
-
-## PLOTTING 1s CLOSED-LOOP PREDICTION FROM TEST RECORDING
-plot_test(model, data_test, closed_loop=True)
-
-# save model
+## SAVE MODEL
 print("Saving...")
 save_model(model, save_dir)
 print("Done!")
 
+## TESTING ON TEST DATA
+number_of_bins = 11
+training = False
+X, Y = preselect_data_for_GPs(data_test, inputs, outputs, number_of_bins, training, batch_size)
+
+test_indices = random.sample(range(X.shape[0]), 100)
+
+# PLOT error between true and predicted values
+errs = state_space_prediction_error(model, (X[test_indices], Y[test_indices]), save_dir=save_dir+"info/ss_error/")
+
+## PLOTTING 1s CLOSED-LOOP PREDICTION FROM TEST RECORDING
+plot_test(model, data_test, closed_loop=True)
