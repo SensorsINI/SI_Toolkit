@@ -81,7 +81,7 @@ class predictor_autoregressive_GP(template_predictor):
 
 
     @CompileTF
-    def _predict_tf(self, initial_state, Q_seq):
+    def predict_tf(self, initial_state, Q_seq):
 
         outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
 
