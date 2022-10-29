@@ -67,8 +67,6 @@ class predictor_autoregressive_GP(template_predictor):
         self.initial_state = tf.random.uniform(shape=[self.batch_size, 6], dtype=tf.float32)
         Q = tf.random.uniform(shape=[self.batch_size, self.horizon, 1], dtype=tf.float32)
 
-        self.outputs = None
-
         self.predict_tf(self.initial_state, Q)  # CHANGE TO PREDICT FOR NON TF MPPI
 
     def predict(self, initial_state, Q_seq):
@@ -85,7 +83,7 @@ class predictor_autoregressive_GP(template_predictor):
     @CompileTF
     def predict_tf(self, initial_state, Q_seq):
 
-        self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
+        outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
 
         self.initial_state = initial_state
         Q_seq = tf.cast(Q_seq, dtype=tf.float64)
@@ -95,26 +93,26 @@ class predictor_autoregressive_GP(template_predictor):
         s = self.normalize_tf(s)
         s = tf.cast(s, tf.float64)
 
-        self.outputs = self.outputs.write(0, s)
+        outputs = outputs.write(0, s)
 
         s = self.step(s, Q_seq[:, 0, :])
 
-        self.outputs = self.outputs.write(1, s)
+        outputs = outputs.write(1, s)
         for i in tf.range(1, self.horizon):
             s = self.step(s, Q_seq[:, i, :])
 
-            self.outputs = self.outputs.write(i+1, s)
+            outputs = outputs.write(i+1, s)
 
-        self.outputs = tf.transpose(self.outputs.stack(), perm=[1, 0, 2])
+        outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
 
-        self.outputs = tf.cast(self.outputs, tf.float32)
+        outputs = tf.cast(outputs, tf.float32)
 
-        self.outputs = self.denormalize_tf(self.outputs)
+        outputs = self.denormalize_tf(outputs)
 
-        self.outputs = tf.stack([tf.math.atan2(self.outputs[..., 2], self.outputs[..., 1]), self.outputs[..., 0], self.outputs[..., 1],
-                            self.outputs[..., 2], self.outputs[..., 3], self.outputs[..., 4]], axis=2)
+        outputs = tf.stack([tf.math.atan2(outputs[..., 2], outputs[..., 1]), outputs[..., 0], outputs[..., 1],
+                            outputs[..., 2], outputs[..., 3], outputs[..., 4]], axis=2)
 
-        return self.outputs
+        return outputs
 
     def update_internal_state(self, *args):
         pass
