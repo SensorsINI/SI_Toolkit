@@ -10,8 +10,10 @@ from SI_Toolkit_ASF.predictors_customization import CONTROL_INPUTS
 import numpy as np
 batch_size = 2000
 horizon = 50
+path_to_model = './SI_Toolkit_ASF/Experiments/Pretrained-RNN-1/Models'
 net_name = 'GRU-6IN-32H1-32H2-5OUT-0' # if applies
-initial_state = np.random.random(size=(batch_size, 6))
+GP_name = 'SGP_10'
+initial_state = np.float32(np.random.random(size=(batch_size, 6)))
 Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
 
 '''
@@ -70,15 +72,20 @@ from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
 predictor = predictor_ODE_tf(horizon, 0.02, 10)
 '''
 
-    initialisation_autoregressive_tf = '''
+    initialisation_autoregressive_neural = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
-predictor = predictor_autoregressive_neural(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=False)
+predictor = predictor_autoregressive_neural(horizon=horizon, batch_size=batch_size, model_name=net_name, path_to_model=path_to_model, update_before_predicting=False)
 '''
 
-    initialisation_autoregressive_tf_integrated_update = '''
+    initialisation_autoregressive_neural_integrated_update = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
-predictor = predictor_autoregressive_neural(horizon, batch_size=batch_size, net_name=net_name, update_before_predicting=True)
+predictor = predictor_autoregressive_neural(horizon=horizon, batch_size=batch_size, model_name=net_name, path_to_model=path_to_model, update_before_predicting=True)
 '''
+
+    initialisation_autoregressive_GP = '''
+from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
+predictor = predictor_autoregressive_GP(horizon=horizon, batch_size=batch_size, model_name=GP_name, path_to_model=path_to_model, update_before_predicting=False)
+    '''
 
 # Predictor of Jerome, now in others
 #     initialisation_autoregressive_tf_Jerome = '''
@@ -87,8 +94,8 @@ predictor = predictor_autoregressive_neural(horizon, batch_size=batch_size, net_
 # '''
 
 
-    # numbers = [1, 2]
-    numbers = [1, 10, 100, 1000, 10000]
+    numbers = [10]
+    # numbers = [1, 10, 100, 1000, 10000]
 
     print('Timing the predictors:')
     print('*************************')
@@ -99,27 +106,36 @@ predictor = predictor_autoregressive_neural(horizon, batch_size=batch_size, net_
         print('------------------------------------------------------------------------------------------------------')
         print('')
         print('Number of calls: {}'.format(int(number)))
+
+
+        print('')
         print('')
         print('predictor_ODE')
-        timer_predictor(initialisation_ODE)
+        timer_predictor(initialisation_ODE, number=number)
+
 
         print('')
         print('')
         print('predictor_ODE_tf')
-        timer_predictor(initialisation_ODE_tf)
+        timer_predictor(initialisation_ODE_tf, number=number)
 
 
         print('')
         print('')
         print('predictor_autoregressive_neural')
-        timer_predictor(initialisation_autoregressive_tf)
+        timer_predictor(initialisation_autoregressive_neural, number=number)
 
 
         print('')
         print('')
         print('predictor_autoregressive_tf_integrated_update')
-        timer_predictor(initialisation_autoregressive_tf_integrated_update)
+        timer_predictor(initialisation_autoregressive_neural_integrated_update, number=number)
 
+
+        print('')
+        print('')
+        print('predictor_autoregressive_GP')
+        timer_predictor(initialisation_autoregressive_GP, number=number)
 
         # print('')
         # print('')
