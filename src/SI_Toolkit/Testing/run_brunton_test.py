@@ -17,8 +17,8 @@ def run_brunton_test():
     predictions_list = []
     predictors_list = config_testing['predictors_specifications_testing']
     predictor = PredictorWrapper()
-    for test_idx in range(len(predictors_list)):
-        predictor.update_predictor_config_from_specification(predictors_list[test_idx])
+    for predictor_specification in predictors_list:
+        predictor.update_predictor_config_from_specification(predictor_specification=predictor_specification)
         predictions_list.append(get_prediction(dataset, predictor, **config_testing))
 
     run_test_gui(config_testing['features_to_plot'], titles=predictors_list,
