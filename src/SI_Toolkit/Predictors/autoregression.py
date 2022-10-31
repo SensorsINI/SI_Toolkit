@@ -37,6 +37,7 @@ class autoregression_loop:
             initial_input,
             external_input_left=None,
             external_input_right=None,
+            predictor='neural',
     ):
 
         if self.lib.lib == 'TF':
@@ -47,10 +48,37 @@ class autoregression_loop:
         if self.dmah:
             self.dmah.set_starting_point(initial_input)
 
-        next_model_input = initial_input
-        for i in self.lib.arange(horizon):
+        model_input = initial_input
 
-            model_input = next_model_input
+        if predictor == 'gp':
+            # The only difference it that for gp-predictor first interation of the for loop is done outside of the loop
+            # Otherwise tf.function throws error.
+            # This can be corrected back and only general loop used as soon as GPs are loaded in α not compiled state.
+
+            ############### Oth ITERATION! ####################
+            if external_input_left is not None:
+                model_input = self.lib.concat([external_input_left[:, 0, :], model_input], axis=1)
+            if external_input_right is not None:
+                model_input = self.lib.concat([model_input, external_input_right[:, 0, :]], axis=1)
+
+            model_input = self.lib.reshape(model_input, shape=[-1, 1, self.model_inputs_len])
+
+            model_output = model(model_input)
+
+            model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
+
+            output = model_output
+            model_input = model_output
+
+            outputs = outputs.write(0, output)
+
+            ##################### END OF 0th ITERATION ######################
+            arange = self.lib.arange(1, horizon)
+        else:
+            arange = self.lib.arange(0, horizon)
+
+        for i in arange:
+
             if external_input_left is not None:
                 model_input = self.lib.concat([external_input_left[:, i, :], model_input], axis=1)
             if external_input_right is not None:
@@ -63,10 +91,10 @@ class autoregression_loop:
             model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
 
             if self.dmah:
-                output, next_model_input = self.dmah.get_output_and_next_model_input(model_output)
+                output, model_input = self.dmah.get_output_and_next_model_input(model_output)
             else:
                 output = model_output
-                next_model_input = model_output
+                model_input = model_output
 
             if self.lib.lib == 'TF':
                 outputs = outputs.write(i, output)

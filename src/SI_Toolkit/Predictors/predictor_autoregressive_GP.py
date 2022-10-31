@@ -111,7 +111,8 @@ class predictor_autoregressive_GP(template_predictor):
             model=self.model_for_AL,
             horizon=self.horizon,
             external_input_right=Q,
-            initial_input=self.model_input_reg_initial_normed
+            initial_input=self.model_input_reg_initial_normed,
+            predictor='gp'
         )
 
         outputs = self.denormalize_tf(outputs)
