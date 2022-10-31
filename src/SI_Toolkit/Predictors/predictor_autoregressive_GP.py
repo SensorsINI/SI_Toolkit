@@ -16,6 +16,8 @@ try:
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
+from SI_Toolkit.Predictors.autoregression import autoregression_loop
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
 
@@ -54,20 +56,31 @@ class predictor_autoregressive_GP(template_predictor):
         self.model = load_model(a.path_to_models + a.model_name)
         self.inputs = self.model.state_inputs + self.model.control_inputs
 
-        self.normalize_tf = get_normalization_function(self.model.norm_info,
-                                                       self.model.state_inputs,
-                                                       self.lib
-                                                       )
         self.denormalize_tf = get_denormalization_function(self.model.norm_info,
                                                            self.model.outputs,
                                                            self.lib
                                                            )
-        self.indices = [STATE_INDICES.get(key) for key in self.model.outputs]
+        self.normalize_state = get_normalization_function(self.model.norm_info, STATE_VARIABLES, self.lib)
+
+        self.indices_inputs_reg = [STATE_INDICES.get(key) for key in self.model.outputs]
 
         self.initial_state = tf.random.uniform(shape=[self.batch_size, 6], dtype=tf.float32)
-        Q = tf.random.uniform(shape=[self.batch_size, self.horizon, 1], dtype=tf.float32)
 
-        self.predict_tf(self.initial_state, Q)  # CHANGE TO PREDICT FOR NON TF MPPI
+        self.model_input_reg_initial_normed = self.lib.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=self.lib.float32)
+        self.last_initial_state = self.lib.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
+
+        # Next conversion only relevant for TF
+        self.model_input_reg_initial_normed = self.lib.to_variable(self.model_input_reg_initial_normed, self.lib.float32)
+        self.last_initial_state = self.lib.to_variable(self.last_initial_state, self.lib.float32)
+
+
+        self.AL: autoregression_loop = autoregression_loop(
+            model_inputs_len=len(self.inputs),
+            model_outputs_len=len(self.model.outputs),
+            batch_size=self.batch_size,
+            lib=self.lib,
+            differential_model_autoregression_helper_instance=None,
+        )
 
     def predict(self, initial_state, Q_seq):
         outputs = self.predict_tf(initial_state, Q_seq)
@@ -79,40 +92,36 @@ class predictor_autoregressive_GP(template_predictor):
         s, _ = self.model.predict_f(x)
         return s
 
+    def model_for_AL(self, x):
+        x = tf.cast(x[:, 0, :], tf.float64)
+        s, _ = self.model.predict_f(x)
+        s = tf.cast(s, tf.float32)
+        return s
 
     @CompileTF
-    def predict_tf(self, initial_state, Q_seq):
+    def predict_tf(self, initial_state, Q):
 
-        outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
+        self.lib.assign(self.last_initial_state, initial_state)
 
-        self.initial_state = initial_state
-        Q_seq = tf.cast(Q_seq, dtype=tf.float64)
+        initial_state_normed = self.normalize_state(initial_state)
 
-        s = tf.gather(self.initial_state, self.indices, axis=1)
+        self.lib.assign(self.model_input_reg_initial_normed, self.lib.gather_last(initial_state_normed, self.indices_inputs_reg))
 
-        s = self.normalize_tf(s)
-        s = tf.cast(s, tf.float64)
-
-        outputs = outputs.write(0, s)
-
-        s = self.step(s, Q_seq[:, 0, :])
-
-        outputs = outputs.write(1, s)
-        for i in tf.range(1, self.horizon):
-            s = self.step(s, Q_seq[:, i, :])
-
-            outputs = outputs.write(i+1, s)
-
-        outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
-
-        outputs = tf.cast(outputs, tf.float32)
+        outputs = self.AL.run(
+            model=self.model_for_AL,
+            horizon=self.horizon,
+            external_input_right=Q,
+            initial_input=self.model_input_reg_initial_normed
+        )
 
         outputs = self.denormalize_tf(outputs)
 
-        outputs = tf.stack([tf.math.atan2(outputs[..., 2], outputs[..., 1]), outputs[..., 0], outputs[..., 1],
+        outputs_augmented = tf.stack([tf.math.atan2(outputs[..., 2], outputs[..., 1]), outputs[..., 0], outputs[..., 1],
                             outputs[..., 2], outputs[..., 3], outputs[..., 4]], axis=2)
 
-        return outputs
+        outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), axis=1)
+
+        return outputs_augmented
 
     def update_internal_state(self, *args):
         pass

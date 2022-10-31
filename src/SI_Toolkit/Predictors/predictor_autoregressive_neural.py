@@ -20,12 +20,13 @@ from SI_Toolkit.Predictors import template_predictor
 from SI_Toolkit.computation_library import TensorFlowLibrary
 
 import numpy as np
+from typing import Optional
 
 from SI_Toolkit.Functions.General.Initialization import (get_net,
                                                          get_norm_info_for_net)
 from SI_Toolkit.Functions.General.Normalising import (
     get_denormalization_function, get_normalization_function,
-    get_scaling_function_for_output_of_differential_network)
+    )
 from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
 from SI_Toolkit_ASF.predictors_customization import (CONTROL_INPUTS,
                                                      STATE_INDICES,
@@ -33,22 +34,9 @@ from SI_Toolkit_ASF.predictors_customization import (CONTROL_INPUTS,
 from SI_Toolkit_ASF.predictors_customization_tf import \
     predictor_output_augmentation_tf
 
+from SI_Toolkit.Predictors.autoregression import autoregression_loop, differential_model_autoregression_helper, check_dimensions
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
-
-def check_dimensions(s, Q, lib):
-    # Make sure the input is at least 2d
-    if s is not None:
-        if lib.ndim(s) == 1:
-            s = s[lib.newaxis, :]
-
-    if lib.ndim(Q) == 3:  # Q.shape = [batch_size, timesteps, features]
-        pass
-    elif lib.ndim(Q) == 2:  # Q.shape = [timesteps, features]
-        Q = Q[lib.newaxis, :, :]
-    else:  # Q.shape = [features;  rank(Q) == 1
-        Q = Q[lib.newaxis, lib.newaxis, :]
-
-    return s, Q
 
 
 class predictor_autoregressive_neural(template_predictor):
@@ -105,8 +93,6 @@ class predictor_autoregressive_neural(template_predictor):
         if self.net_info.library == 'TF':
             from SI_Toolkit.computation_library import TensorFlowLibrary
             self.lib = TensorFlowLibrary
-            from tensorflow import TensorArray
-            self.TensorArray = TensorArray
             from SI_Toolkit.Functions.TF.Network import (
                 _copy_internal_states_from_ref, _copy_internal_states_to_ref)
         elif self.net_info.library == 'Pytorch':
@@ -141,21 +127,18 @@ class predictor_autoregressive_neural(template_predictor):
             [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int64)
 
         if self.differential_network:
-
-            self.rescale_output_diff_net = get_scaling_function_for_output_of_differential_network(
-                self.normalization_info,
-                self.net_info.outputs,
-                self.dt,
-                self.lib
-            )
-
+            self.dmah: Optional[differential_model_autoregression_helper] = \
+                differential_model_autoregression_helper(
+                    inputs=self.net_info.inputs,
+                    outputs=self.net_info.outputs,
+                    normalization_info=self.normalization_info,
+                    dt=self.dt,
+                    batch_size=self.batch_size,
+                    lib=self.lib,
+                )
             outputs_names = np.array([x[2:] for x in self.net_info.outputs])
-
-            self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names], dtype=self.lib.int64)
-            output_indices = {x: np.where(outputs_names == x)[0][0] for x in outputs_names}
-            self.indices_output_to_input = self.lib.to_tensor([output_indices.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int64)
-
         else:
+            self.dmah: Optional[differential_model_autoregression_helper] = None
             outputs_names = self.net_info.outputs
 
         self.denormalize_outputs = get_denormalization_function(self.normalization_info, outputs_names, self.lib)
@@ -164,15 +147,23 @@ class predictor_autoregressive_neural(template_predictor):
         self.indices_augmentation = self.augmentation.indices_augmentation
         self.indices_outputs = self.lib.to_tensor(np.argsort(self.indices_outputs + self.indices_augmentation), dtype=self.lib.int64)
 
-        self.net_input_reg_initial_normed = self.lib.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=self.lib.float32)
+        self.model_input_reg_initial_normed = self.lib.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=self.lib.float32)
         self.last_initial_state = self.lib.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
 
         # Next conversion only relevant for TF
-        self.net_input_reg_initial_normed = self.lib.to_variable(self.net_input_reg_initial_normed, self.lib.float32)
+        self.model_input_reg_initial_normed = self.lib.to_variable(self.model_input_reg_initial_normed, self.lib.float32)
         self.last_initial_state = self.lib.to_variable(self.last_initial_state, self.lib.float32)
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
                                dtype=np.float32)
+
+        self.AL: autoregression_loop = autoregression_loop(
+            model_inputs_len=len(self.net_info.inputs),
+            model_outputs_len=len(self.net_info.outputs),
+            batch_size=self.batch_size,
+            lib=self.lib,
+            differential_model_autoregression_helper_instance=self.dmah,
+        )
 
         self.predict_with_update_tf = CompileAdaptive(self._predict_with_update_tf)
 
@@ -215,53 +206,21 @@ class predictor_autoregressive_neural(template_predictor):
 
         self.lib.assign(self.last_initial_state, initial_state)
 
-        net_input_reg_initial = self.lib.gather_last(initial_state, self.indices_inputs_reg)  # [batch_size, features]
+        initial_state_normed = self.normalize_state(initial_state)
 
-        self.lib.assign(self.net_input_reg_initial_normed, self.normalize_inputs(net_input_reg_initial))
-
-        next_net_input = self.net_input_reg_initial_normed
+        self.lib.assign(self.model_input_reg_initial_normed, self.lib.gather_last(initial_state_normed, self.indices_inputs_reg))
 
         Q_normed = self.normalize_control_inputs(Q)
 
         # load internal RNN state if applies
         self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
-        if self.lib.lib == 'TF':
-            outputs = self.TensorArray(self.lib.float32, size=self.horizon)
-        else:
-            outputs = self.lib.zeros([self.batch_size, self.horizon, len(self.net_info.outputs)])
-
-        if self.differential_network:
-            initial_state_normed = self.normalize_state(initial_state)
-            output = self.lib.gather_last(initial_state_normed, self.indices_state_to_output)
-
-        for i in self.lib.arange(self.horizon):
-
-            Q_current = Q_normed[:, i, :]
-
-            net_input = self.lib.reshape(
-                self.lib.concat([Q_current, next_net_input], axis=1),
-                shape=[-1, 1, len(self.net_info.inputs)])
-
-            net_output = self.net(net_input)
-
-            net_output = self.lib.reshape(net_output, [-1, len(self.net_info.outputs)])
-
-            if self.differential_network:
-                output = output + self.rescale_output_diff_net(net_output)
-                next_net_input = self.lib.gather_last(output, self.indices_output_to_input)
-            else:
-                output = net_output
-                next_net_input = net_output
-
-            if self.lib.lib == 'TF':
-                outputs = outputs.write(i, output)
-            else:
-                outputs[:, i, :] = output
-
-        if self.lib.lib == 'TF':
-            outputs = self.lib.permute(outputs.stack(), [1, 0, 2])
-
+        outputs = self.AL.run(
+            model=self.net,
+            horizon=self.horizon,
+            initial_input=self.model_input_reg_initial_normed,
+            external_input_left=Q_normed,
+        )
 
         outputs = self.denormalize_outputs(outputs)
 
