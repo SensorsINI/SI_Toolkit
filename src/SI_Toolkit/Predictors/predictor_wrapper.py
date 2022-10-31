@@ -27,7 +27,7 @@ class PredictorWrapper:
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
 
-    def configure(self, batch_size, horizon, computation_library: "Optional[type[ComputationLibrary]]"=None, predictor_specification=None, compile_standalone=False):
+    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, predictor_specification=None, compile_standalone=False):
 
         self.update_predictor_config_from_specification(predictor_specification)
 
@@ -46,11 +46,11 @@ class PredictorWrapper:
 
         elif self.predictor_type == 'ODE':
             from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-            self.predictor = predictor_ODE(horizon=self.horizon, batch_size=self.batch_size, **self.predictor_config)
+            self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, batch_size=self.batch_size, **self.predictor_config)
 
         elif self.predictor_type == 'ODE_TF':
             from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-            self.predictor = predictor_ODE_tf(horizon=self.horizon, batch_size=self.batch_size, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_ODE_tf(horizon=self.horizon, dt=dt, batch_size=self.batch_size, **self.predictor_config, **compile_standalone)
 
         else:
             raise NotImplementedError('Type of the predictor not recognised.')
@@ -59,13 +59,13 @@ class PredictorWrapper:
         if computation_library is not None and computation_library not in self.predictor.supported_computation_libraries:
             raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__name__}")
 
-    def configure_with_compilation(self, batch_size, horizon, predictor_specification=None):
+    def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None):
         """
         To get max performance
         use this for standalone predictors (like in Brunton test)
         but not predictors within controllers
         """
-        self.configure(batch_size, horizon, predictor_specification=predictor_specification, compile_standalone=True)
+        self.configure(batch_size, horizon, dt, predictor_specification=predictor_specification, compile_standalone=True)
 
     def update_predictor_config_from_specification(self, predictor_specification: str = None):
 

@@ -1,3 +1,4 @@
+from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 import numpy as np
 from tqdm import trange
 
@@ -11,7 +12,7 @@ except ModuleNotFoundError:
 
 def get_prediction(
         dataset,
-        predictor,
+        predictor: PredictorWrapper,
         features_to_plot: list,
         test_max_horizon: int,
         **kwargs,
@@ -39,9 +40,9 @@ def get_prediction(
     # mode = 'batch'
 
     if mode == 'batch':
-        predictor.configure_with_compilation(batch_size=test_len, horizon=test_max_horizon)
+        predictor.configure_with_compilation(batch_size=test_len, horizon=test_max_horizon, dt=0.02)
     else:
-        predictor.configure_with_compilation(batch_size=1, horizon=test_max_horizon)
+        predictor.configure_with_compilation(batch_size=1, horizon=test_max_horizon, dt=0.02)
 
     if mode == 'batch':
         output = predictor.predict(states_0, Q_array)

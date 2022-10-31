@@ -35,7 +35,7 @@ else:
 def CompileAdaptive(fun):
     instance = fun.__self__
     assert hasattr(instance, "lib"), "Instance with this method has no computation library defined"
-    computation_library: ComputationLibrary = instance.lib
+    computation_library: "type[ComputationLibrary]" = instance.lib
     lib_name = computation_library.lib
 
     if GLOBALLY_DISABLE_COMPILATION:
