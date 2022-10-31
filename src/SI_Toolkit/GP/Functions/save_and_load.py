@@ -1,3 +1,4 @@
+import shutil
 import copy
 import csv
 import os
@@ -52,8 +53,6 @@ def save_params(model, save_dir):
         out.append(np.array2string(model.models[i].inducing_variable.Z.numpy(), separator=", "))
         out.append("-----------------------------------")
 
-        plot_samples(model.models[i].inducing_variable.Z.numpy(), save_dir=save_dir + model.outputs[i], show=False)
-
         with open(save_dir+model.outputs[i]+'/params.csv', 'w') as f:
             wr = csv.writer(f, delimiter="\n")
             wr.writerow(out)
@@ -91,3 +90,14 @@ def get_normalized_data_for_training(args_training):
     data_test = normalize_df(data_test, norm_info)
 
     return data_train, data_val, data_test
+
+
+def save_training_time(train_time, save_dir):
+    with open(save_dir+'info/training_time.txt', "w") as f:
+        f.write(str(train_time))
+
+
+def save_training_script(save_dir):
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir+'info')
+    shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_SGPR.py", save_dir+"info/training_file.py")

@@ -2,7 +2,7 @@ import os
 from types import SimpleNamespace
 
 import tensorflow as tf
-import yaml
+
 from SI_Toolkit.computation_library import TensorFlowLibrary
 from SI_Toolkit.Functions.General.Normalising import get_denormalization_function, get_normalization_function
 from SI_Toolkit.Functions.TF.Compile import CompileTF
@@ -42,7 +42,7 @@ class predictor_autoregressive_GP(template_predictor):
             model_name_contains_path_to_model = False
 
         if model_name_contains_path_to_model:
-            a.path_to_models = os.path.join(model_name.split(os.sep)[:-1]) + os.sep
+            a.path_to_models = os.path.join(*model_name.split(os.sep)[:-1]) + os.sep
             a.model_name = model_name.split(os.sep)[-1]
         else:
             a.path_to_models = path_to_model + os.sep
@@ -67,8 +67,6 @@ class predictor_autoregressive_GP(template_predictor):
         self.initial_state = tf.random.uniform(shape=[self.batch_size, 6], dtype=tf.float32)
         Q = tf.random.uniform(shape=[self.batch_size, self.horizon, 1], dtype=tf.float32)
 
-        self.outputs = None
-
         self.predict_tf(self.initial_state, Q)  # CHANGE TO PREDICT FOR NON TF MPPI
 
     def predict(self, initial_state, Q_seq):
@@ -85,7 +83,7 @@ class predictor_autoregressive_GP(template_predictor):
     @CompileTF
     def predict_tf(self, initial_state, Q_seq):
 
-        self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
+        outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
 
         self.initial_state = initial_state
         Q_seq = tf.cast(Q_seq, dtype=tf.float64)
@@ -95,49 +93,37 @@ class predictor_autoregressive_GP(template_predictor):
         s = self.normalize_tf(s)
         s = tf.cast(s, tf.float64)
 
-        self.outputs = self.outputs.write(0, s)
+        outputs = outputs.write(0, s)
 
         s = self.step(s, Q_seq[:, 0, :])
 
-        self.outputs = self.outputs.write(1, s)
+        outputs = outputs.write(1, s)
         for i in tf.range(1, self.horizon):
             s = self.step(s, Q_seq[:, i, :])
 
-            self.outputs = self.outputs.write(i+1, s)
+            outputs = outputs.write(i+1, s)
 
-        self.outputs = tf.transpose(self.outputs.stack(), perm=[1, 0, 2])
+        outputs = tf.transpose(outputs.stack(), perm=[1, 0, 2])
 
-        self.outputs = tf.cast(self.outputs, tf.float32)
+        outputs = tf.cast(outputs, tf.float32)
 
-        self.outputs = self.denormalize_tf(self.outputs)
+        outputs = self.denormalize_tf(outputs)
 
-        self.outputs = tf.stack([tf.math.atan2(self.outputs[..., 2], self.outputs[..., 1]), self.outputs[..., 0], self.outputs[..., 1],
-                            self.outputs[..., 2], self.outputs[..., 3], self.outputs[..., 4]], axis=2)
+        outputs = tf.stack([tf.math.atan2(outputs[..., 2], outputs[..., 1]), outputs[..., 0], outputs[..., 1],
+                            outputs[..., 2], outputs[..., 3], outputs[..., 4]], axis=2)
 
-        return self.outputs
+        return outputs
 
     def update_internal_state(self, *args):
         pass
 
 
 if __name__ == '__main__':
-    import timeit
+    from SI_Toolkit.Predictors.timer_predictor import timer_predictor
 
-    initialization = '''
+    initialisation = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
-import numpy as np
-import tensorflow as tf
+predictor = predictor_autoregressive_GP(horizon=horizon, batch_size=batch_size, model_name=GP_name, path_to_model=path_to_model, update_before_predicting=False)
+        '''
 
-horizon = 10
-batch_size = 1000
-predictor = predictor_autoregressive_GP(horizon=horizon, batch_size=batch_size)
-
-initial_state = tf.random.uniform(shape=[batch_size, 6], dtype=tf.float32)
-Q = tf.random.uniform(shape=[batch_size, horizon, 1], dtype=tf.float32)
-'''
-
-    code = '''\
-predictor.predict_tf(initial_state, Q)
-'''
-
-    print(timeit.timeit(code, number=100, setup=initialization) / 100.0)
+    timer_predictor(initialisation)
