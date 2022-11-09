@@ -46,6 +46,5 @@ def CompileAdaptive(fun):
     elif lib_name == 'TF':
         return CompileTF(fun)
     else:
-        print('Jit compilation for Pytorch not yet fully implemented.')
-        return torch.inference_mode()(fun)
-        # return identity(fun)
+        print('Jit compilation for Pytorch not yet implemented.')
+        return identity(fun)
