@@ -291,7 +291,7 @@ class PyTorchLibrary(ComputationLibrary):
     reduce_any = lambda a, axis: torch.any(a, dim=axis)
     reduce_all = lambda a, axis: torch.all(a, dim=axis)
     reduce_max = lambda a, axis: torch.max(a, dim=axis)
-    reduce_min = lambda a, axis: torch.min(a, dim=axis)
+    reduce_min = lambda a, axis: torch.min(a, dim=axis)[0]
     less = lambda x, y: torch.less(x, y)
     greater = lambda x, y: torch.greater(x, y)
     logical_not = lambda x: torch.logical_not(x)

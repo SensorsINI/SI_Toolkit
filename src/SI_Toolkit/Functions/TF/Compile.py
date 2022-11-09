@@ -1,6 +1,9 @@
 import logging
-import tensorflow as tf
 import platform
+
+import tensorflow as tf
+import torch
+
 from SI_Toolkit.computation_library import ComputationLibrary
 
 try:
@@ -43,5 +46,6 @@ def CompileAdaptive(fun):
     elif lib_name == 'TF':
         return CompileTF(fun)
     else:
-        print('Jit compilation for Pytorch not yet implemented.')
-        return identity(fun)
+        print('Jit compilation for Pytorch not yet fully implemented.')
+        return torch.inference_mode()(fun)
+        # return identity(fun)

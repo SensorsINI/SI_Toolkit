@@ -17,7 +17,7 @@ all other net inputs in the same order as net outputs
 import os
 from types import SimpleNamespace
 from SI_Toolkit.Predictors import template_predictor
-from SI_Toolkit.computation_library import TensorFlowLibrary
+from SI_Toolkit.computation_library import TensorFlowLibrary, PyTorchLibrary
 
 import numpy as np
 from typing import Optional
@@ -40,7 +40,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
 
 class predictor_autoregressive_neural(template_predictor):
-    supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
+    supported_computation_libraries = {TensorFlowLibrary, PyTorchLibrary}  # Overwrites default from parent
     
     def __init__(
         self,
