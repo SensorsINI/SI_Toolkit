@@ -37,6 +37,7 @@ def get_normalization_function(
     b = lib.to_tensor(b, dtype=lib.float32)
 
     def normalize(denormalized_array):
+        #breakpoint()
         normalized_array = a * denormalized_array + b
         return normalized_array
 

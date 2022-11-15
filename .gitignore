@@ -16,3 +16,4 @@ eggs/
 *.egg
 /NormalizationInfo
 /src/SI_Toolkit/Training/NNI/NNI_Results
+/PycharmRunConfigurations/*
