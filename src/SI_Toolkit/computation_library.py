@@ -37,6 +37,7 @@ class ComputationLibrary:
     asin: Callable[[TensorType], TensorType] = None
     cos: Callable[[TensorType], TensorType] = None
     tan: Callable[[TensorType], TensorType] = None
+    tanh: Callable[[TensorType], TensorType] = None
     exp: Callable[[TensorType], TensorType] = None
     squeeze: Callable[[TensorType], TensorType] = None
     unsqueeze: Callable[[TensorType, int], TensorType] = None
@@ -109,6 +110,7 @@ class NumpyLibrary(ComputationLibrary):
     asin = np.arcsin
     cos = np.cos
     tan = np.tan
+    tanh = np.tanh
     exp = np.exp
     squeeze = np.squeeze
     unsqueeze = np.expand_dims
@@ -181,6 +183,7 @@ class TensorFlowLibrary(ComputationLibrary):
     asin = tf.asin
     cos = tf.cos
     tan = tf.tan
+    tanh = tf.tanh
     exp = tf.exp
     squeeze = tf.squeeze
     unsqueeze = tf.expand_dims
@@ -258,6 +261,7 @@ class PyTorchLibrary(ComputationLibrary):
     asin = torch.asin
     cos = torch.cos
     tan = torch.tan
+    tanh = torch.tanh
     exp = torch.exp
     squeeze = torch.squeeze
     unsqueeze = torch.unsqueeze
