@@ -101,4 +101,4 @@ def save_training_time(train_time, save_dir):
 def save_training_script(save_dir):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir+'info')
-    shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_SGPR.py", save_dir+"info/training_file.py")
+    shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_GPR.py", save_dir+"info/training_file.py")
