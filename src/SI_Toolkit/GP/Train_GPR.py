@@ -51,7 +51,7 @@ plot_samples(X[sample_indices], save_dir=save_dir+"info/initial_ip/")
 plot_samples(X, save_dir=save_dir+"info/training_ss/")
 
 ## DEFINING MULTI OUTPUT SGPR MODEL
-if GP_TYPE == 'GP':
+if GP_TYPE == 'GPR':
     model = MultiOutGPR(a)
     model.setup((X[sample_indices], Y[sample_indices]), kernels)
 elif GP_TYPE == 'SGPR':
