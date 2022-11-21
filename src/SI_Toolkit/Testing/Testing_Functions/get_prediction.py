@@ -4,16 +4,9 @@ from tqdm import trange
 
 from SI_Toolkit_ASF.predictors_customization_tf import STATE_VARIABLES, CONTROL_INPUTS
 
-try:
-    from SI_Toolkit_ASF.predictors_customization import STATE_INDICES
-except ModuleNotFoundError:
-    print('SI_Toolkit_ASF not yet created')
-
-
 def get_prediction(
         dataset,
         predictor: PredictorWrapper,
-        features_to_plot: list,
         test_max_horizon: int,
         **kwargs,
 ):
@@ -25,9 +18,6 @@ def get_prediction(
     Q = dataset[CONTROL_INPUTS].to_numpy()
     Q_array = [Q[..., i:-test_max_horizon + i, :] for i in range(test_max_horizon)]
     Q_array = np.stack(Q_array, axis=1)
-
-    output_array = np.zeros([test_len, test_max_horizon + 1, len(features_to_plot)],
-                            dtype=np.float32)
 
 
     stateful_components = ['RNN', 'GRU', 'LSTM']
@@ -46,7 +36,6 @@ def get_prediction(
 
     if mode == 'batch':
         output = predictor.predict(states_0, Q_array)
-        output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in features_to_plot]]
 
     else:
 
@@ -60,6 +49,6 @@ def get_prediction(
                 output = np.concatenate((output, predictor.predict(s0, Q_current_timestep)), axis=0)
             predictor.update(Q_current_timestep[:, np.newaxis, 1, :], s0)
 
-        output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in features_to_plot]]
+    prediction = [output, predictor.predictor.predictor_output_features]
 
-    return output_array
+    return prediction
