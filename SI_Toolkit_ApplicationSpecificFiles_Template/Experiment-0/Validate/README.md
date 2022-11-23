@@ -1,1 +1,0 @@
-Data for validation of neural networks.
