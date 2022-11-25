@@ -17,7 +17,7 @@ all other net inputs in the same order as net outputs
 import os
 from types import SimpleNamespace
 from SI_Toolkit.Predictors import template_predictor
-from SI_Toolkit.computation_library import TensorFlowLibrary
+from SI_Toolkit.computation_library import TensorFlowLibrary, PyTorchLibrary
 
 import numpy as np
 from typing import Optional
@@ -28,9 +28,6 @@ from SI_Toolkit.Functions.General.Normalising import (
     get_denormalization_function, get_normalization_function,
     )
 from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
-from SI_Toolkit_ASF.predictors_customization import (CONTROL_INPUTS,
-                                                     STATE_INDICES,
-                                                     STATE_VARIABLES)
 from SI_Toolkit_ASF.predictors_customization_tf import \
     predictor_output_augmentation_tf
 
@@ -40,7 +37,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
 
 class predictor_autoregressive_neural(template_predictor):
-    supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
+    supported_computation_libraries = {TensorFlowLibrary, PyTorchLibrary}  # Overwrites default from parent
     
     def __init__(
         self,
@@ -118,13 +115,22 @@ class predictor_autoregressive_neural(template_predictor):
         self.last_optimal_control_input = None
 
         self.normalization_info = get_norm_info_for_net(self.net_info)
+        
+        self.predictor_initial_input_indices = {x: np.where(self.predictor_initial_input_features == x)[0][0] for x in self.predictor_initial_input_features}
+        self.predictor_output_indices = {x: np.where(self.predictor_output_features == x)[0][0] for x in self.predictor_output_features}
 
-        self.normalize_state = get_normalization_function(self.normalization_info, STATE_VARIABLES, self.lib)
-        self.normalize_inputs = get_normalization_function(self.normalization_info, self.net_info.inputs[len(CONTROL_INPUTS):], self.lib)
-        self.normalize_control_inputs = get_normalization_function(self.normalization_info, self.net_info.inputs[:len(CONTROL_INPUTS)], self.lib)
+        self.model_input_features = self.net_info.inputs
+        self.model_output_features = self.net_info.outputs
+
+        self.model_external_input_features = [feature for feature in self.model_input_features if feature in self.predictor_external_input_features]
+        self.model_initial_input_features = [feature for feature in self.model_input_features if feature in self.predictor_initial_input_features] 
+        
+        self.normalize_state = get_normalization_function(self.normalization_info, self.predictor_initial_input_features, self.lib)
+        self.normalize_inputs = get_normalization_function(self.normalization_info, self.model_initial_input_features, self.lib)
+        self.normalize_control_inputs = get_normalization_function(self.normalization_info, self.predictor_external_input_features, self.lib)
 
         self.indices_inputs_reg = self.lib.to_tensor(
-            [STATE_INDICES.get(key) for key in self.net_info.inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int64)
+            [self.predictor_initial_input_indices.get(key) for key in self.model_initial_input_features], dtype=self.lib.int64)
 
         if self.differential_network:
             self.dmah: Optional[differential_model_autoregression_helper] = \
@@ -142,19 +148,21 @@ class predictor_autoregressive_neural(template_predictor):
             outputs_names = self.net_info.outputs
 
         self.denormalize_outputs = get_denormalization_function(self.normalization_info, outputs_names, self.lib)
-        self.indices_outputs = [STATE_INDICES.get(key) for key in outputs_names]
+
         self.augmentation = predictor_output_augmentation_tf(self.net_info, self.lib, differential_network=self.differential_network)
-        self.indices_augmentation = self.augmentation.indices_augmentation
-        self.indices_outputs = self.lib.to_tensor(np.argsort(self.indices_outputs + self.indices_augmentation), dtype=self.lib.int64)
+
+        indices_outputs_rev = [self.predictor_output_indices.get(key, np.inf) for key in outputs_names+self.augmentation.features_augmentation]
+        self.indices_outputs = self.lib.to_tensor(np.argsort(indices_outputs_rev), dtype=self.lib.int64)
+        self.indices_outputs = self.indices_outputs[:len(self.indices_outputs)-indices_outputs_rev.count(np.inf)]
 
         self.model_input_reg_initial_normed = self.lib.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=self.lib.float32)
-        self.last_initial_state = self.lib.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
+        self.last_initial_state = self.lib.zeros([self.batch_size, len(self.predictor_initial_input_features)], dtype=self.lib.float32)
 
         # Next conversion only relevant for TF
         self.model_input_reg_initial_normed = self.lib.to_variable(self.model_input_reg_initial_normed, self.lib.float32)
         self.last_initial_state = self.lib.to_variable(self.last_initial_state, self.lib.float32)
 
-        self.output = np.zeros([self.batch_size, self.horizon + 1, len(STATE_VARIABLES)],
+        self.output = np.zeros([self.batch_size, self.horizon + 1, len(self.predictor_output_features)],
                                dtype=np.float32)
 
         self.AL: autoregression_loop = autoregression_loop(

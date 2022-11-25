@@ -54,13 +54,13 @@ cmap = colors.LinearSegmentedColormap('custom', cdict)
 
 # endregion
 
-def run_test_gui(features, titles, ground_truth, predictions_list, time_axis):
+def run_test_gui(titles, ground_truth, predictions_list, time_axis):
     # Creat an instance of PyQt6 application
     # Every PyQt6 application has to contain this line
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(True)
     # Create an instance of the GUI window.
-    window = MainWindow(features, titles, ground_truth, predictions_list, time_axis)
+    window = MainWindow(titles, ground_truth, predictions_list, time_axis)
     window.show()
     # Next line hands the control over to Python GUI
     sys.exit(app.exec())
@@ -69,7 +69,6 @@ def run_test_gui(features, titles, ground_truth, predictions_list, time_axis):
 class MainWindow(QMainWindow):
 
     def __init__(self,
-                 features,
                  titles,
                  ground_truth,
                  predictions_list,
@@ -77,34 +76,28 @@ class MainWindow(QMainWindow):
                  *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
-        self.features = features
         self.titles = titles
-        self.ground_truth = ground_truth
+        self.ground_truth = ground_truth   # First element of the list is the dataset, second the columns names
         self.predictions_list = predictions_list
         self.time_axis = time_axis
 
         try:
-            convert_units_inplace(self.ground_truth, self.predictions_list, self.features)
+            convert_units_inplace(ground_truth, self.predictions_list)
         except NameError:
             print('Function for units conversion not available.')
 
+        self.dataset = None
         self.features_labels_dict = {}
-        try:
-            for feature in self.features:
-                self.features_labels_dict[feature] = get_feature_label(feature)
-        except NameError:
-            for feature in self.features:
-                self.features_labels_dict[feature] = feature
+        self.features = None
+        self.feature_to_display = None
 
-        self.dataset = predictions_list[0]
-
-        self.max_horizon = self.predictions_list[0].shape[-2]-1
+        self.max_horizon = self.predictions_list[0][0].shape[-2]-1
         self.horizon = self.max_horizon//2
 
         self.show_all = False
         self.downsample = False
         self.current_point_at_timeaxis = (self.time_axis.shape[0]-self.max_horizon)//2
-        self.feature_to_display = self.features[0]
+        self.select_dataset(0)
 
         self.MSE_at_horizon: float = 0.0
         self.sqrt_MSE_at_horizon: float = 0.0
@@ -288,11 +281,30 @@ class MainWindow(QMainWindow):
 
         self.redraw_canvas()
 
+    def select_dataset(self, i):
+
+        self.dataset = self.predictions_list[i][0]
+
+        self.features = self.predictions_list[i][1]
+
+        self.features_labels_dict = {}
+        try:
+            for feature in self.features:
+                self.features_labels_dict[feature] = get_feature_label(feature)
+        except NameError:
+            for feature in self.features:
+                self.features_labels_dict[feature] = feature
+
+        if self.feature_to_display not in self.features:
+            self.feature_to_display = self.features[0]
+
+
     def RadioButtons_detaset_selection(self):
 
         for i in range(len(self.rbs_datasets)):
             if self.rbs_datasets[i].isChecked():
-                self.dataset = self.predictions_list[i]
+                self.select_dataset(i)
+
 
         self.redraw_canvas()
 
@@ -334,17 +346,18 @@ class MainWindow(QMainWindow):
 
     def get_sqrt_MSE_at_horizon(self):
 
-        feature_idx = self.features.index(self.feature_to_display)
+        feature_idx, = np.where(self.features == self.feature_to_display)
+        ground_truth_feature_idx, = np.where(self.ground_truth[1] == self.feature_to_display)
 
         if self.show_all:
             predictions_at_horizon = self.dataset[:-self.horizon, self.horizon, feature_idx]
             self.MSE_at_horizon = np.mean(
-                    (self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon) ** 2)
+                    (self.ground_truth[0][self.horizon:, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
 
         else:
             predictions_at_horizon = self.dataset[self.current_point_at_timeaxis, self.horizon, feature_idx]
             self.MSE_at_horizon = np.mean(
-                (self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - predictions_at_horizon) ** 2)
+                (self.ground_truth[0][self.current_point_at_timeaxis + self.horizon, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
 
         self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
 
@@ -359,7 +372,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
 
     # Start at should be done bu widget (slider)
     if current_point_at_timeaxis is None:
-        current_point_at_timeaxis = ground_truth.shape[0]//2
+        current_point_at_timeaxis = ground_truth[0].shape[0]//2
 
     if feature_to_display is None:
         feature_to_display = features[0]
@@ -367,13 +380,14 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
     if horizon is None:
         horizon = max_horizon
 
-    feature_idx = features.index(feature_to_display)
+    feature_idx, = np.where(features == feature_to_display)
+    ground_truth_feature_idx, = np.where(ground_truth[1] == feature_to_display)
 
     # Brunton Plot
     if axs is None:
         fig, axs = plt.subplots(1, 1, figsize=(18, 10), sharex=True)
 
-    axs.plot(time_axis, ground_truth[:, feature_idx], 'k:', label='Ground Truth', marker='.', markersize=2, linewidth=0.5)
+    axs.plot(time_axis, ground_truth[0][:, ground_truth_feature_idx], 'k:', label='Ground Truth', marker='.', markersize=2, linewidth=0.5)
     y_lim = axs.get_ylim()
     prediction_distance = []
 
@@ -387,7 +401,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
     for i in range(horizon):
 
         if not show_all:
-            axs.plot(time_axis[current_point_at_timeaxis], ground_truth[current_point_at_timeaxis, feature_idx],
+            axs.plot(time_axis[current_point_at_timeaxis], ground_truth[0][current_point_at_timeaxis, ground_truth_feature_idx],
                      'g.', markersize=16, label='Start')
             prediction_distance.append(predictions_array[current_point_at_timeaxis, i+1, feature_idx])
             if downsample:

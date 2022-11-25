@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Union
+from typing import Callable, Optional, Union, Sequence
 
 import numpy as np
 import tensorflow as tf
@@ -37,6 +37,7 @@ class ComputationLibrary:
     asin: Callable[[TensorType], TensorType] = None
     cos: Callable[[TensorType], TensorType] = None
     tan: Callable[[TensorType], TensorType] = None
+    exp: Callable[[TensorType], TensorType] = None
     squeeze: Callable[[TensorType], TensorType] = None
     unsqueeze: Callable[[TensorType, int], TensorType] = None
     stack: Callable[["list[TensorType]", int], TensorType] = None
@@ -48,7 +49,7 @@ class ComputationLibrary:
     int32 = None
     int64 = None
     bool = None
-    tile: Callable[[TensorType, "tuple[int]"], TensorType] = None
+    tile: Callable[[TensorType, Sequence[int]], TensorType] = None
     repeat: Callable[[TensorType, int, int], TensorType] = None
     gather: Callable[[TensorType, TensorType, int], TensorType] = None
     gather_last: Callable[[TensorType, TensorType], TensorType] = None
@@ -62,7 +63,7 @@ class ComputationLibrary:
     uniform: Callable[
         [RandomGeneratorType, "tuple[int]", TensorType, TensorType, type], TensorType
     ] = None
-    sum: Callable[[TensorType, int], TensorType] = None
+    sum: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
     set_shape: Callable[[TensorType, "list[int]"], None] = None
     concat: Callable[["list[TensorType]", int], TensorType]
     pi: TensorType = None
@@ -71,6 +72,7 @@ class ComputationLibrary:
     reduce_any: Callable[[TensorType, int], bool] = None
     reduce_all: Callable[[TensorType, int], bool] = None
     reduce_max: Callable[[TensorType, int], bool] = None
+    reduce_min: Callable[[TensorType, Optional[int]], bool] = None
     less: Callable[[TensorType, TensorType], TensorType] = None
     greater: Callable[[TensorType, TensorType], TensorType] = None
     logical_not: Callable[[TensorType], TensorType] = None
@@ -105,6 +107,7 @@ class NumpyLibrary(ComputationLibrary):
     asin = np.arcsin
     cos = np.cos
     tan = np.tan
+    exp = np.exp
     squeeze = np.squeeze
     unsqueeze = np.expand_dims
     stack = np.stack
@@ -139,6 +142,7 @@ class NumpyLibrary(ComputationLibrary):
     reduce_any = lambda a, axis: np.any(a, axis=axis)
     reduce_all = lambda a, axis: np.all(a, axis=axis)
     reduce_max = lambda a, axis: np.max(a, axis=axis)
+    reduce_min = lambda a, axis: np.min(a, axis=axis)
     less = lambda x, y: np.less(x, y)
     greater = lambda x, y: np.greater(x, y)
     logical_not = lambda x: np.logical_not(x)
@@ -173,6 +177,7 @@ class TensorFlowLibrary(ComputationLibrary):
     asin = tf.asin
     cos = tf.cos
     tan = tf.tan
+    exp = tf.exp
     squeeze = tf.squeeze
     unsqueeze = tf.expand_dims
     stack = tf.stack
@@ -207,6 +212,7 @@ class TensorFlowLibrary(ComputationLibrary):
     reduce_any = lambda a, axis: tf.reduce_any(a, axis=axis)
     reduce_all = lambda a, axis: tf.reduce_all(a, axis=axis)
     reduce_max = lambda a, axis: tf.reduce_max(a, axis=axis)
+    reduce_min = lambda a, axis: tf.reduce_min(a, axis=axis)
     less = lambda x, y: tf.math.less(x, y)
     greater = lambda x, y: tf.math.greater(x, y)
     logical_not = lambda x: tf.math.logical_not(x)
@@ -246,6 +252,7 @@ class PyTorchLibrary(ComputationLibrary):
     asin = torch.asin
     cos = torch.cos
     tan = torch.tan
+    exp = torch.exp
     squeeze = torch.squeeze
     unsqueeze = torch.unsqueeze
     stack = torch.stack
@@ -284,6 +291,7 @@ class PyTorchLibrary(ComputationLibrary):
     reduce_any = lambda a, axis: torch.any(a, dim=axis)
     reduce_all = lambda a, axis: torch.all(a, dim=axis)
     reduce_max = lambda a, axis: torch.max(a, dim=axis)
+    reduce_min = lambda a, axis: torch.min(a, dim=axis)[0]
     less = lambda x, y: torch.less(x, y)
     greater = lambda x, y: torch.greater(x, y)
     logical_not = lambda x: torch.logical_not(x)
