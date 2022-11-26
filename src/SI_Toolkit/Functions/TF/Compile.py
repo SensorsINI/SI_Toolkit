@@ -25,6 +25,7 @@ def identity(func):
 
 
 if GLOBALLY_DISABLE_COMPILATION:
+    logging.info('TensorFlow compilation is disabled by GLOBALLY_DISABLE_COMPILATION=True')
     CompileTF = identity
 else:
     if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
