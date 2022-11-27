@@ -37,6 +37,7 @@ else:
         CompileTF = tf.function
     else:
         CompileTF = tf_function_jit
+    log.info(f'using {CompileTF} compilation')
         # CompileTF = tf_function_experimental # Should be same as tf_function_jit, not appropriate for newer version of TF
 
 def CompileAdaptive(fun):
@@ -50,5 +51,5 @@ def CompileAdaptive(fun):
     elif lib_name == 'TF':
         return CompileTF(fun)
     else:
-        print('Jit compilation for Pytorch not yet implemented.')
+        log.warning(f'JIT compilation for {lib_name} not yet implemented.')
         return identity(fun)
