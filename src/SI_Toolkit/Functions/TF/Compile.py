@@ -6,14 +6,17 @@ import torch
 
 from SI_Toolkit.computation_library import ComputationLibrary
 
+from others.globals_and_utils import  get_logger
+
+log=get_logger(__name__)
 try:
     from SI_Toolkit_ASF import GLOBALLY_DISABLE_COMPILATION, USE_JIT_COMPILATION
 except ImportError:
-    logging.warn("No compilation option set in SI_Toolkit_ASF. Setting GLOBALLY_DISABLE_COMPILATION to True.")
+    log.warn("No compilation option set in SI_Toolkit_ASF/__init.py__. Setting GLOBALLY_DISABLE_COMPILATION to True.")
     GLOBALLY_DISABLE_COMPILATION = True
 
 def tf_function_jit(func):
-    return tf.function(func=func, jit_compile=True)
+    return tf.function(func=func, jit_compile=True,)
 
 
 def tf_function_experimental(func):
@@ -25,7 +28,7 @@ def identity(func):
 
 
 if GLOBALLY_DISABLE_COMPILATION:
-    logging.info('TensorFlow compilation is disabled by GLOBALLY_DISABLE_COMPILATION=True')
+    log.info('TensorFlow compilation is disabled by GLOBALLY_DISABLE_COMPILATION=True')
     CompileTF = identity
 else:
     if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
