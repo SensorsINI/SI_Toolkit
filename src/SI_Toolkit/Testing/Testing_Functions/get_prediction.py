@@ -47,7 +47,7 @@ def get_prediction(
                 output = predictor.predict(s0, Q_current_timestep)
             else:
                 output = np.concatenate((output, predictor.predict(s0, Q_current_timestep)), axis=0)
-            predictor.update(Q_current_timestep[:, np.newaxis, 1, :], s0)
+            predictor.update(Q_current_timestep[:, np.newaxis, 0, :], s0)
 
     prediction = [output, predictor.predictor.predictor_output_features]
 
