@@ -54,13 +54,13 @@ cmap = colors.LinearSegmentedColormap('custom', cdict)
 
 # endregion
 
-def run_test_gui(titles, ground_truth, predictions_list, time_axis):
+def run_test_gui(titles, ground_truth, predictions_list, time_axis, shift_labels):
     # Creat an instance of PyQt6 application
     # Every PyQt6 application has to contain this line
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(True)
     # Create an instance of the GUI window.
-    window = MainWindow(titles, ground_truth, predictions_list, time_axis)
+    window = MainWindow(titles, ground_truth, predictions_list, time_axis, shift_labels)
     window.show()
     # Next line hands the control over to Python GUI
     sys.exit(app.exec())
@@ -73,6 +73,7 @@ class MainWindow(QMainWindow):
                  ground_truth,
                  predictions_list,
                  time_axis,
+                 shift_labels,
                  *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
@@ -90,6 +91,8 @@ class MainWindow(QMainWindow):
         self.features_labels_dict = {}
         self.features = None
         self.feature_to_display = None
+
+        self.shift_labels = shift_labels
 
         self.max_horizon = self.predictions_list[0][0].shape[-2]-1
         self.horizon = self.max_horizon//2
@@ -337,7 +340,8 @@ class MainWindow(QMainWindow):
                        max_horizon=self.max_horizon,
                        horizon=self.horizon,
                        show_all=self.show_all,
-                       downsample=self.downsample)
+                       downsample=self.downsample,
+                       shift_labels=self.shift_labels)
 
         self.get_sqrt_MSE_at_horizon()
         self.lab_MSE.setText("sqrt(MSE) at horizon: {:.2f}".format(self.sqrt_MSE_at_horizon))
@@ -368,7 +372,9 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                    feature_to_display=None,
                    max_horizon=10, horizon=None,
                    show_all=True,
-                   downsample=False):
+                   downsample=False,
+                   shift_labels=1,
+                   ):
 
     # Start at should be done bu widget (slider)
     if current_point_at_timeaxis is None:
@@ -407,18 +413,29 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
             if downsample:
                 if (i % 2) == 0:
                     continue
-            axs.plot(time_axis[current_point_at_timeaxis+i+1], prediction_distance[i],
-                        c=cmap(float(i)/max_horizon),
-                        marker='.')
+
+            if shift_labels == 1:
+                axs.plot(time_axis[current_point_at_timeaxis+i+1], prediction_distance[i],
+                            c=cmap(float(i)/max_horizon),
+                            marker='.')
+            elif shift_labels == 0:
+                axs.plot(time_axis[current_point_at_timeaxis], prediction_distance[i],
+                            c=cmap(float(i)/max_horizon),
+                            marker='.')
 
         else:
             prediction_distance.append(predictions_array[:-(i+1), i+1, feature_idx])
             if downsample:
                 if (i % 2) == 0:
                     continue
-            axs.plot(time_axis[i+1:], prediction_distance[i],
-                        c=cmap(float(i)/max_horizon),
-                        marker='.', linestyle = '')
+            if shift_labels == 1:
+                axs.plot(time_axis[i+1:], prediction_distance[i],
+                            c=cmap(float(i)/max_horizon),
+                            marker='.', linestyle = '')
+            elif shift_labels == 0:
+                axs.plot(time_axis[i:-1], prediction_distance[i],
+                            c=cmap(float(i)/max_horizon),
+                            marker='.', linestyle = '')
 
     # axs.set_ylim(y_lim)
     plt.show()

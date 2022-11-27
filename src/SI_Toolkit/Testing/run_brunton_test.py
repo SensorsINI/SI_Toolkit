@@ -23,6 +23,7 @@ def run_brunton_test():
 
     run_test_gui(titles=predictors_list,
                  ground_truth=ground_truth, predictions_list=predictions_list, time_axis=time_axis,
+                 shift_labels=config_testing['SHIFT_LABELS']
                  )
 
 
