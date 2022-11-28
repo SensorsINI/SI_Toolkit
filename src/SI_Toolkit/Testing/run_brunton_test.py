@@ -21,6 +21,7 @@ def run_brunton_test():
         predictor.update_predictor_config_from_specification(predictor_specification=predictor_specification)
         predictions_list.append(get_prediction(dataset, predictor, **config_testing))
 
+        # if predictor.predictor_type =
     run_test_gui(titles=predictors_list,
                  ground_truth=ground_truth, predictions_list=predictions_list, time_axis=time_axis,
                  shift_labels=config_testing['SHIFT_LABELS']
