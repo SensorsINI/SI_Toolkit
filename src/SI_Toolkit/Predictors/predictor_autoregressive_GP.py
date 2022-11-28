@@ -1,68 +1,88 @@
-from Control_Toolkit.others.environment import TensorFlowLibrary
-
-from SI_Toolkit.GP.Models import load_model
-from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function
-from SI_Toolkit.Functions.TF.Compile import CompileTF
-
-from types import SimpleNamespace
 import os
-import yaml
+from types import SimpleNamespace
 
 import tensorflow as tf
 
-from SI_Toolkit.Predictors import predictor
+from SI_Toolkit.computation_library import TensorFlowLibrary
+from SI_Toolkit.Functions.General.Normalising import get_denormalization_function, get_normalization_function
+from SI_Toolkit.Functions.TF.Compile import CompileTF
+from SI_Toolkit.GP.Functions.save_and_load import load_model
+from SI_Toolkit.Predictors import template_predictor
 
 try:
-    from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, STATE_INDICES, \
-        CONTROL_INPUTS, augment_predictor_output
+    from SI_Toolkit_ASF.predictors_customization import (
+        CONTROL_INPUTS, STATE_INDICES, STATE_VARIABLES,
+        augment_predictor_output)
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
+from SI_Toolkit.Predictors.autoregression import autoregression_loop
+
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'),
-                   Loader=yaml.FullLoader)
 
-PATH_TO_MODEL = config["testing"]["PATH_TO_NN"]
+class predictor_autoregressive_GP(template_predictor):
+    supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
+    
+    def __init__(self,
+                 model_name=None,
+                 path_to_model=None,
+                 horizon=None,
+                 batch_size=1,
+                 **kwargs):
 
-
-class predictor_autoregressive_GP(predictor):
-    def __init__(self, net_name, horizon, batch_size=1, **kwargs):
-        # tf.config.run_functions_eagerly(True)
         a = SimpleNamespace()
+        
+        # Convert to platform-independent paths
+        model_name: str = os.path.normpath(model_name)
+        if path_to_model is not None:
+            path_to_model: str = os.path.normpath(path_to_model)
 
-        if '/' in net_name:
-            a.path_to_models = os.path.join(*net_name.split("/")[:-1])+'/'
-            a.net_name = net_name.split("/")[-1]
+        if len(model_name.split(os.sep)) > 1:
+            model_name_contains_path_to_model = True
         else:
-            a.path_to_models = PATH_TO_MODEL
-            a.net_name = net_name
+            model_name_contains_path_to_model = False
+
+        if model_name_contains_path_to_model:
+            a.path_to_models = os.path.join(*model_name.split(os.sep)[:-1]) + os.sep
+            a.model_name = model_name.split(os.sep)[-1]
+        else:
+            a.path_to_models = path_to_model + os.sep
+            a.model_name = model_name
 
         super().__init__(horizon=horizon, batch_size=batch_size)
         self.lib = TensorFlowLibrary
         self.batch_size = self.batch_size
-        self.model = load_model(PATH_TO_MODEL+net_name)
+        self.model = load_model(a.path_to_models + a.model_name)
         self.inputs = self.model.state_inputs + self.model.control_inputs
 
-        self.normalize_tf = get_normalization_function(self.model.norm_info,
-                                                       self.model.state_inputs,
-                                                       self.lib
-                                                       )
         self.denormalize_tf = get_denormalization_function(self.model.norm_info,
                                                            self.model.outputs,
                                                            self.lib
                                                            )
-        self.indices = [STATE_INDICES.get(key) for key in self.model.outputs]
+        self.normalize_state = get_normalization_function(self.model.norm_info, STATE_VARIABLES, self.lib)
+
+        self.indices_inputs_reg = [STATE_INDICES.get(key) for key in self.model.outputs]
 
         self.initial_state = tf.random.uniform(shape=[self.batch_size, 6], dtype=tf.float32)
-        Q = tf.random.uniform(shape=[self.batch_size, self.horizon, 1], dtype=tf.float32)
 
-        self.outputs = None
+        self.model_input_reg_initial_normed = self.lib.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=self.lib.float32)
+        self.last_initial_state = self.lib.zeros([self.batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
 
-        self.predict_tf(self.initial_state, Q)  # CHANGE TO PREDICT FOR NON TF MPPI
+        # Next conversion only relevant for TF
+        self.model_input_reg_initial_normed = self.lib.to_variable(self.model_input_reg_initial_normed, self.lib.float32)
+        self.last_initial_state = self.lib.to_variable(self.last_initial_state, self.lib.float32)
+
+
+        self.AL: autoregression_loop = autoregression_loop(
+            model_inputs_len=len(self.inputs),
+            model_outputs_len=len(self.model.outputs),
+            batch_size=self.batch_size,
+            lib=self.lib,
+            differential_model_autoregression_helper_instance=None,
+        )
 
     def predict(self, initial_state, Q_seq):
-        # outputs = self.predict_tf(initial_state, Q_seq)
         outputs = self.predict_tf(initial_state, Q_seq)
         return outputs.numpy()
 
@@ -70,126 +90,50 @@ class predictor_autoregressive_GP(predictor):
     def step(self, s, Q):
         x = tf.concat([s, Q], axis=1)
         s, _ = self.model.predict_f(x)
-        # if self.batch_size == 1:
-        #     s = tf.expand_dims(s, axis=0)
         return s
 
-    """
-    @CompileTF
-    def step_mean(self, s, Q):
-        x = tf.concat([s, Q], axis=1)
-        s = self.model.predict_mean(x)
-        # if self.batch_size == 1:
-        #     s = tf.expand_dims(s, axis=0)
+    def model_for_AL(self, x):
+        x = tf.cast(x[:, 0, :], tf.float64)
+        s, _ = self.model.predict_f(x)
+        s = tf.cast(s, tf.float32)
         return s
-    """
 
-    @tf.function
-    def predict_tf(self, initial_state, Q_seq):
-        # initial_state = tf.expand_dims(initial_state, axis=0)  # COMMENT OUT FOR TF MPPI
-        self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
-
-        #self.initial_state = tf.cast(initial_state, dtype=tf.float64)
-        self.initial_state = initial_state
-        Q_seq = tf.cast(Q_seq, dtype=tf.float64)
-
-        s = tf.gather(self.initial_state, self.indices, axis=1)
-
-        s = self.normalize_tf(s)
-        s = tf.cast(s, tf.float64)
-
-        # s = tf.repeat(s, repeats=self.batch_size, axis=0)  # COMMENT OUT FOR TF MPPI
-        self.outputs = self.outputs.write(0, s)
-
-        s = self.step(s, Q_seq[:, 0, :])
-
-        self.outputs = self.outputs.write(1, s)
-        for i in tf.range(1, self.horizon):
-            # x = tf.concat([s, Q_seq[:, i, :]], axis=1)
-            s = self.step(s, Q_seq[:, i, :])
-            # s = tf.transpose(tf.squeeze(s, axis=2))
-
-            self.outputs = self.outputs.write(i+1, s)
-
-        self.outputs = tf.transpose(self.outputs.stack(), perm=[1, 0, 2])
-
-        self.outputs = tf.cast(self.outputs, tf.float32)
-
-        self.outputs = self.denormalize_tf(self.outputs)
-
-        # outputs = tf.stack([outputs[..., 0], outputs[..., 1], tf.math.cos(outputs[..., 0]),
-        #                     tf.math.sin(outputs[..., 0]), outputs[..., 2], outputs[..., 3]], axis=2)
-
-        self.outputs = tf.stack([tf.math.atan2(self.outputs[..., 2], self.outputs[..., 1]), self.outputs[..., 0], self.outputs[..., 1],
-                            self.outputs[..., 2], self.outputs[..., 3], self.outputs[..., 4]], axis=2)
-
-        return self.outputs
-
-    """
     @CompileTF
-    def predict_tf_mean(self, initial_state, Q_seq):
-        # initial_state = tf.expand_dims(initial_state, axis=0)  # COMMENT OUT FOR TF MPPI
-        self.outputs = tf.TensorArray(tf.float64, size=self.horizon+1, dynamic_size=False)
+    def predict_tf(self, initial_state, Q):
 
-        # self.initial_state = tf.cast(initial_state, dtype=tf.float64)
-        self.initial_state = initial_state
-        Q_seq = tf.cast(Q_seq, dtype=tf.float64)
+        self.lib.assign(self.last_initial_state, initial_state)
 
-        s = tf.gather(self.initial_state, self.indices, axis=1)
+        initial_state_normed = self.normalize_state(initial_state)
 
-        s = self.normalize_tf(s)
-        s = tf.cast(s, tf.float64)
+        self.lib.assign(self.model_input_reg_initial_normed, self.lib.gather_last(initial_state_normed, self.indices_inputs_reg))
 
-        # s = tf.repeat(s, repeats=self.batch_size, axis=0)  # COMMENT OUT FOR TF MPPI
-        self.outputs = self.outputs.write(0, s)
+        outputs = self.AL.run(
+            model=self.model_for_AL,
+            horizon=self.horizon,
+            external_input_right=Q,
+            initial_input=self.model_input_reg_initial_normed,
+            predictor='gp'
+        )
 
-        s = self.step_mean(s, Q_seq[:, 0, :])
+        outputs = self.denormalize_tf(outputs)
 
-        self.outputs = self.outputs.write(1, s)
-        for i in tf.range(1, self.horizon):
-            # x = tf.concat([s, Q_seq[:, i, :]], axis=1)
-            s = self.step_mean(s, Q_seq[:, i, :])
-            # s = tf.transpose(tf.squeeze(s, axis=2))
+        outputs_augmented = tf.stack([tf.math.atan2(outputs[..., 2], outputs[..., 1]), outputs[..., 0], outputs[..., 1],
+                            outputs[..., 2], outputs[..., 3], outputs[..., 4]], axis=2)
 
-            self.outputs = self.outputs.write(i+1, s)
+        outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), axis=1)
 
-        self.outputs = tf.transpose(self.outputs.stack(), perm=[1, 0, 2])
+        return outputs_augmented
 
-        self.outputs = tf.cast(self.outputs, tf.float32)
-
-        self.outputs = self.denormalize_tf(self.outputs)
-
-        # outputs = tf.stack([outputs[..., 0], outputs[..., 1], tf.math.cos(outputs[..., 0]),
-        #                     tf.math.sin(outputs[..., 0]), outputs[..., 2], outputs[..., 3]], axis=2)
-
-        self.outputs = tf.stack([tf.math.atan2(self.outputs[..., 2], self.outputs[..., 1]), self.outputs[..., 0], self.outputs[..., 1],
-                            self.outputs[..., 2], self.outputs[..., 3], self.outputs[..., 4]], axis=2)
-
-        return self.outputs
-    """
-
-    def update_internal_state(self, *args):  # this is here to make the get_prediction function happy
+    def update_internal_state(self, *args):
         pass
 
 
 if __name__ == '__main__':
-    import timeit
+    from SI_Toolkit.Predictors.timer_predictor import timer_predictor
 
-    initialization = '''
+    initialisation = '''
 from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
-import numpy as np
-import tensorflow as tf
+predictor = predictor_autoregressive_GP(horizon=horizon, batch_size=batch_size, model_name=GP_name, path_to_model=path_to_model, update_before_predicting=False)
+        '''
 
-horizon = 10
-batch_size = 1000
-predictor = predictor_autoregressive_GP(horizon=horizon, batch_size=batch_size)
-
-initial_state = tf.random.uniform(shape=[batch_size, 6], dtype=tf.float32)
-Q = tf.random.uniform(shape=[batch_size, horizon, 1], dtype=tf.float32)
-'''
-
-    code = '''\
-predictor.predict_tf(initial_state, Q)
-'''
-
-    print(timeit.timeit(code, number=100, setup=initialization) / 100.0)
+    timer_predictor(initialisation)

@@ -1,8 +1,10 @@
 import logging
-import tensorflow as tf
 import platform
 
-# from Control_Toolkit.others.environment import ComputationLibrary # Fixme: throws an error of circular import
+import tensorflow as tf
+import torch
+
+from SI_Toolkit.computation_library import ComputationLibrary
 
 try:
     from SI_Toolkit_ASF import GLOBALLY_DISABLE_COMPILATION, USE_JIT_COMPILATION
@@ -36,8 +38,7 @@ else:
 def CompileAdaptive(fun):
     instance = fun.__self__
     assert hasattr(instance, "lib"), "Instance with this method has no computation library defined"
-    # computation_library: ComputationLibrary = instance.lib # Fixme: throws an error of circular import
-    computation_library = instance.lib
+    computation_library: "type[ComputationLibrary]" = instance.lib
     lib_name = computation_library.lib
 
     if GLOBALLY_DISABLE_COMPILATION:

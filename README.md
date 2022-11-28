@@ -28,5 +28,5 @@ Use this repository to train neural networks on dynamical systems.
     - `tests`: A list of model names, typically just the one model trained in 3.
     - `TEST_FILE`: An experiment run to compare observations and predictions on. Specify any list of CSVs generated in 1.
 5. Run simulator with trained network model
-  - Specify `NET_NAME` in config -> this is the network used in `predictor_autoregressive.py`
-  - When using the CartPoleSimulator repo as system: In the CartPoleSimulator config, specify `"predictor_autoregressive_tf"` as predictor type
+  - Specify `NET_NAME` in config -> this is the network used in `predictor_autoregressive_neural.py`
+  - When using the CartPoleSimulator repo as system: In the CartPoleSimulator config, specify `"predictor_autoregressive_neural"` as predictor type

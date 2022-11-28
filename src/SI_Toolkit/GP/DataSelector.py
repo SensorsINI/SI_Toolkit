@@ -29,8 +29,6 @@ class DataSelector:
         self.position_bin_boundries = None
         self.positionD_bin_boundries = None
         self.angle_bin_boundries = None
-        # self.angle_sin_bin_boundries = None
-        # self.angle_cos_bin_boundries = None
         self.angleD_bin_boundries = None
         self.Q_bin_boundries = None
 
@@ -79,8 +77,6 @@ class DataSelector:
         self.position_bin_boundries = np.linspace(start=self.maxs['position']*first, stop=self.maxs['position']*last, num=self.num-1)
         self.positionD_bin_boundries = np.linspace(start=self.maxs['positionD']*first, stop=self.maxs['positionD']*last, num=self.num-1)
         self.angle_bin_boundries = np.linspace(start=self.maxs['angle']*first, stop=self.maxs['angle']*last, num=self.num-1)
-        # self.angle_sin_bin_boundries = np.linspace(start=-self.maxs['angle_sin'] * first, stop=self.maxs['angle_sin'] * last, num=self.num-1)
-        # self.angle_cos_bin_boundries = np.linspace(start=-self.maxs['angle_cos'] * first, stop=self.maxs['angle_cos'] * last, num=self.num-1)
         self.angleD_bin_boundries = np.linspace(start=self.maxs['angleD']*first, stop=self.maxs['angleD']*last, num=self.num-1)
         self.Q_bin_boundries = np.linspace(start=self.maxs['Q'] * first, stop=self.maxs['Q'] * last, num=self.num-1)
 
@@ -107,22 +103,13 @@ class DataSelector:
             position_idx = next((i for i, v in enumerate(self.position_bin_boundries) if v > data_point['position']), len(self.position_bin_boundries))
             positionD_idx = next((i for i, v in enumerate(self.positionD_bin_boundries) if v > data_point['positionD']), len(self.positionD_bin_boundries))
             angle_idx = next((i for i, v in enumerate(self.angle_bin_boundries) if v > data_point['angle']), len(self.angle_bin_boundries))
-            # angle_sin_idx = next((i for i, v in enumerate(self.angle_sin_bin_boundries) if v > data_point['angle_sin']), len(self.angle_sin_bin_boundries))
-            # angle_cos_idx = next((i for i, v in enumerate(self.angle_cos_bin_boundries) if v > data_point['angle_cos']), len(self.angle_cos_bin_boundries))
             angleD_idx = next((i for i, v in enumerate(self.angleD_bin_boundries) if v > data_point['angleD']), len(self.angleD_bin_boundries))
             Q_idx = next((i for i, v in enumerate(self.Q_bin_boundries) if v > data_point['Q']), len(self.Q_bin_boundries))
 
             bin_idx = (position_idx, positionD_idx, angle_idx, angleD_idx, Q_idx)
             if self.training and angle_idx in range(3, 7) and angleD_idx in range(3, 7):
                 self.nr_states_per_bin[bin_idx] = 20
-            # else:
-            #     self.nr_states_per_bin[bin_idx] = 0
-            # elif angle_cos_idx >= 6:
-            #     self.nr_states_per_bin[bin_idx] = 10
-            # elif angle_cos_idx >= 3:
-            #     self.nr_states_per_bin[bin_idx] = 3
-            # else:
-            #     self.nr_states_per_bin[bin_idx] = 0
+
 
             # Check if there is already a max number of points there
             if self.nr_states_per_bin_current[bin_idx] < self.nr_states_per_bin[bin_idx]:

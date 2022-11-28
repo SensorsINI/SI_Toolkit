@@ -1,8 +1,10 @@
-from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES
 
-from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE_tf
+from SI_Toolkit.Predictors import template_predictor
+from SI_Toolkit.computation_library import TensorFlowLibrary
+
+
+from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE_tf, STATE_VARIABLES
 from SI_Toolkit.Functions.TF.Compile import CompileTF
-from SI_Toolkit.Predictors import predictor
 
 import tensorflow as tf
 
@@ -26,25 +28,23 @@ def convert_to_tensors(s, Q):
     return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
 
 
-class predictor_ODE_tf(predictor):
-    def __init__(self, horizon=None, dt=0.02, intermediate_steps=10, disable_individual_compilation=False, batch_size=1, planning_environment=None, **kwargs):
+class predictor_ODE_tf(template_predictor):
+    supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
+    
+    def __init__(self, horizon: int, dt: float, intermediate_steps=10, disable_individual_compilation=False, batch_size=1, **kwargs):
         self.disable_individual_compilation = disable_individual_compilation
 
         super().__init__(horizon=tf.convert_to_tensor(horizon), batch_size=batch_size)
 
         self.initial_state = tf.zeros(shape=(1, len(STATE_VARIABLES)))
         self.output = None
+        self.disable_individual_compilation = disable_individual_compilation
 
         self.dt = dt
         self.intermediate_steps = intermediate_steps
 
-        if planning_environment is None:
-            self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, self.batch_size,
-                                                                   disable_individual_compilation=True)
-        else:
-            self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, self.batch_size,
-                                                                   disable_individual_compilation=True,
-                                                                   planning_environment=planning_environment)
+        self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, self.batch_size, disable_individual_compilation=True)
+
         if disable_individual_compilation:
             self.predict_tf = self._predict_tf
         else:
