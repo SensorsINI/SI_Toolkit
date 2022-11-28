@@ -420,7 +420,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                             marker='.')
             elif shift_labels == 0:
                 axs.plot(time_axis[current_point_at_timeaxis], prediction_distance[i],
-                            c=cmap(float(i)/max_horizon),
+                            c='green',
                             marker='.')
 
         else:
@@ -434,7 +434,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                             marker='.', linestyle = '')
             elif shift_labels == 0:
                 axs.plot(time_axis[i:-1], prediction_distance[i],
-                            c=cmap(float(i)/max_horizon),
+                            c='green',
                             marker='.', linestyle = '')
 
     # axs.set_ylim(y_lim)
