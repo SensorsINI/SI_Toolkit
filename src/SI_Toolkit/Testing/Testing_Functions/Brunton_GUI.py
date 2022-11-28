@@ -343,7 +343,7 @@ class MainWindow(QMainWindow):
                        downsample=self.downsample,
                        shift_labels=self.shift_labels)
 
-        self.get_sqrt_MSE_at_horizon()
+        # self.get_sqrt_MSE_at_horizon()
         self.lab_MSE.setText("sqrt(MSE) at horizon: {:.2f}".format(self.sqrt_MSE_at_horizon))
         self.fig.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.canvas.draw()
