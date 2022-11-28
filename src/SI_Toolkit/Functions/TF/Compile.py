@@ -4,11 +4,13 @@ import platform
 import tensorflow as tf
 import torch
 
+from Control_Toolkit.others.globals_and_utils import get_logger
+log=get_logger(__name__)
+
 from SI_Toolkit.computation_library import ComputationLibrary
 
-from others.globals_and_utils import  get_logger
 
-log=get_logger(__name__)
+
 try:
     from SI_Toolkit_ASF import GLOBALLY_DISABLE_COMPILATION, USE_JIT_COMPILATION
 except ImportError:
@@ -41,6 +43,8 @@ else:
         # CompileTF = tf_function_experimental # Should be same as tf_function_jit, not appropriate for newer version of TF
 
 def CompileAdaptive(fun):
+    """ TODO add docstring to explain what it does and where it is used
+    """
     instance = fun.__self__
     assert hasattr(instance, "lib"), "Instance with this method has no computation library defined"
     computation_library: "type[ComputationLibrary]" = instance.lib
