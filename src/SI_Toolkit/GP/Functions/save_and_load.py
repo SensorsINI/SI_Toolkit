@@ -13,7 +13,7 @@ from SI_Toolkit.GP.Functions.plot import plot_samples
 from SI_Toolkit.load_and_normalize import get_paths_to_datafiles, load_data, load_normalization_info, normalize_df
 
 
-def save_model(model, save_dir):
+def save_model(model, save_dir, gp_type):
     m = copy.deepcopy(model)
     m.state_inputs = tf.Variable(m.state_inputs)
     m.control_inputs = tf.Variable(m.control_inputs)
@@ -26,11 +26,11 @@ def save_model(model, save_dir):
         m.norm_info = tf.Variable(m.norm_info)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
-    save_params(model, save_dir+'info/')
+    save_params(model, save_dir+'info/', gp_type)
     tf.saved_model.save(m, save_dir+'model')
 
 
-def save_params(model, save_dir):
+def save_params(model, save_dir, gp_type):
     param_names = list(gpf.utilities.parameter_dict(model.models[0]).keys())
     param_names = [" ".join(p.split(".")[1:]) for p in param_names]
     for i in range(len(model.models)):
@@ -49,9 +49,10 @@ def save_params(model, save_dir):
         out.append(param_names[2])
         out.append(np.array2string(model.models[i].likelihood.variance.numpy(), separator=", "))
         out.append("-----------------------------------")
-        out.append(param_names[3])
-        out.append(np.array2string(model.models[i].inducing_variable.Z.numpy(), separator=", "))
-        out.append("-----------------------------------")
+        if gp_type == 'SGPR':
+            out.append(param_names[3])
+            out.append(np.array2string(model.models[i].inducing_variable.Z.numpy(), separator=", "))
+            out.append("-----------------------------------")
 
         with open(save_dir+model.outputs[i]+'/params.csv', 'w') as f:
             wr = csv.writer(f, delimiter="\n")
@@ -100,4 +101,4 @@ def save_training_time(train_time, save_dir):
 def save_training_script(save_dir):
     if not os.path.exists(save_dir):
         os.makedirs(save_dir+'info')
-    shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_SGPR.py", save_dir+"info/training_file.py")
+    shutil.copyfile("SI_Toolkit/src/SI_Toolkit/GP/Train_GPR.py", save_dir+"info/training_file.py")
