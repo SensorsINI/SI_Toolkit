@@ -20,6 +20,7 @@ def run_brunton_test():
     for predictor_specification in predictors_list:
         predictor.update_predictor_config_from_specification(predictor_specification=predictor_specification)
         predictions_list.append(get_prediction(dataset, predictor, **config_testing))
+        print(predictions_list)
 
     run_test_gui(config_testing['features_to_plot'], titles=predictors_list,
                  ground_truth=ground_truth, predictions_list=predictions_list, time_axis=time_axis,

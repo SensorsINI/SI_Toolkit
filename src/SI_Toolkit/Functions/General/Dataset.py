@@ -1,5 +1,8 @@
 import numpy as np
+import pandas as pd
 
+#from data_gen import mpc_horizon
+mpc_horizon = 20
 
 class DatasetTemplate:
     def __init__(self,
@@ -18,10 +21,12 @@ class DatasetTemplate:
             self.inputs = args.inputs
         else:
             self.inputs = inputs
+
         if outputs is None and args.outputs is not None:
             self.outputs = args.outputs
         else:
             self.outputs = outputs
+
 
         self.tiv = args.translation_invariant_variables
         self.tiv_in_inputs_idx = [i for i, e in enumerate(self.inputs) if e in self.tiv]
@@ -36,12 +41,48 @@ class DatasetTemplate:
         self.labels = []
         self.time_axes = []
 
+
+        # Adjust properly
+
+        for df in dfs:
+            if 'time' in df.columns:
+                self.time_axes.append(df['time'])
+
+            df_array = df.to_numpy()
+            df_columns = np.array(df.columns)
+            inputs_names_indices = {x: np.where(df_columns == x)[0][0] for x in self.inputs}
+            inputs_indices = list(inputs_names_indices.values())
+            inputs_names = list(inputs_names_indices.keys())
+            outputs_names_indices = {x: np.where(df_columns == x)[0][0] for x in self.outputs}
+            outputs_indices = list(outputs_names_indices.values())
+            outputs_names = list(outputs_names_indices.keys())
+
+            for i in range(int(df_array.shape[0] / (mpc_horizon + 1))):
+                df_inputs_data = pd.DataFrame(df_array[i * (mpc_horizon + 1): (i + 1) * (mpc_horizon + 1), inputs_indices])
+                df_inputs_data.columns = inputs_names
+                self.data.append(df_inputs_data)
+
+                df_outputs_data = pd.DataFrame(df_array[i * (mpc_horizon + 1): (i + 1) * (mpc_horizon + 1), outputs_indices])
+                df_outputs_data.columns = outputs_names
+                self.labels.append(df_outputs_data)
+
+        """
+        for df in dfs:
+            if 'time' in df.columns:
+                self.time_axes.append(df['time'])
+            for i in range(int(len(df)/(mpc_horizon+1))):
+                self.data.append(df[self.inputs].iloc[i*(mpc_horizon+1): (i+1)*(mpc_horizon+1)])
+                self.labels.append(df[self.outputs].iloc[i*(mpc_horizon+1): (i+1)*(mpc_horizon+1)])
+                print(i)
+                if i>5000:
+                    break
+    
         for df in dfs:
             if 'time' in df.columns:
                 self.time_axes.append(df['time'])
             self.data.append(df[self.inputs])
             self.labels.append(df[self.outputs])
-
+        """
         self.args = args
 
         self.shift_labels = self.args.shift_labels
@@ -135,6 +176,7 @@ class DatasetTemplate:
         features = self.data[idx_data_set].iloc[idx:idx + self.exp_len, :].to_numpy()
         # Every point in features has its target value corresponding to the next time step:
         targets = self.labels[idx_data_set].iloc[idx + self.shift_labels:idx + self.exp_len + self.shift_labels, :].to_numpy()
+
 
         # Perturb the translation invariant inputs
         if self.tiv:

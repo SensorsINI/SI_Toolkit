@@ -90,11 +90,13 @@ def train_network():
     paths_to_datafiles_test = get_paths_to_datafiles(a.test_files)
     test_dfs = load_data(paths_to_datafiles_test)
     test_dfs_norm = normalize_df(test_dfs, normalization_info)
-
+    print('Done with loading test files MB')
     # endregion
 
     # Run the training function
+    print('Training started MB')
     loss, validation_loss = train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a)
+    print('Training ended MB')
 
     # region Plot loss change during training
     plt.figure()
