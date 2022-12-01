@@ -22,7 +22,7 @@ def run_brunton_test():
         predictions_list.append(get_prediction(dataset, predictor, **config_testing))
         print(predictions_list)
 
-    run_test_gui(config_testing['features_to_plot'], titles=predictors_list,
+    run_test_gui(titles=predictors_list,
                  ground_truth=ground_truth, predictions_list=predictions_list, time_axis=time_axis,
                  )
 

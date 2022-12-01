@@ -1,12 +1,10 @@
 from SI_Toolkit.load_and_normalize import \
     load_data, get_sampling_interval_from_datafile, get_full_paths_to_csvs
-
+import numpy as np
 
 def preprocess_for_brunton(
         test_file: str,
         path_to_testfile: str,
-        features_to_plot: list,
-        control_inputs: list,
         test_len: int,
         test_max_horizon: int,
         test_start_idx: int,
@@ -43,7 +41,7 @@ def preprocess_for_brunton(
         # raise ValueError ('No information about sampling interval found')
 
     time_axis = dataset['time'].to_numpy()[:test_len]
-    ground_truth_features = features_to_plot+control_inputs
-    ground_truth = dataset[ground_truth_features].to_numpy()[:test_len, :]
+    ground_truth_features = np.array(dataset.columns)
+    ground_truth = [dataset[ground_truth_features].to_numpy()[:test_len, :], ground_truth_features]
 
     return dataset, time_axis, dataset_sampling_dt, ground_truth

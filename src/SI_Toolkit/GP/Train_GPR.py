@@ -1,4 +1,4 @@
-from SI_Toolkit.GP.Models import MultiOutSGPR
+from SI_Toolkit.GP.Models import MultiOutSGPR, MultiOutGPR
 
 from SI_Toolkit.GP.Functions.save_and_load import get_normalized_data_for_training, save_model, save_training_time, save_training_script
 from SI_Toolkit.GP.Functions.plot import plot_samples, plot_test, state_space_prediction_error, plot_error
@@ -14,6 +14,7 @@ import tensorflow as tf
 import matplotlib
 from SI_Toolkit.Functions.General.load_parameters_for_training import args
 
+GP_TYPE = 'SGPR'
 
 gpf.config.set_default_float(tf.float64)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
@@ -50,8 +51,12 @@ plot_samples(X[sample_indices], save_dir=save_dir+"info/initial_ip/")
 plot_samples(X, save_dir=save_dir+"info/training_ss/")
 
 ## DEFINING MULTI OUTPUT SGPR MODEL
-model = MultiOutSGPR(a)
-model.setup((X, Y), kernels, X[sample_indices])
+if GP_TYPE == 'GPR':
+    model = MultiOutGPR(a)
+    model.setup((X[sample_indices], Y[sample_indices]), kernels)
+elif GP_TYPE == 'SGPR':
+    model = MultiOutSGPR(a)
+    model.setup((X, Y), kernels, X[sample_indices])
 
 X_val, Y_val = reformat_data_for_vaidation(data_val, inputs)
 
@@ -69,7 +74,7 @@ plot_error(model, maxiter, logf_val, save_dir)
 
 ## SAVE MODEL
 print("Saving...")
-save_model(model, save_dir)
+save_model(model, save_dir, GP_TYPE)
 print("Done!")
 
 ## TESTING ON TEST DATA

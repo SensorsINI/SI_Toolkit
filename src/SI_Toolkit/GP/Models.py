@@ -43,8 +43,8 @@ class MultiOutGPR(tf.Module):
 
     def setup(self, data, kernels):
         for i in range(len(self.outputs)):
-            m = gpf.models.GPR(data=(data[0],
-                                     data[1].reshape(-1, 1)),
+            m = gpf.models.GPR(data=(data[0].astype(dtype=np.float64),
+                                      data[1][:, i].astype(dtype=np.float64).reshape(-1, 1)),
                                kernel=kernels[self.outputs[i]]
                                )
             self.models.append(m)
