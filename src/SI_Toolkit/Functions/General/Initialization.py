@@ -302,6 +302,7 @@ def get_net(a,
         net_info.dt = float(dt)
         net_info.dt_std = float(dt_std)
     else:
+        print('Warning! Net info does not contain information about dt!')
         net_info.dt = None
         net_info.dt_std = None
 
