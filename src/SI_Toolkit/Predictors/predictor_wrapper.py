@@ -138,8 +138,8 @@ class PredictorWrapper:
 
     def update(self, Q0, s):
         if self.predictor_type == 'neural':
-            s = self.predictor.lib.cast(s, self.predictor.lib.float32)
-            Q0 = self.predictor.lib.cast(Q0, self.predictor.lib.float32)
+            s = self.predictor.lib.to_tensor(s, self.predictor.lib.float32)
+            Q0 = self.predictor.lib.to_tensor(Q0, self.predictor.lib.float32)
             self.predictor.update_internal_state_tf(s=s, Q0=Q0)
 
     def copy(self):
