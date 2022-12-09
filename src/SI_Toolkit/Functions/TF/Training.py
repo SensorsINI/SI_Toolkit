@@ -25,8 +25,6 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     validation_dataset = Dataset(validation_dfs_norm, a, shuffle=True, inputs=net_info.inputs,
                                  outputs=net_info.outputs)
 
-    # test_dataset = Dataset(test_dfs_norm, a, shuffle=False, inputs=net_info.inputs, outputs=net_info.outputs)
-
     del training_dfs_norm, validation_dfs_norm, test_dfs_norm
 
     print('')
