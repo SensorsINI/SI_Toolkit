@@ -44,9 +44,9 @@ def get_prediction(
             Q_current_timestep = Q_array[np.newaxis, timestep, :, :]
             s0 = states_0[np.newaxis, timestep, :]
             if output is None:
-                output = predictor.predict(s0, Q_current_timestep)
+                output = predictor.predict_tf(s0, Q_current_timestep) # mod
             else:
-                output = np.concatenate((output, predictor.predict(s0, Q_current_timestep)), axis=0)
+                output = np.concatenate((output, predictor.predict_tf(s0, Q_current_timestep)), axis=0) # mod
             predictor.update(Q_current_timestep[:, np.newaxis, 1, :], s0)
 
     prediction = [output, predictor.predictor.predictor_output_features]
