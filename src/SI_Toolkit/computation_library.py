@@ -228,7 +228,10 @@ class TensorFlowLibrary(ComputationLibrary):
     dot = lambda a, b: tf.tensordot(a, b, 1)
     stop_gradient = tf.stop_gradient
     assign = LibraryHelperFunctions.set_to_variable
-
+    where = tf.where
+    repeat = tf.repeat
+    logical_and = tf.math.logical_and
+    logical_or  = tf.math.logical_or
 
 class PyTorchLibrary(ComputationLibrary):
 

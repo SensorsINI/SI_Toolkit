@@ -1,6 +1,6 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="Create normalization file" type="PythonConfigurationType" factoryName="Python" singleton="false">
-    <module name="CartPoleSimulation" />
+    <module name="f1tenth_development_gym" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
     <envs>
