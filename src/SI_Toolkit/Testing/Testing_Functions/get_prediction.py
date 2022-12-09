@@ -35,14 +35,27 @@ def get_prediction(
     else:
         predictor.configure_with_compilation(batch_size=1, horizon=predictor_horizon, dt=dt, mode=routine)
 
+    if hasattr(predictor.predictor, 'net_info') and hasattr(predictor.predictor.net_info, 'dt') and predictor.predictor.net_info.dt == 0.0:
+        dt_predictions = 0.0
+    elif hasattr(predictor.predictor, 'dt'):
+        dt_predictions = predictor.predictor.dt
+    else:
+        dt_predictions = dt
+
 
     predictor_initial_input = dataset[predictor.predictor.predictor_initial_input_features].to_numpy()
     if predictor_initial_input is not None:
         predictor_initial_input = predictor_initial_input[:-test_max_horizon, :]
     predictor_external_input = dataset[predictor.predictor.predictor_external_input_features].to_numpy()
 
+
     predictor_external_input_array = [predictor_external_input[..., i:-predictor_horizon + i, :] for i in range(predictor_horizon)]
     predictor_external_input_array = np.stack(predictor_external_input_array, axis=1)
+
+    if dt_predictions == 0.0:
+        predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input) - test_max_horizon, ...]
+    else:
+        predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input), ...]
 
     if mode == 'batch':
         output = predictor.predict(predictor_initial_input, predictor_external_input_array)
@@ -58,13 +71,6 @@ def get_prediction(
             else:
                 output = np.concatenate((output, predictor.predict(predictor_initial_input_formatted, predictor_external_input_current_timestep)), axis=0)
             predictor.update(predictor_external_input_current_timestep[:, np.newaxis, 0, :], predictor_initial_input_formatted)
-
-    if hasattr(predictor.predictor, 'net_info') and hasattr(predictor.predictor.net_info, 'dt') and predictor.predictor.net_info.dt == 0.0:
-        dt_predictions = 0.0
-    elif hasattr(predictor.predictor, 'dt'):
-        dt_predictions = predictor.predictor.dt
-    else:
-        dt_predictions = dt
 
     if routine == 'autoregressive':
         output = output[:, 1:, :]  # Remove initial state
