@@ -88,6 +88,9 @@ class ComputationLibrary:
     dot: Callable[[TensorType, TensorType], TensorType] = None
     stop_gradient: Callable[[TensorType], TensorType] = None
     assign: Callable[[Union[TensorType, tf.Variable], TensorType], Union[TensorType, tf.Variable]] = None
+    where: Callable[[TensorType, TensorType, TensorType], TensorType] = None
+    logical_and: Callable[[TensorType, TensorType], TensorType] = None
+    logical_or: Callable[[TensorType, TensorType], TensorType] = None
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -158,6 +161,10 @@ class NumpyLibrary(ComputationLibrary):
     dot = np.dot
     stop_gradient = lambda x: x
     assign = LibraryHelperFunctions.set_to_value
+    where = np.where
+    logical_and = np.logical_and
+    logical_or  = np.logical_or
+
 
 
 class TensorFlowLibrary(ComputationLibrary):
@@ -229,7 +236,6 @@ class TensorFlowLibrary(ComputationLibrary):
     stop_gradient = tf.stop_gradient
     assign = LibraryHelperFunctions.set_to_variable
     where = tf.where
-    repeat = tf.repeat
     logical_and = tf.math.logical_and
     logical_or  = tf.math.logical_or
 
@@ -310,3 +316,6 @@ class PyTorchLibrary(ComputationLibrary):
     dot = torch.dot
     stop_gradient = tf.stop_gradient # FIXME: How to imlement this in torch?
     assign = LibraryHelperFunctions.set_to_value
+    where = torch.where
+    logical_and = torch.logical_and
+    logical_or  = torch.logical_or
