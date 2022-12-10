@@ -51,8 +51,7 @@ class predictor_autoregressive_neural(template_predictor):
         mode=None,
         **kwargs
     ):
-        super().__init__(horizon=horizon, batch_size=batch_size,
-                         )
+        super().__init__(horizon=horizon, batch_size=batch_size)
         self.dt = dt
 
         a = SimpleNamespace()

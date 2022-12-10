@@ -7,10 +7,7 @@ from SI_Toolkit_ASF.predictors_customization import CONTROL_INPUTS, STATE_VARIAB
 class template_predictor:
     supported_computation_libraries: set = {NumpyLibrary, TensorFlowLibrary, PyTorchLibrary}
     
-    def __init__(self,
-                 horizon: float,
-                 batch_size: int,
-                 ) -> None:
+    def __init__(self, horizon: float, batch_size: int) -> None:
         self.horizon = horizon
         self.batch_size = batch_size
 
