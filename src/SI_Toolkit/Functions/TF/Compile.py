@@ -53,6 +53,7 @@ def CompileAdaptive(fun):
     if GLOBALLY_DISABLE_COMPILATION:
         return identity(fun)
     elif lib_name == 'TF':
+        log.info(f'compiling tensorflow {fun}')
         return CompileTF(fun)
     else:
         log.warning(f'JIT compilation for {lib_name} not yet implemented.')

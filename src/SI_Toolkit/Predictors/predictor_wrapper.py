@@ -29,6 +29,7 @@ class PredictorWrapper:
 
     def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, predictor_specification=None, compile_standalone=False):
 
+
         self.update_predictor_config_from_specification(predictor_specification)
 
         compile_standalone = {'disable_individual_compilation': not compile_standalone}
@@ -53,11 +54,16 @@ class PredictorWrapper:
             self.predictor = predictor_ODE_tf(horizon=self.horizon, dt=dt, batch_size=self.batch_size, **self.predictor_config, **compile_standalone)
 
         else:
-            raise NotImplementedError('Type of the predictor not recognised.')
-        
+            raise NotImplementedError(f'Type of the predictor {self.predictor_type} is not recognised.')
+
         # computation_library defaults to None. In that case, do not check for conformity.
-        if computation_library is not None and computation_library not in self.predictor.supported_computation_libraries:
-            raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__name__}")
+        # in other cases, check after we configure it to make sure it supports itself
+        if not computation_library is None and computation_library not in self.predictor.supported_computation_libraries:
+            raise ValueError(
+                f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__name__}")
+
+        self.predictor.lib=computation_library # set the library type on the predictor object so we can use it to assign attributes later
+        
 
     def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None):
         """

@@ -54,7 +54,7 @@ class ComputationLibrary:
     gather: Callable[[TensorType, TensorType, int], TensorType] = None
     gather_last: Callable[[TensorType, TensorType], TensorType] = None
     arange: Callable[[Optional[NumericType], NumericType, Optional[NumericType]], TensorType] = None
-    zeros: Callable[["tuple[int]"], TensorType] = None
+    zeros: Callable[["tuple[int,...]"], TensorType] = None
     zeros_like: Callable[[TensorType], TensorType] = None
     ones: Callable[["tuple[int]"], TensorType] = None
     sign: Callable[[TensorType], TensorType] = None
@@ -89,6 +89,7 @@ class ComputationLibrary:
     stop_gradient: Callable[[TensorType], TensorType] = None
     assign: Callable[[Union[TensorType, tf.Variable], TensorType], Union[TensorType, tf.Variable]] = None
     nan:TensorType=None
+    isnan:Callable[[TensorType],bool]=None
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -160,13 +161,14 @@ class NumpyLibrary(ComputationLibrary):
     stop_gradient = lambda x: x
     assign = LibraryHelperFunctions.set_to_value
     nan = np.nan
+    isnan=np.isnan
 
 class TensorFlowLibrary(ComputationLibrary):
     lib = 'TF'
     reshape = tf.reshape
     permute = tf.transpose
     newaxis = tf.newaxis
-    shape = lambda x: x.get_shape()  # .as_list()
+    shape = tf.shape #  tobi does not understand reason for this previous definition: # lambda x: x.get_shape()  # .as_list()
     to_numpy = lambda x: x.numpy()
     to_variable = lambda x, dtype: tf.Variable(x, dtype=dtype)
     to_tensor = lambda x, dtype: tf.convert_to_tensor(x, dtype=dtype)
@@ -229,7 +231,8 @@ class TensorFlowLibrary(ComputationLibrary):
     dot = lambda a, b: tf.tensordot(a, b, 1)
     stop_gradient = tf.stop_gradient
     assign = LibraryHelperFunctions.set_to_variable
-    nan=np.nan
+    nan=tf.constant(np.nan)
+    isnan=tf.math.is_nan
 
 
 class PyTorchLibrary(ComputationLibrary):
@@ -310,3 +313,4 @@ class PyTorchLibrary(ComputationLibrary):
     stop_gradient = tf.stop_gradient # FIXME: How to imlement this in torch?
     assign = LibraryHelperFunctions.set_to_value
     nan=torch.nan
+    isnan=torch.isnan
