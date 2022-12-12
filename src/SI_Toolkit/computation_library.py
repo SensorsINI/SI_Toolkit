@@ -90,6 +90,7 @@ class ComputationLibrary:
     assign: Callable[[Union[TensorType, tf.Variable], TensorType], Union[TensorType, tf.Variable]] = None
     nan:TensorType=None
     isnan:Callable[[TensorType],bool]=None
+    string = None
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -162,6 +163,7 @@ class NumpyLibrary(ComputationLibrary):
     assign = LibraryHelperFunctions.set_to_value
     nan = np.nan
     isnan=np.isnan
+    string=str
 
 class TensorFlowLibrary(ComputationLibrary):
     lib = 'TF'
@@ -233,6 +235,7 @@ class TensorFlowLibrary(ComputationLibrary):
     assign = LibraryHelperFunctions.set_to_variable
     nan=tf.constant(np.nan)
     isnan=tf.math.is_nan
+    string=tf.string
 
 
 class PyTorchLibrary(ComputationLibrary):
@@ -314,3 +317,4 @@ class PyTorchLibrary(ComputationLibrary):
     assign = LibraryHelperFunctions.set_to_value
     nan=torch.nan
     isnan=torch.isnan
+    string=lambda x: torch.ByteTensor(bytes(x,'utf8'))
