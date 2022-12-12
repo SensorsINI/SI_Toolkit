@@ -18,13 +18,17 @@ def run_brunton_test():
     predictors_list = config_testing['predictors_specifications_testing']
     predictor = PredictorWrapper()
     for predictor_specification in predictors_list:
+        if predictor_specification[:2] == 'S:':
+            routine = "simple evaluation"
+            predictor_specification = predictor_specification[2:]
+        else:
+            routine = "autoregressive"
         predictor.update_predictor_config_from_specification(predictor_specification=predictor_specification)
-        predictions_list.append(get_prediction(dataset, predictor, **config_testing))
+        predictions_list.append(get_prediction(dataset, predictor, dataset_sampling_dt, routine, **config_testing))
 
         # if predictor.predictor_type =
     run_test_gui(titles=predictors_list,
-                 ground_truth=ground_truth, predictions_list=predictions_list, time_axis=time_axis,
-                 shift_labels=config_testing['SHIFT_LABELS']
+                 ground_truth=ground_truth, predictions_list=predictions_list, time_axis=time_axis
                  )
 
 

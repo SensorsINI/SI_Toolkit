@@ -25,8 +25,6 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     validation_dataset = Dataset(validation_dfs_norm, a, shuffle=True, inputs=net_info.inputs,
                                  outputs=net_info.outputs)
 
-    test_dataset = Dataset(test_dfs_norm, a, shuffle=False, inputs=net_info.inputs, outputs=net_info.outputs)
-
     del training_dfs_norm, validation_dfs_norm, test_dfs_norm
 
     print('')
@@ -39,17 +37,16 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
 
     # region Set basic training features: optimizer, loss, scheduler...
 
-    # net.compile(
-    #     loss="mse",
-    #     optimizer=keras.optimizers.Adam(a.lr)
-    # )
-    from SI_Toolkit.Functions.TF.Loss import loss_msr_sequence_customizable
     net.compile(
-        loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
-                                            post_wash_out_len=a.post_wash_out_len,
-                                            discount_factor=1.0),
-        optimizer=keras.optimizers.Adam(0.001)
+        loss="mse",
+        optimizer=keras.optimizers.Adam(a.lr)
     )
+    # net.compile(
+    #     loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
+    #                                         post_wash_out_len=a.post_wash_out_len,
+    #                                         discount_factor=1.0),
+    #     optimizer=keras.optimizers.Adam(0.001)
+    # )
 
     # region Define callbacks to be used in training
 
