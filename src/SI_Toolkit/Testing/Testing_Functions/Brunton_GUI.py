@@ -54,13 +54,13 @@ cmap = colors.LinearSegmentedColormap('custom', cdict)
 
 # endregion
 
-def run_test_gui(titles, ground_truth, predictions_list, time_axis, shift_labels):
+def run_test_gui(titles, ground_truth, predictions_list, time_axis):
     # Creat an instance of PyQt6 application
     # Every PyQt6 application has to contain this line
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(True)
     # Create an instance of the GUI window.
-    window = MainWindow(titles, ground_truth, predictions_list, time_axis, shift_labels)
+    window = MainWindow(titles, ground_truth, predictions_list, time_axis)
     window.show()
     # Next line hands the control over to Python GUI
     sys.exit(app.exec())
@@ -73,7 +73,6 @@ class MainWindow(QMainWindow):
                  ground_truth,
                  predictions_list,
                  time_axis,
-                 shift_labels,
                  *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
@@ -91,11 +90,13 @@ class MainWindow(QMainWindow):
         self.features_labels_dict = {}
         self.features = None
         self.feature_to_display = None
+        self.feature_to_display_2 = None
 
-        self.shift_labels = shift_labels
+        self.dt_predictions = self.predictions_list[0][2]
 
-        self.max_horizon = self.predictions_list[0][0].shape[-2]-1
-        self.horizon = self.max_horizon//2
+        self.max_horizon = None
+        self.horizon = None
+        self.set_horizon()
 
         self.show_all = False
         self.downsample = False
@@ -115,16 +116,29 @@ class MainWindow(QMainWindow):
 
         # region - Matplotlib figures (CartPole drawing and Slider)
         # Draw Figure
-        self.fig = Figure(figsize=(25, 10))  # Regulates the size of Figure in inches, before scaling to window size.
+        self.fig = Figure()  # Regulates the size of Figure in inches, before scaling to window size.
         self.canvas = FigureCanvas(self.fig)
         self.fig.Ax = self.canvas.figure.add_subplot(111)
+        self.fig.tight_layout()
+        self.fig.subplots_adjust(0.06, 0.14, 0.99, 0.9)
 
         self.toolbar = NavigationToolbar(self.canvas, self)
 
         # Attach figure to the layout
         lf = QVBoxLayout()
         lf.addWidget(self.toolbar)
-        lf.addWidget(self.canvas)
+        lf.addWidget(self.canvas, stretch=2)
+
+
+        # Second auxiliary plot:
+        self.fig2 = Figure()  # Regulates the size of Figure in inches, before scaling to window size.
+        self.canvas2 = FigureCanvas(self.fig2)
+        self.fig2.Ax = self.canvas2.figure.add_subplot(111)
+        self.fig2.tight_layout()
+        self.fig2.subplots_adjust(0.06, 0.18, 0.99, 0.9)
+
+        # Attach figure to the layout
+        lf.addWidget(self.canvas2, stretch=1)
         layout.addLayout(lf)
 
         # endregion
@@ -151,7 +165,7 @@ class MainWindow(QMainWindow):
         self.sl_h = QSlider(Qt.Orientation.Horizontal)
         self.sl_h.setMinimum(0)
         self.sl_h.setMaximum(self.max_horizon)
-        self.sl_h.setValue(self.max_horizon//2)
+        self.sl_h.setValue(self.horizon)
         self.sl_h.setTickPosition(QSlider.TickPosition.TicksBelow)
         # self.sl_h.setTickInterval(5)
         # endregion
@@ -227,10 +241,22 @@ class MainWindow(QMainWindow):
         # region -- Combobox: Select feature to plot
         l_cb.addWidget(QLabel('Feature to plot:'))
         self.cb_select_feature = QComboBox()
-        self.cb_select_feature.addItems(self.features_labels_dict.values())
+        self.cb_select_feature_items = self.features_labels_dict
+        self.cb_select_feature.addItems(self.cb_select_feature_items.values())
         self.cb_select_feature.currentIndexChanged.connect(self.cb_select_feature_f)
         self.cb_select_feature.setCurrentText(self.features[0])
         l_cb.addWidget(self.cb_select_feature)
+
+        # region -- Combobox: Select feature to plot -- second chart
+        l_cb.addWidget(QLabel('Second feature to plot:'))
+        self.cb_select_feature2 = QComboBox()
+        features2 = list(self.features2_labels_dict.values())
+        features2.append(None)
+        self.cb_select_feature2.addItems(features2)
+        self.cb_select_feature2.currentIndexChanged.connect(self.cb_select_feature2_f)
+        self.cb_select_feature2.setCurrentText('')
+        self.cb_select_feature2_f()
+        l_cb.addWidget(self.cb_select_feature2)
 
         # region - Add checkboxes to layout
         layout.addLayout(l_cb)
@@ -257,6 +283,17 @@ class MainWindow(QMainWindow):
 
         self.redraw_canvas()
 
+
+    def set_horizon(self):
+        if self.dt_predictions == 0.0:
+            self.max_horizon = 1
+        else:
+            self.max_horizon = self.predictions_list[0][0].shape[-2]-1
+        self.horizon = int(np.ceil(self.max_horizon / 2))
+
+        if hasattr(self, 'sl_h'):
+            self.sl_h.setMaximum(self.max_horizon)
+            self.sl_h.setValue(self.horizon)
 
     def slider_position_f(self, value):
         self.current_point_at_timeaxis = int(value)
@@ -290,13 +327,22 @@ class MainWindow(QMainWindow):
 
         self.features = self.predictions_list[i][1]
 
+        self.dt_predictions = self.predictions_list[i][2]
+
         self.features_labels_dict = {}
-        try:
-            for feature in self.features:
+
+        for feature in self.features:
+            try:
                 self.features_labels_dict[feature] = get_feature_label(feature)
-        except NameError:
-            for feature in self.features:
+            except NameError:
                 self.features_labels_dict[feature] = feature
+
+        self.features2_labels_dict = {}
+        for feature in self.ground_truth[1]:
+            try:
+                self.features2_labels_dict[feature] = get_feature_label(feature)
+            except NameError:
+                self.features2_labels_dict[feature] = feature
 
         if self.feature_to_display not in self.features:
             self.feature_to_display = self.features[0]
@@ -307,13 +353,24 @@ class MainWindow(QMainWindow):
         for i in range(len(self.rbs_datasets)):
             if self.rbs_datasets[i].isChecked():
                 self.select_dataset(i)
-
+        self.set_horizon()
 
         self.redraw_canvas()
 
     def cb_select_feature_f(self):
         feature_label_to_display = self.cb_select_feature.currentText()
-        self.feature_to_display = list(self.features_labels_dict.keys())[list(self.features_labels_dict.values()).index(feature_label_to_display)]
+        self.feature_to_display = list(self.cb_select_feature_items.keys())[list(self.cb_select_feature_items.values()).index(feature_label_to_display)]
+        self.redraw_canvas()
+
+    def cb_select_feature2_f(self):
+        if self.cb_select_feature2.currentText() != '':
+            feature_label_to_display = self.cb_select_feature2.currentText()
+            self.feature_to_display_2 = list(self.features2_labels_dict.keys())[
+                list(self.features2_labels_dict.values()).index(feature_label_to_display)]
+            self.canvas2.show()
+        else:
+            self.feature_to_display_2 = None
+            self.canvas2.hide()
         self.redraw_canvas()
 
     # The actions which has to be taken to properly terminate the application
@@ -341,27 +398,54 @@ class MainWindow(QMainWindow):
                        horizon=self.horizon,
                        show_all=self.show_all,
                        downsample=self.downsample,
-                       shift_labels=self.shift_labels)
+                       dt_predictions=self.dt_predictions)
 
-        # self.get_sqrt_MSE_at_horizon()
+        self.fig2.Ax.clear()
+        # brunton_widget(self.features, self.ground_truth, self.dataset, self.time_axis,
+        #                axs=self.fig2.Ax,
+        #                current_point_at_timeaxis=self.current_point_at_timeaxis,
+        #                feature_to_display=self.feature_to_display,
+        #                max_horizon=self.max_horizon,
+        #                horizon=self.horizon,
+        #                show_all=self.show_all,
+        #                downsample=self.downsample,
+        #                dt_predictions=self.dt_predictions)
+        if self.feature_to_display_2 is not None:
+            canvas2_plot(self.features, self.ground_truth, self.time_axis,
+                         axs=self.fig2.Ax,
+                         current_point_at_timeaxis=self.current_point_at_timeaxis,
+                         feature_to_display=self.feature_to_display_2,
+                         horizon=self.horizon,
+                         show_all=self.show_all,
+                         dt_predictions=self.dt_predictions,
+                         )
+
+        self.get_sqrt_MSE_at_horizon()
         self.lab_MSE.setText("sqrt(MSE) at horizon: {:.2f}".format(self.sqrt_MSE_at_horizon))
         self.fig.Ax.grid(color="k", linestyle="--", linewidth=0.5)
+        self.fig2.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.canvas.draw()
+        self.canvas2.draw()
 
     def get_sqrt_MSE_at_horizon(self):
 
         feature_idx, = np.where(self.features == self.feature_to_display)
         ground_truth_feature_idx, = np.where(self.ground_truth[1] == self.feature_to_display)
 
+        if self.dt_predictions == 0.0:
+            idx_shift = 0
+        else:
+            idx_shift = self.horizon
+
         if self.show_all:
-            predictions_at_horizon = self.dataset[:-self.horizon, self.horizon, feature_idx]
+            predictions_at_horizon = self.dataset[:self.dataset.shape[0]-idx_shift, self.horizon-1, feature_idx]
             self.MSE_at_horizon = np.mean(
-                    (self.ground_truth[0][self.horizon:, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
+                    (self.ground_truth[0][idx_shift:, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
 
         else:
-            predictions_at_horizon = self.dataset[self.current_point_at_timeaxis, self.horizon, feature_idx]
+            predictions_at_horizon = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx]
             self.MSE_at_horizon = np.mean(
-                (self.ground_truth[0][self.current_point_at_timeaxis + self.horizon, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
+                (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
 
         self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
 
@@ -373,7 +457,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                    max_horizon=10, horizon=None,
                    show_all=True,
                    downsample=False,
-                   shift_labels=1,
+                   dt_predictions=0.0,
                    ):
 
     # Start at should be done bu widget (slider)
@@ -402,40 +486,94 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
     except NameError:
         y_label = feature_to_display
 
-    axs.set_ylabel(y_label, fontsize=18)
-    axs.set_xlabel('Time [s]', fontsize=18)
-    for i in range(horizon):
+    axs.set_ylabel(y_label, fontsize=14)
+    axs.set_xlabel('Time [s]', fontsize=14)
+    for item in axs.get_xticklabels()+axs.get_yticklabels():
+        item.set_fontsize(14)
 
-        if not show_all:
-            axs.plot(time_axis[current_point_at_timeaxis], ground_truth[0][current_point_at_timeaxis, ground_truth_feature_idx],
-                     'g.', markersize=16, label='Start')
-            prediction_distance.append(predictions_array[current_point_at_timeaxis, i+1, feature_idx])
+    if not show_all:
+        axs.plot(time_axis[current_point_at_timeaxis],
+                 ground_truth[0][current_point_at_timeaxis, ground_truth_feature_idx],
+                 'g.', markersize=16, label='Start')
+        time_axis_predictions = np.arange(horizon+1)*dt_predictions + time_axis[current_point_at_timeaxis]
+        for i in range(horizon):
+
+            prediction_distance.append(predictions_array[current_point_at_timeaxis, i, feature_idx])
             if downsample:
                 if (i % 2) == 0:
                     continue
 
-            if shift_labels == 1:
-                axs.plot(time_axis[current_point_at_timeaxis+i+1], prediction_distance[i],
-                            c=cmap(float(i)/max_horizon),
-                            marker='.')
-            elif shift_labels == 0:
-                axs.plot(time_axis[current_point_at_timeaxis], prediction_distance[i],
-                            c='green',
-                            marker='.')
+            axs.plot(time_axis_predictions[i + 1], prediction_distance[i],
+                     c=cmap((float(i) / max_horizon)*0.8+0.2),
+                     marker='.')
 
-        else:
-            prediction_distance.append(predictions_array[:-(i+1), i+1, feature_idx])
+    else:
+
+        for i in range(horizon):
+            prediction_distance.append(predictions_array[:-(i+1), i, feature_idx])
             if downsample:
                 if (i % 2) == 0:
                     continue
-            if shift_labels == 1:
-                axs.plot(time_axis[i+1:], prediction_distance[i],
-                            c=cmap(float(i)/max_horizon),
-                            marker='.', linestyle = '')
-            elif shift_labels == 0:
-                axs.plot(time_axis[i:-1], prediction_distance[i],
-                            c='green',
-                            marker='.', linestyle = '')
 
-    # axs.set_ylim(y_lim)
+            axs.plot(time_axis[:-(i+1)]+(i+1)*dt_predictions, prediction_distance[i],
+                        c=cmap((float(i) / max_horizon)*0.8+0.2),
+                        marker='.', linestyle = '')
+
+    axs.set_ylim(y_lim)
     plt.show()
+
+
+def canvas2_plot(features, ground_truth, time_axis, axs=None,
+               current_point_at_timeaxis=None,
+               feature_to_display=None,
+               horizon=None,
+               show_all=False,
+               dt_predictions=0.0,
+               ):
+
+    # Start at should be done bu widget (slider)
+    if current_point_at_timeaxis is None:
+        current_point_at_timeaxis = ground_truth[0].shape[0]//2
+
+    if feature_to_display is None:
+        feature_to_display = features[0]
+
+    ground_truth_feature_idx, = np.where(ground_truth[1] == feature_to_display)
+
+    # Brunton Plot
+    if axs is None:
+        fig, axs = plt.subplots(1, 1, figsize=(18, 10), sharex=True)
+
+    axs.plot(time_axis, ground_truth[0][:, ground_truth_feature_idx], 'k:', label='Ground Truth', marker='.', markersize=2, linewidth=0.5)
+    y_lim = axs.get_ylim()
+
+    try:
+        y_label = get_feature_label(feature_to_display)
+    except NameError:
+        y_label = feature_to_display
+
+    axs.set_ylabel(y_label, fontsize=10)
+    axs.set_xlabel('Time [s]', fontsize=10)
+
+    if not show_all:
+
+        axs.plot(time_axis[current_point_at_timeaxis],
+                 ground_truth[0][current_point_at_timeaxis, ground_truth_feature_idx],
+                 'g.', markersize=16, label='Start')
+
+        if dt_predictions != 0.0:
+            within_horizon_idx = np.arange(1, horizon + 1) + current_point_at_timeaxis
+            time_axis_within_horizon = time_axis[within_horizon_idx]
+            feature_within_horizon = ground_truth[0][within_horizon_idx, ground_truth_feature_idx]
+            axs.plot(time_axis_within_horizon, feature_within_horizon, 'r.', markersize=5, label='within horizon')
+        else:
+            axs.plot(time_axis[current_point_at_timeaxis],
+                     ground_truth[0][current_point_at_timeaxis, ground_truth_feature_idx],
+                     'r.', markersize=5, label='within horizon')
+
+    axs.set_ylim(y_lim)
+    for item in axs.get_xticklabels()+axs.get_yticklabels():
+        item.set_fontsize(10)
+
+    plt.show()
+
