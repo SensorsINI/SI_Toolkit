@@ -60,7 +60,9 @@ def save_params(model, save_dir, gp_type):
 
 
 def load_model(save_dir):
-    model = tf.saved_model.load(save_dir+'/model')
+    save_dir = os.path.normpath(save_dir)
+    path = os.path.join(save_dir, 'model')
+    model = tf.saved_model.load(path)
     model.state_inputs = [x.decode() for x in model.state_inputs.numpy().tolist()]
     model.control_inputs = [x.decode() for x in model.control_inputs.numpy().tolist()]
     model.outputs = [x.decode() for x in model.outputs.numpy().tolist()]

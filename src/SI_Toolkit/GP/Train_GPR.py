@@ -14,7 +14,7 @@ import tensorflow as tf
 import matplotlib
 from SI_Toolkit.Functions.General.load_parameters_for_training import args
 
-GP_TYPE = 'SGPR'
+GP_TYPE = 'GPR'
 
 gpf.config.set_default_float(tf.float64)
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
@@ -28,7 +28,7 @@ a.post_wash_out_len = 1
 outputs = a.outputs
 batch_size = a.batch_size
 
-number_of_inducing_points = 10
+number_of_inducing_points = 100
 
 save_dir = a.path_to_models + "SGP_{}/".format(number_of_inducing_points)
 save_training_script(save_dir)
