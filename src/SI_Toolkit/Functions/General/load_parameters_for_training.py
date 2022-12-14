@@ -130,6 +130,7 @@ def args():
         args.control_inputs = sorted(args.control_inputs)
 
     if args.state_inputs is not None:
+        #print('hey')
         args.state_inputs = sorted(args.state_inputs)
 
     if args.setpoint_inputs is not None:

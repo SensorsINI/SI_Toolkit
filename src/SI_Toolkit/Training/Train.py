@@ -75,7 +75,7 @@ def train_network():
     dst = os.path.join(a.path_to_models, net_info.net_full_name)
     shutil.copy2(src, dst)
 
-    # region Load data and prepare datasets
+    # region Load data and prepare datasets -> careful, after normalize_df() training_dfs is identical to training_dfs_norm
 
     paths_to_datafiles_training = get_paths_to_datafiles(a.training_files)
     paths_to_datafiles_validation = get_paths_to_datafiles(a.validation_files)
