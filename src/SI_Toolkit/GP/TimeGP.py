@@ -14,10 +14,10 @@ def timing_script_init():
     m_loaded = load_model(save_dir)
     print("Done!")
 
-    num_rollouts = 2000
+    batch_size = 2000
     horizon = 35
 
-    s = tf.zeros(shape=[num_rollouts, 6], dtype=tf.float64)
+    s = tf.zeros(shape=[batch_size, 6], dtype=tf.float64)
     m_loaded.predict_f(s)
 
     return m_loaded, s

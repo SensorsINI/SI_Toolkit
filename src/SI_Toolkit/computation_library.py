@@ -91,6 +91,10 @@ class ComputationLibrary:
     nan:TensorType=None
     isnan:Callable[[TensorType],bool]=None
     string = None
+    where: Callable[[TensorType, TensorType, TensorType], TensorType] = None
+    logical_and: Callable[[TensorType, TensorType], TensorType] = None
+    logical_or: Callable[[TensorType, TensorType], TensorType] = None
+    dtype=lambda x: x.dtype
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -164,6 +168,10 @@ class NumpyLibrary(ComputationLibrary):
     nan = np.nan
     isnan=np.isnan
     string=str
+    where = np.where
+    logical_and = np.logical_and
+    logical_or  = np.logical_or
+
 
 class TensorFlowLibrary(ComputationLibrary):
     lib = 'TF'
@@ -236,7 +244,9 @@ class TensorFlowLibrary(ComputationLibrary):
     nan=tf.constant(np.nan)
     isnan=tf.math.is_nan
     string=tf.string
-
+    where = tf.where
+    logical_and = tf.math.logical_and
+    logical_or  = tf.math.logical_or
 
 class PyTorchLibrary(ComputationLibrary):
 
@@ -318,3 +328,6 @@ class PyTorchLibrary(ComputationLibrary):
     nan=torch.nan
     isnan=torch.isnan
     string=lambda x: torch.ByteTensor(bytes(x,'utf8'))
+    where = torch.where
+    logical_and = torch.logical_and
+    logical_or  = torch.logical_or
