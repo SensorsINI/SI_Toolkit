@@ -161,6 +161,12 @@ def get_net(a,
                 if lines[i] == 'CONSTRUCT NETWORK:':
                     construct_network = lines[i + 1].rstrip("\n")
                     continue
+                if lines[i] == 'TIMESTEP MEAN:':
+                    dt = lines[i + 1].rstrip("\n")
+                    continue
+                if lines[i] == 'TIMESTEP STD:':
+                    dt_std = lines[i + 1].rstrip("\n")
+                    continue
 
             print('Inputs to the loaded network: {}'.format(', '.join(map(str, inputs))))
             print('Outputs from the loaded network: {}'.format(', '.join(map(str, outputs))))
@@ -292,6 +298,14 @@ def get_net(a,
     net_info.library = library
     net_info.construct_network = construct_network
 
+    if 'dt' in locals():
+        net_info.dt = float(dt)
+        net_info.dt_std = float(dt_std)
+    else:
+        print('Warning! Net info does not contain information about dt!')
+        net_info.dt = None
+        net_info.dt_std = None
+
     try:
         net_info.wash_out_len = a.wash_out_len
     except AttributeError:
@@ -368,7 +382,7 @@ def create_full_name(net_info, path_to_models):
     net_info.path_to_net = path_to_dir + '/'
 
 
-def create_log_file(net_info, a):
+def create_log_file(net_info, a, dfs):
     date_now = datetime.now().strftime('%Y-%m-%d')
     time_now = datetime.now().strftime('%H:%M:%S')
     try:
@@ -424,5 +438,26 @@ def create_log_file(net_info, a):
             f.write('     ' + path + '\n')
     else:
         f.write(a.test_files)
+
+    # Get dt:
+    if all( 'time' in dfs[i].columns for i in range(len(dfs)) ):
+        all_dt = []
+        for i in range(len(dfs)):
+            time = dfs[i]['time'].to_numpy()
+            dt = time[1:]-time[:-1]
+            all_dt.append(dt)
+        all_dt = np.stack(all_dt)
+        dt_mean = np.mean(all_dt)*np.sqrt(a.shift_labels)
+        dt_std = np.std(all_dt)*np.sqrt(a.shift_labels)
+    else:
+        dt_mean = None
+        dt_std = None
+
+    f.write('\n\nTIMESTEP MEAN:\n')
+    f.write(str(dt_mean))
+
+    f.write('\n\nTIMESTEP STD:\n')
+    f.write(str(dt_std))
+
 
     f.close()

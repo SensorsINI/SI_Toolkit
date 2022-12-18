@@ -12,10 +12,10 @@ from SI_Toolkit.computation_library import ComputationLibrary
 
 
 try:
-    from SI_Toolkit_ASF import GLOBALLY_DISABLE_COMPILATION, USE_JIT_COMPILATION
+    from SI_Toolkit_ASF import USE_TENSORFLOW_EAGER_MODE, USE_TENSORFLOW_XLA
 except ImportError:
-    log.warn("No compilation option set in SI_Toolkit_ASF/__init.py__. Setting GLOBALLY_DISABLE_COMPILATION to True.")
-    GLOBALLY_DISABLE_COMPILATION = True
+    log.warn("No compilation option set in SI_Toolkit_ASF/__init.py__. Setting USE_TENSORFLOW_EAGER_MODE to True.")
+    USE_TENSORFLOW_EAGER_MODE = True
 
 def tf_function_jit(func):
     return tf.function(func=func, jit_compile=True,)
@@ -29,13 +29,13 @@ def identity(func):
     return func
 
 
-if GLOBALLY_DISABLE_COMPILATION:
-    log.info('TensorFlow compilation is disabled by GLOBALLY_DISABLE_COMPILATION=True')
+if USE_TENSORFLOW_EAGER_MODE:
+    log.info('TensorFlow compilation is disabled by USE_TENSORFLOW_EAGER_MODE=True')
     CompileTF = identity
 else:
     if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
         CompileTF = tf.function
-    elif not USE_JIT_COMPILATION:
+    elif not USE_TENSORFLOW_XLA:
         CompileTF = tf.function
     else:
         CompileTF = tf_function_jit
@@ -50,7 +50,7 @@ def CompileAdaptive(fun):
     computation_library: "type[ComputationLibrary]" = instance.lib
     lib_name = computation_library.lib
 
-    if GLOBALLY_DISABLE_COMPILATION:
+    if USE_TENSORFLOW_EAGER_MODE:
         return identity(fun)
     elif lib_name == 'TF':
         log.info(f'compiling tensorflow {fun}')
