@@ -91,6 +91,8 @@ class ComputationLibrary:
     nan:TensorType=None
     isnan:Callable[[TensorType],bool]=None
     string = None
+    equal= lambda x,y: x==y
+    pow=lambda x,p: x**p
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -164,6 +166,9 @@ class NumpyLibrary(ComputationLibrary):
     nan = np.nan
     isnan=np.isnan
     string=str
+    equal= lambda x,y: x==y
+    cond= lambda cond, t, f: t if cond else f
+    pow=lambda x,p: np.power(x,p)
 
 class TensorFlowLibrary(ComputationLibrary):
     lib = 'TF'
@@ -236,7 +241,9 @@ class TensorFlowLibrary(ComputationLibrary):
     nan=tf.constant(np.nan)
     isnan=tf.math.is_nan
     string=tf.string
-
+    equal= lambda x,y: tf.math.equal(x,y)
+    cond= lambda cond, t, f: tf.cond(cond,t,f)
+    pow=lambda x,p: tf.pow(x,p)
 
 class PyTorchLibrary(ComputationLibrary):
 
@@ -318,3 +325,5 @@ class PyTorchLibrary(ComputationLibrary):
     nan=torch.nan
     isnan=torch.isnan
     string=lambda x: torch.ByteTensor(bytes(x,'utf8'))
+    equal=lambda x,y: torch.equal(x,y)
+    pow=lambda x,p: torch.pow(x,p)
