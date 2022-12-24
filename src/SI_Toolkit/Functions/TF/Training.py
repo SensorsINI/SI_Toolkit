@@ -9,6 +9,7 @@ try:
 except:
     print('No DataSelector found.')
 
+from SI_Toolkit.Functions.TF.Loss import loss_msr_sequence_customizable
 
 
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
@@ -37,16 +38,17 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
 
     # region Set basic training features: optimizer, loss, scheduler...
 
-    net.compile(
-        loss="mse",
-        optimizer=keras.optimizers.Adam(a.lr)
-    )
     # net.compile(
-    #     loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
-    #                                         post_wash_out_len=a.post_wash_out_len,
-    #                                         discount_factor=1.0),
-    #     optimizer=keras.optimizers.Adam(0.001)
+    #     loss="mse",
+    #     optimizer=keras.optimizers.Adam(a.lr)
     # )
+
+    net.compile(
+        loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
+                                            post_wash_out_len=a.post_wash_out_len,
+                                            discount_factor=1.0),
+        optimizer=keras.optimizers.Adam(0.001)
+    )
 
     # region Define callbacks to be used in training
 
