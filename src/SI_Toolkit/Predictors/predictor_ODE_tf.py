@@ -51,7 +51,7 @@ class predictor_ODE_tf(template_predictor):
             self.predict_tf = CompileTF(self._predict_tf)
 
 
-    def predict(self, initial_state, Q):
+    def predict(self, initial_state, Q, time:float=None):
         initial_state, Q = convert_to_tensors(initial_state, Q)
         initial_state, Q = check_dimensions(initial_state, Q)
 
@@ -63,7 +63,7 @@ class predictor_ODE_tf(template_predictor):
         return output.numpy()
 
 
-    def _predict_tf(self, initial_state, Q, params=None):
+    def _predict_tf(self, initial_state, Q, params=None, time:float=None):
 
         self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
         self.output = self.output.write(0, initial_state)

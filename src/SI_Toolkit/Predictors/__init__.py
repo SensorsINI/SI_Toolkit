@@ -16,13 +16,15 @@ class template_predictor:
         self.predictor_external_input_features = CONTROL_INPUTS
         self.predictor_output_features = STATE_VARIABLES
     
-    def predict_tf(self, s: tf.Tensor, Q: tf.Tensor):
+    def predict_tf(self, s: tf.Tensor, Q: tf.Tensor, time:float=None):
         """Predict the whole MPC horizon using tensorflow
 
         :param s: Initial state [batch_size x state_dim]
         :type s: tf.Tensor
         :param Q: Control inputs [batch_size x horizon_length x control_dim]
         :type Q: tf.Tensor
+        :param time: time in seconds
+        :type time: float
         """
         raise NotImplementedError()
     

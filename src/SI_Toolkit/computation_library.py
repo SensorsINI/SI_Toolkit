@@ -97,6 +97,7 @@ class ComputationLibrary:
     logical_and: Callable[[TensorType, TensorType], TensorType] = None
     logical_or: Callable[[TensorType, TensorType], TensorType] = None
     dtype=lambda x: x.dtype
+    fill = None
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -176,6 +177,7 @@ class NumpyLibrary(ComputationLibrary):
     equal= lambda x,y: x==y
     cond= lambda cond, t, f: t if cond else f
     pow=lambda x,p: np.power(x,p)
+    fill = lambda x,y: x.np.fill(y)
 
 class TensorFlowLibrary(ComputationLibrary):
     lib = 'TF'
@@ -254,6 +256,7 @@ class TensorFlowLibrary(ComputationLibrary):
     equal= lambda x,y: tf.math.equal(x,y)
     cond= lambda cond, t, f: tf.cond(cond,t,f)
     pow=lambda x,p: tf.pow(x,p)
+    fill = lambda dims,value: tf.fill(dims,value)
 
 class PyTorchLibrary(ComputationLibrary):
 
@@ -340,3 +343,4 @@ class PyTorchLibrary(ComputationLibrary):
     logical_or  = torch.logical_or
     equal=lambda x,y: torch.equal(x,y)
     pow=lambda x,p: torch.pow(x,p)
+    fill = lambda x,y: x.torch.Tensor.fill(x,y)

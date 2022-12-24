@@ -139,8 +139,8 @@ class PredictorWrapper:
     def predict(self, s, Q):
         return self.predictor.predict(s, Q)
 
-    def predict_tf(self, s, Q):  # TODO: This function should disappear: predict() should manage the right library
-        return self.predictor.predict_tf(s, Q)
+    def predict_tf(self, state, Q, time=None):  # TODO: This function should disappear: predict() should manage the right library
+        return self.predictor.predict_tf(state, Q, time=time)
 
     def update(self, Q0, s):
         if self.predictor_type == 'neural':
