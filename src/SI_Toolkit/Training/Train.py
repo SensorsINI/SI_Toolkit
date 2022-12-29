@@ -69,7 +69,6 @@ def train_network():
     # Create new full name for the pretrained net
     create_full_name(net_info, a.path_to_models)
     normalization_info = get_norm_info_for_net(net_info, files_for_normalization=a.training_files)
-    create_log_file(net_info, a)
 
     # Copy training config
     src = os.path.join('SI_Toolkit_ASF', 'config_training.yml')
@@ -90,6 +89,8 @@ def train_network():
     paths_to_datafiles_test = get_paths_to_datafiles(a.test_files)
     test_dfs = load_data(paths_to_datafiles_test)
     test_dfs_norm = normalize_df(test_dfs, normalization_info)
+
+    create_log_file(net_info, a, training_dfs)
 
     # endregion
 

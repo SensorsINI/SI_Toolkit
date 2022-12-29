@@ -48,6 +48,7 @@ class predictor_autoregressive_neural(template_predictor):
         batch_size=None,
         disable_individual_compilation=False,
         update_before_predicting=True,
+        mode=None,
         **kwargs
     ):
         super().__init__(horizon=horizon, batch_size=batch_size)
@@ -77,6 +78,17 @@ class predictor_autoregressive_neural(template_predictor):
         self.net, self.net_info = \
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
+
+        # Allows to use predictor for simple network evaluation
+        self.mode = mode
+        if mode == 'simple evaluation':
+            self.predictor_initial_input_features = np.array([], dtype='<U9')
+            self.predictor_external_input_features = np.array(self.net_info.inputs)
+            self.predictor_output_features = np.array(self.net_info.outputs)
+            self.horizon = 1
+
+        if hasattr(self.net_info, 'dt') and self.net_info.dt == 0.0:
+            self.horizon = 1
 
         if self.net_info.library == 'TF':
             net, _ = \
@@ -115,8 +127,9 @@ class predictor_autoregressive_neural(template_predictor):
         self.last_optimal_control_input = None
 
         self.normalization_info = get_norm_info_for_net(self.net_info)
-        
+
         self.predictor_initial_input_indices = {x: np.where(self.predictor_initial_input_features == x)[0][0] for x in self.predictor_initial_input_features}
+        self.predictor_external_input_indices = {x: np.where(self.predictor_external_input_features == x)[0][0] for x in self.predictor_external_input_features}
         self.predictor_output_indices = {x: np.where(self.predictor_output_features == x)[0][0] for x in self.predictor_output_features}
 
         self.model_input_features = self.net_info.inputs
@@ -129,7 +142,9 @@ class predictor_autoregressive_neural(template_predictor):
         self.normalize_inputs = get_normalization_function(self.normalization_info, self.model_initial_input_features, self.lib)
         self.normalize_control_inputs = get_normalization_function(self.normalization_info, self.predictor_external_input_features, self.lib)
 
-        self.indices_inputs_reg = self.lib.to_tensor(
+        self.model_external_input_indices = self.lib.to_tensor(
+            [self.predictor_external_input_indices.get(key) for key in self.model_external_input_features], dtype=self.lib.int64)
+        self.model_initial_input_indices = self.lib.to_tensor(
             [self.predictor_initial_input_indices.get(key) for key in self.model_initial_input_features], dtype=self.lib.int64)
 
         if self.differential_network:
@@ -152,14 +167,18 @@ class predictor_autoregressive_neural(template_predictor):
         self.augmentation = predictor_output_augmentation_tf(self.net_info, self.lib, differential_network=self.differential_network)
 
         indices_outputs_rev = [self.predictor_output_indices.get(key, np.inf) for key in outputs_names+self.augmentation.features_augmentation]
-        self.indices_outputs = self.lib.to_tensor(np.argsort(indices_outputs_rev), dtype=self.lib.int64)
+        missing_indices_output = [i for i in range(len(self.predictor_output_indices)) if i not in indices_outputs_rev]
+
+        self.indices_outputs = self.lib.to_tensor(np.argsort(indices_outputs_rev+missing_indices_output), dtype=self.lib.int64)
         self.indices_outputs = self.indices_outputs[:len(self.indices_outputs)-indices_outputs_rev.count(np.inf)]
 
-        self.model_input_reg_initial_normed = self.lib.zeros([self.batch_size, len(self.indices_inputs_reg)], dtype=self.lib.float32)
+        self.missing_outputs = self.lib.zeros((self.batch_size, self.horizon, len(missing_indices_output)))
+
+        self.model_initial_input_normed = self.lib.zeros([self.batch_size, len(self.model_initial_input_indices)], dtype=self.lib.float32)
         self.last_initial_state = self.lib.zeros([self.batch_size, len(self.predictor_initial_input_features)], dtype=self.lib.float32)
 
         # Next conversion only relevant for TF
-        self.model_input_reg_initial_normed = self.lib.to_variable(self.model_input_reg_initial_normed, self.lib.float32)
+        self.model_initial_input_normed = self.lib.to_variable(self.model_initial_input_normed, self.lib.float32)
         self.last_initial_state = self.lib.to_variable(self.last_initial_state, self.lib.float32)
 
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(self.predictor_output_features)],
@@ -216,9 +235,9 @@ class predictor_autoregressive_neural(template_predictor):
 
         initial_state_normed = self.normalize_state(initial_state)
 
-        self.lib.assign(self.model_input_reg_initial_normed, self.lib.gather_last(initial_state_normed, self.indices_inputs_reg))
+        self.lib.assign(self.model_initial_input_normed, self.lib.gather_last(initial_state_normed, self.model_initial_input_indices))
 
-        Q_normed = self.normalize_control_inputs(Q)
+        model_external_input_normed = self.lib.gather_last(self.normalize_control_inputs(Q), self.model_external_input_indices)
 
         # load internal RNN state if applies
         self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
@@ -226,8 +245,8 @@ class predictor_autoregressive_neural(template_predictor):
         outputs = self.AL.run(
             model=self.net,
             horizon=self.horizon,
-            initial_input=self.model_input_reg_initial_normed,
-            external_input_left=Q_normed,
+            initial_input=self.model_initial_input_normed,
+            external_input_left=model_external_input_normed,
         )
 
         outputs = self.denormalize_outputs(outputs)
@@ -235,9 +254,12 @@ class predictor_autoregressive_neural(template_predictor):
         # Augment
         outputs_augmented = self.augmentation.augment(outputs)
 
+        outputs_augmented = self.lib.concat([outputs_augmented, self.missing_outputs], axis=-1)
+
         outputs_augmented = self.lib.gather_last(outputs_augmented, self.indices_outputs)
 
-        outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), axis=1)
+        if not self.mode == "simple evaluation":
+            outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), axis=1)
 
         return outputs_augmented
 
@@ -264,11 +286,11 @@ class predictor_autoregressive_neural(template_predictor):
             pass
         else:
 
-            net_input_reg = self.lib.gather_last(s, self.indices_inputs_reg)  # [batch_size, features]
+            net_input_reg = self.lib.gather_last(s, self.model_initial_input_indices)  # [batch_size, features]
 
             net_input_reg_normed = self.normalize_inputs(net_input_reg)
 
-            Q0_normed = self.normalize_control_inputs(Q0)
+            Q0_normed = self.lib.gather_last(self.normalize_control_inputs(Q0), self.model_external_input_indices)
 
             self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
