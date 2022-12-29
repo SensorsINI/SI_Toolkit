@@ -37,6 +37,7 @@ class ComputationLibrary:
     asin: Callable[[TensorType], TensorType] = None
     cos: Callable[[TensorType], TensorType] = None
     tan: Callable[[TensorType], TensorType] = None
+    tanh: Callable[[TensorType], TensorType] = None
     exp: Callable[[TensorType], TensorType] = None
     squeeze: Callable[[TensorType], TensorType] = None
     unsqueeze: Callable[[TensorType, int], TensorType] = None
@@ -57,6 +58,7 @@ class ComputationLibrary:
     zeros: Callable[["tuple[int]"], TensorType] = None
     zeros_like: Callable[[TensorType], TensorType] = None
     ones: Callable[["tuple[int]"], TensorType] = None
+    ones_like: Callable[[TensorType], TensorType] = None
     sign: Callable[[TensorType], TensorType] = None
     create_rng: Callable[[int], RandomGeneratorType] = None
     standard_normal: Callable[[RandomGeneratorType, "tuple[int]"], TensorType] = None
@@ -64,6 +66,8 @@ class ComputationLibrary:
         [RandomGeneratorType, "tuple[int]", TensorType, TensorType, type], TensorType
     ] = None
     sum: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
+    mean: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
+    cumprod: Callable[[TensorType, int], TensorType] = None
     set_shape: Callable[[TensorType, "list[int]"], None] = None
     concat: Callable[["list[TensorType]", int], TensorType]
     pi: TensorType = None
@@ -110,6 +114,7 @@ class NumpyLibrary(ComputationLibrary):
     asin = np.arcsin
     cos = np.cos
     tan = np.tan
+    tanh = np.tanh
     exp = np.exp
     squeeze = np.squeeze
     unsqueeze = np.expand_dims
@@ -130,6 +135,7 @@ class NumpyLibrary(ComputationLibrary):
     zeros = np.zeros
     zeros_like = np.zeros_like
     ones = np.ones
+    ones_like = np.ones_like
     sign = np.sign
     create_rng = lambda seed: Generator(SFC64(seed))
     standard_normal = lambda generator, shape: generator.standard_normal(size=shape)
@@ -137,6 +143,8 @@ class NumpyLibrary(ComputationLibrary):
         low=low, high=high, size=shape
     ).astype(dtype)
     sum = lambda x, a: np.sum(x, axis=a, keepdims=False)
+    mean = lambda x, a: np.mean(x, axis=a, keepdims=False)
+    cumprod = lambda x, a: np.cumprod(x, axis=a)
     set_shape = lambda x, shape: x
     concat = lambda x, axis: np.concatenate(x, axis=axis)
     pi = np.array(np.pi).astype(np.float32)
@@ -184,6 +192,7 @@ class TensorFlowLibrary(ComputationLibrary):
     asin = tf.asin
     cos = tf.cos
     tan = tf.tan
+    tanh = tf.tanh
     exp = tf.exp
     squeeze = tf.squeeze
     unsqueeze = tf.expand_dims
@@ -204,6 +213,7 @@ class TensorFlowLibrary(ComputationLibrary):
     zeros = tf.zeros
     zeros_like = tf.zeros_like
     ones = tf.ones
+    ones_like = tf.ones_like
     sign = tf.sign
     create_rng = lambda seed: tf.random.Generator.from_seed(seed)
     standard_normal = lambda generator, shape: generator.normal(shape)
@@ -211,6 +221,8 @@ class TensorFlowLibrary(ComputationLibrary):
         shape, minval=low, maxval=high, dtype=dtype
     )
     sum = lambda x, a: tf.reduce_sum(x, axis=a, keepdims=False)
+    mean = lambda x, a: tf.reduce_mean(x, axis=a, keepdims=False)
+    cumprod = lambda x, a: tf.math.cumprod(x, axis=a)
     set_shape = lambda x, shape: x.set_shape(shape)
     concat = lambda x, axis: tf.concat(x, axis)
     pi = tf.convert_to_tensor(np.array(np.pi), dtype=tf.float32)
@@ -261,6 +273,7 @@ class PyTorchLibrary(ComputationLibrary):
     asin = torch.asin
     cos = torch.cos
     tan = torch.tan
+    tanh = torch.tanh
     exp = torch.exp
     squeeze = torch.squeeze
     unsqueeze = torch.unsqueeze
@@ -281,6 +294,7 @@ class PyTorchLibrary(ComputationLibrary):
     zeros = torch.zeros
     zeros_like = torch.zeros_like
     ones = torch.ones
+    ones_like = torch.ones_like
     sign = torch.sign
     create_rng = lambda seed: torch.Generator().manual_seed(seed)
     standard_normal = lambda generator, shape: torch.normal(
@@ -292,6 +306,8 @@ class PyTorchLibrary(ComputationLibrary):
         + low
     )
     sum = lambda x, a: torch.sum(x, a, keepdim=False)
+    mean = lambda x, a: torch.mean(x, a, keepdim=False)
+    cumprod = lambda x, a: torch.cumprod(x, dim=a)
     set_shape = lambda x, shape: x
     concat = lambda x, axis: torch.concat(x, dim=axis)
     pi = torch.from_numpy(np.array(np.pi)).float()
