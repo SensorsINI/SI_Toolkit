@@ -625,7 +625,7 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, path
             for i in df_composed.experiment_index.unique():
                 dfs_split.append(grouped.get_group(i))
         else:
-            dfs_split.append(df)
+            dfs_split.append(df_composed)
 
         dfs_processed = []
         for df in dfs_split:
