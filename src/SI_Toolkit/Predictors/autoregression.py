@@ -45,9 +45,6 @@ class autoregression_loop:
         else:
             outputs = self.lib.zeros([self.batch_size, horizon, self.model_outputs_len])
 
-        if self.dmah:
-            self.dmah.set_starting_point(initial_input)
-
         model_input = initial_input
 
         if predictor == 'gp' or horizon == 1:

@@ -235,6 +235,9 @@ class predictor_autoregressive_neural(template_predictor):
 
         initial_state_normed = self.normalize_state(initial_state)
 
+        if self.dmah:
+            self.dmah.set_starting_point(initial_state_normed)
+
         self.lib.assign(self.model_initial_input_normed, self.lib.gather_last(initial_state_normed, self.model_initial_input_indices))
 
         model_external_input_normed = self.lib.gather_last(self.normalize_control_inputs(Q), self.model_external_input_indices)
