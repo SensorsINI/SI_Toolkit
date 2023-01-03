@@ -88,6 +88,7 @@ class predictor_autoregressive_neural(template_predictor):
             self.horizon = 1
 
         if hasattr(self.net_info, 'dt') and self.net_info.dt == 0.0:
+            print('Horizon set to 0!')
             self.horizon = 1
 
         if self.net_info.library == 'TF':
