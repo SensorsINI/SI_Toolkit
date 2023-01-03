@@ -158,7 +158,7 @@ class predictor_autoregressive_neural(template_predictor):
                     batch_size=self.batch_size,
                     lib=self.lib,
                 )
-            outputs_names = [x[2:] if x[:2] == 'D_' else x for x in self.net_info.outputs]
+            outputs_names = [(x[2:] if x[:2] == 'D_' else x) for x in self.net_info.outputs]
         else:
             self.dmah: Optional[differential_model_autoregression_helper] = None
             outputs_names = self.net_info.outputs
