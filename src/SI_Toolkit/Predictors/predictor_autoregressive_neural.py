@@ -88,6 +88,7 @@ class predictor_autoregressive_neural(template_predictor):
             self.horizon = 1
 
         if hasattr(self.net_info, 'dt') and self.net_info.dt == 0.0:
+            print('Horizon set to 0!')
             self.horizon = 1
 
         if self.net_info.library == 'TF':
@@ -157,7 +158,7 @@ class predictor_autoregressive_neural(template_predictor):
                     batch_size=self.batch_size,
                     lib=self.lib,
                 )
-            outputs_names = np.array([x[2:] for x in self.net_info.outputs])
+            outputs_names = [(x[2:] if x[:2] == 'D_' else x) for x in self.net_info.outputs]
         else:
             self.dmah: Optional[differential_model_autoregression_helper] = None
             outputs_names = self.net_info.outputs
@@ -234,6 +235,9 @@ class predictor_autoregressive_neural(template_predictor):
         self.lib.assign(self.last_initial_state, initial_state)
 
         initial_state_normed = self.normalize_state(initial_state)
+
+        if self.dmah:
+            self.dmah.set_starting_point(initial_state_normed)
 
         self.lib.assign(self.model_initial_input_normed, self.lib.gather_last(initial_state_normed, self.model_initial_input_indices))
 

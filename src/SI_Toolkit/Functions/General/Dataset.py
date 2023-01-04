@@ -36,6 +36,17 @@ class DatasetTemplate:
         self.labels = []
         self.time_axes = []
 
+        dfs_split = []
+        for df in dfs:
+            if 'experiment_index' in df.columns:
+                grouped = df.groupby(df.experiment_index)
+                for i in df.experiment_index.unique():
+                    dfs_split.append(grouped.get_group(i))
+            else:
+                dfs_split.append(df)
+
+            dfs = dfs_split
+
         for df in dfs:
             if 'time' in df.columns:
                 self.time_axes.append(df['time'])

@@ -86,7 +86,7 @@ def get_scaling_function_for_output_of_differential_network(
                                  normalization_type='minmax_sym',
 ):
 
-    DIFF_NET_STATE_VARIABLES = [x[2:] for x in network_outputs]  # Outputs without D_ -> to make possible comparison with inputs
+    DIFF_NET_STATE_VARIABLES = [(x[2:] if x[:2] == 'D_' else x) for x in network_outputs]  # Outputs without D_ -> to make possible comparison with inputs
     denormalizing_derivatives = lib.to_tensor(normalization_info[network_outputs].values, dtype=lib.float32)
     normalizing_variables = lib.to_tensor(normalization_info[DIFF_NET_STATE_VARIABLES].values, dtype=lib.float32)
 
@@ -132,7 +132,7 @@ def get_scaling_function_for_output_of_differential_network(
     # D = augmentation_matrix @ D
 
     p1 = a * C * dt
-    p2 = a * D * dt - b
+    p2 = a * D * dt
 
     p1 = lib.to_tensor(p1, dtype=lib.float32)
     p2 = lib.to_tensor(p2, dtype=lib.float32)
