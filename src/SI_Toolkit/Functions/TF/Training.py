@@ -47,7 +47,7 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
         loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
                                             post_wash_out_len=a.post_wash_out_len,
                                             discount_factor=1.0),
-        optimizer=keras.optimizers.Adam(0.001)
+        optimizer=keras.optimizers.Adam(a.lr)
     )
 
     # region Define callbacks to be used in training
