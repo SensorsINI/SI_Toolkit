@@ -50,6 +50,8 @@ POST_WASH_OUT_LEN = config['training_default']['POST_WASH_OUT_LEN']
 ON_FLY_DATA_GENERATION = config['training_default']['ON_FLY_DATA_GENERATION']
 NORMALIZE = config['training_default']['NORMALIZE']
 USE_NNI = config['training_default']['USE_NNI']
+TRAINING_MODE = config['training_default']['TRAINING_MODE']
+PLOT_WHILE_TRAINING = config['training_default']['PLOT_WHILE_TRAINING']
 
 # For l2race
 # control_inputs = ['u1', 'u2']
@@ -116,6 +118,12 @@ def args():
                         help='Generate data for training during training, instead of loading previously saved data')
     parser.add_argument('--normalize', default=NORMALIZE, type=bool, help='Make all data between 0 and 1')
     parser.add_argument('--use_nni', default=USE_NNI, type=bool, help='Use NNI package to search hyperparameter space')
+
+    parser.add_argument('--training_mode', default=TRAINING_MODE, type=str,
+                        help='Decides training protocol.')
+
+    parser.add_argument('--plot_while_training', default=PLOT_WHILE_TRAINING, type=bool,
+                        help='Plot during training.')
 
     args = parser.parse_args()
 

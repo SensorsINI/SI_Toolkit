@@ -119,6 +119,8 @@ def get_net(a,
             with open(txt_path, newline='') as f:
                 lines = f.read().splitlines()
 
+            training_type = None
+            net_total_washout = None
             for i in range(len(lines)):
                 if lines[i] == 'NET NAME:':
                     net_name = lines[i + 1].rstrip("\n")
@@ -144,6 +146,13 @@ def get_net(a,
                 if lines[i] == 'WASH OUT LENGTH:':
                     net_wash_out_len = float(lines[i + 1].rstrip("\n"))
                     continue
+                if lines[i] == 'AUTOREGRESSIVE TRAINING MODE:':
+                    training_type = int(lines[i + 1].rstrip("\n"))
+                    continue
+                if lines[i] == 'WASH OUT + POST WASH OUT LENGTH:':
+                    net_total_washout = float(lines[i + 1].rstrip("\n"))
+                    continue
+
 
             print('Inputs to the loaded network: {}'.format(', '.join(map(str, inputs))))
             print('Outputs from the loaded network: {}'.format(', '.join(map(str, outputs))))
@@ -151,10 +160,19 @@ def get_net(a,
 
             # endregion
 
-            # region Recreate pretrained network
+            # To load the network correctly wrt the autoregressive training mode chosen
 
+            if training_type is not None:
+                time_series_length = int(net_total_washout)
+
+            if training_type is not None and training_type > 1:
+                time_series_length = 1
+
+            # region Recreate pretrained network
             # Recreate network architecture
             net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
+                                                      net_total_washout=net_total_washout,
+                                                      training_mode=training_type,
                                                       time_series_length=time_series_length,
                                                       batch_size=batch_size, stateful=stateful)
 
@@ -223,7 +241,23 @@ def get_net(a,
         print('No pretrained network specified. I will train a network from scratch.')
         print('')
 
+        # region to save which training type was used for autoregression
+        prefix = a.net_name.split('-')[0]
+        training_type = None
+        if prefix == 'Autoregressive' and type(a.training_mode) is int:
+            training_type = a.training_mode
+        elif prefix == 'Autoregressive':
+            training_type = 1
+
+        total_washout = a.wash_out_len+a.post_wash_out_len
+
+        # To load the network correctly wrt the autoregressive training mode chosen
+        if training_type is not None and training_type > 1:
+            time_series_length = 1
+
         net, net_info = compose_net_from_net_name(a.net_name, a.inputs, a.outputs,
+                                                  net_total_washout=total_washout,
+                                                  training_mode=training_type,
                                                   time_series_length=time_series_length,
                                                   batch_size=batch_size, stateful=stateful)
 
@@ -339,6 +373,12 @@ def create_log_file(net_info, a):
     f.write(net_info.parent_net_name)
     f.write('\n\nWASH OUT LENGTH:\n')
     f.write(str(net_info.wash_out_len))
+    f.write('\n\nWASH OUT + POST WASH OUT LENGTH:\n')
+    f.write(str(net_info.total_washout))
+    if net_info.training_mode is not None:
+        f.write('\n\nAUTOREGRESSIVE TRAINING MODE:\n')
+        f.write(str(net_info.training_mode))
+
 
     f.write('\n\nTRAINING_FILES:\n')
     if type(a.training_files) is list:

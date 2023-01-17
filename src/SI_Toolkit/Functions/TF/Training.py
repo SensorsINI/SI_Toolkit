@@ -4,7 +4,7 @@ from tensorflow import keras
 
 from SI_Toolkit.Functions.TF.Dataset import Dataset
 
-from SI_Toolkit.Functions.TF.CustomTraining import fit_autoregressive
+from SI_Toolkit.Functions.TF.CustomTraining import *
 
 try:
     from SI_Toolkit_ASF.DataSelector import DataSelector
@@ -23,8 +23,8 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     # training_dataset = DataSelectorInstance.return_dataset_for_training(shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
     training_dataset = Dataset(training_dfs_norm, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
 
-    validation_dataset = Dataset(validation_dfs_norm, a, shuffle=True, inputs=net_info.inputs,
-                                 outputs=net_info.outputs)
+    # validation_dataset = Dataset(validation_dfs_norm, a, shuffle=True, inputs=net_info.inputs,
+    #                              outputs=net_info.outputs)
 
     test_dataset = Dataset(test_dfs_norm, a, shuffle=False, inputs=net_info.inputs, outputs=net_info.outputs)
 
@@ -33,7 +33,7 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     print('')
     print('Number of samples in training set: {}'.format(training_dataset.number_of_samples))
     print('The mean number of samples from each experiment used for training is {} with variance {}'.format(np.mean(training_dataset.df_lengths), np.std(training_dataset.df_lengths)))
-    print('Number of samples in validation set: {}'.format(validation_dataset.number_of_samples))
+    #print('Number of samples in validation set: {}'.format(validation_dataset.number_of_samples))
     print('')
 
     # endregion
@@ -88,19 +88,27 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     # check if standard training or autoregressive training - training loop
     prefix = a.net_name.split('-')[0]
     if prefix == 'Autoregressive':
-        loss, validation_loss = fit_autoregressive(net, net_info, training_dataset, validation_dataset, test_dataset, a)
+        if net_info.training_mode == 1:
+            loss, validation_loss = fit_autoregressive_1(net, net_info, training_dataset, a=a)
+        elif net_info.training_mode == 2:
+            loss, validation_loss = fit_autoregressive_2(net, net_info, training_dataset, a=a)
+        elif net_info.training_mode == 3:
+            loss, validation_loss = fit_autoregressive_3(net, net_info, training_dataset, a=a)
+
+
     else:
         history = net.fit(
             training_dataset,
             epochs=a.num_epochs,
             verbose=True,
             shuffle=False,
-            validation_data=validation_dataset,
+            # validation_data=validation_dataset,
             callbacks=callbacks_for_training,
         )
 
         loss = history.history['loss']
-        validation_loss = history.history['val_loss']
+        # validation_loss = history.history['val_loss']
+        validation_loss = 0
 
     # endregion
 

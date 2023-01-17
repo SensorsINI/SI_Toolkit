@@ -21,6 +21,8 @@ def compose_net_from_net_name(net_name,
                               inputs_list,
                               outputs_list,
                               time_series_length,
+                              training_mode=None,
+                              net_total_washout=None,
                               batch_size=None,
                               stateful=False):
 
@@ -91,6 +93,8 @@ def compose_net_from_net_name(net_name,
     net_info.inputs = inputs_list
     net_info.outputs = outputs_list
     net_info.net_type = net_type
+    net_info.total_washout = int(net_total_washout)
+    net_info.training_mode = training_mode
 
     return net, net_info
 
