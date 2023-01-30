@@ -697,34 +697,35 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, path
 
 def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_derivative, derivative_algorithm='finite_difference'):
     paths_to_recordings = get_paths_to_datafiles(get_files_from)
-    if paths_to_recordings:
+    if not paths_to_recordings:
+        Exception('No files found')
 
-        try:
-            os.makedirs(save_files_to)
-        except FileExistsError:
-            pass
+    try:
+        os.makedirs(save_files_to)
+    except FileExistsError:
+        pass
 
-        for j in trange(len(paths_to_recordings)):
+    for j in trange(len(paths_to_recordings)):
 
-            dfs = load_data(list_of_paths_to_datafiles=[paths_to_recordings[j]], verbose=False)
+        dfs = load_data(list_of_paths_to_datafiles=[paths_to_recordings[j]], verbose=False)
 
-            dfs, paths_with_derivative = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings, verbose=False)
+        dfs, paths_with_derivative = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings, verbose=False)
 
-            file_names = [os.path.basename(paths_with_derivative[i]) for i in range(len(paths_with_derivative))]
+        file_names = [os.path.basename(paths_with_derivative[i]) for i in range(len(paths_with_derivative))]
 
-            for i in range(len(dfs)):
-                old_file_path = paths_with_derivative[i]
-                file_path = os.path.join(save_files_to, file_names[i])
-                with open(file_path, 'w', newline=''): # Overwrites if existed
-                    pass
-                with open(old_file_path, "r", newline='') as f_input, \
-                        open(file_path, "a", newline='') as f_output:
-                    for line in f_input:
-                        if line[0:len('#')] == '#':
-                            csv.writer(f_output).writerow([line.strip()])
-                        else:
-                            break
-                dfs[i].to_csv(file_path, index=False, mode='a')
+        for i in range(len(dfs)):
+            old_file_path = paths_with_derivative[i]
+            file_path = os.path.join(save_files_to, file_names[i])
+            with open(file_path, 'w', newline=''): # Overwrites if existed
+                pass
+            with open(old_file_path, "r", newline='') as f_input, \
+                    open(file_path, "a", newline='') as f_output:
+                for line in f_input:
+                    if line[0:len('#')] == '#':
+                        csv.writer(f_output).writerow([line.strip()])
+                    else:
+                        break
+            dfs[i].to_csv(file_path, index=False, mode='a')
 
     else:
         print('No files found')
