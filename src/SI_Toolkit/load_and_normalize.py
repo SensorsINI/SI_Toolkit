@@ -727,6 +727,64 @@ def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_de
                         break
             dfs[i].to_csv(file_path, index=False, mode='a')
 
-    else:
-        print('No files found')
 
+def add_shifted_columns(get_files_from, save_files_to, variables_to_shift, indices_by_which_to_shift):
+
+    paths_to_recordings = get_paths_to_datafiles(get_files_from)
+
+    if not paths_to_recordings:
+        Exception('No files found')
+
+    try:
+        os.makedirs(save_files_to)
+    except FileExistsError:
+        pass
+
+    for i in trange(len(paths_to_recordings)):
+        current_path = paths_to_recordings[i]
+        df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
+        length_original_df = len(df)
+        for j in range(len(indices_by_which_to_shift)):
+            index_by_which_to_shift = int(indices_by_which_to_shift[j])
+            if index_by_which_to_shift == 0:
+                continue
+            new_names = [variable_to_shift + '_' + str(index_by_which_to_shift) for variable_to_shift in variables_to_shift]
+            subset = df.loc[:, variables_to_shift]
+            if index_by_which_to_shift > 0:
+                subset.index += -index_by_which_to_shift
+
+            else:
+                subset.index += abs(index_by_which_to_shift)
+
+            subset.columns = new_names
+            df = pd.concat((df, subset), axis=1)
+
+        bound_low = min(indices_by_which_to_shift)
+        if bound_low >= 0:
+            bound_low = 0
+        else:
+            bound_low = abs(bound_low)
+
+        bound_high = max(indices_by_which_to_shift)
+        if bound_high <= 0:
+            bound_high = length_original_df
+        else:
+            bound_high = length_original_df-bound_high-1  # indexing from 0!
+
+        df_processed = df.loc[bound_low:bound_high, :]
+
+        processed_file_name = os.path.basename(current_path)
+
+
+        processed_file_path = os.path.join(save_files_to, processed_file_name)
+        with open(processed_file_path, 'w', newline=''): # Overwrites if existed
+            pass
+        with open(current_path, "r", newline='') as f_input, \
+                open(processed_file_path, "a", newline='') as f_output:
+            for line in f_input:
+                if line[0:len('#')] == '#':
+                    csv.writer(f_output).writerow([line.strip()])
+                else:
+                    break
+
+        df_processed.to_csv(processed_file_path, index=False, mode='a')
