@@ -74,24 +74,37 @@ def plot_test(model, data, closed_loop=False):
     t = t.to_numpy(dtype=np.float64).reshape(-1, 1)
     X = X.to_numpy(dtype=np.float64)
     Y = Y.to_numpy(dtype=np.float64)
-
+    trajectories = []
     ## predict mean and variance of latent GPs at test points
     if closed_loop:
         t = t[100:150]  # TODO take random bit of recording
         Y = Y[100:150]
         X = X[100:150]
-        mean = np.empty(shape=[0, len(model.outputs)])
-        var = np.empty(shape=[0, len(model.outputs)])
+        s_init = X[0, :-1].reshape(-1, len(model.outputs))
 
-        s = X[0, :-1].reshape(-1, len(model.outputs))
-        for i in range(50):
-            s = np.concatenate((s, X[i, -1].reshape(1, 1)), axis=1)
-            s, v = model.predict_f(tf.convert_to_tensor(s.reshape(-1, 1).T))
-            s = s.numpy().reshape(-1, len(model.outputs))
-            v = v.numpy().reshape(-1, len(model.outputs))
-            # s[0, :] = Y[i, :]  # use ground truth for some state variables
-            mean = np.vstack([mean, s])
-            var = np.vstack([var, v])
+        for random_realisation_idx in range(100):
+            mean = np.empty(shape=[0, len(model.outputs)])
+            var = np.empty(shape=[0, len(model.outputs)])
+            trajectory = np.empty(shape=[0, len(model.outputs)])
+            s = s_init
+
+            for i in range(50):
+                s = np.concatenate((s, X[i, -1].reshape(1, 1)), axis=1)
+                m, v = model.predict_f(tf.convert_to_tensor(s.reshape(-1, 1).T))
+                m = m.numpy().reshape(-1, len(model.outputs))
+                v = v.numpy().reshape(-1, len(model.outputs))
+                traj = np.random.normal(m, v)
+                s = traj
+                # s[0, :] = Y[i, :]  # use ground truth for some state variables
+                mean = np.vstack([mean, m])
+                var = np.vstack([var, v])
+                trajectory = np.vstack([trajectory, traj])
+            trajectories.append(trajectory)
+
+        trajectories_array = np.stack(trajectories)
+        var_trajectories = np.var(trajectories_array, axis=0)
+        mean_trajectories = np.mean(trajectories_array, axis=0)
+
     else:
         mean, var = model.predict_f(X)
         mean = mean.numpy()
@@ -100,23 +113,31 @@ def plot_test(model, data, closed_loop=False):
     for i in range(len(model.outputs)):
         plt.figure(figsize=(12, 6))
 
-        # PLOT MEAN AND VARIANCE
-        # alternative for small amounts of data
-        # plt.errorbar(
-        #    t_test[1:], mean[:, i],
-        #    yerr=1.96 * np.sqrt(var[:, i]),
-        #    fmt='co', capsize=5, zorder=1, label="mean, var"
-        # )
-        plt.plot(t, mean[:, i], "C0", zorder=3, label="mean")
-        plt.fill_between(
-            t[:, 0],
-            mean[:, i] - 1.96 * np.sqrt(var[:, i]),
-            mean[:, i] + 1.96 * np.sqrt(var[:, i]),
-            color="C0",
-            alpha=0.2,
-            label="var"
-        )
+        if closed_loop:
+            plt.fill_between(
+                t[:, 0],
+                mean_trajectories[:, i] - 1.96 * np.sqrt(var_trajectories[:, i]),
+                mean_trajectories[:, i] + 1.96 * np.sqrt(var_trajectories[:, i]),
+                color="C0",
+                alpha=0.2,
+                label="var"
+            )
 
+            for count, trajectory in enumerate(trajectories):
+                if count == 0:
+                    plt.plot(t, trajectory[:, i], "green", zorder=3, alpha=0.1, label='predictions')
+                else:
+                    plt.plot(t, trajectory[:, i], "green", zorder=3, alpha=0.1)
+        else:
+            plt.plot(t, mean[:, i], "C0", zorder=3, label="mean")
+            plt.fill_between(
+                t[:, 0],
+                mean[:, i] - 1.96 * np.sqrt(var[:, i]),
+                mean[:, i] + 1.96 * np.sqrt(var[:, i]),
+                color="C0",
+                alpha=0.2,
+                label="var"
+            )
         # PLOT GROUND TRUTH
         # alternative for small amounts of data
         # plt.plot(t, Y[:, i], "kx", mew=2, zorder=3, label="ground truth")

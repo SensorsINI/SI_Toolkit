@@ -190,12 +190,16 @@ def load_csv_recording(file_path):
 
     return data
 
-def load_data(list_of_paths_to_datafiles=None):
+def load_data(list_of_paths_to_datafiles=None, verbose=True):
 
     all_dfs = []  # saved separately to get normalization
-    print('Loading data files:')
+    if verbose:
+        print('Loading data files:')
+        range_function = trange
+    else:
+        range_function = range
     sleep(0.1)
-    for file_number in trange(len(list_of_paths_to_datafiles)):
+    for file_number in range_function(len(list_of_paths_to_datafiles)):
         filepath = list_of_paths_to_datafiles[file_number]
         # print(filepath)
         # Read column names from file
@@ -599,82 +603,115 @@ def normalize_numpy_array(denormalized_array,
     return normalized_array
 
 
-def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings):
+def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings, verbose=True):
     """
     Takes list of dataframes dfs
     and augment it with derivatives of columns indicated in variables_for_derivative
     using algorithm indicated in derivative_algorithm.
     The output file is shorter - first and last indices for which it is difficult to get good derivative are dropped.
     """
+
+    if verbose:
+        print('Calculating derivatives')
+        range_function = trange
+    else:
+        range_function = range
+
     file_names = [os.path.basename(paths_to_recordings[i]) for i in range(len(paths_to_recordings))]
 
     cut = 7
     dfs_with_derivatives = []
     paths_with_derivatives = []
-    print('Calculating derivatives')
     no_time_axis_in_files = []
-    for i in trange(len(dfs)):
-        df = dfs[i]
-        if df.shape[0] < 2 * cut:
-            if file_names is not None:
-                print('Dropping {} as too short'.format(file_names[i]))
-            continue
+    for j in range_function(len(dfs)):
+
+        df_composed = dfs[j]
+        path_to_recording = paths_to_recordings[j]
+        file_name = file_names[j]
+
+        dfs_split = []
+        if 'experiment_index' in df_composed.columns:
+            grouped = df_composed.groupby(df_composed.experiment_index)
+            for i in df_composed.experiment_index.unique():
+                dfs_split.append(grouped.get_group(i))
         else:
-            paths_with_derivatives.append(paths_to_recordings[i])
-        # print(file_names[i])
-        try:
-            t = df['time'].values
-        except KeyError:
-            no_time_axis_in_files.append(file_names[i])
-            t = np.arange(df.shape[0])
-        y = df[variables_for_derivative].values
-        dy = np.zeros_like(y)
-        for j in range(len(variables_for_derivative)):
-            if derivative_algorithm == 'finite_difference':
-                dy[:, j] = dxdt(y[:, j], t, kind=derivative_algorithm, k=cut)
-            elif derivative_algorithm == 'single_difference':
-                cut = 1
-                dy[:-1, j] = (y[1:, j]-y[:-1, j])/(t[1:]-t[:-1])
-            else:
-                raise NotImplemented('{} is not a recognised name for derivative algorithm'.format(derivative_algorithm))
+            dfs_split.append(df_composed)
 
-        derivatives_names = ['D_' + x for x in variables_for_derivative]
-        derivatives = pd.DataFrame(data=dy, columns=derivatives_names)
+        dfs_processed = []
+        for df in dfs_split:
 
-        df = pd.concat([df, derivatives], axis=1)
+            df = df.reset_index(drop=True)
 
-        # cut first and last k where derivative is not well determined
-        df = df.iloc[cut:-cut, :]
+            if df.shape[0] < 2 * cut:
+                continue
 
-        dfs_with_derivatives.append(df)
+            # print(file_names)
+            try:
+                t = df['time'].values
+            except KeyError:
+                no_time_axis_in_files.append(file_name)
+                t = np.arange(df.shape[0])
+            y = df[variables_for_derivative].values
+            dy = np.zeros_like(y)
+            for j in range(len(variables_for_derivative)):
+                if derivative_algorithm == 'finite_difference':
+                    dy[:, j] = dxdt(y[:, j], t, kind=derivative_algorithm, k=cut)
+                elif derivative_algorithm == 'single_difference':
+                    cut = 1
+                    dy[:-1, j] = (y[1:, j]-y[:-1, j])/(t[1:]-t[:-1])
+                else:
+                    raise NotImplemented('{} is not a recognised name for derivative algorithm'.format(derivative_algorithm))
+
+            derivatives_names = ['D_' + x for x in variables_for_derivative]
+            derivatives = pd.DataFrame(data=dy, columns=derivatives_names)
+
+            df = pd.concat([df, derivatives], axis=1)
+
+            # cut first and last k where derivative is not well determined
+            df = df.iloc[cut:-cut, :].reset_index(drop=True)
 
 
-        if no_time_axis_in_files:
-            if set(no_time_axis_in_files) == set(file_names):
-                print('No time axis provided. Calculated increments dx for all the files.')
-            else:
-                print('WARNING!!!! \n Some data files have time axes, but some not. \n'
-                      'The derivative calculation across files is inconsistent!')
-                print('The files without time axis are:')
-                for filename in no_time_axis_in_files:
-                    print(filename)
+            if no_time_axis_in_files:
+                if set(no_time_axis_in_files) == set(file_names):
+                    print('No time axis provided. Calculated increments dx for all the files.')
+                else:
+                    print('WARNING!!!! \n Some data files have time axes, but some not. \n'
+                          'The derivative calculation across files is inconsistent!')
+                    print('The files without time axis are:')
+                    for filename in no_time_axis_in_files:
+                        print(filename)
+
+            dfs_processed.append(df)
+
+        if dfs_processed:
+            paths_with_derivatives.append(path_to_recording)
+        else:
+            print('Dropping {} as too short'.format(file_name))
+
+
+        dfs_processed = pd.concat(dfs_processed, axis=0).reset_index(drop=True)
+        dfs_with_derivatives.append(dfs_processed)
 
     return dfs_with_derivatives, paths_with_derivatives
 
 
 def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_derivative, derivative_algorithm='finite_difference'):
     paths_to_recordings = get_paths_to_datafiles(get_files_from)
-    if paths_to_recordings:
+    if not paths_to_recordings:
+        Exception('No files found')
 
-        dfs = load_data(list_of_paths_to_datafiles=paths_to_recordings)
+    try:
+        os.makedirs(save_files_to)
+    except FileExistsError:
+        pass
 
-        dfs, paths_with_derivative = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings)
+    for j in trange(len(paths_to_recordings)):
+
+        dfs = load_data(list_of_paths_to_datafiles=[paths_to_recordings[j]], verbose=False)
+
+        dfs, paths_with_derivative = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings, verbose=False)
+
         file_names = [os.path.basename(paths_with_derivative[i]) for i in range(len(paths_with_derivative))]
-
-        try:
-            os.makedirs(save_files_to)
-        except FileExistsError:
-            pass
 
         for i in range(len(dfs)):
             old_file_path = paths_with_derivative[i]
@@ -689,5 +726,65 @@ def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_de
                     else:
                         break
             dfs[i].to_csv(file_path, index=False, mode='a')
-    else:
-        print('No files found')
+
+
+def add_shifted_columns(get_files_from, save_files_to, variables_to_shift, indices_by_which_to_shift):
+
+    paths_to_recordings = get_paths_to_datafiles(get_files_from)
+
+    if not paths_to_recordings:
+        Exception('No files found')
+
+    try:
+        os.makedirs(save_files_to)
+    except FileExistsError:
+        pass
+
+    for i in trange(len(paths_to_recordings)):
+        current_path = paths_to_recordings[i]
+        df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
+        length_original_df = len(df)
+        for j in range(len(indices_by_which_to_shift)):
+            index_by_which_to_shift = int(indices_by_which_to_shift[j])
+            if index_by_which_to_shift == 0:
+                continue
+            new_names = [variable_to_shift + '_' + str(index_by_which_to_shift) for variable_to_shift in variables_to_shift]
+            subset = df.loc[:, variables_to_shift]
+            if index_by_which_to_shift > 0:
+                subset.index += -index_by_which_to_shift
+
+            else:
+                subset.index += abs(index_by_which_to_shift)
+
+            subset.columns = new_names
+            df = pd.concat((df, subset), axis=1)
+
+        bound_low = min(indices_by_which_to_shift)
+        if bound_low >= 0:
+            bound_low = 0
+        else:
+            bound_low = abs(bound_low)
+
+        bound_high = max(indices_by_which_to_shift)
+        if bound_high <= 0:
+            bound_high = length_original_df
+        else:
+            bound_high = length_original_df-bound_high-1  # indexing from 0!
+
+        df_processed = df.loc[bound_low:bound_high, :]
+
+        processed_file_name = os.path.basename(current_path)
+
+
+        processed_file_path = os.path.join(save_files_to, processed_file_name)
+        with open(processed_file_path, 'w', newline=''): # Overwrites if existed
+            pass
+        with open(current_path, "r", newline='') as f_input, \
+                open(processed_file_path, "a", newline='') as f_output:
+            for line in f_input:
+                if line[0:len('#')] == '#':
+                    csv.writer(f_output).writerow([line.strip()])
+                else:
+                    break
+
+        df_processed.to_csv(processed_file_path, index=False, mode='a')

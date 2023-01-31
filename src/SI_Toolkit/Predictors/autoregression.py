@@ -45,9 +45,6 @@ class autoregression_loop:
         else:
             outputs = self.lib.zeros([self.batch_size, horizon, self.model_outputs_len])
 
-        if self.dmah:
-            self.dmah.set_starting_point(initial_input)
-
         model_input = initial_input
 
         if predictor == 'gp' or horizon == 1:
@@ -126,15 +123,15 @@ class differential_model_autoregression_helper:
             self.lib
         )
 
-        outputs_names = np.array([x[2:] for x in outputs])
+        outputs_names_after_integration = np.array([x[2:] for x in outputs])
 
-        self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names],
+        self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names_after_integration],
                                                           dtype=self.lib.int64)
-        output_indices = {x: np.where(outputs_names == x)[0][0] for x in outputs_names}
+        output_indices = {x: np.where(outputs_names_after_integration == x)[0][0] for x in outputs_names_after_integration}
         self.indices_output_to_input = self.lib.to_tensor(
             [output_indices.get(key) for key in inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int64)
 
-        starting_point = self.lib.zeros([batch_size, len(STATE_VARIABLES)], dtype=self.lib.float32)
+        starting_point = self.lib.zeros([batch_size, len(outputs_names_after_integration)], dtype=self.lib.float32)
         self.starting_point = self.lib.to_variable(starting_point, self.lib.float32)
 
     def set_starting_point(self, starting_point):

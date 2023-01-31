@@ -446,7 +446,7 @@ def create_log_file(net_info, a, dfs):
             time = dfs[i]['time'].to_numpy()
             dt = time[1:]-time[:-1]
             all_dt.append(dt)
-        all_dt = np.stack(all_dt)
+        all_dt = np.concatenate(all_dt)
         dt_mean = np.mean(all_dt)*np.sqrt(a.shift_labels)
         dt_std = np.std(all_dt)*np.sqrt(a.shift_labels)
     else:

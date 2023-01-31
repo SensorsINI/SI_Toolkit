@@ -12,6 +12,12 @@ predictors_config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_predic
 NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM']
 
 class PredictorWrapper:
+    """Wrapper class for creating a predictor.
+
+    1) Instantiate this wrapper without parameters within the controller class
+    2) Pass the instance of this wrapper to the optimizer, without the need to already know specifics about it
+    3) Call this wrapper's `configure` method in controller class to set optimization-specific parameters
+    """
     def __init__(self):
 
         self.horizon = None
@@ -28,8 +34,24 @@ class PredictorWrapper:
         self.model_name: str = self.predictor_config['model_name']
 
     def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, predictor_specification=None, compile_standalone=False, mode=None):
+        """Assign optimization-specific parameters to finalize instance creation.
 
 
+        :param batch_size: Batch size equals the number of parallel rollouts of the optimizer.
+        :type batch_size: int
+        :param horizon: Number of MPC horizon steps
+        :type horizon: int
+        :param dt: Used to compute state trajectory rollouts
+        :type dt: float
+        :param computation_library: Whether to use NumPy / TensorFlow / PyTorch, defaults to None
+        :type computation_library: Optional[type[ComputationLibrary]], optional
+        :param predictor_specification: Name of predictor to use or path to neural network, defaults to None
+        :type predictor_specification: _type_, optional
+        :param compile_standalone: Whether to decorate the internal step function with its own compilation call, defaults to False
+        :type compile_standalone: bool, optional
+        :raises NotImplementedError: If the predictor type is not known
+        :raises ValueError: Type of the predictor not recognised
+        """
         self.update_predictor_config_from_specification(predictor_specification)
 
         compile_standalone = {'disable_individual_compilation': not compile_standalone}
@@ -63,7 +85,7 @@ class PredictorWrapper:
                 f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__name__}")
 
         self.predictor.lib=computation_library # set the library type on the predictor object so we can use it to assign attributes later
-        
+
 
     def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None, mode=None):
         """
