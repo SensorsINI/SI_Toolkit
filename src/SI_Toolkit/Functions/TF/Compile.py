@@ -4,7 +4,7 @@ import platform
 import tensorflow as tf
 import torch
 
-from Control_Toolkit.others.globals_and_utils import get_logger
+from get_logger import get_logger
 log=get_logger(__name__)
 
 from SI_Toolkit.computation_library import ComputationLibrary
