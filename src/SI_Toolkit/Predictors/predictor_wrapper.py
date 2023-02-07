@@ -33,7 +33,7 @@ class PredictorWrapper:
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
 
-    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, predictor_specification=None, compile_standalone=False, mode=None):
+    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: Optional[ComputationLibrary]=None, predictor_specification=None, compile_standalone=False, mode=None):
         """Assign optimization-specific parameters to finalize instance creation.
 
 
