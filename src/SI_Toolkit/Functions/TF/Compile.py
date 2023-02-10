@@ -12,8 +12,7 @@ from SI_Toolkit.computation_library import ComputationLibrary
 try:
     from SI_Toolkit_ASF import USE_TENSORFLOW_EAGER_MODE, USE_TENSORFLOW_XLA
 except ImportError:
-    log.warn("No compilation option set in SI_Toolkit_ASF/__init.py__. Setting USE_TENSORFLOW_EAGER_MODE to True.")
-    USE_TENSORFLOW_EAGER_MODE = True
+    raise Exception("Either/both of compilation options USE_TENSORFLOW_EAGER_MODE, USE_TENSORFLOW_XLA are missing in SI_Toolkit_ASF/__init.py__.")
 
 def tf_function_jit(func):
     log.info(f'compiling tf.function from {func}')
