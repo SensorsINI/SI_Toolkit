@@ -15,7 +15,7 @@ except ImportError:
     raise Exception("Either/both of compilation options USE_TENSORFLOW_EAGER_MODE, USE_TENSORFLOW_XLA are missing in SI_Toolkit_ASF/__init.py__.")
 
 def tf_function_jit(func):
-    log.info(f'compiling tf.function from {func}')
+    # log.debug(f'compiling tf.function from {func}')
     return tf.function(func=func, jit_compile=True,)
 
 
