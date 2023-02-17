@@ -709,7 +709,7 @@ def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_de
 
         dfs = load_data(list_of_paths_to_datafiles=[paths_to_recordings[j]], verbose=False)
 
-        dfs, paths_with_derivative = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings, verbose=False)
+        dfs, paths_with_derivative = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, [paths_to_recordings[j]], verbose=False)
 
         file_names = [os.path.basename(paths_with_derivative[i]) for i in range(len(paths_with_derivative))]
 
