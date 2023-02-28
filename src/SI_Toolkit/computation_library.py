@@ -193,7 +193,7 @@ class TensorFlowLibrary(ComputationLibrary):
     permute = tf.transpose
     newaxis = tf.newaxis
     shape = tf.shape #  tobi does not understand reason for this previous definition: # lambda x: x.get_shape()  # .as_list()
-    to_numpy = lambda x: x.numpy()
+    to_numpy = lambda x: x.numpy() if isinstance(x,(tf.Tensor, tf.Variable)) else x
     to_variable = lambda x, dtype: tf.Variable(x, dtype=dtype)
     to_tensor = lambda x, dtype: tf.convert_to_tensor(x, dtype=dtype)
     constant = lambda x, t: tf.constant(x, dtype=t)

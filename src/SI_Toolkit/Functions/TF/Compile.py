@@ -28,7 +28,7 @@ def identity(func):
 
 
 if USE_TENSORFLOW_EAGER_MODE:
-    log.info('TensorFlow compilation is disabled by USE_TENSORFLOW_EAGER_MODE=True')
+    log.warning('TensorFlow compilation is disabled by USE_TENSORFLOW_EAGER_MODE=True and execution will be extremely slow')
     CompileTF = identity
 else:
     if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
