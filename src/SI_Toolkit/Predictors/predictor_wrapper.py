@@ -13,7 +13,7 @@ NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM']
 
 class PredictorWrapper:
     """Wrapper class for creating a predictor.
-    
+
     1) Instantiate this wrapper without parameters within the controller class
     2) Pass the instance of this wrapper to the optimizer, without the need to already know specifics about it
     3) Call this wrapper's `configure` method in controller class to set optimization-specific parameters
@@ -33,8 +33,9 @@ class PredictorWrapper:
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
 
-    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, predictor_specification=None, compile_standalone=False, mode=None):
+    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: Optional[ComputationLibrary]=None, predictor_specification=None, compile_standalone=False, mode=None):
         """Assign optimization-specific parameters to finalize instance creation.
+
 
         :param batch_size: Batch size equals the number of parallel rollouts of the optimizer.
         :type batch_size: int
@@ -75,11 +76,16 @@ class PredictorWrapper:
             self.predictor = predictor_ODE_tf(horizon=self.horizon, dt=dt, batch_size=self.batch_size, **self.predictor_config, **compile_standalone)
 
         else:
-            raise NotImplementedError('Type of the predictor not recognised.')
-        
+            raise NotImplementedError(f'Type of the predictor {self.predictor_type} is not recognised.')
+
         # computation_library defaults to None. In that case, do not check for conformity.
-        if computation_library is not None and computation_library not in self.predictor.supported_computation_libraries:
-            raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__name__}")
+        # in other cases, check after we configure it to make sure it supports itself
+        if not computation_library is None and computation_library not in self.predictor.supported_computation_libraries:
+            raise ValueError(
+                f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__name__}")
+
+        self.predictor.lib=computation_library # set the library type on the predictor object so we can use it to assign attributes later
+
 
     def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None, mode=None):
         """
@@ -155,8 +161,8 @@ class PredictorWrapper:
     def predict(self, s, Q):
         return self.predictor.predict(s, Q)
 
-    def predict_tf(self, s, Q):  # TODO: This function should disappear: predict() should manage the right library
-        return self.predictor.predict_tf(s, Q)
+    def predict_tf(self, state, Q, time=None):  # TODO: This function should disappear: predict() should manage the right library
+        return self.predictor.predict_tf(state, Q, time=time)
 
     def update(self, Q0, s):
         if self.predictor_type == 'neural':

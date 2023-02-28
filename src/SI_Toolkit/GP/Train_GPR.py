@@ -26,7 +26,7 @@ inputs = a.state_inputs + a.control_inputs
 a.wash_out_len = 0
 a.post_wash_out_len = 1
 outputs = a.outputs
-batch_size = a.batch_size
+batch_size = a.num_rollouts
 
 number_of_inducing_points = 10
 

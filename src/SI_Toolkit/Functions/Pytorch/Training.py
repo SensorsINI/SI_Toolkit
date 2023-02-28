@@ -35,7 +35,7 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     del training_dfs_norm, validation_dfs_norm, test_dfs_norm
 
     # Create PyTorch dataloaders for train and dev set
-    training_generator = data.DataLoader(dataset=training_dataset, batch_size=a.batch_size, shuffle=True)
+    training_generator = data.DataLoader(dataset=training_dataset, batch_size=a.num_rollouts, shuffle=True)
     validation_generator = data.DataLoader(dataset=validation_dataset, batch_size=512, shuffle=False)
 
     print('')

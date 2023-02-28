@@ -51,26 +51,37 @@ class predictor_ODE_tf(template_predictor):
             self.predict_tf = CompileTF(self._predict_tf)
 
 
-    def predict(self, initial_state, Q):
+    def predict(self, initial_state, Q, time:float=None, horizon:int=None):
         initial_state, Q = convert_to_tensors(initial_state, Q)
         initial_state, Q = check_dimensions(initial_state, Q)
 
         self.batch_size = tf.shape(Q)[0]
         self.initial_state = initial_state
 
-        output = self.predict_tf(self.initial_state, Q)
+        output = self.predict_tf(self.initial_state, Q, params=None, horizon=horizon)
 
         return output.numpy()
 
 
-    def _predict_tf(self, initial_state, Q, params=None):
+    def _predict_tf(self, initial_state, Q, params=None, time:float=None, horizon:int=None):
+        """ Predict the states over horizon next timesteps.
+        Q must be a 3-dimensional vector [num_rollouts, horizon, Q] where Q is the vector of control inputs
 
-        self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
+        :param initial_state: the state now
+        :param Q: the control over horizon next steps
+        :param params: optional parameters
+        :param time: the current time in seconds
+        :param horizon: optional horizon, if None then use self.horizon
+
+        :returns: the predicted states including as first component of horizon dimension the initial state, [num_rollouts, horizon+1, states]
+        """
+        horizon=self.horizon if horizon is None else horizon
+        self.output = tf.TensorArray(tf.float32, size=horizon + 1, dynamic_size=False)
         self.output = self.output.write(0, initial_state)
 
         next_state = initial_state
 
-        for k in tf.range(self.horizon):
+        for k in tf.range(horizon):
             next_state = self.next_step_predictor.step(next_state, Q[:, k, :], params)
             self.output = self.output.write(k + 1, next_state)
 

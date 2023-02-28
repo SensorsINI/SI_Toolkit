@@ -191,7 +191,7 @@ class DatasetTemplate:
     def reset_batch_size(self, batch_size=None):
 
         if batch_size is None:
-            self.batch_size = self.args.batch_size
+            self.batch_size = self.args.num_rollouts
         else:
             self.batch_size = batch_size
 

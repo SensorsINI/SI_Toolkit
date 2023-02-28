@@ -55,7 +55,7 @@ class ComputationLibrary:
     gather: Callable[[TensorType, TensorType, int], TensorType] = None
     gather_last: Callable[[TensorType, TensorType], TensorType] = None
     arange: Callable[[Optional[NumericType], NumericType, Optional[NumericType]], TensorType] = None
-    zeros: Callable[["tuple[int]"], TensorType] = None
+    zeros: Callable[["tuple[int,...]"], TensorType] = None
     zeros_like: Callable[[TensorType], TensorType] = None
     ones: Callable[["tuple[int]"], TensorType] = None
     ones_like: Callable[[TensorType], TensorType] = None
@@ -92,9 +92,16 @@ class ComputationLibrary:
     dot: Callable[[TensorType, TensorType], TensorType] = None
     stop_gradient: Callable[[TensorType], TensorType] = None
     assign: Callable[[Union[TensorType, tf.Variable], TensorType], Union[TensorType, tf.Variable]] = None
+    nan:TensorType=None
+    isnan:Callable[[TensorType],bool]=None
+    string = None
+    equal= lambda x,y: x==y
+    pow=lambda x,p: x**p
     where: Callable[[TensorType, TensorType, TensorType], TensorType] = None
     logical_and: Callable[[TensorType, TensorType], TensorType] = None
     logical_or: Callable[[TensorType, TensorType], TensorType] = None
+    dtype=lambda x: x.dtype
+    fill = None
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -169,19 +176,24 @@ class NumpyLibrary(ComputationLibrary):
     dot = np.dot
     stop_gradient = lambda x: x
     assign = LibraryHelperFunctions.set_to_value
+    nan = np.nan
+    isnan=np.isnan
+    string=str
     where = np.where
     logical_and = np.logical_and
     logical_or  = np.logical_or
-
-
+    equal= lambda x,y: x==y
+    cond= lambda cond, t, f: t if cond else f
+    pow=lambda x,p: np.power(x,p)
+    fill = lambda x,y: x.np.fill(y)
 
 class TensorFlowLibrary(ComputationLibrary):
     lib = 'TF'
     reshape = tf.reshape
     permute = tf.transpose
     newaxis = tf.newaxis
-    shape = lambda x: x.get_shape()  # .as_list()
-    to_numpy = lambda x: x.numpy()
+    shape = tf.shape #  tobi does not understand reason for this previous definition: # lambda x: x.get_shape()  # .as_list()
+    to_numpy = lambda x: x.numpy() if isinstance(x,(tf.Tensor, tf.Variable)) else x
     to_variable = lambda x, dtype: tf.Variable(x, dtype=dtype)
     to_tensor = lambda x, dtype: tf.convert_to_tensor(x, dtype=dtype)
     constant = lambda x, t: tf.constant(x, dtype=t)
@@ -247,9 +259,16 @@ class TensorFlowLibrary(ComputationLibrary):
     dot = lambda a, b: tf.tensordot(a, b, 1)
     stop_gradient = tf.stop_gradient
     assign = LibraryHelperFunctions.set_to_variable
+    nan=tf.constant(np.nan)
+    isnan=tf.math.is_nan
+    string=tf.string
     where = tf.where
     logical_and = tf.math.logical_and
     logical_or  = tf.math.logical_or
+    equal= lambda x,y: tf.math.equal(x,y)
+    cond= lambda cond, t, f: tf.cond(cond,t,f)
+    pow=lambda x,p: tf.pow(x,p)
+    fill = lambda dims,value: tf.fill(dims,value)
 
 class PyTorchLibrary(ComputationLibrary):
 
@@ -332,6 +351,12 @@ class PyTorchLibrary(ComputationLibrary):
     dot = torch.dot
     stop_gradient = tf.stop_gradient # FIXME: How to imlement this in torch?
     assign = LibraryHelperFunctions.set_to_value
+    nan=torch.nan
+    isnan=torch.isnan
+    string=lambda x: torch.ByteTensor(bytes(x,'utf8'))
     where = torch.where
     logical_and = torch.logical_and
     logical_or  = torch.logical_or
+    equal=lambda x,y: torch.equal(x,y)
+    pow=lambda x,p: torch.pow(x,p)
+    fill = lambda x,y: x.torch.Tensor.fill(x,y)
