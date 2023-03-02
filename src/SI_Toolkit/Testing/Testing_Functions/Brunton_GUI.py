@@ -342,7 +342,7 @@ class MainWindow(QMainWindow):
                     (self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon) ** 2)
 
         else:
-            predictions_at_horizon = self.dataset[self.current_point_at_timeaxis, self.horizon, feature_idx]
+            predictions_at_horizon = self.dataset[..., self.current_point_at_timeaxis, self.horizon, feature_idx]
             self.MSE_at_horizon = np.mean(
                 (self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - predictions_at_horizon) ** 2)
 
@@ -384,27 +384,29 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
 
     axs.set_ylabel(y_label, fontsize=18)
     axs.set_xlabel('Time [s]', fontsize=18)
-    for i in range(horizon):
+    for j in predictions_array:
+        for i in range(horizon):
 
-        if not show_all:
-            axs.plot(time_axis[current_point_at_timeaxis], ground_truth[current_point_at_timeaxis, feature_idx],
-                     'g.', markersize=16, label='Start')
-            prediction_distance.append(predictions_array[current_point_at_timeaxis, i+1, feature_idx])
-            if downsample:
-                if (i % 2) == 0:
-                    continue
-            axs.plot(time_axis[current_point_at_timeaxis+i+1], prediction_distance[i],
-                        c=cmap(float(i)/max_horizon),
-                        marker='.')
+            if not show_all:
+                axs.plot(time_axis[current_point_at_timeaxis], ground_truth[current_point_at_timeaxis, feature_idx],
+                         'g.', markersize=16, label='Start')
+                #print(j)
+                prediction_distance.append(j[current_point_at_timeaxis, i+1, feature_idx])
+                if downsample:
+                    if (i % 2) == 0:
+                        continue
+                axs.plot(time_axis[current_point_at_timeaxis+i+1], prediction_distance[i],
+                            c=cmap(float(i)/max_horizon),
+                            marker='.')
 
-        else:
-            prediction_distance.append(predictions_array[:-(i+1), i+1, feature_idx])
-            if downsample:
-                if (i % 2) == 0:
-                    continue
-            axs.plot(time_axis[i+1:], prediction_distance[i],
-                        c=cmap(float(i)/max_horizon),
-                        marker='.', linestyle = '')
+            else:
+                prediction_distance.append(predictions_array[:-(i+1), i+1, feature_idx])
+                if downsample:
+                    if (i % 2) == 0:
+                        continue
+                axs.plot(time_axis[i+1:], prediction_distance[i],
+                            c=cmap(float(i)/max_horizon),
+                            marker='.', linestyle = '')
 
-    # axs.set_ylim(y_lim)
+        # axs.set_ylim(y_lim)
     plt.show()

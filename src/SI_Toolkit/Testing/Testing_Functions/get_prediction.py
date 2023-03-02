@@ -26,8 +26,17 @@ def get_prediction(
     Q_array = [Q[..., i:-test_max_horizon + i, :] for i in range(test_max_horizon)]
     Q_array = np.stack(Q_array, axis=1)
 
-    output_array = np.zeros([test_len, test_max_horizon + 1, len(features_to_plot)],
+    #parameters for multiple/single run modes
+    multiple = True
+    iterations = 5
+
+    if multiple == True:
+        output_array = np.zeros([iterations, test_len, test_max_horizon + 1, len(features_to_plot)],
                             dtype=np.float32)
+    else:
+        output_array = np.zeros([test_len, test_max_horizon + 1, len(features_to_plot)],
+                                dtype=np.float32)
+
 
 
     stateful_components = ['RNN', 'GRU', 'LSTM']
@@ -36,8 +45,9 @@ def get_prediction(
     else:
         mode = 'batch'
 
-    # mode = 'sequential'
+    #mode = 'sequential'
     # mode = 'batch'
+
 
     if mode == 'batch':
         predictor.configure_with_compilation(batch_size=test_len, horizon=test_max_horizon, dt=0.02)
@@ -45,21 +55,36 @@ def get_prediction(
         predictor.configure_with_compilation(batch_size=1, horizon=test_max_horizon, dt=0.02)
 
     if mode == 'batch':
-        output = predictor.predict(states_0, Q_array)
-        output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in features_to_plot]]
+        if multiple == True:
+            for i in range(iterations):
+                #output = predictor.predict(states_0, Q_array)
+                #output_array = np.zeros([iterations, test_len, test_max_horizon + 1, len(features_to_plot)],
+                #                        dtype=np.float32)
+                #output_array[:, :, :, :] = output[..., [STATE_INDICES.get(key) for key in features_to_plot]]
+                output1 = np.copy(predictor.predict(states_0, Q_array))
+                output_array1 = np.zeros([test_len, test_max_horizon + 1, len(features_to_plot)],
+                                        dtype=np.float32)
+                output_array1[:, :, :] = np.copy(output1[..., [STATE_INDICES.get(key) for key in features_to_plot]]) #numpy concatenate or stack
+                output_array[i, :, :, :] = np.copy(output_array1)
+                #output_array_tot = np.concatenate((output_array, output_array), axis = 0)
+        else:
+            output = predictor.predict(states_0, Q_array)
+            output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in features_to_plot]]
 
     else:
 
         output = None
+        print("hi")
         for timestep in trange(test_len):
             Q_current_timestep = Q_array[np.newaxis, timestep, :, :]
-            s0 = states_0[np.newaxis, timestep, :]
+            s0 = states_0[np.newaxis, timestep, :] #clone and flatten
+            s0_aug = []
             if output is None:
-                output = predictor.predict(s0, Q_current_timestep)
+                output = predictor.predict(s0, Q_current_timestep) #flatten for predictor.predict
             else:
                 output = np.concatenate((output, predictor.predict(s0, Q_current_timestep)), axis=0)
             predictor.update(Q_current_timestep[:, np.newaxis, 1, :], s0)
-
+#unflatten here?
         output_array[:, :, :] = output[..., [STATE_INDICES.get(key) for key in features_to_plot]]
 
     return output_array

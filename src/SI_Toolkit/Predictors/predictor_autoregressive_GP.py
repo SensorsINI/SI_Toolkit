@@ -2,6 +2,7 @@ import os
 from types import SimpleNamespace
 
 import tensorflow as tf
+import tensorflow_probability as tfp
 
 from SI_Toolkit.computation_library import TensorFlowLibrary
 from SI_Toolkit.Functions.General.Normalising import get_denormalization_function, get_normalization_function
@@ -92,10 +93,18 @@ class predictor_autoregressive_GP(template_predictor):
         s, _ = self.model.predict_f(x)
         return s
 
+
     def model_for_AL(self, x):
         x = tf.cast(x[:, 0, :], tf.float64)
-        s, _ = self.model.predict_f(x)
-        s = tf.cast(s, tf.float32)
+        mean, var = self.model.predict_f(x)
+
+        mean = tf.cast(mean, tf.float32)
+        var = tf.cast(var, tf.float32)
+        std = tf.math.sqrt(var)
+
+        #s = tf.random.normal(self.lib.shape(mean), mean, var)
+        s = tf.random.normal([self.batch_size,5], mean, std) #5 is number of inputs to model
+        #s = tf.cast(s, tf.float32)
         return s
 
     @CompileTF
