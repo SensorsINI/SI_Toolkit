@@ -375,7 +375,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
 
     axs.plot(time_axis, ground_truth[:, feature_idx], 'k:', label='Ground Truth', marker='.', markersize=2, linewidth=0.5)
     y_lim = axs.get_ylim()
-    prediction_distance = []
+    #prediction_distance = []
 
     try:
         y_label = get_feature_label(feature_to_display)
@@ -385,12 +385,12 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
     axs.set_ylabel(y_label, fontsize=18)
     axs.set_xlabel('Time [s]', fontsize=18)
     for j in predictions_array:
+        prediction_distance = []
         for i in range(horizon):
 
             if not show_all:
                 axs.plot(time_axis[current_point_at_timeaxis], ground_truth[current_point_at_timeaxis, feature_idx],
                          'g.', markersize=16, label='Start')
-                #print(j)
                 prediction_distance.append(j[current_point_at_timeaxis, i+1, feature_idx])
                 if downsample:
                     if (i % 2) == 0:
