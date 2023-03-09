@@ -67,7 +67,10 @@ class autoregression_loop:
             output = model_output
             model_input = model_output
 
-            outputs = outputs.write(0, output)
+            if self.lib.lib == 'TF':
+                outputs = outputs.write(0, output)
+            else:
+                outputs[:, 0, :] = output
 
             ##################### END OF 0th ITERATION ######################
             arange = self.lib.arange(1, horizon)
