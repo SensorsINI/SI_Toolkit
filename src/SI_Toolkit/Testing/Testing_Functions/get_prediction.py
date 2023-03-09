@@ -10,6 +10,7 @@ def get_prediction(
         dt: float,
         routine: str,
         test_max_horizon: int,
+        hls: bool = False,
         **kwargs,
 ):
     if routine == "simple evaluation":
@@ -31,9 +32,9 @@ def get_prediction(
     # mode = 'batch'
 
     if mode == 'batch':
-        predictor.configure_with_compilation(batch_size=test_len, horizon=predictor_horizon, dt=dt, mode=routine)
+        predictor.configure_with_compilation(batch_size=test_len, horizon=predictor_horizon, dt=dt, mode=routine, hls=hls)
     else:
-        predictor.configure_with_compilation(batch_size=1, horizon=predictor_horizon, dt=dt, mode=routine)
+        predictor.configure_with_compilation(batch_size=1, horizon=predictor_horizon, dt=dt, mode=routine, hls=hls)
 
     if hasattr(predictor.predictor, 'net_info') and hasattr(predictor.predictor.net_info, 'dt') and predictor.predictor.net_info.dt == 0.0:
         dt_predictions = 0.0

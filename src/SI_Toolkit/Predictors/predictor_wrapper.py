@@ -33,7 +33,7 @@ class PredictorWrapper:
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
 
-    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, predictor_specification=None, compile_standalone=False, mode=None):
+    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, predictor_specification=None, compile_standalone=False, mode=None, hls=False):
         """Assign optimization-specific parameters to finalize instance creation.
 
         :param batch_size: Batch size equals the number of parallel rollouts of the optimizer.
@@ -60,7 +60,7 @@ class PredictorWrapper:
 
         if self.predictor_type == 'neural':
             from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
-            self.predictor = predictor_autoregressive_neural(horizon=self.horizon, batch_size=self.batch_size, dt=dt, mode=mode, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_autoregressive_neural(horizon=self.horizon, batch_size=self.batch_size, dt=dt, mode=mode, hls=hls, **self.predictor_config, **compile_standalone)
 
         elif self.predictor_type == 'GP':
             from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
@@ -81,13 +81,13 @@ class PredictorWrapper:
         if computation_library is not None and computation_library not in self.predictor.supported_computation_libraries:
             raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__name__}")
 
-    def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None, mode=None):
+    def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None, mode=None, hls=False):
         """
         To get max performance
         use this for standalone predictors (like in Brunton test)
         but not predictors within controllers
         """
-        self.configure(batch_size, horizon, dt, predictor_specification=predictor_specification, compile_standalone=True, mode=mode)
+        self.configure(batch_size, horizon, dt, predictor_specification=predictor_specification, compile_standalone=True, mode=mode, hls=hls)
 
     def update_predictor_config_from_specification(self, predictor_specification: str = None):
 

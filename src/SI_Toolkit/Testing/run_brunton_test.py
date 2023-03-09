@@ -10,13 +10,20 @@ from SI_Toolkit.Testing.Testing_Functions.preprocess_for_brunton import preproce
 
 from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 
-def run_brunton_test():
+def run_brunton_test(test_hls=False):
+
+    if not test_hls:
+        try:
+            test_hls = config_testing['test_hls']
+        except KeyError:
+            test_hls = False
 
     dataset, time_axis, dataset_sampling_dt, ground_truth = preprocess_for_brunton(**config_testing)
 
     predictions_list = []
     predictors_list = config_testing['predictors_specifications_testing']
     predictor = PredictorWrapper()
+    titles = []
     for predictor_specification in predictors_list:
         if predictor_specification[:2] == 'S:':
             routine = "simple evaluation"
@@ -25,8 +32,12 @@ def run_brunton_test():
             routine = "autoregressive"
         predictor.update_predictor_config_from_specification(predictor_specification=predictor_specification)
         predictions_list.append(get_prediction(dataset, predictor, dataset_sampling_dt, routine, **config_testing))
+        titles.append(predictor_specification)
+        if test_hls and predictor.predictor_type == 'neural':
+            predictions_list.append(get_prediction(dataset, predictor, dataset_sampling_dt, routine, **config_testing, hls=True))
+            titles.append('HLS:'+predictor_specification)
 
-    run_test_gui(titles=predictors_list,
+    run_test_gui(titles=titles,
                  ground_truth=ground_truth, predictions_list=predictions_list, time_axis=time_axis
                  )
 
