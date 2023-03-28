@@ -47,6 +47,7 @@ class predictor_autoregressive_neural(template_predictor):
         horizon=None,
         dt=None,
         batch_size=None,
+        variable_parameters=None,
         disable_individual_compilation=False,
         update_before_predicting=True,
         mode=None,

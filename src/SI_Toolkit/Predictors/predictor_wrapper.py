@@ -3,7 +3,7 @@ from typing import Optional
 from SI_Toolkit.computation_library import ComputationLibrary
 import yaml
 from copy import deepcopy as dcp
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 
 
 # predictors config
@@ -33,7 +33,7 @@ class PredictorWrapper:
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
 
-    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, predictor_specification=None, compile_standalone=False, mode=None, hls=False):
+    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, variable_parameters: SimpleNamespace=None, predictor_specification=None, compile_standalone=False, mode=None, hls=False):
         """Assign optimization-specific parameters to finalize instance creation.
 
         :param batch_size: Batch size equals the number of parallel rollouts of the optimizer.
@@ -44,6 +44,7 @@ class PredictorWrapper:
         :type dt: float
         :param computation_library: Whether to use NumPy / TensorFlow / PyTorch, defaults to None
         :type computation_library: Optional[type[ComputationLibrary]], optional
+        :param variable_parameters: Parameters of the model which change during experiment and need to be realoaded
         :param predictor_specification: Name of predictor to use or path to neural network, defaults to None
         :type predictor_specification: _type_, optional
         :param compile_standalone: Whether to decorate the internal step function with its own compilation call, defaults to False
@@ -60,19 +61,19 @@ class PredictorWrapper:
 
         if self.predictor_type == 'neural':
             from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
-            self.predictor = predictor_autoregressive_neural(horizon=self.horizon, batch_size=self.batch_size, dt=dt, mode=mode, hls=hls, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_autoregressive_neural(horizon=self.horizon, batch_size=self.batch_size, variable_parameters=variable_parameters, dt=dt, mode=mode, hls=hls, **self.predictor_config, **compile_standalone)
 
         elif self.predictor_type == 'GP':
             from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
-            self.predictor = predictor_autoregressive_GP(horizon=self.horizon, batch_size=self.batch_size, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_autoregressive_GP(horizon=self.horizon, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         elif self.predictor_type == 'ODE':
             from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-            self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, batch_size=self.batch_size, **self.predictor_config)
+            self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
 
         elif self.predictor_type == 'ODE_TF':
             from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-            self.predictor = predictor_ODE_tf(horizon=self.horizon, dt=dt, batch_size=self.batch_size, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_ODE_tf(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         else:
             raise NotImplementedError('Type of the predictor not recognised.')
