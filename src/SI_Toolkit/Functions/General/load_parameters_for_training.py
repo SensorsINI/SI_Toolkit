@@ -51,6 +51,13 @@ NORMALIZE = config['training_default']['NORMALIZE']
 USE_NNI = config['training_default']['USE_NNI']
 CONSTRUCT_NETWORK = config['training_default']['CONSTRUCT_NETWORK']
 
+STACK_LOSS = config['training_default']['STACK_LOSS']
+SUM_LOSS = config['training_default']['SUM_LOSS']
+FIRST_LOSS = config['training_default']['FIRST_LOSS']
+EXTEND_HORIZON = config['training_default']['EXTEND_HORIZON']
+INCREASE_SHIFT_LABELS = config['training_default']['INCREASE_SHIFT_LABELS']
+
+
 # For l2race
 # control_inputs = ['u1', 'u2']
 # state_inputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
@@ -117,7 +124,11 @@ def args():
     parser.add_argument('--construct_network', default=CONSTRUCT_NETWORK, type=str,
                         help='For Pytorch you can decide if you want to construct network with modules or cells.'
                              'First is needed for DeltaRNN, second gives more flexibility in specifying layers sizes.')
-
+    parser.add_argument('--stack_loss', default=STACK_LOSS, type=bool)
+    parser.add_argument('--sum_loss', default=SUM_LOSS, type=bool)
+    parser.add_argument('--first_loss', default=FIRST_LOSS, type=bool)
+    parser.add_argument('--extend_horizon', default=EXTEND_HORIZON, type=bool)
+    parser.add_argument('--increase_shift_labels', default=INCREASE_SHIFT_LABELS, type=bool)
 
     args = parser.parse_args()
 

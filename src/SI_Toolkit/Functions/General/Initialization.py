@@ -248,14 +248,19 @@ def get_net(a,
 
     if library == 'TF':
         from SI_Toolkit.Functions.TF.Network import compose_net_from_net_name, load_pretrained_net_weights
+        # Create network architecture
+        net, net_info = compose_net_from_net_name(net_name, inputs, outputs, a,
+                                                  time_series_length=time_series_length,
+                                                  batch_size=batch_size, stateful=stateful,
+                                                  construct_network=construct_network)
     else:
         from SI_Toolkit.Functions.Pytorch.Network import compose_net_from_net_name, load_pretrained_net_weights
 
-    # Create network architecture
-    net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
-                                              time_series_length=time_series_length,
-                                              batch_size=batch_size, stateful=stateful,
-                                              construct_network=construct_network)
+        # Create network architecture
+        net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
+                                                  time_series_length=time_series_length,
+                                                  batch_size=batch_size, stateful=stateful,
+                                                  construct_network=construct_network)
 
 
     # We load a pretrained network
