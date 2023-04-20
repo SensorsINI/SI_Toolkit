@@ -31,7 +31,14 @@ def convert_to_tensors(s, Q):
 class predictor_ODE_tf(template_predictor):
     supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
     
-    def __init__(self, horizon: int, dt: float, intermediate_steps=10, disable_individual_compilation=False, batch_size=1, **kwargs):
+    def __init__(self,
+                 horizon: int,
+                 dt: float,
+                 intermediate_steps=10,
+                 disable_individual_compilation=False,
+                 batch_size=1,
+                 variable_parameters=None,
+                 **kwargs):
         self.disable_individual_compilation = disable_individual_compilation
 
         super().__init__(horizon=tf.convert_to_tensor(horizon), batch_size=batch_size)
@@ -43,7 +50,13 @@ class predictor_ODE_tf(template_predictor):
         self.dt = dt
         self.intermediate_steps = intermediate_steps
 
-        self.next_step_predictor = next_state_predictor_ODE_tf(dt, intermediate_steps, self.batch_size, disable_individual_compilation=True)
+        self.next_step_predictor = next_state_predictor_ODE_tf(
+            dt,
+            intermediate_steps,
+            self.batch_size,
+            variable_parameters=variable_parameters,
+            disable_individual_compilation=True,
+        )
 
         if disable_individual_compilation:
             self.predict_tf = self._predict_tf
@@ -63,7 +76,7 @@ class predictor_ODE_tf(template_predictor):
         return output.numpy()
 
 
-    def _predict_tf(self, initial_state, Q, params=None):
+    def _predict_tf(self, initial_state, Q):
 
         self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
         self.output = self.output.write(0, initial_state)
@@ -71,7 +84,7 @@ class predictor_ODE_tf(template_predictor):
         next_state = initial_state
 
         for k in tf.range(self.horizon):
-            next_state = self.next_step_predictor.step(next_state, Q[:, k, :], params)
+            next_state = self.next_step_predictor.step(next_state, Q[:, k, :])
             self.output = self.output.write(k + 1, next_state)
 
         self.output = tf.transpose(self.output.stack(), perm=[1, 0, 2])

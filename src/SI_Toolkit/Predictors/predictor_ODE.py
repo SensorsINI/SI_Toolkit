@@ -24,6 +24,7 @@ class predictor_ODE(template_predictor):
         dt: float,
         intermediate_steps: int,
         batch_size=1,
+        variable_parameters=None,
         **kwargs
     ):
         super().__init__(horizon=horizon, batch_size=batch_size)
@@ -32,7 +33,10 @@ class predictor_ODE(template_predictor):
         self.output = None
 
         self.next_step_predictor = next_state_predictor_ODE(
-            dt=dt, intermediate_steps=intermediate_steps, batch_size=batch_size
+            dt=dt,
+            intermediate_steps=intermediate_steps,
+            batch_size=batch_size,
+            variable_parameters=variable_parameters,
         )
 
     def predict(self, initial_state: np.ndarray, Q: np.ndarray, params=None) -> np.ndarray:
@@ -65,7 +69,7 @@ class predictor_ODE(template_predictor):
         self.output[:, 0, :] = self.initial_state
 
         for k in range(self.horizon):
-            self.output[:, k + 1, :] = self.next_step_predictor.step(self.output[:, k, :], Q[:, k, :], params)
+            self.output[:, k + 1, :] = self.next_step_predictor.step(self.output[:, k, :], Q[:, k, :])
 
         return self.output if (self.batch_size > 1) else np.squeeze(self.output)
 

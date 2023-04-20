@@ -60,14 +60,17 @@ class autoregression_loop:
 
             model_input = self.lib.reshape(model_input, shape=[-1, 1, self.model_inputs_len])
 
-            model_output = model(model_input)
+            model_output = self.evaluate_model(model, model_input)
 
             model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
 
             output = model_output
             model_input = model_output
 
-            outputs = outputs.write(0, output)
+            if self.lib.lib == 'TF':
+                outputs = outputs.write(0, output)
+            else:
+                outputs[:, 0, :] = output
 
             ##################### END OF 0th ITERATION ######################
             arange = self.lib.arange(1, horizon)
@@ -84,7 +87,7 @@ class autoregression_loop:
 
                 model_input = self.lib.reshape(model_input, shape=[-1, 1, self.model_inputs_len])
 
-                model_output = model(model_input)
+                model_output = self.evaluate_model(model, model_input)
 
                 model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
 
@@ -103,6 +106,13 @@ class autoregression_loop:
             outputs = self.lib.permute(outputs.stack(), [1, 0, 2])
 
         return outputs
+
+    def evaluate_model(self, model, model_input):
+        if self.lib.lib == 'Numpy':  # Covers just the case for hls4ml, when the model is hls model
+            return model.predict(model_input)
+        else:
+            return model(model_input)
+
 
 
 class differential_model_autoregression_helper:

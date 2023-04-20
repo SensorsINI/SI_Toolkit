@@ -29,6 +29,7 @@ class predictor_autoregressive_GP(template_predictor):
                  path_to_model=None,
                  horizon=None,
                  batch_size=1,
+                 variable_parameters=None,
                  **kwargs):
 
         a = SimpleNamespace()

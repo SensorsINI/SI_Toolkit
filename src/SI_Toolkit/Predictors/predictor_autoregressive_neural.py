@@ -17,7 +17,7 @@ all other net inputs in the same order as net outputs
 import os
 from types import SimpleNamespace
 from SI_Toolkit.Predictors import template_predictor
-from SI_Toolkit.computation_library import TensorFlowLibrary, PyTorchLibrary
+from SI_Toolkit.computation_library import TensorFlowLibrary, PyTorchLibrary, NumpyLibrary
 
 import numpy as np
 from typing import Optional
@@ -37,8 +37,9 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
 
 class predictor_autoregressive_neural(template_predictor):
-    supported_computation_libraries = {TensorFlowLibrary, PyTorchLibrary}  # Overwrites default from parent
-    
+    supported_computation_libraries = {TensorFlowLibrary, PyTorchLibrary, NumpyLibrary}  # Overwrites default from parent
+    # Numpy library is supported only when it comes to evaluation of hls4ml models
+
     def __init__(
         self,
         model_name=None,
@@ -46,9 +47,11 @@ class predictor_autoregressive_neural(template_predictor):
         horizon=None,
         dt=None,
         batch_size=None,
+        variable_parameters=None,
         disable_individual_compilation=False,
         update_before_predicting=True,
         mode=None,
+        hls=False,
         **kwargs
     ):
         super().__init__(horizon=horizon, batch_size=batch_size)
@@ -112,6 +115,9 @@ class predictor_autoregressive_neural(template_predictor):
                 _copy_internal_states_from_ref, _copy_internal_states_to_ref)
         else:
             raise NotImplementedError('predictor_autoregressive_neural defined only for TF and Pytorch')
+
+        if hls:
+            self.lib = NumpyLibrary
 
         self.copy_internal_states_from_ref = _copy_internal_states_from_ref
         self.copy_internal_states_to_ref = _copy_internal_states_to_ref
@@ -193,16 +199,28 @@ class predictor_autoregressive_neural(template_predictor):
             differential_model_autoregression_helper_instance=self.dmah,
         )
 
-        self.predict_with_update_tf = CompileAdaptive(self._predict_with_update_tf)
+        if not hls:
+            self.predict_with_update_tf = CompileAdaptive(self._predict_with_update_tf)  # This was compiled per default before I implemented hls. As for hls one need not compiled version.
 
-        if disable_individual_compilation:
+            if disable_individual_compilation:
+                self.predict_tf = self._predict_tf
+                self.update_internal_state_tf = self._update_internal_state_tf
+            else:
+                self.predict_tf = CompileAdaptive(self._predict_tf)
+                self.update_internal_state_tf = CompileAdaptive(self._update_internal_state_tf)
+        else:
+            # Manipulating of internal state currently not implemented.
+            # Not clear if supported at all in HLS model
+            self.copy_internal_states_from_ref = lambda *args: None
+            self.copy_internal_states_to_ref = lambda *args: None
+            # Convert network to HLS form
+            from SI_Toolkit_ASF.hls.hls4ml_functions import convert_model_with_hls4ml
+            self.net, _ = convert_model_with_hls4ml(self.net)
+            self.net.compile()
+            # Not compilation supported for HLS models
+            self.predict_with_update_tf = self._predict_with_update_tf
             self.predict_tf = self._predict_tf
             self.update_internal_state_tf = self._update_internal_state_tf
-        else:
-            self.predict_tf = CompileAdaptive(self._predict_tf)
-            self.update_internal_state_tf = CompileAdaptive(self._update_internal_state_tf)
-
-        print('Init done')
 
     def predict(self, initial_state, Q, last_optimal_control_input=None) -> np.array:
 
