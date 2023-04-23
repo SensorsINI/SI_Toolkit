@@ -336,17 +336,51 @@ class MainWindow(QMainWindow):
 
         feature_idx = self.features.index(self.feature_to_display)
 
-        if self.show_all:
-            predictions_at_horizon = self.dataset[:-self.horizon, self.horizon, feature_idx]
-            self.MSE_at_horizon = np.mean(
-                    (self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon) ** 2)
+        if feature_idx == 0:
+            if self.show_all:
+                predictions_at_horizon = self.dataset[:-self.horizon, self.horizon, feature_idx]
+                if (self.ground_truth[self.horizon:, feature_idx] - np.mean(predictions_at_horizon)) > 180:
+                    self.MSE_at_horizon = np.mean(
+                        (self.ground_truth[self.horizon:, feature_idx] - (predictions_at_horizon + 360)) ** 2)
+
+                elif (self.ground_truth[self.horizon:, feature_idx] - np.mean(predictions_at_horizon)) < -180:
+                    self.MSE_at_horizon = np.mean(
+                        (self.ground_truth[self.horizon:, feature_idx] - (predictions_at_horizon - 360)) ** 2)
+
+                else:
+                    self.MSE_at_horizon = np.mean(
+                        (self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon) ** 2)
+            else:
+                predictions_at_horizon = self.dataset[..., self.current_point_at_timeaxis, self.horizon, feature_idx]
+                if (self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - np.mean(predictions_at_horizon)) > 180:
+                    self.MSE_at_horizon = np.mean(
+                        (self.ground_truth[
+                             self.current_point_at_timeaxis + self.horizon, feature_idx] - (predictions_at_horizon + 360)) ** 2)
+
+                elif (self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - np.mean(predictions_at_horizon)) < -180:
+                    self.MSE_at_horizon = np.mean(
+                        (self.ground_truth[
+                             self.current_point_at_timeaxis + self.horizon, feature_idx] - (predictions_at_horizon - 360)) ** 2)
+
+                else:
+                    self.MSE_at_horizon = np.mean(
+                        (self.ground_truth[
+                            self.current_point_at_timeaxis + self.horizon, feature_idx] - predictions_at_horizon) ** 2)
+
+            self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
 
         else:
-            predictions_at_horizon = self.dataset[..., self.current_point_at_timeaxis, self.horizon, feature_idx]
-            self.MSE_at_horizon = np.mean(
-                (self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - predictions_at_horizon) ** 2)
+            if self.show_all:
+                predictions_at_horizon = self.dataset[:-self.horizon, self.horizon, feature_idx]
+                self.MSE_at_horizon = np.mean(
+                        (self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon) ** 2)
 
-        self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
+            else:
+                predictions_at_horizon = self.dataset[..., self.current_point_at_timeaxis, self.horizon, feature_idx]
+                self.MSE_at_horizon = np.mean(
+                    (self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - predictions_at_horizon) ** 2)
+
+            self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
 
 
 
@@ -382,6 +416,8 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
     except NameError:
         y_label = feature_to_display
 
+    #show_all = True
+
     axs.set_ylabel(y_label, fontsize=18)
     axs.set_xlabel('Time [s]', fontsize=18)
     for j in predictions_array:
@@ -400,7 +436,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                             marker='.')
 
             else:
-                prediction_distance.append(predictions_array[:-(i+1), i+1, feature_idx])
+                prediction_distance.append(j[:-(i+1), i+1, feature_idx])
                 if downsample:
                     if (i % 2) == 0:
                         continue
