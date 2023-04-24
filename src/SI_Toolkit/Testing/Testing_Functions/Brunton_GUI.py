@@ -137,7 +137,10 @@ class MainWindow(QMainWindow):
         self.fig2.tight_layout()
         self.fig2.subplots_adjust(0.06, 0.18, 0.99, 0.9)
 
+        self.toolbar2 = NavigationToolbar(self.canvas2, self)
+
         # Attach figure to the layout
+        lf.addWidget(self.toolbar2)
         lf.addWidget(self.canvas2, stretch=1)
         layout.addLayout(lf)
 
