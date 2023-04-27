@@ -78,7 +78,9 @@ class ComputationLibrary:
     reduce_max: Callable[[TensorType, int], bool] = None
     reduce_min: Callable[[TensorType, Optional[int]], bool] = None
     less: Callable[[TensorType, TensorType], TensorType] = None
+    less_equal: Callable[[TensorType, TensorType], TensorType] = None
     greater: Callable[[TensorType, TensorType], TensorType] = None
+    greater_equal: Callable[[TensorType, TensorType], TensorType] = None
     logical_not: Callable[[TensorType], TensorType] = None
     min: Callable[[TensorType, TensorType], TensorType] = None
     max: Callable[[TensorType, TensorType], TensorType] = None
@@ -155,7 +157,9 @@ class NumpyLibrary(ComputationLibrary):
     reduce_max = lambda a, axis: np.max(a, axis=axis)
     reduce_min = lambda a, axis: np.min(a, axis=axis)
     less = lambda x, y: np.less(x, y)
+    less_equal = lambda x, y: np.less_equal(x, y)
     greater = lambda x, y: np.greater(x, y)
+    greater_equal = lambda x, y: np.greater_equal(x, y)
     logical_not = lambda x: np.logical_not(x)
     min = np.minimum
     max = np.maximum
@@ -233,7 +237,9 @@ class TensorFlowLibrary(ComputationLibrary):
     reduce_max = lambda a, axis: tf.reduce_max(a, axis=axis)
     reduce_min = lambda a, axis: tf.reduce_min(a, axis=axis)
     less = lambda x, y: tf.math.less(x, y)
+    less_equal = lambda x, y: tf.math.less_equal(x, y)
     greater = lambda x, y: tf.math.greater(x, y)
+    greater_equal = lambda x, y: tf.math.greater_equal(x, y)
     logical_not = lambda x: tf.math.logical_not(x)
     min = tf.minimum
     max = tf.maximum
@@ -318,7 +324,9 @@ class PyTorchLibrary(ComputationLibrary):
     reduce_max = lambda a, axis: torch.max(a, dim=axis)
     reduce_min = lambda a, axis: torch.min(a, dim=axis)[0]
     less = lambda x, y: torch.less(x, y)
+    less_equal = lambda x, y: torch.less_equal(x, y)
     greater = lambda x, y: torch.greater(x, y)
+    greater_equal = lambda x, y: torch.greater_equal(x, y)
     logical_not = lambda x: torch.logical_not(x)
     min = torch.minimum
     max = torch.maximum
