@@ -67,6 +67,7 @@ class ComputationLibrary:
     ] = None
     sum: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
     mean: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
+    cumsum: Callable[[TensorType, int], TensorType] = None
     cumprod: Callable[[TensorType, int], TensorType] = None
     set_shape: Callable[[TensorType, "list[int]"], None] = None
     concat: Callable[["list[TensorType]", int], TensorType]
@@ -146,6 +147,7 @@ class NumpyLibrary(ComputationLibrary):
     ).astype(dtype)
     sum = lambda x, a: np.sum(x, axis=a, keepdims=False)
     mean = lambda x, a: np.mean(x, axis=a, keepdims=False)
+    cumsum = lambda x, a: np.cumsum(x, axis=a)
     cumprod = lambda x, a: np.cumprod(x, axis=a)
     set_shape = lambda x, shape: x
     concat = lambda x, axis: np.concatenate(x, axis=axis)
@@ -226,6 +228,7 @@ class TensorFlowLibrary(ComputationLibrary):
     )
     sum = lambda x, a: tf.reduce_sum(x, axis=a, keepdims=False)
     mean = lambda x, a: tf.reduce_mean(x, axis=a, keepdims=False)
+    cumsum = lambda x, a: tf.math.cumsum(x, axis=a)
     cumprod = lambda x, a: tf.math.cumprod(x, axis=a)
     set_shape = lambda x, shape: x.set_shape(shape)
     concat = lambda x, axis: tf.concat(x, axis)
@@ -313,6 +316,7 @@ class PyTorchLibrary(ComputationLibrary):
     )
     sum = lambda x, a: torch.sum(x, a, keepdim=False)
     mean = lambda x, a: torch.mean(x, a, keepdim=False)
+    cumsum = lambda x, a: torch.cumsum(x, dim=a)
     cumprod = lambda x, a: torch.cumprod(x, dim=a)
     set_shape = lambda x, shape: x
     concat = lambda x, axis: torch.concat(x, dim=axis)
