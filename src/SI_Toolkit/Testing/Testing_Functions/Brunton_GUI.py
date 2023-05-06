@@ -69,7 +69,7 @@ def run_overfitting_test(features, titles, ground_truth, predictions_list, time_
 
 
     # Next line hands the control over to Python GUI
-    #sys.exit(app.exec())
+    sys.exit(app.exec())
 
 
 
@@ -202,6 +202,9 @@ class MainWindow(QMainWindow):
         for title in self.titles:
             self.rbs_datasets.append(QRadioButton(title))
 
+        # Add "all models" radio button
+        self.rbs_datasets.append(QRadioButton("All Models"))
+
         # Ensures that radio buttons are exclusive
         self.datasets_buttons_group = QButtonGroup()
         for button in self.rbs_datasets:
@@ -309,9 +312,15 @@ class MainWindow(QMainWindow):
 
     def RadioButtons_detaset_selection(self):
 
-        for i in range(len(self.rbs_datasets)):
-            if self.rbs_datasets[i].isChecked():
-                self.dataset = self.predictions_list[i]
+        #use entire dataset from all gps if All Models button is pressed
+        if self.rbs_datasets[-1].isChecked():
+            self.dataset = np.concatenate(self.predictions_list, axis = 0)
+
+        else:
+            for i in range(len(self.rbs_datasets) - 1):
+                if self.rbs_datasets[i].isChecked():
+                    self.dataset = self.predictions_list[i]
+
 
         self.redraw_canvas()
 
@@ -369,18 +378,6 @@ class MainWindow(QMainWindow):
                         continue
                 self.MSE_at_horizon = np.mean((self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon) ** 2)
 
-                #if (self.ground_truth[self.horizon:, feature_idx] - np.mean(predictions_at_horizon)) > 180:
-                #    self.MSE_at_horizon = np.mean(
-                #        (self.ground_truth[self.horizon:, feature_idx] - (predictions_at_horizon + 360)) ** 2)
-
-                #elif (self.ground_truth[self.horizon:, feature_idx] - np.mean(predictions_at_horizon)) < -180:
-                #    self.MSE_at_horizon = np.mean(
-                #        (self.ground_truth[self.horizon:, feature_idx] - (predictions_at_horizon - 360)) ** 2)
-
-                #else:
-                #    self.MSE_at_horizon = np.mean(
-                #        (self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon) ** 2)
-
             else:
                 predictions_at_horizon = self.dataset[..., self.current_point_at_timeaxis, self.horizon, feature_idx]
 
@@ -392,22 +389,6 @@ class MainWindow(QMainWindow):
                     else:
                         continue
                 self.MSE_at_horizon = np.mean((self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - predictions_at_horizon) ** 2)
-
-
-                #if (self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - np.mean(predictions_at_horizon)) > 180:
-                #    self.MSE_at_horizon = np.mean(
-                #        (self.ground_truth[
-                #             self.current_point_at_timeaxis + self.horizon, feature_idx] - (predictions_at_horizon + 360)) ** 2)
-
-                #elif (self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - np.mean(predictions_at_horizon)) < -180:
-                #    self.MSE_at_horizon = np.mean(
-                #        (self.ground_truth[
-                #             self.current_point_at_timeaxis + self.horizon, feature_idx] - (predictions_at_horizon - 360)) ** 2)
-
-                #else:
-                #    self.MSE_at_horizon = np.mean(
-                #        (self.ground_truth[
-                #            self.current_point_at_timeaxis + self.horizon, feature_idx] - predictions_at_horizon) ** 2)
 
             self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
 

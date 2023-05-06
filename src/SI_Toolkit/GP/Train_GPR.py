@@ -28,9 +28,11 @@ a.post_wash_out_len = 1
 outputs = a.outputs
 batch_size = a.batch_size
 
-number_of_inducing_points = 10
+number_of_inducing_points = 100
 
-save_dir = a.path_to_models + GP_TYPE[:-1] + "_{}/".format(number_of_inducing_points)
+#save_dir = a.path_to_models + GP_TYPE[:-1] + "_{}/".format(number_of_inducing_points)
+save_dir = a.path_to_models + GP_TYPE[:-1] + "_100_4/"
+print(save_dir)
 save_training_script(save_dir)
 
 data_train, data_val, data_test = get_normalized_data_for_training(a)
