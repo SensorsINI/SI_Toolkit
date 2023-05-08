@@ -375,7 +375,6 @@ class MainWindow(QMainWindow):
                 self.MSE_at_horizon = np.mean((self.ground_truth[self.current_point_at_timeaxis + self.horizon, feature_idx] - predictions_at_horizon) ** 2)
 
             self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
-            print("hi")
 
         else:
             if self.show_all:
