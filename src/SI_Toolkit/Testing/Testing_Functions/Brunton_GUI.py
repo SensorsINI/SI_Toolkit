@@ -55,24 +55,6 @@ cmap = colors.LinearSegmentedColormap('custom', cdict)
 # endregion
 
 
-def run_overfitting_test(features, titles, ground_truth, predictions_list, time_axis):
-    # Creat an instance of PyQt6 application
-    # Every PyQt6 application has to contain this line
-    app = QApplication(sys.argv)
-    app.setQuitOnLastWindowClosed(True)
-    # Create an instance of the GUI window.
-    window = MainWindow(features, titles, ground_truth, predictions_list, time_axis)
-    print(window.sqrt_MSE_at_horizon)
-    #window.show()
-
-    #window.quit_application()
-
-
-    # Next line hands the control over to Python GUI
-    sys.exit(app.exec())
-
-
-
 def run_test_gui(features, titles, ground_truth, predictions_list, time_axis):
     # Creat an instance of PyQt6 application
     # Every PyQt6 application has to contain this line
@@ -365,17 +347,19 @@ class MainWindow(QMainWindow):
 
         feature_idx = self.features.index(self.feature_to_display)
 
+
         if feature_idx == 0:
             if self.show_all:
-                predictions_at_horizon = self.dataset[:-self.horizon, self.horizon, feature_idx]
+                predictions_at_horizon = self.dataset[..., :-self.horizon, self.horizon, feature_idx]
 
                 for i in range(len(predictions_at_horizon)):
-                    if (self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon[i]) > 180:
-                        predictions_at_horizon[i] = predictions_at_horizon[i] + 360
-                    elif (self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon[i]) < -180:
-                        predictions_at_horizon[i] = predictions_at_horizon[i] - 360
-                    else:
-                        continue
+                    for j in range(len(predictions_at_horizon[i])):
+                        if (self.ground_truth[self.horizon, feature_idx] - predictions_at_horizon[i][j]) > 180:
+                            predictions_at_horizon[i][j] = predictions_at_horizon[i][j] + 360
+                        elif (self.ground_truth[self.horizon, feature_idx] - predictions_at_horizon[i][j]) < -180:
+                            predictions_at_horizon[i][j] = predictions_at_horizon[i][j] - 360
+                        else:
+                            continue
                 self.MSE_at_horizon = np.mean((self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon) ** 2)
 
             else:
@@ -394,7 +378,7 @@ class MainWindow(QMainWindow):
 
         else:
             if self.show_all:
-                predictions_at_horizon = self.dataset[:-self.horizon, self.horizon, feature_idx]
+                predictions_at_horizon = self.dataset[..., :-self.horizon, self.horizon, feature_idx]
                 self.MSE_at_horizon = np.mean(
                         (self.ground_truth[self.horizon:, feature_idx] - predictions_at_horizon) ** 2)
 
@@ -439,8 +423,6 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
     except NameError:
         y_label = feature_to_display
 
-    #change this variable to change views, button freezes the gui and causes it to crash
-    show_all = False
 
     axs.set_ylabel(y_label, fontsize=18)
     axs.set_xlabel('Time [s]', fontsize=18)
