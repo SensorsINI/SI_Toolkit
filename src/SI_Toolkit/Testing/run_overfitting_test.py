@@ -35,14 +35,24 @@ def run_overfitting_test():
 
 def overfitting_test(features, titles, ground_truth, predictions_list, time_axis):
 
+
+    # choose which feature to look at (0 to 5)
+    feature_idx = 0
+
+    #Show all True or False
+    show_all = False
+
     #choose which gp to look at
     dataset = predictions_list[0]
 
-    #choose which feature to look at (either name or index from 0 to 5)
-    feature_idx = features.index("angle")
+    #Choose a horizon length (1 to 50)
+    horizon = 25
 
-    print(get_sqrt_MSE_at_horizon(0, True, dataset, 25, ground_truth, 0))
-    print(get_var_at_horizon(0, True, dataset, 25, ground_truth, 0))
+    #Choose Current Point at Time Axis (doesnt do anything if show_all is True)
+    current_point_at_timeaxis = 0
+
+    print("Square Root of MSE at Horizon:", get_sqrt_MSE_at_horizon(feature_idx, show_all, dataset, horizon, ground_truth, current_point_at_timeaxis))
+    print("Variance at Horizon:", get_var_at_horizon(feature_idx, show_all, dataset, horizon, ground_truth, current_point_at_timeaxis))
 
 
 
