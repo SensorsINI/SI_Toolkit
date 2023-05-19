@@ -36,6 +36,7 @@ requirements = [
     'pandas',
     'torch',
     'derivative',
+    'gitpython',
 ]
 requirements = requirements + tensorflow_requirements + PyQt_requirements
 
