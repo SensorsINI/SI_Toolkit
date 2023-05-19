@@ -67,6 +67,7 @@ class ComputationLibrary:
     ] = None
     sum: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
     mean: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
+    cumsum: Callable[[TensorType, int], TensorType] = None
     cumprod: Callable[[TensorType, int], TensorType] = None
     set_shape: Callable[[TensorType, "list[int]"], None] = None
     concat: Callable[["list[TensorType]", int], TensorType]
@@ -78,7 +79,9 @@ class ComputationLibrary:
     reduce_max: Callable[[TensorType, int], bool] = None
     reduce_min: Callable[[TensorType, Optional[int]], bool] = None
     less: Callable[[TensorType, TensorType], TensorType] = None
+    less_equal: Callable[[TensorType, TensorType], TensorType] = None
     greater: Callable[[TensorType, TensorType], TensorType] = None
+    greater_equal: Callable[[TensorType, TensorType], TensorType] = None
     logical_not: Callable[[TensorType], TensorType] = None
     min: Callable[[TensorType, TensorType], TensorType] = None
     max: Callable[[TensorType, TensorType], TensorType] = None
@@ -144,6 +147,7 @@ class NumpyLibrary(ComputationLibrary):
     ).astype(dtype)
     sum = lambda x, a: np.sum(x, axis=a, keepdims=False)
     mean = lambda x, a: np.mean(x, axis=a, keepdims=False)
+    cumsum = lambda x, a: np.cumsum(x, axis=a)
     cumprod = lambda x, a: np.cumprod(x, axis=a)
     set_shape = lambda x, shape: x
     concat = lambda x, axis: np.concatenate(x, axis=axis)
@@ -155,7 +159,9 @@ class NumpyLibrary(ComputationLibrary):
     reduce_max = lambda a, axis: np.max(a, axis=axis)
     reduce_min = lambda a, axis: np.min(a, axis=axis)
     less = lambda x, y: np.less(x, y)
+    less_equal = lambda x, y: np.less_equal(x, y)
     greater = lambda x, y: np.greater(x, y)
+    greater_equal = lambda x, y: np.greater_equal(x, y)
     logical_not = lambda x: np.logical_not(x)
     min = np.minimum
     max = np.maximum
@@ -222,6 +228,7 @@ class TensorFlowLibrary(ComputationLibrary):
     )
     sum = lambda x, a: tf.reduce_sum(x, axis=a, keepdims=False)
     mean = lambda x, a: tf.reduce_mean(x, axis=a, keepdims=False)
+    cumsum = lambda x, a: tf.math.cumsum(x, axis=a)
     cumprod = lambda x, a: tf.math.cumprod(x, axis=a)
     set_shape = lambda x, shape: x.set_shape(shape)
     concat = lambda x, axis: tf.concat(x, axis)
@@ -233,7 +240,9 @@ class TensorFlowLibrary(ComputationLibrary):
     reduce_max = lambda a, axis: tf.reduce_max(a, axis=axis)
     reduce_min = lambda a, axis: tf.reduce_min(a, axis=axis)
     less = lambda x, y: tf.math.less(x, y)
+    less_equal = lambda x, y: tf.math.less_equal(x, y)
     greater = lambda x, y: tf.math.greater(x, y)
+    greater_equal = lambda x, y: tf.math.greater_equal(x, y)
     logical_not = lambda x: tf.math.logical_not(x)
     min = tf.minimum
     max = tf.maximum
@@ -307,6 +316,7 @@ class PyTorchLibrary(ComputationLibrary):
     )
     sum = lambda x, a: torch.sum(x, a, keepdim=False)
     mean = lambda x, a: torch.mean(x, a, keepdim=False)
+    cumsum = lambda x, a: torch.cumsum(x, dim=a)
     cumprod = lambda x, a: torch.cumprod(x, dim=a)
     set_shape = lambda x, shape: x
     concat = lambda x, axis: torch.concat(x, dim=axis)
@@ -318,7 +328,9 @@ class PyTorchLibrary(ComputationLibrary):
     reduce_max = lambda a, axis: torch.max(a, dim=axis)
     reduce_min = lambda a, axis: torch.min(a, dim=axis)[0]
     less = lambda x, y: torch.less(x, y)
+    less_equal = lambda x, y: torch.less_equal(x, y)
     greater = lambda x, y: torch.greater(x, y)
+    greater_equal = lambda x, y: torch.greater_equal(x, y)
     logical_not = lambda x: torch.logical_not(x)
     min = torch.minimum
     max = torch.maximum
