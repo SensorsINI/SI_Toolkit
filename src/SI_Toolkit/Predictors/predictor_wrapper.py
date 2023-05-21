@@ -23,6 +23,9 @@ class PredictorWrapper:
         self.horizon = None
         self.batch_size = None
 
+        self.num_states = None
+        self.num_control_inputs = None
+
         self.predictor = None
 
         self.predictors_config = MappingProxyType(predictors_config['predictors'])  # Makes it read only
@@ -77,6 +80,9 @@ class PredictorWrapper:
 
         else:
             raise NotImplementedError('Type of the predictor not recognised.')
+
+        self.num_states = self.predictor.num_states
+        self.num_control_inputs = self.predictor.num_control_inputs
         
         # computation_library defaults to None. In that case, do not check for conformity.
         if computation_library is not None and computation_library not in self.predictor.supported_computation_libraries:

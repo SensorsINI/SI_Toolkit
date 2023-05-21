@@ -15,6 +15,9 @@ class template_predictor:
         self.predictor_initial_input_features = STATE_VARIABLES
         self.predictor_external_input_features = CONTROL_INPUTS
         self.predictor_output_features = STATE_VARIABLES
+
+        self.num_states = len(STATE_VARIABLES)
+        self.num_control_inputs = len(CONTROL_INPUTS)
     
     def predict_tf(self, s: tf.Tensor, Q: tf.Tensor):
         """Predict the whole MPC horizon using tensorflow
