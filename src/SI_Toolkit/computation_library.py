@@ -22,7 +22,7 @@ class LibraryHelperFunctions:
 
 class ComputationLibrary:
     lib = None
-    reshape: Callable[[TensorType, "tuple[int]"], TensorType] = None
+    reshape: Callable[[TensorType, "tuple[int, ...]"], TensorType] = None
     permute: Callable[[TensorType, "tuple[int]"], TensorType] = None
     newaxis = None
     shape: Callable[[TensorType], "list[int]"] = None
