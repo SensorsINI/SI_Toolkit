@@ -28,7 +28,7 @@ def get_prediction(
 
     #parameters for multiple/single run modes
     #multiple = True
-    iterations = 5
+    iterations = 10
 
     #if multiple == True:
     #    output_array = np.zeros([iterations, test_len, test_max_horizon + 1, len(features_to_plot)],
