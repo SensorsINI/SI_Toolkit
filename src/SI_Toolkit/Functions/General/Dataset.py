@@ -1,4 +1,15 @@
 import numpy as np
+from copy import deepcopy
+
+
+def augment_data_placeholder(data, labels):
+    return data, labels
+
+
+try:
+    from SI_Toolkit_ASF.data_augmentation import augment_data
+except:
+    augment_data = augment_data_placeholder
 
 
 class DatasetTemplate:
@@ -52,6 +63,11 @@ class DatasetTemplate:
                 self.time_axes.append(df['time'])
             self.data.append(df[self.inputs])
             self.labels.append(df[self.outputs])
+
+        self.data_original = deepcopy(self.data)
+        self.labels_original = deepcopy(self.labels)
+
+        self.data, self.labels = augment_data(self.data_original, self.labels_original)
 
         self.args = args
 

@@ -1,6 +1,6 @@
 from SI_Toolkit.Functions.General.Dataset import DatasetTemplate
+from SI_Toolkit.Functions.General.Dataset import augment_data
 import tensorflow.keras as keras
-import numpy as np
 
 
 class Dataset(DatasetTemplate, keras.utils.Sequence):
@@ -22,6 +22,7 @@ class Dataset(DatasetTemplate, keras.utils.Sequence):
         return self.get_batch(idx)
 
     def on_epoch_end(self):
+        self.data, self.labels = augment_data(self.data_original, self.labels_original)
         if self.tiv:
             self.scaling_tiv_epoch_factor += 1.0
             print('scaling_tiv_epoch_factor is now {}'.format(self.scaling_tiv_epoch_factor))
