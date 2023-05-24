@@ -70,7 +70,7 @@ class ComputationLibrary:
     cumsum: Callable[[TensorType, int], TensorType] = None
     cumprod: Callable[[TensorType, int], TensorType] = None
     set_shape: Callable[[TensorType, "list[int]"], None] = None
-    concat: Callable[["list[TensorType]", int], TensorType]
+    concat: Callable[["list[TensorType, ...]", int], TensorType]
     pi: TensorType = None
     any: Callable[[TensorType], bool] = None
     all: Callable[[TensorType], bool] = None
