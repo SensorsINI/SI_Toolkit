@@ -26,7 +26,7 @@ def plot_samples(data, save_dir=None, show=True):
     plt.ylim(-1.1, 1.1)
     plt.grid()
     if save_dir is not None: plt.savefig(save_dir+'/angle_ss.pdf')
-    if show: plt.show()
+    if show: plt.show(block = False)
 
     plt.figure(figsize=(12, 12))
     angle_normed = np.arctan2(X[:, 2], X[:, 1])
@@ -38,7 +38,7 @@ def plot_samples(data, save_dir=None, show=True):
     plt.ylim(-1.1, 1.1)
     plt.grid()
     if save_dir is not None: plt.savefig(save_dir+'/angular_ss.pdf')
-    if show: plt.show()
+    if show: plt.show(block = False)
 
     plt.figure(figsize=(12, 12))
     plt.plot(X[:, 4], X[:, 3], "bo")
@@ -48,7 +48,7 @@ def plot_samples(data, save_dir=None, show=True):
     plt.ylim(-1.1, 1.1)
     plt.grid()
     if save_dir is not None: plt.savefig(save_dir+'/position_ss.pdf')
-    if show: plt.show()
+    if show: plt.show(block = False)
 
     plt.figure(figsize=(12, 12))
     plt.plot(X[:, 5], X[:, 4], "bo")
@@ -58,7 +58,7 @@ def plot_samples(data, save_dir=None, show=True):
     plt.ylim(-1.1, 1.1)
     plt.grid()
     if save_dir is not None: plt.savefig(save_dir+'/input_ss.pdf')
-    if show: plt.show()
+    if show: plt.show(block = False)
 
 
 def plot_test(model, data, closed_loop=False):
@@ -126,7 +126,7 @@ def plot_test(model, data, closed_loop=False):
         plt.title(model.outputs[i])
         plt.legend(loc="upper right")
         plt.grid(True)
-        plt.show()
+        plt.show(block = False)
 
 
 def state_space_prediction_error(model, data, save_dir=None):
@@ -158,7 +158,7 @@ def state_space_prediction_error(model, data, save_dir=None):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir + '/angle_ss_err.pdf')
         plt.savefig(save_dir + '/angle_ss_err.pdf')
-    plt.show()
+    plt.show(block = False)
 
     plt.figure(figsize=(12, 10))
     angle_normed = np.arctan2(X[:, 2], X[:, 1])
@@ -174,7 +174,7 @@ def state_space_prediction_error(model, data, save_dir=None):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir + '/angular_ss_err.pdf')
         plt.savefig(save_dir + '/angular_ss_err.pdf')
-    plt.show()
+    plt.show(block = False)
 
     plt.figure(figsize=(12, 10))
     plt.scatter(X[:, 4], X[:, 3], s=150, c=errs)
@@ -188,7 +188,7 @@ def state_space_prediction_error(model, data, save_dir=None):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir + '/position_ss_err.pdf')
         plt.savefig(save_dir + '/position_ss_err.pdf')
-    plt.show()
+    plt.show(block = False)
 
     plt.figure(figsize=(12, 10))
     plt.scatter(X[:, 5], Y[:, 4], s=150, c=errs)
@@ -202,7 +202,7 @@ def state_space_prediction_error(model, data, save_dir=None):
         if not os.path.exists(save_dir):
             os.makedirs(save_dir + '/input_ss_err.pdf')
         plt.savefig(save_dir + '/input_ss_err.pdf')
-    plt.show()
+    plt.show(block = False)
 
     return np.sum(errs)
 
@@ -219,4 +219,4 @@ def plot_error(model, maxiter, logf, save_dir):
     plt.ylabel("Error")
     plt.grid()
     plt.savefig(save_dir+'info/Error.pdf')
-    plt.show()
+    plt.show(block = False)

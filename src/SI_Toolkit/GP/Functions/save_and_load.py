@@ -34,7 +34,7 @@ def save_params(model, save_dir, gp_type):
     param_names = list(gpf.utilities.parameter_dict(model.models[0]).keys())
     param_names = [" ".join(p.split(".")[1:]) for p in param_names]
     for i in range(len(model.models)):
-        if not os.path.exists(save_dir):
+        if not os.path.exists(save_dir+model.outputs[i]):
             os.makedirs(save_dir+model.outputs[i])
         out = []
         out.append(model.outputs[i])

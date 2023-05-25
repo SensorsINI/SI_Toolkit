@@ -30,8 +30,9 @@ batch_size = a.batch_size
 
 number_of_inducing_points = 100
 
-#save_dir = a.path_to_models + GP_TYPE[:-1] + "_{}/".format(number_of_inducing_points)
-save_dir = a.path_to_models + GP_TYPE[:-1] + "_100_4/"
+#save_dir = a.path_to_models + "SGP_{}/".format(number_of_inducing_points)
+save_dir = a.path_to_models + GP_TYPE[:-1] + "_{}/".format(number_of_inducing_points)
+#save_dir = a.path_to_models + GP_TYPE[:-1] + "_100_4/"
 print(save_dir)
 save_training_script(save_dir)
 
@@ -63,7 +64,9 @@ elif GP_TYPE == 'SGPR':
 X_val, Y_val = reformat_data_for_vaidation(data_val, inputs)
 
 ## MODEL OPTIMIZATION
-maxiter = 400
+maxiter = 400   #determines how long training is, sweep maxiter choose set number of inducing points and experiments - expect MSE to go down and get stuck and var continuing
+                #inducing points: maxiter high ie 400 expect discrepency between MSE and var getting smaller, fixed no of exp start with this
+                #changing no of exp: var of var should get smaller and MSE variance, take a few different numbers of inducing points, big gp and small gp, start with this on presentation
 learning_rate = 0.08
 logf, logf_val, train_time = model.optimize("Adam", iters=maxiter, lr=learning_rate, val_data=(X_val, Y_val))
 save_training_time(train_time, save_dir)

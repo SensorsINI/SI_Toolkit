@@ -16,8 +16,6 @@ def run_overfitting_test():
     #number of iterations
     iterations = 3
 
-    #dataset, time_axis, dataset_sampling_dt, ground_truth = preprocess_for_brunton(**config_testing) #put here for run speed
-
     MSEs = []
     vars = []
 
@@ -39,25 +37,31 @@ def run_overfitting_test():
         MSEs.append(MSE)
         vars.append(var)
 
-    avg_MSE = np.mean(MSEs)
-    avg_var = np.mean(vars)
+    avg_MSE = np.mean(MSEs, axis = 0)
+    avg_var = np.mean(vars, axis = 0) #TODO convert to std
+
+    avg_std = np.sqrt(avg_var)
 
     print(avg_MSE)
-    print(avg_var)
+    print(avg_std)
+
+    #plotting
+
+
 
 def overfitting_test(features, titles, ground_truth, predictions_list, time_axis):
 
 
     convert_units_inplace(ground_truth, predictions_list, features)
 
-    # choose which feature to look at (0 to 5)
-    feature_idx = 0
+    # choose which feature to look at (0 to 5). Update: don't need this anymore since it now does all features
+    #feature_idx = 0
 
     #Show all True or False
     show_all = True
 
-    #choose which gp to look at
-    dataset = predictions_list[0]
+    #choose which gp to look at. Update: dont need this either
+    #dataset = predictions_list[0]
 
     #Choose a horizon length (1 to 50)
     horizon = 25
@@ -65,16 +69,23 @@ def overfitting_test(features, titles, ground_truth, predictions_list, time_axis
     #Choose Current Point at Time Axis (doesnt do anything if show_all is True)
     current_point_at_timeaxis = 0
 
-    sqrt_MSE_at_horizon = get_sqrt_MSE_at_horizon(feature_idx, show_all, dataset, horizon, ground_truth, current_point_at_timeaxis)
-    var_at_horizon = get_var_at_horizon(feature_idx, show_all, dataset, horizon, ground_truth, current_point_at_timeaxis)
+    sqrt_MSE_at_horizon = []
+    var_at_horizon = []
+
+    for i in range(len(predictions_list)):
+        sqrt_MSE_at_horizon_list = []
+        var_at_horizon_list = []
+        dataset = predictions_list[i]
+        for feature_idx in range(len(features)):
+            sqrt_MSE_at_horizon_list.append(get_sqrt_MSE_at_horizon(feature_idx, show_all, dataset, horizon, ground_truth, current_point_at_timeaxis))
+            var_at_horizon_list.append(get_var_at_horizon(feature_idx, show_all, dataset, horizon, ground_truth, current_point_at_timeaxis))
+        sqrt_MSE_at_horizon.append(sqrt_MSE_at_horizon_list)
+        var_at_horizon.append(var_at_horizon_list)
 
     print("Square Root of MSE at Horizon:", sqrt_MSE_at_horizon)
     print("Variance at Horizon:", var_at_horizon)
 
     return sqrt_MSE_at_horizon, var_at_horizon
-
-
-
 
 def get_sqrt_MSE_at_horizon(feature_idx, show_all, dataset, horizon, ground_truth, current_point_at_timeaxis):
 
@@ -253,9 +264,6 @@ def convert_units_inplace(ground_truth, predictions_list, features):
                 pass
 
             predictions_list[i] = predictions_array
-
-
-
 
 
 if __name__ == '__main__':
