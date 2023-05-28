@@ -2,6 +2,7 @@ import shutil
 import copy
 import csv
 import os
+import random
 
 import gpflow as gpf
 import numpy as np
@@ -85,6 +86,33 @@ def get_normalized_data_for_training(args_training):
 
     data_train = load_data(path_train)
     data_train = normalize_df(data_train, norm_info)
+
+    data_val = load_data(path_val)
+    data_val = normalize_df(data_val, norm_info)
+
+    data_test = load_data(path_test)
+    data_test = normalize_df(data_test, norm_info)
+
+    return data_train, data_val, data_test
+
+
+#This function is the same as the one above, but lets you pass a number of experiments as a variable and randomly selects that number of experiments from the Train folder
+def get_normalized_data_for_training_overfitting_test(args_training, num_experiments):
+
+    norm_info = load_normalization_info(args_training.path_to_normalization_info)
+
+    path_train = get_paths_to_datafiles(args_training.training_files)
+
+    #randomise paths
+    random.shuffle(path_train)
+    selected_paths_train = path_train[:num_experiments]
+
+    path_val = get_paths_to_datafiles(args_training.validation_files)
+    path_test = get_paths_to_datafiles(args_training.test_files)
+
+    data_train = load_data(selected_paths_train)
+    data_train = normalize_df(data_train, norm_info)
+
 
     data_val = load_data(path_val)
     data_val = normalize_df(data_val, norm_info)
