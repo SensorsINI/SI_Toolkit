@@ -59,15 +59,15 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use('MacOSX')
 
-    a = [0.1, 1.0, 100.0]
+    a = [30.0]
 
     x_intercept = -1.0
     y_intercept = 1.0
 
-    point_1 = (0.0, 1.0)
-    point_2 = (1.0, 0.0)
+    point_1 = (0.0, 65.0)
+    point_2 = (0.55, 0.0)
 
-    mode = -1
+    mode = 1
     fixed_point = (0.2, 0.3)
 
     x_min = np.minimum(point_1[0], point_2[0])
