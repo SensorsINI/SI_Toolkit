@@ -59,18 +59,24 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use('MacOSX')
 
-    a = [-0.1, -1.0, -100.0]
+    a = [0.1, 1.0, 100.0]
 
     x_intercept = -1.0
     y_intercept = 1.0
 
-    point_1 = (2.0, 3.0)
-    point_2 = (10.0, 14.0)
+    point_1 = (0.0, 1.0)
+    point_2 = (1.0, 0.0)
 
-    mode = 1
-    fixed_point = (4.0, 7.0)
+    mode = -1
+    fixed_point = (0.2, 0.3)
 
-    x = np.linspace(point_1[0], point_2[0], 1000)
+    x_min = np.minimum(point_1[0], point_2[0])
+    x_max = np.maximum(point_1[0], point_2[0])
+
+    y_min = np.minimum(point_1[1], point_2[1])
+    y_max = np.maximum(point_1[1], point_2[1])
+
+    x = np.linspace(x_min, x_max, 1000)
 
     y_list = []
     y_derivative_list = []
@@ -96,8 +102,8 @@ if __name__ == '__main__':
         plt.plot(x, y_list[i], label=slope_list[i])
     plt.scatter(fixed_point[0], fixed_point[1], label='Fixed point', s=50)
 
-    plt.ylim((point_1[1], point_2[1]))
-    plt.xlim((point_1[0], point_2[0]))
+    plt.ylim((y_min, y_max))
+    plt.xlim((x_min, x_max))
     plt.legend()
     plt.show()
 
