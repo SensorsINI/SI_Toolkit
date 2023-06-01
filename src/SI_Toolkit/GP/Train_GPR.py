@@ -64,9 +64,7 @@ elif GP_TYPE == 'SGPR':
 X_val, Y_val = reformat_data_for_vaidation(data_val, inputs)
 
 ## MODEL OPTIMIZATION
-maxiter = 400   #determines how long training is, sweep maxiter choose set number of inducing points and experiments - expect MSE to go down and get stuck and var continuing
-                #inducing points: maxiter high ie 400 expect discrepency between MSE and var getting smaller, fixed no of exp start with this
-                #changing no of exp: var of var should get smaller and MSE variance, take a few different numbers of inducing points, big gp and small gp, start with this on presentation
+maxiter = 400   #determines how long training is
 learning_rate = 0.08
 logf, logf_val, train_time = model.optimize("Adam", iters=maxiter, lr=learning_rate, val_data=(X_val, Y_val))
 save_training_time(train_time, save_dir)
