@@ -48,18 +48,21 @@ def run_overfitting_test():
     #Experiment 1 sweeps the value of maxiter
     #Experiment 2 sweeps the number of inducing points
     #Experiment 3 sweeps the number of experiments
-    experiment = 1
+    experiment = 3
 
     #turns training on or off
     train = False
 
+    #determines how often the same parameters are used to train gps (creates multiple of the "same" gp)
+    no_of_trainings_per_gp = 3
+
     if experiment == 1:
 
-        #Train_GPR (inducing points, maxiter, number of experiments)
+        #Train_GPR (inducing points, maxiter, number of experiments, number of gps trained with same parameters)
         if train == True:
             for maxiter in range(1, 401, 50):
                 #Train_GPR(10, maxiter, 10, new_directory_path)
-                Train_GPR(10, maxiter, 10)
+                Train_GPR(10, maxiter, 10, no_of_trainings_per_gp)
 
         #number of iterations for Testing
         iterations = 3
@@ -95,8 +98,11 @@ def run_overfitting_test():
 
         avg_std = np.sqrt(avg_var)
 
-        print(avg_MSE)
-        print(avg_std)
+        avg_avg_MSE = [np.mean(avg_MSE[i:i + no_of_trainings_per_gp], axis=0) for i in range(0, len(avg_MSE), no_of_trainings_per_gp)]
+        avg_avg_std = [np.mean(avg_std[i:i + no_of_trainings_per_gp], axis=0) for i in range(0, len(avg_std), no_of_trainings_per_gp)]
+
+        avg_avg_MSE_array = np.vstack(avg_avg_MSE)
+        avg_avg_std_array = np.vstack(avg_avg_std)
 
         #plotting
         #search_pattern = "SGP_*_400_10"
@@ -104,8 +110,9 @@ def run_overfitting_test():
         #matching_files = glob.glob(target_directory + "/" + search_pattern)
 
         numbers = []
-        for name in predictors_list:
-            #file_name = file_path.split("\\")[-1]  # Extract only the file name
+        selected_elements = predictors_list[::no_of_trainings_per_gp]
+        for name in selected_elements:
+            # file_name = file_path.split("\\")[-1]  # Extract only the file name
             parts = name.split("_")  # Split the name by underscore
             number = int(parts[2])  # Extract the number (e.g., 2, 3, 4) from the name
             numbers.append(number)
@@ -118,13 +125,13 @@ def run_overfitting_test():
 
 
             fig, ax1 = plt.subplots()
-            ax1.plot(numbers, avg_MSE[:,i], label = "sqrt(MSE)", color = 'blue')
+            ax1.plot(numbers, avg_avg_MSE_array[:, i], label = "sqrt(MSE)", color = 'blue')
             ax1.set_xlabel('Size of variable: maxiter')
             ax1.set_ylabel("sqrt(MSE)", color = 'blue')
             ax1.tick_params(axis = 'y', labelcolor = 'blue')
 
             ax2 = ax1.twinx()
-            ax2.plot(numbers, avg_std[:,i], label = "std", color = 'red')
+            ax2.plot(numbers, avg_avg_std_array[:, i], label = "std", color = 'red')
             ax2.set_ylabel('STD', color = 'red')
             ax2.tick_params(axis='y', labelcolor='red')
 
@@ -135,11 +142,11 @@ def run_overfitting_test():
 
     if experiment == 2:
 
-        #Train_GPR (inducing points, maxiter, number of experiments) - start with at least 2 inducing points, fewer doesnt make much sense
+        #Train_GPR (inducing points, maxiter, number of experiments, number of gps trained with same parameters) - start with at least 2 inducing points, fewer doesnt make much sense
         if train == True:
             for inducing_points in range(2, 101):
                 #Train_GPR(inducing_points,400,10,new_directory_path)
-                Train_GPR(inducing_points, 400, 10)
+                Train_GPR(inducing_points, 400, 10, no_of_trainings_per_gp)
 
         #number of iterations for Testing
         iterations = 3
@@ -175,8 +182,11 @@ def run_overfitting_test():
 
         avg_std = np.sqrt(avg_var)
 
-        print(avg_MSE)
-        print(avg_std)
+        avg_avg_MSE = [np.mean(avg_MSE[i:i + no_of_trainings_per_gp], axis=0) for i in range(0, len(avg_MSE), no_of_trainings_per_gp)]
+        avg_avg_std = [np.mean(avg_std[i:i + no_of_trainings_per_gp], axis=0) for i in range(0, len(avg_std), no_of_trainings_per_gp)]
+
+        avg_avg_MSE_array = np.vstack(avg_avg_MSE)
+        avg_avg_std_array = np.vstack(avg_avg_std)
 
         #plotting
         #search_pattern = "SGP_*_400_10"
@@ -184,8 +194,9 @@ def run_overfitting_test():
         #matching_files = glob.glob(target_directory + "/" + search_pattern)
 
         numbers = []
-        for name in predictors_list:
-            #file_name = file_path.split("\\")[-1]  # Extract only the file name
+        selected_elements = predictors_list[::no_of_trainings_per_gp]
+        for name in selected_elements:
+            # file_name = file_path.split("\\")[-1]  # Extract only the file name
             parts = name.split("_")  # Split the name by underscore
             number = int(parts[1])  # Extract the number (e.g., 2, 3, 4) from the name
             numbers.append(number)
@@ -197,18 +208,107 @@ def run_overfitting_test():
         for i in range(len(features)):
 
             fig, ax1 = plt.subplots()
-            ax1.plot(numbers, avg_MSE[:, i], label="sqrt(MSE)", color='blue')
+            ax1.plot(numbers, avg_avg_MSE_array[:, i], label="sqrt(MSE)", color='blue')
             ax1.set_xlabel('Number of Inducing Points')
             ax1.set_ylabel("sqrt(MSE)", color='blue')
             ax1.tick_params(axis='y', labelcolor='blue')
 
             ax2 = ax1.twinx()
-            ax2.plot(numbers, avg_std[:, i], label="std", color='red')
+            ax2.plot(numbers, avg_avg_std_array[:, i], label="std", color='red')
             ax2.set_ylabel('STD', color='red')
             ax2.tick_params(axis='y', labelcolor='red')
 
             # plt.xticks(numbers)
             plt.title('Experiment 2: ' + features[i])
+            plt.show()
+
+
+    if experiment == 3:
+
+        #Train_GPR (inducing points, maxiter, number of experiments, number of gps trained with same parameters) - start with at least 2 inducing points, fewer doesnt make much sense
+        if train == True:
+            for no_of_experiments in range(1, 101, 20):
+                #Train_GPR(inducing_points,400,10,new_directory_path)
+                Train_GPR(10, 400, no_of_experiments, no_of_trainings_per_gp)
+
+        #number of iterations for Testing
+        iterations = 3
+
+        MSEs = []
+        vars = []
+
+        #subdirectories = get_immediate_subdirectories(new_directory_path)
+
+        #filepath = os.path.join(parent_directory, 'SI_Toolkit_ASF\config_overfitting_test.yml')
+        #overwrite_yaml_value(filepath, 'predictors_specifications_testing', subdirectories)
+
+
+        for i in range(iterations):
+
+            dataset, time_axis, dataset_sampling_dt, ground_truth = preprocess_for_brunton(**config_overfitting_test)
+
+            predictions_list = []
+            predictors_list = config_overfitting_test['predictors_specifications_testing_Exp_3']
+            predictor = PredictorWrapper()
+            for predictor_specification in predictors_list:
+                predictor.update_predictor_config_from_specification(predictor_specification=predictor_specification)
+                predictions_list.append(get_prediction(dataset, predictor, **config_overfitting_test))
+
+            MSE, var = overfitting_test(config_overfitting_test['features_to_plot'], titles=predictors_list,
+                     ground_truth=ground_truth, predictions_list=predictions_list, time_axis=time_axis,
+                     )
+
+            MSEs.append(MSE)
+            vars.append(var)
+
+        avg_MSE = np.mean(MSEs, axis = 0)
+        avg_var = np.mean(vars, axis = 0)
+
+        avg_std = np.sqrt(avg_var)
+
+        avg_avg_MSE = [np.mean(avg_MSE[i:i + no_of_trainings_per_gp], axis = 0) for i in range(0, len(avg_MSE), no_of_trainings_per_gp)]
+        avg_avg_std = [np.mean(avg_std[i:i + no_of_trainings_per_gp], axis = 0) for i in range(0, len(avg_std), no_of_trainings_per_gp)]
+
+        var_avg_MSE = [np.var(avg_MSE[i:i + no_of_trainings_per_gp], axis = 0) for i in range(0, len(avg_MSE), no_of_trainings_per_gp)]
+        var_avg_std = [np.var(avg_std[i:i + no_of_trainings_per_gp], axis = 0) for i in range(0, len(avg_std), no_of_trainings_per_gp)]
+
+        std_avg_MSE = np.sqrt(var_avg_MSE)
+        std_avg_std = np.sqrt(var_avg_std)
+
+
+
+        #plotting
+        #search_pattern = "SGP_*_400_10"
+
+        #matching_files = glob.glob(target_directory + "/" + search_pattern)
+
+        numbers = []
+        selected_elements = predictors_list[::no_of_trainings_per_gp]
+        for name in selected_elements:
+            #file_name = file_path.split("\\")[-1]  # Extract only the file name
+            parts = name.split("_")  # Split the name by underscore
+            number = int(parts[3])  # Extract the number (e.g., 2, 3, 4) from the name
+            numbers.append(number)
+
+        numbers = sorted(numbers)
+
+        features = config_overfitting_test['features_to_plot']
+
+        for i in range(len(features)):
+
+            fig, ax1 = plt.subplots()
+            ax1.plot(numbers, std_avg_MSE[:, i], label="std(sqrt(MSE))", color='blue')
+            ax1.set_xlabel('Number of Experiments used in Training')
+            ax1.set_ylabel("std(sqrt(MSE))", color='blue')
+            ax1.tick_params(axis='y', labelcolor='blue')
+
+            ax2 = ax1.twinx()
+            ax2.plot(numbers, std_avg_std[:, i], label="std(std)", color='red')
+            ax2.set_ylabel('std(std)', color='red')
+            ax2.tick_params(axis='y', labelcolor='red')
+
+            # plt.xticks(numbers)
+            plt.title('Experiment 3: ' + features[i])
             plt.show()
 
 
@@ -427,89 +527,91 @@ def convert_units_inplace(ground_truth, predictions_list, features):
             predictions_list[i] = predictions_array
 
 
-def Train_GPR(number_of_inducing_points, maxiter, no_of_experiments):
-    GP_TYPE = 'SGPR'
+def Train_GPR(number_of_inducing_points, maxiter, no_of_experiments, no_of_trainings_per_gp):
 
-    gpf.config.set_default_float(tf.float64)
-    os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
-    matplotlib.rcParams.update({'font.size': 24})
+    for i in range(no_of_trainings_per_gp):
+        GP_TYPE = 'SGPR'
 
-    ##  LOADING ARGUMENTS FROM CONFIG
-    a = args()
-    inputs = a.state_inputs + a.control_inputs
-    a.wash_out_len = 0
-    a.post_wash_out_len = 1
-    outputs = a.outputs
-    batch_size = a.batch_size
+        gpf.config.set_default_float(tf.float64)
+        os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
+        matplotlib.rcParams.update({'font.size': 24})
 
-    #number_of_inducing_points = 100
+        ##  LOADING ARGUMENTS FROM CONFIG
+        a = args()
+        inputs = a.state_inputs + a.control_inputs
+        a.wash_out_len = 0
+        a.post_wash_out_len = 1
+        outputs = a.outputs
+        batch_size = a.batch_size
 
-    #save_dir = a.path_to_models + "SGP_{}/".format(number_of_inducing_points)
-    save_dir = a.path_to_models + GP_TYPE[:-1] + "_{}".format(number_of_inducing_points) + "_{}".format(maxiter) + "_{}/".format(no_of_experiments)
-    #save_dir = path_to_directory + "/" + GP_TYPE[:-1] + "_{}".format(number_of_inducing_points) + "_{}".format(maxiter) + "_{}/".format(no_of_experiments)
+        #number_of_inducing_points = 100
+
+        #save_dir = a.path_to_models + "SGP_{}/".format(number_of_inducing_points)
+        save_dir = a.path_to_models + GP_TYPE[:-1] + "_{}".format(number_of_inducing_points) + "_{}".format(maxiter) + "_{}".format(no_of_experiments) + "_{}/".format(i+1)
+        #save_dir = path_to_directory + "/" + GP_TYPE[:-1] + "_{}".format(number_of_inducing_points) + "_{}".format(maxiter) + "_{}/".format(no_of_experiments)
 
 
-    print(save_dir)
-    save_training_script(save_dir)
+        print(save_dir)
+        save_training_script(save_dir)
 
-    data_train, data_val, data_test = get_normalized_data_for_training_overfitting_test(a, no_of_experiments)
+        data_train, data_val, data_test = get_normalized_data_for_training_overfitting_test(a, no_of_experiments)
 
-    ## PRESELECTING DATA: See preselect_data_for_GPs docstring
-    number_of_bins = 11
-    training = True
-    X, Y = preselect_data_for_GPs(data_train, inputs, outputs, number_of_bins, training, batch_size)
+        ## PRESELECTING DATA: See preselect_data_for_GPs docstring
+        number_of_bins = 11
+        training = True
+        X, Y = preselect_data_for_GPs(data_train, inputs, outputs, number_of_bins, training, batch_size)
 
-    ## DEFINING KERNELS
-    kernels = get_kernels(inputs)
+        ## DEFINING KERNELS
+        kernels = get_kernels(inputs)
 
-    # FROM PRESELECTED DATA RANDOMLY CHOOSE POINTS TO SERVE AS FIRST GUESS OF INDUCING POINTS
-    sample_indices = random.sample(range(X.shape[0]), number_of_inducing_points)
+        # FROM PRESELECTED DATA RANDOMLY CHOOSE POINTS TO SERVE AS FIRST GUESS OF INDUCING POINTS
+        sample_indices = random.sample(range(X.shape[0]), number_of_inducing_points)
 
-    ## PLOTTING PHASE DIAGRAMS OF PRESELECTED DATA AND INDUCING POINTS GUESS.
-    #plot_samples(X[sample_indices], save_dir=save_dir+"info/initial_ip/")
-    #plot_samples(X, save_dir=save_dir+"info/training_ss/")
+        ## PLOTTING PHASE DIAGRAMS OF PRESELECTED DATA AND INDUCING POINTS GUESS.
+        #plot_samples(X[sample_indices], save_dir=save_dir+"info/initial_ip/")
+        #plot_samples(X, save_dir=save_dir+"info/training_ss/")
 
-    ## DEFINING MULTI OUTPUT SGPR MODEL
-    if GP_TYPE == 'GPR':
-        model = MultiOutGPR(a)
-        model.setup((X[sample_indices], Y[sample_indices]), kernels)
-    elif GP_TYPE == 'SGPR':
-        model = MultiOutSGPR(a)
-        model.setup((X, Y), kernels, X[sample_indices])
+        ## DEFINING MULTI OUTPUT SGPR MODEL
+        if GP_TYPE == 'GPR':
+            model = MultiOutGPR(a)
+            model.setup((X[sample_indices], Y[sample_indices]), kernels)
+        elif GP_TYPE == 'SGPR':
+            model = MultiOutSGPR(a)
+            model.setup((X, Y), kernels, X[sample_indices])
 
-    X_val, Y_val = reformat_data_for_vaidation(data_val, inputs)
+        X_val, Y_val = reformat_data_for_vaidation(data_val, inputs)
 
-    ## MODEL OPTIMIZATION
-    #maxiter = 400   #determines how long training is, sweep maxiter choose set number of inducing points and experiments - expect MSE to go down and get stuck and var continuing
-                    #inducing points: maxiter high ie 400 expect discrepency between MSE and var getting smaller, fixed no of exp start with this
-                    #changing no of exp: var of var should get smaller and MSE variance, take a few different numbers of inducing points, big gp and small gp, start with this on presentation
-    learning_rate = 0.08
-    logf, logf_val, train_time = model.optimize("Adam", iters=maxiter, lr=learning_rate, val_data=(X_val, Y_val))
-    save_training_time(train_time, save_dir)
+        ## MODEL OPTIMIZATION
+        #maxiter = 400   #determines how long training is, sweep maxiter choose set number of inducing points and experiments - expect MSE to go down and get stuck and var continuing
+                        #inducing points: maxiter high ie 400 expect discrepency between MSE and var getting smaller, fixed no of exp start with this
+                        #changing no of exp: var of var should get smaller and MSE variance, take a few different numbers of inducing points, big gp and small gp, start with this on presentation
+        learning_rate = 0.08
+        logf, logf_val, train_time = model.optimize("Adam", iters=maxiter, lr=learning_rate, val_data=(X_val, Y_val))
+        save_training_time(train_time, save_dir)
 
-    # PLOT FINAL INDUCING POINTS (FIXME: In current implementation one does not know which plot is for which kernel)
-    # for i in len(kernels):
-    #     plot_samples(model.models[i].inducing_variable.Z.numpy(), save_dir=save_dir + model.outputs[i], show=False)
+        # PLOT FINAL INDUCING POINTS (FIXME: In current implementation one does not know which plot is for which kernel)
+        # for i in len(kernels):
+        #     plot_samples(model.models[i].inducing_variable.Z.numpy(), save_dir=save_dir + model.outputs[i], show=False)
 
-    #plot_error(model, maxiter, logf_val, save_dir)
+        #plot_error(model, maxiter, logf_val, save_dir)
 
-    ## SAVE MODEL
-    print("Saving...")
-    save_model(model, save_dir, GP_TYPE)
-    print("Done!")
+        ## SAVE MODEL
+        print("Saving...")
+        save_model(model, save_dir, GP_TYPE)
+        print("Done!")
 
-    ## TESTING ON TEST DATA
-    number_of_bins = 11
-    training = False
-    X, Y = preselect_data_for_GPs(data_test, inputs, outputs, number_of_bins, training, batch_size)
+        ## TESTING ON TEST DATA
+        number_of_bins = 11
+        training = False
+        X, Y = preselect_data_for_GPs(data_test, inputs, outputs, number_of_bins, training, batch_size)
 
-    test_indices = random.sample(range(X.shape[0]), 100)
+        test_indices = random.sample(range(X.shape[0]), 100)
 
-    # PLOT error between true and predicted values
-    #errs = state_space_prediction_error(model, (X[test_indices], Y[test_indices]), save_dir=save_dir+"info/ss_error/")
+        # PLOT error between true and predicted values
+        #errs = state_space_prediction_error(model, (X[test_indices], Y[test_indices]), save_dir=save_dir+"info/ss_error/")
 
-    ## PLOTTING 1s CLOSED-LOOP PREDICTION FROM TEST RECORDING
-    #plot_test(model, data_test, closed_loop=True)
+        ## PLOTTING 1s CLOSED-LOOP PREDICTION FROM TEST RECORDING
+        #plot_test(model, data_test, closed_loop=True)
 
 
 def get_subdirectory_names(directory_path):
