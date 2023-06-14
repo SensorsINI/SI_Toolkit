@@ -437,8 +437,10 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
         for feature in df_norm_info.columns:
             if feature in df_total.columns:
                 plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
-                plt.title(feature)
-                plt.savefig(histograms_path + '/' + feature + '.png')
+                plt.title(feature, fontsize=18)
+                plt.xticks(fontsize=14)
+                plt.yticks(fontsize=14)
+                plt.savefig(histograms_path + '/' + feature + '.png', dpi=600)
                 plt.show()
 
     # endregion
