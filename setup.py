@@ -20,7 +20,7 @@ if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Ap
           'This is without GPU support which at the time of writing was working very poorly.\n'
           'You may want to check if anything better was released in the meantime.')
 else:
-    tensorflow_requirements = ['tensorflow']
+    tensorflow_requirements = ['tensorflow==2.8']
 
 version = platform.version()
 if 'Ubuntu' in version and '18.04' in version:
@@ -37,6 +37,7 @@ requirements = [
     'torch',
     'derivative',
     'gitpython',
+    'ruamel.yaml'
 ]
 requirements = requirements + tensorflow_requirements + PyQt_requirements
 
