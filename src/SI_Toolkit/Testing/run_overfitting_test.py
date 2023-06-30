@@ -48,10 +48,10 @@ def run_overfitting_test():
     #Experiment 1 sweeps the value of maxiter
     #Experiment 2 sweeps the number of inducing points
     #Experiment 3 sweeps the number of experiments
-    experiment = 3
+    experiment = 1
 
     #turns training on or off
-    train = False
+    train = True
 
     #determines how often the same parameters are used to train gps (creates multiple of the "same" gp)
     no_of_trainings_per_gp = 3
@@ -60,9 +60,12 @@ def run_overfitting_test():
 
         #Train_GPR (inducing points, maxiter, number of experiments, number of gps trained with same parameters)
         if train == True:
-            for maxiter in range(1, 401, 50):
+            for maxiter in range(1, 50, 5):
                 #Train_GPR(10, maxiter, 10, new_directory_path)
-                Train_GPR(10, maxiter, 10, no_of_trainings_per_gp)
+                Train_GPR(15, maxiter, 25, no_of_trainings_per_gp)
+            for maxiter in range(50, 401, 25):
+                #Train_GPR(10, maxiter, 10, new_directory_path)
+                Train_GPR(15, maxiter, 25, no_of_trainings_per_gp)
 
         #number of iterations for Testing
         iterations = 3
@@ -144,9 +147,9 @@ def run_overfitting_test():
 
         #Train_GPR (inducing points, maxiter, number of experiments, number of gps trained with same parameters) - start with at least 2 inducing points, fewer doesnt make much sense
         if train == True:
-            for inducing_points in range(2, 101):
+            for inducing_points in range(2, 27, 3):
                 #Train_GPR(inducing_points,400,10,new_directory_path)
-                Train_GPR(inducing_points, 400, 10, no_of_trainings_per_gp)
+                Train_GPR(inducing_points, 400, 25, no_of_trainings_per_gp)
 
         #number of iterations for Testing
         iterations = 3
@@ -227,9 +230,12 @@ def run_overfitting_test():
 
         #Train_GPR (inducing points, maxiter, number of experiments, number of gps trained with same parameters) - start with at least 2 inducing points, fewer doesnt make much sense
         if train == True:
-            for no_of_experiments in range(1, 101, 20):
+            for no_of_experiments in range(1, 25, 3):
                 #Train_GPR(inducing_points,400,10,new_directory_path)
-                Train_GPR(10, 400, no_of_experiments, no_of_trainings_per_gp)
+                Train_GPR(100, 400, no_of_experiments, no_of_trainings_per_gp)
+            for no_of_experiments in range(25, 101, 10):
+                #Train_GPR(inducing_points,400,10,new_directory_path)
+                Train_GPR(100, 400, no_of_experiments, no_of_trainings_per_gp)
 
         #number of iterations for Testing
         iterations = 3
