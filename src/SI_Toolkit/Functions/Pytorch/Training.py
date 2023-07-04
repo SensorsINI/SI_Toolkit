@@ -87,116 +87,45 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     dict_history['test_loss'] = []
     dev_gain = 1
 
+    dev_loss = validate(net, criterion, validation_generator)
+    print('Validation loss before starting training is {}'.format(dev_loss))
+    #
+    # test_input = torch.tile(torch.reshape(torch.tensor([0.23], dtype=torch.float32), (1, 1, -1)), (1, 30, 1))
+    # output = net(test_input)
+
     # The epoch_saved variable will indicate from which epoch is the last RNN model,
     # which was good enough to be saved
+    torch.save(net.state_dict(), net_info.path_to_net + 'ckpt' + '.pt', _use_new_zipfile_serialization=False)
     epoch_saved = -1
+    post_epoch_training_loss = []
     for epoch in range(a.num_epochs):
 
         ###########################################################################################################
         # Training - Iterate batches
         ###########################################################################################################
-        # Set RNN in training mode
-        net = net.train()
-        # Define variables accumulating training loss and counting training batchs
-        train_loss = 0
-        train_batches = 0
-
-        # Iterate training over available batches
-        # tqdm() is just a function which displays the progress bar
-        # Otherwise the line below is the same as "for batch, labels in train_generator:"
-        for batch, labels in tqdm(training_generator):  # Iterate through batches
-
-            # Reset the network (internal states of hidden layers and output history not the weights!)
-            net.reset()
-
-            # Further modifying the input and output form to fit network requirements
-            batch = batch.float().to(device)
-            labels = labels.float().to(device)
-
-            # # Reset memory of gradients
-            # optimizer.zero_grad()
-
-            # Warm-up (open loop prediction) to settle the internal state of RNN hidden layers
-            # net(network_input=batch[:, :a.wash_out_len, :])
-
-            # Reset memory of gradients
-            optimizer.zero_grad()
-
-            # Forward propagation - These are the results from which we calculate the update to RNN weights
-            # GRU Input size must be (exp_len, batch, input_size)
-            # out = net(network_input=batch[:, a.wash_out_len:, :])
-            out = net(network_input=batch)
-
-            # Get loss
-            # loss = criterion(out, labels[:, a.wash_out_len:, :])
-            loss = criterion(out, labels)
-
-            # Backward propagation
-            loss.backward()
-
-            # Gradient clipping - prevent gradient from exploding
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 100)
-
-            # Update parameters
-            optimizer.step()
-            # scheduler.step()
-            # Update variables for loss calculation
-            batch_loss = loss.detach()
-            train_loss += batch_loss  # Accumulate loss
-            train_batches += 1  # Accumulate count so we can calculate mean later
+        train_loss = train(net, criterion, training_generator, optimizer)
 
         ###########################################################################################################
         # Validation - Iterate batches
         ###########################################################################################################
+        dev_loss = validate(net, criterion, validation_generator)
 
-        # Set the network in evaluation mode
-        net = net.eval()
 
-        # Define variables accumulating evaluation loss and counting evaluation batches
-        dev_loss = 0
-        dev_batches = 0
-
-        for (batch, labels) in tqdm(validation_generator):
-
-            # Reset the network (internal states of hidden layers and output history not the weights!)
-            net.reset()
-
-            # Further modifying the input and output form to fit RNN requirements
-            batch = batch.float().to(device)
-            labels = labels.float().to(device)
-
-            # Warm-up (open loop prediction) to settle the internal state of RNN hidden layers
-            out = net(network_input=batch)
-
-            # Get loss
-            # For evaluation we always calculate loss over the whole maximal prediction period
-            # This allow us to compare RNN models from different epochs
-            # loss = criterion(out[:, a.wash_out_len:, :],
-            #                  labels[:, a.wash_out_len:, :])
-            loss = criterion(out, labels)
-
-            # Update variables for loss calculation
-            batch_loss = loss.detach()
-            dev_loss += batch_loss  # Accumulate loss
-            dev_batches += 1  # Accumulate count so we can calculate mean later
-
-        # Reset the network (internal states of hidden layers and output history not the weights!)
-        net.reset()
         # Get current learning rate
 
         for param_group in optimizer.param_groups:
             lr_curr = param_group['lr']
 
-        scheduler.step(dev_loss)
+        # scheduler.step(dev_loss)
 
         # Write the summary information about the training for the just completed epoch to a dictionary
 
         dict_history['epoch'].append(epoch)
         dict_history['lr'].append(lr_curr)
         dict_history['train_loss'].append(
-            train_loss.detach().cpu().numpy() / train_batches )
+            train_loss.detach().cpu().numpy())
         dict_history['dev_loss'].append(
-            dev_loss.detach().cpu().numpy() / dev_batches)
+            dev_loss.detach().cpu().numpy())
 
         # Get relative loss gain for network evaluation
         if epoch >= 1:
@@ -216,14 +145,17 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
                                      dict_history['dev_gain'][epoch] * 100))
         print('')
 
-        # Save the best model with the lowest dev loss
+        if a.validate_also_on_training_set:
+            post_epoch_training_loss.append(validate(net, criterion, training_generator))
+
+            # Save the best model with the lowest dev loss
         # Always save the model from epoch 0
         # TODO: this is a bug: you should only save the model from epoch 0 if there is no pretraind network
         if epoch == 0:
             min_dev_loss = dev_loss
         # If current loss smaller equal than minimal till now achieved loss,
         # save the current RNN model and save its loss as minimal ever achieved
-        if dev_loss <= min_dev_loss:
+        if True:
             epoch_saved = epoch
             min_dev_loss = dev_loss
             torch.save(net.state_dict(), net_info.path_to_net + 'ckpt' + '.pt', _use_new_zipfile_serialization=False)
@@ -238,4 +170,94 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
 
     # endregion
 
-    return loss, validation_loss
+    return loss, validation_loss, post_epoch_training_loss
+
+def train(net, criterion, training_generator, optimizer):
+    # Set RNN in training mode
+    net = net.train()
+    # Define variables accumulating training loss and counting training batchs
+    train_loss = 0
+    train_batches = 0
+
+    # Iterate training over available batches
+    # tqdm() is just a function which displays the progress bar
+    # Otherwise the line below is the same as "for batch, labels in train_generator:"
+    for batch, labels in tqdm(training_generator):  # Iterate through batches
+
+        # Reset the network (internal states of hidden layers and output history not the weights!)
+        net.reset()
+
+        # Further modifying the input and output form to fit network requirements
+        batch = batch.float().to(device)
+        labels = labels.float().to(device)
+
+        # # Reset memory of gradients
+        # optimizer.zero_grad()
+
+        # Warm-up (open loop prediction) to settle the internal state of RNN hidden layers
+        # net(network_input=batch[:, :a.wash_out_len, :])
+
+        # Reset memory of gradients
+        optimizer.zero_grad()
+
+        # Forward propagation - These are the results from which we calculate the update to RNN weights
+        # GRU Input size must be (exp_len, batch, input_size)
+        # out = net(network_input=batch[:, a.wash_out_len:, :])
+        out = net(network_input=batch)
+
+        # Get loss
+        # loss = criterion(out, labels[:, a.wash_out_len:, :])
+        loss = criterion(out, labels)
+
+        # Backward propagation
+        loss.backward()
+
+        # Gradient clipping - prevent gradient from exploding
+        torch.nn.utils.clip_grad_norm_(net.parameters(), 100)
+
+        # Update parameters
+        optimizer.step()
+        # scheduler.step()
+        # Update variables for loss calculation
+        batch_loss = loss.detach()
+        train_loss += batch_loss  # Accumulate loss
+        train_batches += 1  # Accumulate count so we can calculate mean later
+
+    return train_loss / train_batches  # This returns loss per datapoint
+
+def validate(net, criterion, validation_generator):
+    #
+    # Set the network in evaluation mode
+    net = net.eval()
+
+    # Define variables accumulating evaluation loss and counting evaluation batches
+    dev_loss = 0
+    dev_batches = 0
+
+    for (batch, labels) in tqdm(validation_generator):
+        # Reset the network (internal states of hidden layers and output history not the weights!)
+        net.reset()
+
+        # Further modifying the input and output form to fit RNN requirements
+        batch = batch.float().to(device)
+        labels = labels.float().to(device)
+
+        # Warm-up (open loop prediction) to settle the internal state of RNN hidden layers
+        out = net(network_input=batch)
+
+        # Get loss
+        # For evaluation we always calculate loss over the whole maximal prediction period
+        # This allow us to compare RNN models from different epochs
+        # loss = criterion(out[:, a.wash_out_len:, :],
+        #                  labels[:, a.wash_out_len:, :])
+        loss = criterion(out, labels)
+
+        # Update variables for loss calculation
+        batch_loss = loss.detach()
+        dev_loss += batch_loss  # Accumulate loss
+        dev_batches += 1  # Accumulate count so we can calculate mean later
+
+    # Reset the network (internal states of hidden layers and output history not the weights!)
+    net.reset()
+
+    return dev_loss/dev_batches  # This returns loss per datapoint

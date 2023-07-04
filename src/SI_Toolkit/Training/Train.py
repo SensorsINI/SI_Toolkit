@@ -95,12 +95,14 @@ def train_network():
     # endregion
 
     # Run the training function
-    loss, validation_loss = train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a)
+    loss, validation_loss, post_epoch_training_loss = train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a)
 
     # region Plot loss change during training
     plt.figure()
-    plt.plot(loss, label='train')
-    plt.plot(validation_loss, label='validation')
+    plt.plot(loss, label='loss: training')
+    if post_epoch_training_loss:
+        plt.plot(post_epoch_training_loss, label='loss: training set at epoch end')
+    plt.plot(validation_loss, label='loss: validation')
     plt.xlabel("Training Epoch")
     plt.ylabel("Loss")
     plt.yscale('log')

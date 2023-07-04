@@ -51,6 +51,8 @@ NORMALIZE = config['training_default']['NORMALIZE']
 USE_NNI = config['training_default']['USE_NNI']
 CONSTRUCT_NETWORK = config['training_default']['CONSTRUCT_NETWORK']
 
+VALIDATE_ALSO_ON_TRAINING_SET = config['training_default']['VALIDATE_ALSO_ON_TRAINING_SET']
+
 # For l2race
 # control_inputs = ['u1', 'u2']
 # state_inputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
@@ -117,6 +119,9 @@ def args():
     parser.add_argument('--construct_network', default=CONSTRUCT_NETWORK, type=str,
                         help='For Pytorch you can decide if you want to construct network with modules or cells.'
                              'First is needed for DeltaRNN, second gives more flexibility in specifying layers sizes.')
+
+    parser.add_argument('--validate_also_on_training_set', default=VALIDATE_ALSO_ON_TRAINING_SET, type=bool,
+                        help='If you want to validate also on training dataset, after finished training epoch. Can make training considerably longer!')
 
 
     args = parser.parse_args()

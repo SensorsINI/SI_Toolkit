@@ -74,6 +74,17 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
 
     callbacks_for_training.append(reduce_lr)
 
+    post_epoch_training_loss = []
+    class AdditionalValidation(keras.callbacks.Callback):
+        def __init__(self, dataset):
+            super().__init__()
+            self.dataset = dataset
+        def on_epoch_end(self, epoch, logs=None):
+            post_epoch_training_loss.append(self.model.evaluate(self.dataset))
+
+    callbacks_for_training.append(AdditionalValidation(dataset=training_dataset))
+
+
     csv_logger = keras.callbacks.CSVLogger(net_info.path_to_net + 'log_training.csv', append=False, separator=';')
     callbacks_for_training.append(csv_logger)
 
@@ -86,6 +97,8 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     # endregion
 
     # region Training loop
+    loss_eval = net.evaluate(validation_dataset)
+    print('Validation loss before starting training is {}'.format(loss_eval))
 
     history = net.fit(
         training_dataset,
@@ -96,8 +109,14 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
         callbacks=callbacks_for_training,
     )
 
-    loss = history.history['loss']
-    validation_loss = history.history['val_loss']
+    try:
+        loss = history.history['loss']
+    except KeyError:
+        loss = []
+    try:
+        validation_loss = history.history['val_loss']
+    except KeyError:
+        validation_loss = []
 
     # endregion
 
@@ -105,4 +124,4 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     net.save_weights(net_info.path_to_net + 'ckpt' + '.ckpt')
     # endregion
 
-    return loss, validation_loss
+    return np.array(loss), validation_loss, post_epoch_training_loss
