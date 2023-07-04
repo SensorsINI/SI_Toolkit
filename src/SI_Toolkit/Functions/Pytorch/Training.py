@@ -51,7 +51,7 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     # region Set basic training features: optimizer, loss, scheduler...
 
     # Select Optimizer
-    optimizer = optim.Adam(net.parameters(), amsgrad=True, lr=a.lr)
+    optimizer = optim.Adam(net.parameters(), amsgrad=False, lr=a.lr)
 
     # TODO: Verify if scheduler is working. Try tweaking parameters of below scheduler and try cyclic lr scheduler
     # scheduler = lr_scheduler.CyclicLR(optimizer, base_lr=lr, max_lr=0.1)
