@@ -63,7 +63,7 @@ def compose_net_from_net_name(net_name,
         net.add(tf.keras.Input(batch_size=batch_size, shape=(time_series_length, len(inputs_list))))
         for i in range(h_number):
             net.add(layer_type(
-                units=h_size[i], activation='tanh', batch_size=batch_size
+                units=h_size[i], activation='tanh', batch_size=batch_size,  name='layers.{}'.format(i)
             ))
     else:
         # Or RNN...
@@ -81,8 +81,7 @@ def compose_net_from_net_name(net_name,
                 stateful=stateful
             ))
 
-    # net.add(tf.keras.layers.Dense(units=len(outputs_list), activation='tanh'))
-    net.add(tf.keras.layers.Dense(units=len(outputs_list)))
+    net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers.{}'.format(h_number)))
 
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
           .format(net_type, len(h_size), ', '.join(map(str, h_size))))

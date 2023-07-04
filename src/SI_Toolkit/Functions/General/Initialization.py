@@ -256,6 +256,7 @@ def get_net(a,
                                               time_series_length=time_series_length,
                                               batch_size=batch_size, stateful=stateful,
                                               construct_network=construct_network)
+    net_info.library = library
 
 
     # We load a pretrained network
@@ -281,6 +282,14 @@ def get_net(a,
 
         net_info.path_to_net = a.path_to_models + parent_net_name
 
+        # If new network uses different library - convert
+        if net_info.library != a.library:
+            from SI_Toolkit.Functions.General.library_conversion import convert
+            net, net_info = convert(net, net_info,
+                                          time_series_length=time_series_length,
+                                          batch_size=batch_size, stateful=stateful,
+                                          construct_network=construct_network)
+
         # endregion
 
     else:
@@ -295,7 +304,6 @@ def get_net(a,
         net_info.path_to_net = None  # Folder for net not yer created
 
 
-    net_info.library = library
     net_info.construct_network = construct_network
 
     if 'dt' in locals():
