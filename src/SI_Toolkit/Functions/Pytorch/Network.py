@@ -147,17 +147,22 @@ class Sequence(nn.Module):
                 self.network_head = nn.RNN(input_size=len(inputs_list), hidden_size=self.h_size[0],
                                            num_layers=len(self.h_size))
 
-        self.final_fc = nn.Linear(self.h_size[-1], len(outputs_list))  # RNN out
 
         if self.construct_network == 'with cells':
             self.layers = nn.ModuleList([])
+            self.net_cell.append(nn.Linear(self.h_size[-1], len(outputs_list)).to(self.device))
             for cell in self.net_cell:
                 self.layers.append(cell)
-            self.layers.append(self.final_fc)
+        else:
+            self.final_fc = nn.Linear(self.h_size[-1], len(outputs_list)).to(self.device)
+
+
 
         # Declaration of the variables keeping internal state of GRU hidden layers
         self.h = [None] * len(self.h_size)
         self.c = [None] * len(self.h_size)  # Internal state cell - only matters for LSTM
+
+        self.activation_function = nn.Tanh()
 
         # Send the whole RNN to GPU if available, otherwise send it to CPU
         self.to(self.device)
@@ -191,8 +196,10 @@ class Sequence(nn.Module):
             for iteration, input_t in enumerate(network_input.chunk(network_input.size(0), dim=0)):
                 if self.net_type == 'Dense':
                     self.h[0] = self.layers[0](input_t.squeeze(0))
+                    self.h[0] = self.activation_function(self.h[0])
                     for i in range(len(self.h_size) - 1):
                         self.h[i + 1] = self.layers[i + 1](self.h[i])
+                        self.h[i + 1] = self.activation_function(self.h[i + 1])
                 elif self.net_type == 'LSTM':
                     self.h[0], self.c[0] = self.layers[0](input_t.squeeze(0), (self.h[0], self.c[0]))
                     for i in range(len(self.h_size) - 1):
@@ -202,7 +209,7 @@ class Sequence(nn.Module):
                     for i in range(len(self.h_size) - 1):
                         self.h[i + 1] = self.layers[i + 1](self.h[i], self.h[i + 1])
 
-                output = self.final_fc(self.h[-1])
+                output = self.layers[-1](self.h[-1])
 
                 outputs += [output]
 
