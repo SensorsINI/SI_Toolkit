@@ -1,15 +1,19 @@
-"""
-DeltaGRU algorithm by Chang Gao.
-Do not modify this file!
-"""
+__author__ = "Chang Gao"
+__copyright__ = "Copyright @ Chang Gao"
+__credits__ = ["Chang Gao"]
+__license__ = "Private"
+__version__ = "0.0.1"
+__maintainer__ = "Chang Gao"
+__email__ = "gaochangw@outlook.com"
+__status__ = "Prototype"
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch import jit
-from torch.autograd.function import Function
-# from modules.util import quantize_tensor
 from SI_Toolkit.Functions.Pytorch.DeltaGRU.util import quantize_tensor
+from torch.nn import Parameter
+from typing import Tuple, Optional
+from torch import Tensor
 
 
 def get_temporal_sparsity(delta_vec_list):
@@ -41,372 +45,55 @@ def hard_sigmoid(x, qi, qf, q_enable):
     return x
 
 
-class DeltaGRUCell(nn.Module):
-    def __init__(self,
-                 n_inp,
-                 n_hid,
-                 th_x=0.25,
-                 th_h=0.25,
-                 qa=0,
-                 aqi=8,
-                 aqf=8,
-                 nqi=2,
-                 nqf=4,
-                 eval_sp=0,
-                 debug=0,
-                 use_cuda=1):
-        super(DeltaGRUCell, self).__init__()
-
-        # Properties
-        self.n_inp = n_inp
-        self.n_hid = n_hid
-        self.th_x = torch.tensor(th_x).float()
-        self.th_h = torch.tensor(th_h).float()
-        self.aqi = torch.tensor(aqi).int()
-        self.aqf = torch.tensor(aqf).int()
-        self.nqi = torch.tensor(nqi).int()
-        self.nqf = torch.tensor(nqf).int()
-        self.eval_sp = eval_sp
-        self.qa = torch.tensor(qa).int()
-        self.use_cuda = use_cuda
-
-        # Whether use GPU
-        if self.use_cuda:
-            self.th_x = self.th_x.cuda()
-            self.th_h = self.th_h.cuda()
-
-        # Network parameters
-        self.weight_ih = torch.nn.Parameter(torch.empty(3 * n_hid, n_inp))
-        self.weight_hh = torch.nn.Parameter(torch.empty(3 * n_hid, n_hid))
-        self.bias_ih = torch.nn.Parameter(torch.empty(3 * n_hid))
-        self.bias_hh = torch.nn.Parameter(torch.empty(3 * n_hid))
-
-        # Statistics
-        self.delta_inp = []
-        self.delta_hid = []
-
-        self.hidden = None
-
-        # Regularizer
-        # self.abs_delta_hid = torch.zeros(1).float()
-
-        # Debug
-        self.debug = debug
-        if self.debug:
-            self.dict_debug = {}
-            self.dict_debug['x'] = []
-            self.dict_debug['h'] = []
-            self.dict_debug['dx'] = []
-            self.dict_debug['dh'] = []
-            self.dict_debug['q_mem_r'] = []
-            self.dict_debug['mem_r'] = []
-            self.dict_debug['q_mem_u'] = []
-            self.dict_debug['mem_u'] = []
-            self.dict_debug['mem_cx'] = []
-            self.dict_debug['q_mem_ch'] = []
-            self.dict_debug['mem_ch'] = []
-            self.dict_debug['q_acc_c'] = []
-            self.dict_debug['acc_c'] = []
-            self.dict_debug['r'] = []
-            self.dict_debug['u'] = []
-            self.dict_debug['c'] = []
-            self.dict_debug['a'] = []
-            self.dict_debug['b'] = []
-            self.dict_debug['one_minus_u'] = []
-            self.dict_debug['stat_cnt_idx_dx'] = []
-            self.dict_debug['stat_cnt_idx_dh'] = []
-
-    def reset_parameters(self):
-        nn.init.orthogonal_(self.weight_ih)
-        nn.init.orthogonal_(self.weight_hh)
-        nn.init.constant_(self.bias_ih, 0)
-        nn.init.constant_(self.bias_hh, 0)
-
-    def timestep(self, delta_inp, delta_hid, hidden, mem_x_prev, mem_ch_prev, one):
-        # print("QA: ", self.qa)
-        acc_x_curr = F.linear(delta_inp, self.weight_ih, mem_x_prev)
-        acc_h_curr = F.linear(delta_hid, self.weight_hh)
-        acc_x_chunks = acc_x_curr.chunk(3, dim=1)
-        acc_h_chunks = acc_h_curr.chunk(3, dim=1)
-        # print("acc_x_chunks: Max: %3.4f | Min: %3.4f" % (torch.max(acc_x_curr), torch.min(acc_x_curr)))
-        # print("acc_h_chunks: Max: %3.4f | Min: %3.4f" % (torch.max(acc_h_curr), torch.min(acc_h_curr)))
-
-        mem_r_curr = acc_x_chunks[0] + acc_h_chunks[0]
-        mem_u_curr = acc_x_chunks[1] + acc_h_chunks[1]
-        mem_cx_curr = acc_x_chunks[2]
-        mem_ch_curr = acc_h_chunks[2] + mem_ch_prev
-
-        # Quantize Accumulation
-        # mem_all = torch.cat((mem_r_curr, mem_u_curr, mem_cx_curr, mem_ch_curr), 1)
-        # mem_all_max = torch.max(mem_all)
-        # mem_all_min = torch.min(mem_all)
-        # print("Max: ", mem_all_max)
-        # print("Min: ", mem_all_min)
-        # mem_r_curr = quantize_tensor(mem_r_curr, self.aqi+1, self.aqf+7, self.qa)
-        # mem_u_curr = quantize_tensor(mem_u_curr, self.aqi+1, self.aqf+7, self.qa)
-        # mem_cx_curr = quantize_tensor(mem_cx_curr, self.aqi+1, self.aqf+7, self.qa)
-        # mem_ch_curr = quantize_tensor(mem_ch_curr, self.aqi+1, self.aqf+7, self.qa)
-        mem_x_curr = torch.cat((mem_r_curr, mem_u_curr, mem_cx_curr), 1)
-
-
-        # print("Max: %f | Min: %f" % (torch.max(mem_x_curr), torch.min(mem_x_curr)))
-
-        # mem_x_curr = quantize_tensor(mem_x_curr, self.aqi+1, self.aqf+7, self.qa)
-
-        # Quantize Delta Memories
-        q_mem_r_curr = quantize_tensor(mem_r_curr, self.aqi, self.aqf, self.qa)
-        q_mem_u_curr = quantize_tensor(mem_u_curr, self.aqi, self.aqf, self.qa)
-
-        # Calculate reset gate and update gate
-        # r = hard_sigmoid(q_mem_r_curr, self.aqi, self.aqf, self.qa)
-        # u = hard_sigmoid(q_mem_u_curr, self.aqi, self.aqf, self.qa)
-
-        r = torch.sigmoid(q_mem_r_curr)
-        u = torch.sigmoid(q_mem_u_curr)
-        r = quantize_tensor(r, self.nqi, self.nqf, 1)
-        u = quantize_tensor(u, self.nqi, self.nqf, 1)
-
-        # Quantize mem_ch_curr
-        q_mem_ch_curr = quantize_tensor(mem_ch_curr, self.aqi, self.aqf, self.qa)
-
-        # Calculate candidate accumulation
-        acc_c = mem_cx_curr + torch.mul(r, q_mem_ch_curr)
-        q_acc_c = quantize_tensor(acc_c, self.aqi, self.aqf, self.qa)
-
-        # Calculate candidate
-        # c = F.hardtanh(q_acc_c)
-        c = torch.tanh(q_acc_c)
-        c = quantize_tensor(c, self.nqi, self.nqf, 1)
-
-        # Quantize candidate
-        # if self.use_cuda:
-        #     one_minus_u = (torch.ones_like(u).cuda() - u)
-        # else:
-        #     one_minus_u = (torch.ones_like(u) - u)
-        one_minus_u = one - u
-        a = quantize_tensor(torch.mul(one_minus_u, c), self.aqi, self.aqf, self.qa)
-        b = quantize_tensor(torch.mul(u, hidden), self.aqi, self.aqf, self.qa)
-        next_hidden = a + b
-
-        # Debug
-        if self.debug:
-            self.dict_debug['q_mem_r'].append(torch.squeeze(q_mem_r_curr))
-            self.dict_debug['mem_r'].append(torch.squeeze(mem_r_curr))
-            self.dict_debug['q_mem_u'].append(torch.squeeze(q_mem_u_curr))
-            self.dict_debug['mem_u'].append(torch.squeeze(mem_u_curr))
-            self.dict_debug['mem_cx'].append(torch.squeeze(mem_cx_curr))
-            self.dict_debug['q_mem_ch'].append(torch.squeeze(q_mem_ch_curr))
-            self.dict_debug['mem_ch'].append(torch.squeeze(mem_ch_curr))
-            self.dict_debug['acc_c'].append(torch.squeeze(acc_c))
-            self.dict_debug['q_acc_c'].append(torch.squeeze(q_acc_c))
-            self.dict_debug['r'].append(torch.squeeze(r))
-            self.dict_debug['u'].append(torch.squeeze(u))
-            self.dict_debug['c'].append(torch.squeeze(c))
-            self.dict_debug['a'].append(torch.squeeze(a))
-            self.dict_debug['b'].append(torch.squeeze(b))
-            self.dict_debug['one_minus_u'].append(torch.squeeze(one_minus_u))
-
-        return next_hidden, mem_x_curr, mem_ch_curr
-
-    def delta_forward(self, x, h_0=None):
-
-        # Get Input Tensor Dimensions
-        max_seq_len = x.size()[0]
-        n_batch = x.size()[1]
-
-        # Initialize result accumulator
-        # Quantize candidate
-        # if self.use_cuda:
-        #     one_minus_u = (torch.ones_like(u).cuda() - u)
-        # else:
-        #     one_minus_u = (torch.ones_like(u) - u)
-
-        if h_0 is None:
-            if self.hidden is None:
-                hidden = torch.zeros(n_batch, self.n_hid).float()  # Initialize hidden state
-            else:
-                hidden = self.hidden.float()
-        else:
-            hidden = h_0.float()
-        input_prev = torch.zeros(n_batch, self.n_inp).float()  # Initialize previous input state
-        hidden_prev = torch.zeros(n_batch, self.n_hid).float()  # Initialize previous hidden state
-        # mem_x = torch.unsqueeze(self.bias_ih, dim=0).repeat(n_batch, 1).float()  # Initialize mem_x
-        # mem_ch = torch.zeros(n_batch, self.n_hid).float()  # Initialize mem_ch
-        bias_x_chunks = self.bias_ih.chunk(3)
-        bias_h_chunks = self.bias_hh.chunk(3)
-        init_mem_x = torch.cat(
-            (bias_x_chunks[0] + bias_h_chunks[0], bias_x_chunks[1] + bias_h_chunks[1], bias_x_chunks[2]))
-        init_mem_h = bias_h_chunks[2]
-        mem_x = torch.unsqueeze(init_mem_x, dim=0).repeat(n_batch, 1).float()  # Initialize mem_x
-        mem_ch = torch.unsqueeze(init_mem_h, dim=0).repeat(n_batch, 1).float()  # Initialize mem_x
-        output = torch.zeros(max_seq_len, n_batch, self.n_hid).float()
-        one = torch.ones_like(hidden_prev).float()
-        self.abs_delta_hid = torch.zeros_like(hidden_prev).float()
-
-        # Whether use GPU
-        if self.use_cuda:
-            hidden = hidden.cuda()
-            input_prev = input_prev.cuda()
-            hidden_prev = hidden_prev.cuda()
-            mem_x = mem_x.cuda()
-            mem_ch = mem_ch.cuda()
-            output = output.float().cuda()
-            one = one.cuda()
-            self.abs_delta_hid = self.abs_delta_hid.cuda()
-
-        # Quantize input X
-        # x = quantize_tensor(x, self.aqi, self.aqf, 1)
-
-        # Save history of delta vectors to evaluate sparsity
-        self.delta_inp = []
-        self.delta_hid = []
-
-        # Debug
-        if self.debug:
-            self.dict_debug['stat_cnt_idx_dx'] = torch.zeros_like(input_prev).detach().squeeze().cpu()
-            self.dict_debug['stat_cnt_idx_dh'] = torch.zeros_like(hidden_prev).detach().squeeze().cpu()
-
-        # Iterate through time steps
-        for i, input_curr in enumerate(x.chunk(max_seq_len, dim=0)):
-            # with torch.autograd.profiler.profile(use_cuda=True) as prof:
-            # Get current input vectors
-            input_curr = torch.squeeze(input_curr, dim=0)
-            hidden_curr = hidden
-
-            # Get raw delta vectors
-            delta_inp_t = input_curr - input_prev
-            delta_hid_t = hidden_curr - hidden_prev
-
-            # Zero-out elements of delta input vector below the threshold
-            delta_inp_abs = torch.abs(delta_inp_t)
-            delta_inp_t = delta_inp_t.masked_fill_(delta_inp_abs < self.th_x, 0)
-            # delta_inp_t = torch.masked_fill(torch.logical_and(delta_inp_t < self.th_x, delta_inp_t > -self.th_x), 0)
-
-            # Zero-out elements of delta hidden vector below the threshold
-            delta_hid_abs = torch.abs(delta_hid_t)
-            delta_hid_t = delta_hid_t.masked_fill_(delta_hid_abs < self.th_h, 0)
-
-            # Get L1 Penalty
-            self.abs_delta_hid += torch.abs(delta_hid_t)
-
-            # Convert Delta Vector to Sparse Vector
-            # delta_inp = delta_inp.to_sparse()
-            # delta_hid = delta_hid.to_sparse()
-
-            # Run forward pass for one time step
-            hidden, mem_x, mem_ch = self.timestep(delta_inp_t,
-                                                  delta_hid_t,
-                                                  hidden,
-                                                  mem_x,
-                                                  mem_ch,
-                                                  one)
-
-            # Quantize hidden
-            hidden = quantize_tensor(hidden, self.aqi, self.aqf, 1)
-
-            # Evaluate Temporal Sparsity
-            if self.eval_sp:
-                self.delta_inp.append(delta_inp_t.clone().detach().cpu())
-                self.delta_hid.append(delta_hid_t.clone().detach().cpu())
-
-            # Debug
-            if self.debug:
-                self.dict_debug['x'].append(torch.squeeze(input_curr))
-                self.dict_debug['h'].append(torch.squeeze(hidden))
-                self.dict_debug['dx'].append(torch.squeeze(delta_inp_t))
-                self.dict_debug['dh'].append(torch.squeeze(delta_hid_t))
-                self.dict_debug['stat_cnt_idx_dx'] += delta_inp_t.clone().detach().masked_fill_(
-                    delta_inp_abs >= self.th_x, 1).cpu().squeeze()
-                self.dict_debug['stat_cnt_idx_dh'] += delta_hid_t.clone().detach().masked_fill_(
-                    delta_hid_abs >= self.th_h, 1).cpu().squeeze()
-
-            # Update previous input vector memory on indices that had above-threshold change
-            input_prev = torch.where(delta_inp_abs >= self.th_x, input_curr, input_prev)
-
-            # Update previous hidden vector memory on indices that had above-threshold change
-            hidden_prev = torch.where(delta_hid_abs >= self.th_h, hidden_curr, hidden_prev)
-
-            # Append current DeltaGRU hidden output to the list
-            output[i, :, :] = hidden
-
-        if self.eval_sp:
-            self.delta_inp = torch.stack(self.delta_inp).detach().cpu()
-            self.delta_hid = torch.stack(self.delta_hid).detach().cpu()
-
-        # self.abs_delta_hid = self.abs_delta_hid.cpu()
-
-        return output
-
-    def set_quantize_act(self, x):
-        self.qa = torch.tensor(x).int()
-
-    def set_eval_sp(self, x):
-        self.eval_sp = torch.tensor(x).int()
-
-    def forward(self, x, h_0=None):
-        """
-        :param input: 3D-Input tensor of feature of all time steps with size (seq_len, n_batch, n_feature)
-        :param feat_len: 1D-Tensor of size (n_batch) having sequence length of each sample in the batch
-        :param show_sp: Whether to return sparsity of delta vectors
-        :return:
-            - output_seq: 3D-Tensor of all time steps of the rnn outputs with size (seq_len, n_batch, n_hid)
-            - nz_dx: Number of nonzero elements in delta input vectors of all time steps
-            - nz_dh Number of nonzero elements in delta hidden vectors of all time steps
-            - abs_delta_hid: L1 mean penalty
-            - sp_W: Weight sparsity
-        """
-
-        # Clear debug dictionary
-        if self.debug:
-            for key, value in self.dict_debug.items():
-                self.dict_debug[key] = []
-
-        output = self.delta_forward(x, h_0)
-        self.hidden = output[-1, :, :]  # save last hidden state
-
-        # Store data for debugging
-        if self.debug:
-            for key, value in self.dict_debug.items():
-                if 'stat' not in key:
-                    self.dict_debug[key] = torch.stack(value, dim=0)
-
-        return output
-
-
 class DeltaGRU(nn.Module):
     def __init__(self,
-                 n_inp,
-                 n_hid,
+                 input_size,
+                 hidden_size,
                  num_layers,
-                 th_x=0.25,
-                 th_h=0.25,
-                 qa=0,
+                 bias=True,
+                 batch_first=False,
+                 benchmark=False,
+                 thx=0.0,
+                 thh=0.0675,
+                 qa=1,
+                 qaf=1,
                  aqi=8,
                  aqf=8,
-                 nqi=2,
-                 nqf=4,
+                 afqi=2,
+                 afqf=6,
                  eval_sp=0,
                  debug=0,
-                 use_cuda=None):
+                 gru_layer: nn.Module = None
+                 ):
         super(DeltaGRU, self).__init__()
 
-        if use_cuda is None:
-            use_cuda = torch.cuda.is_available()
+        # Set type of DeltaGRU Implementation
+        self.deltagru_type = 'edgedrnn'  # Change it to 'cudnn' if you want to match the cuDNN version used in PyTorch GRU
 
         # Properties
-        self.n_inp = n_inp
-        self.n_hid = n_hid
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.batch_first = batch_first
+        self.x_p_size = max(input_size, hidden_size)
         self.num_layers = num_layers
-        self.th_x = th_x
-        self.th_h = th_h
+        self.thx = thx
+        self.thh = thh
+        self.qa = qa
+        self.qaf = qaf
         self.aqi = aqi
         self.aqf = aqf
-        self.nqi = nqi
-        self.nqf = nqf
+        self.afqi = afqi
+        self.afqf = afqf
         self.eval_sp = eval_sp
-        self.qa = qa
         self.debug = debug
-        self.use_cuda = use_cuda
+        self.benchmark = benchmark
+
+        # GRU Attributes
+        self.num_gates = 3
+        self.gate_size = self.num_gates * self.hidden_size
+        self.num_states = 1
+
+        # Layer List
         self.layer_list = nn.ModuleList()
 
         # Statistics
@@ -414,74 +101,270 @@ class DeltaGRU(nn.Module):
         self.sp_dx = 0
         self.sp_dh = 0
 
-        # Debug
-        self.list_rnn_debug = []
+        # Log
+        self.list_log = []
+        self.reset_log()
 
-        # Instantiate DeltaGRU layers
-        for i in range(self.num_layers):
-            if i == 0:
-                layer = DeltaGRUCell(n_inp=self.n_inp,
-                                     n_hid=self.n_hid,
-                                     th_x=self.th_x,
-                                     th_h=self.th_h,
-                                     qa=qa,
-                                     aqi=self.aqi,
-                                     aqf=self.aqf,
-                                     nqi=self.nqi,
-                                     nqf=self.nqf,
-                                     eval_sp=self.eval_sp,
-                                     debug=self.debug,
-                                     use_cuda=self.use_cuda)
-            else:
-                layer = DeltaGRUCell(n_inp=self.n_hid,
-                                     n_hid=self.n_hid,
-                                     th_x=self.th_x,
-                                     th_h=self.th_h,
-                                     qa=qa,
-                                     aqi=self.aqi,
-                                     aqf=self.aqf,
-                                     nqi=self.nqi,
-                                     nqf=self.nqf,
-                                     eval_sp=self.eval_sp,
-                                     debug=self.debug,
-                                     use_cuda=self.use_cuda)
-            self.layer_list.append(layer)
+        # Instantiate parameters
+        for l in range(num_layers):
+            layer_input_size = self.input_size if l == 0 else self.hidden_size
+            w_ih = Parameter(torch.Tensor(self.gate_size, layer_input_size))
+            w_hh = Parameter(torch.Tensor(self.gate_size, self.hidden_size))
+            b_ih = Parameter(torch.Tensor(self.gate_size))
+            b_hh = Parameter(torch.Tensor(self.gate_size))
+            layer_params = (w_ih, w_hh, b_ih, b_hh)
 
-    def set_quantize_act(self, x):
-        self.qa = x
-        for i in range(self.num_layers):
-            self.layer_list[i].set_quantize_act(self.qa)
+            param_names = ['weight_ih_l{}', 'weight_hh_l{}']
+            if bias:
+                param_names += ['bias_ih_l{}', 'bias_hh_l{}']
+            param_names = [x.format(l) for x in param_names]
+
+            for name, param in zip(param_names, layer_params):
+                setattr(self, name, param)
+
+        # Load GRU Parameters if available
+        if gru_layer is not None:
+            self.load_gru_param(gru_layer)
+
+    def reset_log(self):
+        setattr(self, 'list_log', [{} for i in range(self.num_layers)])
+
+    def log_var_append(self, l, key, var):
+        if not self.training and not self.benchmark:
+            if key not in self.list_log[l].keys():
+                self.list_log[l][key] = []
+            self.list_log[l][key].append(var.detach().cpu())
+
+    def log_var(self, l, key, var):
+        if not self.training and not self.benchmark:
+            if key not in self.list_log[l].keys():
+                self.list_log[l][key] = []
+            self.list_log[l][key] = var.detach().cpu()
+    # def reset_log_sparsity(self):
+    #     setattr(self, log, [dict.fromkeys(self.vars, []) for i in range(self.num_layers)])
 
     def set_eval_sparsity(self, x):
         self.eval_sp = x
         for i in range(self.num_layers):
             self.layer_list[i].set_eval_sparsity(self.eval_sp)
 
-    def forward(self, x, h=None):
-        if x.dim() != 3:
-            raise ValueError("The input vector x must be 3-dimensional (len, batch, n_feat)")
-        self.list_rnn_debug = []
-        # Propagate through layers
-        self.sp_dx = 0
-        self.sp_dh = 0
-        delta_inp = []
-        delta_hid = []
-        self.abs_sum_delta_hid = 0
-        for i, rnn in enumerate(self.layer_list):
-            if h is None:
-                x = rnn(x)
-            else:
-                x = rnn(x, h[i])
-            if self.debug:
-                self.list_rnn_debug.append(rnn.dict_debug)
-            self.abs_sum_delta_hid += rnn.abs_delta_hid
-            delta_inp.append(rnn.delta_inp)
-            delta_hid.append(rnn.delta_hid)
-        self.abs_sum_delta_hid = torch.sum(self.abs_sum_delta_hid)
-        final_hidden_states = torch.stack([rnn.hidden for rnn in self.layer_list], 0)
+    def deltagru_forward(self, input: Tensor, state: Tuple[Tensor, Tensor, Tensor, Tensor, Tensor], l: int):
+        """
+        :param input: input tensor (seq_len, batch_size, feature_size)
+        :param state: (x_p, h_0, h_p, ma_0, mb_0)
+        :param l: index of the current layer
+        :return: (output, state)
+        """
+        # Get Weights (Biases are already initialized in the state)
+        weight_ih = getattr(self, 'weight_ih_l{}'.format(l))
+        weight_hh = getattr(self, 'weight_hh_l{}'.format(l))
+        # print(weight_ih)
 
-        if self.eval_sp:
-            self.sp_dx = get_temporal_sparsity(delta_inp)
-            self.sp_dh = get_temporal_sparsity(delta_hid)
+        # Get Inputs
+        inputs = input.unbind(0)
 
-        return x, final_hidden_states
+        # Initial States
+        x_p_len = self.input_size if l == 0 else self.hidden_size
+        x_p = quantize_tensor(state[0][:, :x_p_len], self.aqi, self.aqf, self.qa)
+        x_p_next = quantize_tensor(torch.zeros_like(state[0]), self.aqi, self.aqf, self.qa)
+        h = quantize_tensor(state[1], self.aqi, self.aqf, self.qa)
+        h_p = quantize_tensor(state[2], self.aqi, self.aqf, self.qa)
+        ma = state[3]  # Contain biases
+        mb = state[4]  # Contain biases
+        one = torch.ones_like(h, device=h.device)
+
+        # Iterate through timesteps
+        output = []
+        seq_len = len(inputs)
+        for i in range(seq_len):
+            # Get Current Input
+            x = inputs[i]
+
+            # Get raw delta vectors
+            delta_x = x - x_p
+            delta_h = h - h_p
+            self.log_var_append(l, 'pa_x', x)
+            self.log_var_append(l, 'pa_h_t-1', h)
+            self.log_var_append(l, 'pa_x_p', x_p)
+            self.log_var_append(l, 'pa_h_p', h_p)
+
+            # Zero-out elements of delta vectors below the threshold
+            delta_x_abs = torch.abs(delta_x)
+            delta_x = delta_x.masked_fill_(delta_x_abs < self.thx, 0)
+            delta_h_abs = torch.abs(delta_h)
+            delta_h = delta_h.masked_fill(delta_h_abs < self.thh, 0)
+
+            # Update previous state vectors memory on indices that had above-threshold change
+            x_p = torch.where(delta_x_abs >= self.thx, x, x_p)
+            x_p_next[:, :x_p_len] = x_p
+            h_p = torch.where(delta_h_abs >= self.thh, h, h_p)
+            h_p_next = h_p
+
+            # Calculate Partial Sums
+            psum_x = F.linear(delta_x, weight_ih, ma)
+            psum_h = F.linear(delta_h, weight_hh)
+            psum_x_chunks = psum_x.chunk(3, dim=1)
+            psum_h_chunks = psum_h.chunk(3, dim=1)
+
+            # Get Delta Memory Vectors for the next timestep
+            m_r = psum_x_chunks[0] + psum_h_chunks[0]  # Reset Gate
+            m_u = psum_x_chunks[1] + psum_h_chunks[1]  # Update Gate
+            m_cx = psum_x_chunks[2]  # Cell State w.r.t. input
+            m_ch = psum_h_chunks[2] + mb  # Cell State w.r.t. hidden
+            ma = torch.cat((m_r, m_u, m_cx), -1)
+            mb = m_ch
+
+            # Calculate Reset Gate
+            pre_r = quantize_tensor(m_r, self.aqi, self.aqf, self.qa)
+            r = torch.sigmoid(pre_r)
+            r = quantize_tensor(r, self.afqi, self.afqf, self.qaf)
+
+            # Calculate Update Gate
+            pre_u = quantize_tensor(m_u, self.aqi, self.aqf, self.qa)
+            u = torch.sigmoid(pre_u)
+            u = quantize_tensor(u, self.afqi, self.afqf, self.qaf)
+
+            # Calculate Cell State
+            q_m_ch = quantize_tensor(m_ch, self.aqi, self.aqf, self.qa)
+            r_times_q_m_ch = torch.mul(r, q_m_ch)
+            m_c = m_cx + r_times_q_m_ch
+            pre_c = quantize_tensor(m_c, self.aqi, self.aqf, self.qa)
+            c = torch.tanh(pre_c)
+            c = quantize_tensor(c, self.afqi, self.afqf, self.qaf)
+
+            # Calculate GRU Output
+            one_minus_u = one - u
+            a = quantize_tensor(torch.mul(one_minus_u, c), self.aqi, self.aqf, self.qa)
+            b = quantize_tensor(torch.mul(u, h), self.aqi, self.aqf, self.qa)
+            a_plus_b = a + b
+            h = quantize_tensor(a_plus_b, self.aqi, self.aqf, self.qa)
+
+            # Collect Outputs
+            output += [h]
+
+            # Log
+            self.log_var_append(l, 'pa_delta_x', delta_x)
+            self.log_var_append(l, 'pa_delta_h', delta_h)
+            self.log_var_append(l, 'pa_x_p_next', x_p_next)
+            self.log_var_append(l, 'pa_h_p_next', h_p_next)
+            self.log_var_append(l, 'pacc_m_r', m_r)
+            self.log_var_append(l, 'pacc_m_u', m_u)
+            self.log_var_append(l, 'pacc_m_cx', m_cx)
+            self.log_var_append(l, 'pacc_m_ch', m_ch)
+            self.log_var_append(l, 'pa_q_m_ch', q_m_ch)
+            self.log_var_append(l, 'pacc_m_c', m_c)
+            self.log_var_append(l, 'pacc_ma', ma)
+            self.log_var_append(l, 'pacc_mb', mb)
+            self.log_var_append(l, 'pa_pre_r', pre_r)
+            self.log_var_append(l, 'pa_pre_u', pre_u)
+            self.log_var_append(l, 'pa_pre_c', pre_c)
+            self.log_var_append(l, 'paa_r_times_q_m_ch', r_times_q_m_ch)
+            self.log_var_append(l, 'pa_r', r)
+            self.log_var_append(l, 'pa_u', u)
+            self.log_var_append(l, 'pa_c', c)
+            self.log_var_append(l, 'pa_a', a)
+            self.log_var_append(l, 'pa_b', b)
+            self.log_var_append(l, 'pa_one_minus_u', one_minus_u)
+            self.log_var_append(l, 'pa_a_plus_b', a_plus_b)
+            self.log_var_append(l, 'pa_h', h)
+
+        if not self.training and not self.benchmark:
+            for key in self.list_log[l]:
+                self.list_log[l][key] = torch.stack(self.list_log[l][key], dim=0)
+
+            # Log parameters
+            self.log_var(l, 'weight_ih', weight_ih)
+            self.log_var(l, 'weight_hh', weight_hh)
+            bias_ih = getattr(self, 'bias_ih_l{}'.format(l))
+            bias_hh = getattr(self, 'bias_hh_l{}'.format(l))
+            self.log_var(l, 'bias_ih', bias_ih)
+            self.log_var(l, 'bias_hh', bias_hh)
+
+        output = torch.stack(output)
+        state = (x_p_next, h, h_p_next, ma, mb)
+
+        return output, state
+
+    def forward(self, input: Tensor, state: Optional[Tuple] = None, quantize: int = 0, feature_lengths=None):
+        # Reset Log
+        if not self.training:
+            self.reset_log()
+
+        # Reshape input if necessary
+        x = input
+        if self.batch_first:
+            x = input.transpose(0, 1)
+        setattr(self, 'batch_size', int(x.size(1)))
+
+        x = quantize_tensor(x, self.aqi, self.aqf, self.qa)
+
+        # Set Runtime Quantization
+        # self.set_qa_rt()
+
+        # Initializers
+        self.init_input = torch.zeros(self.batch_size, self.x_p_size,
+                                 dtype=x.dtype, device=x.device)
+        self.init_state = torch.zeros(self.batch_size, self.hidden_size,
+                                 dtype=x.dtype, device=x.device)
+        self.init_gates = torch.zeros(self.batch_size, self.gate_size,
+                                 dtype=x.dtype, device=x.device)
+        # Initialize States
+        if state is None:  # state = (x_p, h_0, h_p, ma_0, mb_0)
+            state = self.initialze_state()
+        else:
+            for l in range(self.num_layers):
+                state.append((state[0][l], state[1][l], state[2][l], state[3][l], state[4][l]))
+
+        # Iterate through layers
+        layer_state = []
+        for l in range(self.num_layers):
+            # Forward Propation of Layer
+            x, state_next = self.deltagru_forward(x, state[l], l)
+            layer_state += [list(state_next)]
+
+        # Concat layer states
+        state_next = tuple([torch.stack([layer_state[i_layer][i_state] for i_layer in range(self.num_layers)])
+                            for i_state in range(self.num_states)])
+
+        # Get Statistics
+        # if not self.training:
+        #     self.get_temporal_sparsity()
+        #     # self.get_stats()
+
+        if self.batch_first:
+            x = x.transpose(0, 1)
+
+
+
+        return x, state_next
+
+    def initialze_state(self):
+        state = []
+        for l in range(self.num_layers):
+            bias_ih = getattr(self, 'bias_ih_l{}'.format(l))
+            bias_hh = getattr(self, 'bias_hh_l{}'.format(l))
+            if self.deltagru_type == 'edgedrnn':  # To be compatible with EdgeDRNN
+                init_ma = self.init_gates + bias_ih  # Only use bias_ih. bias_hh becomes a placeholder.
+                init_mb = self.init_state
+            else:  # To match cuDNN GRU, use both bias_ih and bias_hh
+                bias_ih_chunks = bias_ih.chunk(self.num_gates)
+                bias_hh_chunks = bias_hh.chunk(self.num_gates)
+                init_ma = self.init_gates + torch.cat(
+                    (bias_ih_chunks[0] + bias_hh_chunks[0], bias_ih_chunks[1] + bias_hh_chunks[1], bias_ih_chunks[2]))
+                init_mb = self.init_state + bias_hh_chunks[2]
+            state.append((self.init_input, self.init_state, self.init_state, init_ma, init_mb))
+        return state
+
+    def process_biases(self):
+        # In default, we use the DeltaGRU equations in the EdgeDRNN paper
+        with torch.no_grad():
+            if self.deltagru_type == 'edgedrnn':
+                for l in range(self.num_layers):
+                    bias_ih = getattr(self, 'bias_ih_l{}'.format(l))
+                    bias_hh = getattr(self, 'bias_hh_l{}'.format(l))
+                    bias_ih_chunks = bias_ih.chunk(self.num_gates)
+                    bias_hh_chunks = bias_hh.chunk(self.num_gates)
+                    bias_ih = torch.cat(
+                        (bias_ih_chunks[0] + bias_hh_chunks[0], bias_ih_chunks[1] + bias_hh_chunks[1],
+                         bias_ih_chunks[2]))
+                    bias_hh = bias_hh.masked_fill_(bias_hh != 0, 0)

@@ -138,7 +138,7 @@ class Sequence(nn.Module):
                 self.network_head = nn.GRU(input_size=len(inputs_list), hidden_size=self.h_size[0],
                                            num_layers=len(self.h_size))
             elif self.net_type == 'DeltaGRU':
-                self.network_head = DeltaGRU(n_inp=len(inputs_list), n_hid=self.h_size[0],
+                self.network_head = DeltaGRU(input_size=len(inputs_list), hidden_size=self.h_size[0],
                                              num_layers=len(self.h_size))
             elif self.net_type == 'LSTM':
                 self.network_head = nn.LSTM(input_size=len(inputs_list), hidden_size=self.h_size[0],
@@ -245,7 +245,10 @@ class Sequence(nn.Module):
                         if self.net_type == 'LSTM':
                             self.c[i] = torch.zeros(batch_size, self.h_size[i], dtype=torch.float).to(self.device)
                 else:
-                    self.h = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
+                    if self.net_type == 'DeltaGRU':
+                        self.h = None
+                    else:
+                        self.h = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
                     if self.net_type == 'LSTM':
                         self.c = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)
 
