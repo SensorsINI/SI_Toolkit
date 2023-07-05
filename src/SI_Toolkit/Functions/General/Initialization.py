@@ -283,7 +283,7 @@ def get_net(a,
         net_info.path_to_net = a.path_to_models + parent_net_name
 
         # If new network uses different library - convert
-        if net_info.library != a.library:
+        if hasattr(a, 'library') and net_info.library != a.library:
             from SI_Toolkit.Functions.General.library_conversion import convert
             net, net_info = convert(net, net_info,
                                           time_series_length=time_series_length,
