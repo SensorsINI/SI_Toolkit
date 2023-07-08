@@ -41,8 +41,12 @@ translation_invariant_variables = config['training_default']['translation_invari
 EPOCHS = config['training_default']['EPOCHS']
 BATCH_SIZE = config['training_default']['BATCH_SIZE']
 SEED = config['training_default']['SEED']
-LR = config['training_default']['LR']
 SHIFT_LABELS = config['training_default']['SHIFT_LABELS']
+
+LR_INITIAL = config['training_default']['LR']['INITIAL']
+LR_MINIMAL = config['training_default']['LR']['MINIMAL']
+LR_PATIENCE = config['training_default']['LR']['PATIENCE']
+LR_DECREASE_FACTOR = config['training_default']['LR']['DECREASE_FACTOR']
 
 WASH_OUT_LEN = config['training_default']['WASH_OUT_LEN']
 POST_WASH_OUT_LEN = config['training_default']['POST_WASH_OUT_LEN']
@@ -103,7 +107,13 @@ def args():
     parser.add_argument('--num_epochs', default=EPOCHS, type=int, help='Number of epochs of training')
     parser.add_argument('--batch_size', default=BATCH_SIZE, type=int, help='Size of a batch')
     parser.add_argument('--seed', default=SEED, type=int, help='Set seed for reproducibility')
-    parser.add_argument('--lr', default=LR, type=float, help='Learning rate')
+
+    parser.add_argument('--lr_initial', default=LR_INITIAL, type=float, help='Initial learning rate')
+    parser.add_argument('--lr_minimal', default=LR_MINIMAL, type=float, help='Minimal learning rate scheduler can decrease lr to')
+    parser.add_argument('--lr_patience', default=LR_PATIENCE, type=int, help='How many epochs to wait before decreasing learning rate if validation loss is not decreasing')
+    parser.add_argument('--lr_decrease_factor', default=LR_DECREASE_FACTOR, type=float, help='By which factor to decrease learning rate in a single step of a scheduler ')
+
+
     parser.add_argument('--shift_labels', default=SHIFT_LABELS, type=int, help='How much to shift labels/targets with respect to features while reading data file for training')
 
     parser.add_argument('--path_to_models', default=PATH_TO_MODELS, type=str,
