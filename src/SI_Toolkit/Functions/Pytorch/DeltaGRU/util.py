@@ -16,7 +16,8 @@ from glob import glob
 from torch.autograd.function import Function
 import time
 import math
-
+import torch.nn as nn
+import torch.nn.functional as F
 
 def create_folder(folder_list):
     for folder in folder_list:
@@ -586,3 +587,24 @@ def gen_sim_file(dir_path, dict_params, qi, qf, row_blocks=1):
         f.close()
 
     return pdict_out
+
+def hardsigmoid(x):
+    """
+    Computes element-wise hard sigmoid of x.
+    See e.g. https://github.com/Theano/Theano/blob/master/theano/tensor/nnet/sigm.py#L279
+    """
+    x = (0.25 * x) + 0.5
+    x = F.threshold(-x, -1.0, -1.0)
+    x = F.threshold(-x, 0.0, 0.0)
+    return x
+
+
+def get_layer_sparsity(x: nn.Module):
+    num_nonzeros = 0
+    num_elements = 0
+    for name, param in x.named_parameters():
+        print(name)
+    for name, param in x.named_parameters():
+        num_nonzeros += len(torch.nonzero(param.data))
+        num_elements += param.data.nelement()
+    return float(1 - num_nonzeros/num_elements)
