@@ -33,6 +33,7 @@ def get_net(a,
             time_series_length=None,
             batch_size=None,
             stateful=False,
+            remove_redundant_dimensions=False,
             ):
     """
     A quite big (too big?) chunk of creating a network, its associated net_info variable
@@ -255,7 +256,8 @@ def get_net(a,
     net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
                                               time_series_length=time_series_length,
                                               batch_size=batch_size, stateful=stateful,
-                                              construct_network=construct_network)
+                                              construct_network=construct_network,
+                                              remove_redundant_dimensions=remove_redundant_dimensions)
     net_info.library = library
 
 
