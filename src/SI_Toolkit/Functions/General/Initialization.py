@@ -235,7 +235,9 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
     else:
         net, net_info = compose_net_from_net_name(net_info,
                                                   time_series_length=time_series_length,
-                                                  batch_size=batch_size, stateful=stateful)
+                                                  batch_size=batch_size, stateful=stateful,
+                                                  construct_network=construct_network,
+                                                  remove_redundant_dimensions=remove_redundant_dimensions)
 
     # Load the pretrained weights
     load_pretrained_net_weights(net, ckpt_path)
@@ -291,6 +293,7 @@ def get_net(a,
             time_series_length=None,
             batch_size=None,
             stateful=False,
+            remove_redundant_dimensions=False,
             ):
     """
     A quite big (too big?) chunk of creating a network, its associated net_info variable

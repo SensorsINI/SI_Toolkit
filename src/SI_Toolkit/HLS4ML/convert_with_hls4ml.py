@@ -23,7 +23,7 @@ def convert_with_hls4ml():
     # Create a copy of the network suitable for inference (stateful and with sequence length one)
     model, net_info = \
         get_net(a, time_series_length=1,
-                batch_size=batch_size, stateful=True)
+                batch_size=batch_size, stateful=True, remove_redundant_dimensions=True)
 
 
     hls_model, hls_model_config = convert_model_with_hls4ml(model)
