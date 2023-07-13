@@ -13,7 +13,7 @@ class DeltaGRU(nn.GRU):
                  num_layers=2,
                  batch_first=False,
                  thx=0,
-                 thh=0.0675,
+                 thh=0,
                  qa=0,
                  aqi=8,
                  aqf=8,
@@ -45,7 +45,6 @@ class DeltaGRU(nn.GRU):
         self.nqf = nqf
         self.bw_acc = bw_acc
         self.debug = debug
-        self.benchmark = False
         self.weight_ih_height = 3 * self.hidden_size  # Wih has 4 weight matrices stacked vertically
         self.weight_ih_width = self.input_size
         self.weight_hh_width = self.hidden_size
@@ -73,13 +72,13 @@ class DeltaGRU(nn.GRU):
         setattr(self, 'list_log', [{} for i in range(self.num_layers)])
 
     def log_var_append(self, l, key, var):
-        if not self.training and not self.benchmark:
+        if not self.training and self.debug:
             if key not in self.list_log[l].keys():
                 self.list_log[l][key] = []
             self.list_log[l][key].append(var.detach().cpu())
 
     def log_var(self, l, key, var):
-        if not self.training and not self.benchmark:
+        if not self.training and self.debug:
             if key not in self.list_log[l].keys():
                 self.list_log[l][key] = []
             self.list_log[l][key] = var.detach().cpu()
@@ -94,7 +93,7 @@ class DeltaGRU(nn.GRU):
         }
 
     def add_to_debug(self, x, i_layer, name):
-        if self.debug:
+        if self.debug and not self.training:
             if isinstance(x, Tensor):
                 variable = np.squeeze(x.cpu().numpy())
             else:
@@ -126,7 +125,7 @@ class DeltaGRU(nn.GRU):
 
     def get_temporal_sparsity(self):
         temporal_sparsity = {}
-        if self.debug:
+        if self.debug and not self.training:
             temporal_sparsity["SP_T_DX"] = float(self.statistics["num_dx_zeros"] / self.statistics["num_dx_numel"])
             temporal_sparsity["SP_T_DH"] = float(self.statistics["num_dh_zeros"] / self.statistics["num_dh_numel"])
             temporal_sparsity["SP_T_DV"] = float((self.statistics["num_dx_zeros"] + self.statistics["num_dh_zeros"]) /
@@ -160,7 +159,8 @@ class DeltaGRU(nn.GRU):
             dm_0[l, :, :self.hidden_size] = dm_0[l, :, :self.hidden_size] + bias_ih[:self.hidden_size]
             dm_0[l, :, self.hidden_size:2 * self.hidden_size] = dm_0[l, :, self.hidden_size:2 * self.hidden_size] + bias_ih[self.hidden_size:2 * self.hidden_size]
             dm_0[l, :, 2 * self.hidden_size:3 * self.hidden_size] = dm_0[l, :, 2 * self.hidden_size:3 * self.hidden_size] + bias_ih[2 * self.hidden_size:3 * self.hidden_size]
-            dm_nh_0[l, :, :] = dm_nh_0[l, :, :] + self.bias_nh.to(x.device)
+            # dm_nh_0[l, :, :] = dm_nh_0[l, :, :] + self.bias_nh.to(x.device)
+            # dm_nh_0[l, :, :] = torch.zeros_like()
         state = (x_p_0, h_0, h_p_0, dm_nh_0, dm_0)
         return state
 
@@ -230,7 +230,7 @@ class DeltaGRU(nn.GRU):
             reg += torch.sum(torch.abs(delta_h))
 
             # if not self.training and self.debug:
-            if self.debug:
+            if self.debug and not self.training:
                 zero_mask_delta_x = torch.as_tensor(delta_x == 0, dtype=x.dtype)
                 zero_mask_delta_h = torch.as_tensor(delta_h == 0, dtype=x.dtype)
                 self.statistics["num_dx_zeros"] += torch.sum(zero_mask_delta_x)
@@ -307,7 +307,7 @@ class DeltaGRU(nn.GRU):
             # self.log_var_append(idx_layer, 'pa_a_plus_b', a_plus_b)
             self.log_var_append(idx_layer, 'pa_h', h)
 
-        if not self.training and not self.benchmark:
+        if not self.training and self.debug:
             for key in self.list_log[idx_layer]:
                 self.list_log[idx_layer][key] = torch.stack(self.list_log[idx_layer][key], dim=0)
 
@@ -366,7 +366,7 @@ class DeltaGRU(nn.GRU):
         state_next = (x_p_n, h_n, h_p_n, dm_nh_n, dm_n)
 
         # Debug
-        if self.debug:
+        if self.debug and not self.training:
             self.statistics["sparsity_dx"] = float(self.statistics["num_dx_zeros"] / self.statistics["num_dx_numel"])
             self.statistics["sparsity_dh"] = float(self.statistics["num_dh_zeros"] / self.statistics["num_dh_numel"])
             self.statistics["sparsity_to"] = float((self.statistics["num_dx_zeros"] + self.statistics["num_dh_zeros"]) /
@@ -387,7 +387,8 @@ class DeltaGRU(nn.GRU):
                 bias_ih = torch.cat(
                     (bias_ih_chunks[0] + bias_hh_chunks[0], bias_ih_chunks[1] + bias_hh_chunks[1],
                      bias_ih_chunks[2]))
-                self.bias_nh = bias_hh_chunks[2].clone()
-                self.bias_nh.requires_grad = False
+                # self.bias_nh = bias_hh_chunks[2].clone()
+                # self.bias_nh = torch.zeros_like(self.bias_nh)
+                # self.bias_nh.requires_grad = False
                 bias_hh = bias_hh.masked_fill_(bias_hh != 0, 0)
                 bias_hh.requires_grad = False
