@@ -122,7 +122,7 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
         for param_group in optimizer.param_groups:
             lr_curr = param_group['lr']
 
-        # scheduler.step(dev_loss)
+        scheduler.step(dev_loss)
 
         # Write the summary information about the training for the just completed epoch to a dictionary
 
@@ -223,7 +223,6 @@ def train(net, criterion, training_generator, optimizer):
 
         # Update parameters
         optimizer.step()
-        # scheduler.step()
         # Update variables for loss calculation
         batch_loss = loss.detach()
         train_loss += batch_loss  # Accumulate loss
