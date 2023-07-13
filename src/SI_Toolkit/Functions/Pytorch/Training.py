@@ -11,7 +11,7 @@ from tqdm import tqdm
 
 from SI_Toolkit.Functions.Pytorch.Dataset import Dataset
 from SI_Toolkit.Functions.Pytorch.Network import print_parameter_count, get_device
-
+from SI_Toolkit.Functions.Pytorch.Loss import loss_msr_sequence_customizable
 
 # region
 print('')
@@ -65,7 +65,12 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
                                                )
 
     # Select Loss Function
-    criterion = nn.MSELoss()  # Mean square error loss function
+    # criterion = nn.MSELoss()  # Mean square error loss function, might be not the same as TF - MSE, not checked
+    criterion = loss_msr_sequence_customizable(
+        wash_out_len=a.wash_out_len,
+        post_wash_out_len=a.post_wash_out_len,
+        discount_factor=1.0
+                                            )
 
     # region Print information about the network
     print_parameter_count(net)  # Seems not to function well
