@@ -1,3 +1,4 @@
+import os
 import numpy as np
 
 from tensorflow import keras
@@ -55,7 +56,7 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     callbacks_for_training = []
 
     model_checkpoint_callback = keras.callbacks.ModelCheckpoint(
-        filepath=net_info.path_to_net + 'ckpt' + '.ckpt',
+        filepath=os.path.join(net_info.path_to_net, 'ckpt' + '.ckpt'),
         save_weights_only=True,
         monitor='val_loss',
         mode='auto',
