@@ -47,6 +47,7 @@ class ComputationLibrary:
     floor: Callable[[TensorType], TensorType] = None
     ceil: Callable[[TensorType], TensorType] = None
     float32 = None
+    float64 = None
     int32 = None
     int64 = None
     bool = None
@@ -127,6 +128,7 @@ class NumpyLibrary(ComputationLibrary):
     floor = np.floor
     ceil = np.ceil
     float32 = np.float32
+    float64 = np.float64
     int32 = np.int32
     int64 = np.int64
     bool = np.bool_
@@ -208,6 +210,7 @@ class TensorFlowLibrary(ComputationLibrary):
     floor = tf.math.floor
     ceil = tf.math.ceil
     float32 = tf.float32
+    float64 = tf.float64
     int32 = tf.int32
     int64 = tf.int64
     bool = tf.bool
@@ -292,6 +295,7 @@ class PyTorchLibrary(ComputationLibrary):
     floor = lambda x: torch.floor(torch.as_tensor(x))
     ceil = lambda x: torch.ceil(torch.as_tensor(x))
     float32 = torch.float32
+    float64 = torch.float64
     int32 = torch.int32
     int64 = torch.int64
     bool = torch.bool
