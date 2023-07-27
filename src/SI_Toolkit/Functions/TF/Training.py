@@ -85,7 +85,7 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     callbacks_for_training.append(AdditionalValidation(dataset=training_dataset))
 
 
-    csv_logger = keras.callbacks.CSVLogger(net_info.path_to_net + 'log_training.csv', append=False, separator=';')
+    csv_logger = keras.callbacks.CSVLogger(os.path.join(net_info.path_to_net, 'log_training.csv'), append=False, separator=';')
     callbacks_for_training.append(csv_logger)
 
     # endregion
