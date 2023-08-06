@@ -54,7 +54,7 @@ def train_network():
 
     # region Make folder to keep trained models and their logs if not yet exist
     try:
-        os.makedirs(a.path_to_models[:-1])
+        os.makedirs(a.path_to_models)
     except FileExistsError:
         pass
     # endregion

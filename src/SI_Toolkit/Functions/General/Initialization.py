@@ -338,7 +338,7 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
         else:
             normalization_info = load_normalization_info(net_info.path_to_normalization_info)
             shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
-            net_info.path_to_normalization_info = net_info.path_to_net + os.path.basename(net_info.path_to_normalization_info)
+            net_info.path_to_normalization_info = os.path.join(net_info.path_to_net, os.path.basename(net_info.path_to_normalization_info))
     else:
         # In this case (retraining) we need to provide a normalization info.
         # This normalization info should in general come from the folder of retrained network,
@@ -376,7 +376,7 @@ def create_full_name(net_info, path_to_models):
 
 
     while True:
-        path_to_dir = path_to_models + net_full_name + '-' + str(net_index)
+        path_to_dir = os.path.join(path_to_models, net_full_name + '-' + str(net_index))
         if os.path.isdir(path_to_dir):
             pass
         else:
@@ -389,7 +389,7 @@ def create_full_name(net_info, path_to_models):
     print('Full name given to the currently trained network is {}.'.format(net_full_name))
     print('')
     net_info.net_full_name = net_full_name
-    net_info.path_to_net = path_to_dir + '/'
+    net_info.path_to_net = path_to_dir
 
 
 def create_log_file(net_info, a, dfs):
@@ -401,7 +401,7 @@ def create_log_file(net_info, a, dfs):
     except:
         git_revision = 'unknown'
 
-    txt_path = a.path_to_models + net_info.net_full_name + '/' + net_info.net_full_name + '.txt'
+    txt_path = os.path.join(a.path_to_models, net_info.net_full_name, net_info.net_full_name + '.txt')
     f = open(txt_path, 'w')
     f.write('CREATED:\n')
     f.write(date_now + ' at time ' + time_now)
