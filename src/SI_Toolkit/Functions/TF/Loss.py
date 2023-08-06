@@ -15,7 +15,6 @@ def loss_msr_sequence_customizable(wash_out_len, post_wash_out_len, discount_fac
     for i in range(post_wash_out_len - 1):
         discount_vector[i + 1] = discount_vector[i] * discount_factor
     discount_vector = tf.convert_to_tensor(discount_vector, dtype=tf.float32)
-    print(discount_vector)
 
     def loss_msr_sequence(y_true, y_predicted):
         losses = keras.losses.MSE(y_true, y_predicted)
@@ -26,6 +25,8 @@ def loss_msr_sequence_customizable(wash_out_len, post_wash_out_len, discount_fac
         # Axis (2,1) results in the natural operation of losses * discount_vector
         # loss = keras.layers.Dot(axes=(1, 0))([losses, discount_vector])
         loss = tf.linalg.matvec(losses, discount_vector)
+
+        loss = tf.reduce_mean(loss)
 
         return loss
 
@@ -52,6 +53,8 @@ def loss_msr_sequence_customizable_relative(wash_out_len, post_wash_out_len, dis
         # Axis (2,1) results in the natural operation of losses * discount_vector
         # loss = keras.layers.Dot(axes=(1, 0))([losses, discount_vector])
         loss = tf.linalg.matvec(losses, discount_vector)
+
+        loss = tf.reduce_mean(loss)
 
         return loss
 
