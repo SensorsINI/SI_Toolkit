@@ -97,7 +97,7 @@ def compose_net_from_net_name(net_info,
         net.add(tf.keras.Input(batch_size=batch_size, shape=shape_input))
         for i in range(h_number):
             net.add(layer_type(
-                units=h_size[i], activation='tanh', batch_size=batch_size,  name='layers.{}'.format(i)
+                units=h_size[i], activation='tanh', batch_size=batch_size,  name='layers_{}'.format(i)
             ))
     else:
 

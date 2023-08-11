@@ -9,8 +9,6 @@ from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
 
 config_hls = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_hls.yml'), 'r'), Loader=yaml.FullLoader)
 
-os.environ['PATH'] = config_hls['path_to_hls_installation'] + ":" + os.environ['PATH']
-
 # Parameters:
 a = SimpleNamespace()
 batch_size = config_hls['batch_size']
@@ -32,8 +30,8 @@ def convert_with_hls4ml():
 
 
     # Synthesis
-    hls_model.build(csim=False)
-
+    hls_model.build(reset=False, csim=True, synth=True, cosim=True, validation=True, export=True, vsynth=True)
+    # hls_model.build(csim=False)
 
     # Reports
     hls4ml.report.read_vivado_report(config_hls['output_dir'])

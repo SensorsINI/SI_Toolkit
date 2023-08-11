@@ -3,10 +3,14 @@ import os
 import hls4ml
 
 config_hls = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_hls.yml'), 'r'), Loader=yaml.FullLoader)
+os.environ['PATH'] = config_hls['path_to_hls_installation'] + ":" + os.environ['PATH']
 
 def convert_model_with_hls4ml(model, granularity='model'):
+
     config = hls4ml.utils.config_from_keras_model(model, granularity=granularity)
 
+    # config['Flows'] = ['vivado:fifo_depth_optimization']
+    # hls4ml.model.optimizer.get_optimizer('vivado:fifo_depth_optimization').configure(profiling_fifo_depth=100_000)
 
     config['Model']['Precision'] = config_hls['precision']
     config['Model']['Strategy'] = config_hls['Strategy']
