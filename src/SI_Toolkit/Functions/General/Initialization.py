@@ -152,6 +152,8 @@ def get_net(a,
                     path_to_normalization_info = os.path.join(a.path_to_models, parent_net_name,
                                                          os.path.basename(path_to_normalization_info_old))
                     continue
+                if lines[i] == 'NORMALIZE:':
+                    normalize = lines[i + 1].rstrip('\n') == True
                 if lines[i] == 'SAMPLING INTERVAL:':
                     net_sampling_interval = float(lines[i + 1].rstrip("\n")[:-2])
                     continue
@@ -239,20 +241,28 @@ def get_net(a,
 
         library = a.library
         construct_network = a.construct_network
+        normalize = a.normalize
 
-
+        if batch_size is None and a.initialize_batch_size:
+            batch_size = a.batch_size
 
         # endregion
 
 
 
     if library == 'TF':
-        from SI_Toolkit.Functions.TF.Network import compose_net_from_net_name, load_pretrained_net_weights
+        from SI_Toolkit.Functions.TF.Network import compose_net_from_module, compose_net_from_net_name, load_pretrained_net_weights
     else:
         from SI_Toolkit.Functions.Pytorch.Network import compose_net_from_net_name, load_pretrained_net_weights
 
     # Create network architecture
-    net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
+    if net_name.split('-')[0] == 'Custom':
+        net, net_info = compose_net_from_module(net_name, inputs, outputs,
+                                              time_series_length=time_series_length,
+                                              batch_size=batch_size, stateful=stateful,
+                                              construct_network=construct_network)
+    else:
+        net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
                                               time_series_length=time_series_length,
                                               batch_size=batch_size, stateful=stateful,
                                               construct_network=construct_network)
@@ -310,6 +320,8 @@ def get_net(a,
         net_info.wash_out_len = a.wash_out_len
     except AttributeError:
         print('Wash out not defined.')
+
+    net_info.normalize = normalize
     # endregion
 
     return net, net_info
@@ -411,6 +423,8 @@ def create_log_file(net_info, a, dfs):
     f.write(net_info.net_type)
     f.write('\n\nNORMALIZATION:\n')
     f.write(net_info.path_to_normalization_info)
+    f.write('\n\nNORMALIZE:\n')
+    f.write(str(a.normalize))
     f.write('\n\nPARENT NET:\n')
     f.write(net_info.parent_net_name)
     f.write('\n\nWASH OUT LENGTH:\n')

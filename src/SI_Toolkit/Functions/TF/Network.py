@@ -1,4 +1,6 @@
 from types import SimpleNamespace
+import imp
+from pathlib import Path
 
 import tensorflow as tf
 
@@ -15,6 +17,38 @@ def load_pretrained_net_weights(net, ckpt_path):
     print('')
 
     net.load_weights(ckpt_path).expect_partial()
+
+
+def compose_net_info(net_name, inputs_list, outputs_list, net_type):
+    net_info = SimpleNamespace()
+    net_info.net_name = net_name
+    net_info.inputs = inputs_list
+    net_info.outputs = outputs_list
+    net_info.net_type = net_type
+    return net_info
+
+
+def compose_net_from_module(net_name,
+                            inputs_list,
+                            outputs_list,
+                            time_series_length,
+                            batch_size,
+                            stateful=False,
+                            **kwargs,
+                            ):
+    net_type, path, class_name = net_name.split('-')
+    module_name = Path(path).stem
+
+    fp, path, desc = imp.find_module(module_name)
+    module = imp.load_module(f'{module_name}.{class_name}', fp, path, desc)
+    net = getattr(module, class_name)(time_series_length, batch_size)
+    net.build((batch_size, time_series_length, len(inputs_list)))
+
+    print(f'Loaded the model {class_name} from {path}.')
+
+    net_info = compose_net_info(net_name, inputs_list, outputs_list, net_type)
+
+    return net, net_info
 
 
 def compose_net_from_net_name(net_name,
@@ -87,12 +121,7 @@ def compose_net_from_net_name(net_name,
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
           .format(net_type, len(h_size), ', '.join(map(str, h_size))))
 
-    # Compose net_info
-    net_info = SimpleNamespace()
-    net_info.net_name = net_name
-    net_info.inputs = inputs_list
-    net_info.outputs = outputs_list
-    net_info.net_type = net_type
+    net_info = compose_net_info(net_name, inputs_list, outputs_list, net_type)
 
     return net, net_info
 
