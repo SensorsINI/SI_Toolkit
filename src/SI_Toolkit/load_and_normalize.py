@@ -659,6 +659,9 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, path
                 elif derivative_algorithm == 'single_difference':
                     cut = 1
                     dy[:-1, j] = (y[1:, j]-y[:-1, j])/(t[1:]-t[:-1])
+                elif derivative_algorithm == 'backward_difference':
+                    cut = 1
+                    dy[1:, j] = (y[1:, j]-y[:-1, j])/(t[1:]-t[:-1])
                 else:
                     raise NotImplemented('{} is not a recognised name for derivative algorithm'.format(derivative_algorithm))
 
