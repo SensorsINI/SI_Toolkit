@@ -374,7 +374,8 @@ def create_full_name(net_info, path_to_models):
         net_index = 0
     else:
         parent_index = int(net_info.parent_net_name.split('-')[-1])
-        net_index = parent_index + 1
+        net_full_name = f'{net_full_name}-{parent_index}'
+        net_index = 0
 
 
     while True:
