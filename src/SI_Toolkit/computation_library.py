@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Union, Sequence
+from typing import Callable, Optional, Union, Sequence, Any
 
 import numpy as np
 import tensorflow as tf
@@ -39,6 +39,7 @@ class ComputationLibrary:
     tan: Callable[[TensorType], TensorType] = None
     tanh: Callable[[TensorType], TensorType] = None
     exp: Callable[[TensorType], TensorType] = None
+    reciprocal: Callable[[TensorType], TensorType] = None
     squeeze: Callable[[TensorType], TensorType] = None
     unsqueeze: Callable[[TensorType, int], TensorType] = None
     stack: Callable[["list[TensorType]", int], TensorType] = None
@@ -99,6 +100,7 @@ class ComputationLibrary:
     where: Callable[[TensorType, TensorType, TensorType], TensorType] = None
     logical_and: Callable[[TensorType, TensorType], TensorType] = None
     logical_or: Callable[[TensorType, TensorType], TensorType] = None
+    print: Callable[[Any], None] = None
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -120,6 +122,7 @@ class NumpyLibrary(ComputationLibrary):
     tan = np.tan
     tanh = np.tanh
     exp = np.exp
+    reciprocal = np.reciprocal
     squeeze = np.squeeze
     unsqueeze = np.expand_dims
     stack = np.stack
@@ -180,6 +183,7 @@ class NumpyLibrary(ComputationLibrary):
     where = np.where
     logical_and = np.logical_and
     logical_or  = np.logical_or
+    print = print
 
 
 
@@ -202,6 +206,7 @@ class TensorFlowLibrary(ComputationLibrary):
     tan = tf.tan
     tanh = tf.tanh
     exp = tf.exp
+    reciprocal = tf.math.reciprocal
     squeeze = tf.squeeze
     unsqueeze = tf.expand_dims
     stack = tf.stack
@@ -262,6 +267,7 @@ class TensorFlowLibrary(ComputationLibrary):
     where = tf.where
     logical_and = tf.math.logical_and
     logical_or  = tf.math.logical_or
+    print = tf.print
 
 class PyTorchLibrary(ComputationLibrary):
 
@@ -287,6 +293,7 @@ class PyTorchLibrary(ComputationLibrary):
     tan = torch.tan
     tanh = torch.tanh
     exp = torch.exp
+    reciprocal = torch.reciprocal
     squeeze = torch.squeeze
     unsqueeze = torch.unsqueeze
     stack = torch.stack
@@ -351,3 +358,4 @@ class PyTorchLibrary(ComputationLibrary):
     where = torch.where
     logical_and = torch.logical_and
     logical_or  = torch.logical_or
+    print = print
