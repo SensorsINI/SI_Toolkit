@@ -87,11 +87,11 @@ def get_net(a,
 
             # region check for DeltaGRU, and alternatively load normal GRU printing a warning
             convert_to_delta = False
-            if os.path.isdir(a.path_to_models + parent_net_name):
+            if os.path.isdir(os.path.join(a.path_to_models, parent_net_name)):
                 print('Loading a pretrained network with the full name: {}'.format(parent_net_name))
             else:
                 if parent_net_name[:5] == 'Delta':
-                    if os.path.isdir(a.path_to_models + parent_net_name[5:]):
+                    if os.path.isdir(os.path.join(a.path_to_models, parent_net_name[5:])):
                         convert_to_delta = True
                         print('{} not found, loading {} instead'.format(parent_net_name, parent_net_name[5:]))
                         parent_net_name = parent_net_name[5:]
@@ -106,7 +106,7 @@ def get_net(a,
             # region Ensure that needed txt file are present in the indicated folder
             # They might be missing e.g. if a previous training session was terminated prematurely
             txt_filename = parent_net_name + '.txt'
-            txt_path = a.path_to_models + parent_net_name + '/' + txt_filename
+            txt_path = os.path.join(a.path_to_models, parent_net_name, txt_filename)
             if not os.path.isfile(txt_path):
                 txt_not_found_str = 'The corresponding .txt file is missing' \
                                     '(information about inputs and outputs) at the location {}' \
@@ -191,18 +191,18 @@ def get_net(a,
                                   'ckpt.pt']  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
             ckpt_found = False
 
-            ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filenames[0]
+            ckpt_path = os.path.join(a.path_to_models, parent_net_name, ckpt_filenames[0])
             if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
                 ckpt_found = True
             if not ckpt_found:
-                ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filenames[1]
+                ckpt_path = os.path.join(a.path_to_models, parent_net_name, ckpt_filenames[1])
                 if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
                     ckpt_found = True
             if not ckpt_found:
                 ckpt_not_found_str = 'The corresponding .ckpt file is missing' \
                                      '(information about weights and biases). \n' \
                                      'it was not found neither at the location {} nor at {}' \
-                    .format(a.path_to_models + parent_net_name + '/' + ckpt_filenames[0], ckpt_path)
+                    .format(os.path.join(a.path_to_models, parent_net_name, ckpt_filenames[0]), ckpt_path)
 
                 if a.net_name == 'last':
                     print(ckpt_not_found_str)
@@ -280,7 +280,7 @@ def get_net(a,
         # This is the full name of pretrained net. A new full name will be given if the training is resumed
         net_info.net_full_name = net_full_name
 
-        net_info.path_to_net = a.path_to_models + parent_net_name
+        net_info.path_to_net = os.path.join(a.path_to_models, parent_net_name)
 
         # If new network uses different library - convert
         if hasattr(a, 'library') and net_info.library != a.library:
