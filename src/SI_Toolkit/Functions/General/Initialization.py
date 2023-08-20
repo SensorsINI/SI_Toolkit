@@ -157,7 +157,7 @@ def get_net(a,
                     if truth_value == 'True':
                         normalize = True
                     elif truth_value == 'False':
-                        normalize = True
+                        normalize = False
                     else:
                         raise KeyError(f"{truth_value} is not a recognised information about if to normalise inputs and outputs of the network.\n"
                                        f"Accepted values are 'True' and 'False'\n"
