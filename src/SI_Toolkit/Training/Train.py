@@ -79,23 +79,23 @@ def train_network():
 
     paths_to_datafiles_training = get_paths_to_datafiles(a.training_files)
     paths_to_datafiles_validation = get_paths_to_datafiles(a.validation_files)
+    paths_to_datafiles_test = get_paths_to_datafiles(a.test_files)
 
     training_dfs = load_data(paths_to_datafiles_training)
-    training_dfs_norm = normalize_df(training_dfs, normalization_info)
-
     validation_dfs = load_data(paths_to_datafiles_validation)
-    validation_dfs_norm = normalize_df(validation_dfs, normalization_info)
-
-    paths_to_datafiles_test = get_paths_to_datafiles(a.test_files)
     test_dfs = load_data(paths_to_datafiles_test)
-    test_dfs_norm = normalize_df(test_dfs, normalization_info)
 
     create_log_file(net_info, a, training_dfs)
+
+    if net_info.normalize:
+        training_dfs = normalize_df(training_dfs, normalization_info)
+        validation_dfs = normalize_df(validation_dfs, normalization_info)
+        test_dfs = normalize_df(test_dfs, normalization_info)
 
     # endregion
 
     # Run the training function
-    loss, validation_loss, post_epoch_training_loss = train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a)
+    loss, validation_loss, post_epoch_training_loss = train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
 
     # region Plot loss change during training
     plt.figure()
