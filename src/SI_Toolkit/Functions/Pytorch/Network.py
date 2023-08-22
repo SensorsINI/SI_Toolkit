@@ -7,6 +7,17 @@ from types import SimpleNamespace
 from copy import deepcopy as dcp
 
 
+dict_translate = {'rnn.weight_ih_l0': 'network_head.weight_ih_l0',
+                     'rnn.weight_hh_l0': 'network_head.weight_hh_l0',
+                     'rnn.bias_ih_l0': 'network_head.bias_ih_l0',
+                     'rnn.bias_hh_l0': 'network_head.bias_hh_l0',
+                     'rnn.weight_ih_l1': 'network_head.weight_ih_l1',
+                     'rnn.weight_hh_l1': 'network_head.weight_hh_l1',
+                     'rnn.bias_ih_l1': 'network_head.bias_ih_l1',
+                     'rnn.bias_hh_l1': 'network_head.bias_hh_l1',
+                     'cl.weight': 'cl.weight',
+                     'cl.bias': 'cl.bias'}
+
 def load_pretrained_net_weights(net, pt_path):
     """
     A function loading parameters (weights and biases) from a previous training to a net RNN instance
@@ -17,21 +28,24 @@ def load_pretrained_net_weights(net, pt_path):
 
     device = get_device()
 
-    pre_trained_model = torch.load(pt_path, map_location=device)
+    pre_trained_model_dict = torch.load(pt_path, map_location=device)
     print("Loading Model: ", pt_path)
     print('')
 
-    pre_trained_model = list(pre_trained_model.items())
-    new_state_dict = collections.OrderedDict()
-    count = 0
-    num_param_key = len(pre_trained_model)
-    for key, value in net.state_dict().items():
-        if count >= num_param_key:
+    new_state_dict = net.state_dict()
+
+    use_dict_translate = False
+    for key1, key2 in zip(pre_trained_model_dict.keys(), new_state_dict.keys()):
+        if key1 != key2:
+            use_dict_translate = True
             break
-        layer_name, weights = pre_trained_model[count]
+
+    for key, value in new_state_dict.items():
+        pretrained_key = key
+        if use_dict_translate:
+            pretrained_key = dict_translate[key]
+        weights = pre_trained_model_dict[pretrained_key]
         new_state_dict[key] = weights
-        # print("Pre-trained Layer: %s - Loaded into new layer: %s" % (layer_name, key))
-        count += 1
     print('')
     net.load_state_dict(new_state_dict)
 
@@ -138,7 +152,7 @@ class Sequence(nn.Module):
                 self.network_head = nn.GRU(input_size=len(inputs_list), hidden_size=self.h_size[0],
                                            num_layers=len(self.h_size))
             elif self.net_type == 'DeltaGRU':
-                self.network_head = DeltaGRU(input_size=len(inputs_list), hidden_size=self.h_size[0],
+                self.rnn = DeltaGRU(input_size=len(inputs_list), hidden_size=self.h_size[0], thx=0.0, thh=64.0/256.0,
                                              num_layers=len(self.h_size))
             elif self.net_type == 'LSTM':
                 self.network_head = nn.LSTM(input_size=len(inputs_list), hidden_size=self.h_size[0],
@@ -154,7 +168,7 @@ class Sequence(nn.Module):
             for cell in self.net_cell:
                 self.layers.append(cell)
         else:
-            self.final_fc = nn.Linear(self.h_size[-1], len(outputs_list)).to(self.device)
+            self.cl = nn.Linear(self.h_size[-1], len(outputs_list)).to(self.device)
 
 
 
@@ -218,9 +232,11 @@ class Sequence(nn.Module):
         elif self.construct_network == 'with modules':
             if self.net_type == 'LSTM':
                 outputs, (self.h, self.c) = self.network_head(network_input, (self.h, self.c))
-            elif self.net_type == 'GRU' or self.net_type == 'DeltaGRU' or self.net_type == 'RNN-Basic':
+            elif self.net_type == 'GRU' or self.net_type == 'RNN-Basic':
                 outputs, self.h = self.network_head(network_input, self.h)
-            outputs = self.final_fc(outputs)
+            elif self.net_type == 'DeltaGRU':
+                outputs, self.h, _ = self.rnn(network_input, self.h)
+            outputs = self.cl(outputs)
 
             outputs = torch.transpose(outputs, 0, 1)
 
