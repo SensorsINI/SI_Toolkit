@@ -97,10 +97,10 @@ class Sequence(nn.Module):
 
         self.h_number = len(self.h_size)
 
-        if 'GRU' in names:
-            self.net_type = 'GRU'
-        elif 'DeltaGRU' in names:
+        if 'DeltaGRU' in names:
             self.net_type = 'DeltaGRU'
+        elif 'GRU' in names:
+            self.net_type = 'GRU'
         elif 'LSTM' in names:
             self.net_type = 'LSTM'
         elif 'Dense' in names:
