@@ -34,8 +34,8 @@ class DatasetTemplate:
         else:
             self.outputs = outputs
 
-        self.inputs_indices = {x: np.where(self.inputs == x)[0][0] for x in self.inputs}
-        self.outputs_indices = {x: np.where(self.outputs == x)[0][0] for x in self.outputs}
+        self.inputs_indices = {x: np.where(np.array(self.inputs) == x)[0][0] for x in self.inputs}
+        self.outputs_indices = {x: np.where(np.array(self.outputs) == x)[0][0] for x in self.outputs}
 
         self.tiv = args.translation_invariant_variables
         self.tiv_in_inputs_idx = [i for i, e in enumerate(self.inputs) if e in self.tiv]
