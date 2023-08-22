@@ -79,6 +79,7 @@ def compose_net_from_net_name(net_name,
     net_info.inputs = inputs_list
     net_info.outputs = outputs_list
     net_info.net_type = net.net_type
+    net_info.delta_gru_dict = net.delta_gru_dict
 
     return net, net_info
 
@@ -103,6 +104,8 @@ class Sequence(nn.Module):
         self.net_full_name = None
 
         self.batch_size = batch_size
+
+        self.delta_gru_dict = None
 
         # Get the information about network architecture from the network name
         # Split the names into "LSTM/GRU", "128H1", "64H2" etc.
@@ -163,6 +166,32 @@ class Sequence(nn.Module):
             elif self.net_type == 'DeltaGRU':
                 self.rnn = DeltaGRU(input_size=len(inputs_list), hidden_size=self.h_size[0], thx=0.0, thh=64.0/256.0,
                                              num_layers=len(self.h_size))
+                import yaml
+                delta_gru_dict = yaml.load(open(os.path.join("SI_Toolkit_ASF", "config_DeltaGRU.yml"), "r"),
+                                   Loader=yaml.FullLoader)
+                delta_gru_dict['inp_size'] = len(inputs_list)
+                delta_gru_dict['rnn_size'] = self.h_size[0]
+                delta_gru_dict['rnn_layers'] = len(self.h_size)
+                delta_gru_dict['num_classes'] = len(outputs_list)
+                self.delta_gru_dict = delta_gru_dict
+
+                self.rnn = DeltaGRU(
+                    input_size=delta_gru_dict['inp_size'],
+                    hidden_size=delta_gru_dict['rnn_size'],
+                    num_layers=delta_gru_dict['rnn_layers'],
+                    batch_first=delta_gru_dict['batch_first'],
+                    thx=delta_gru_dict['thx'],
+                    thh=delta_gru_dict['thh'],
+                    qa=delta_gru_dict['qa'],
+                    aqi=delta_gru_dict['aqi'],
+                    aqf=delta_gru_dict['aqf'],
+                    qw=delta_gru_dict['qw'],
+                    wqi=delta_gru_dict['wqi'],
+                    wqf=delta_gru_dict['wqf'],
+                    nqi=delta_gru_dict['afqi'],
+                    nqf=delta_gru_dict['afqf'],
+                    debug=delta_gru_dict['debug'],
+                )
             elif self.net_type == 'LSTM':
                 self.network_head = nn.LSTM(input_size=len(inputs_list), hidden_size=self.h_size[0],
                                             num_layers=len(self.h_size))
