@@ -38,6 +38,8 @@ def load_pretrained_net_weights(net, pt_path):
     device = get_device()
 
     pre_trained_model_dict = torch.load(pt_path, map_location=device)
+    if 'state_dict' in pre_trained_model_dict:
+        pre_trained_model_dict = pre_trained_model_dict['state_dict']
     print("Loading Model: ", pt_path)
     print('')
 
