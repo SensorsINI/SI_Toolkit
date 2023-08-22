@@ -1,6 +1,15 @@
 import torch
 import torch.nn as nn
-from SI_Toolkit.Functions.Pytorch.DeltaGRU.deltagru import DeltaGRU
+
+import sys
+import os
+
+import SI_Toolkit.Functions.Pytorch as EdgeDRNN_location
+path_to_EdgeDRNN = os.path.join(os.path.dirname(EdgeDRNN_location.__file__), "EdgeDRNN", "python")
+if path_to_EdgeDRNN not in sys.path:
+    sys.path.insert(0, path_to_EdgeDRNN)
+
+from SI_Toolkit.Functions.Pytorch.EdgeDRNN.python.nnlayers.deltagru import DeltaGRU
 
 import collections
 from types import SimpleNamespace
