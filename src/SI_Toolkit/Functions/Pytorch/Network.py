@@ -4,13 +4,6 @@ import torch.nn as nn
 import sys
 import os
 
-import SI_Toolkit.Functions.Pytorch as EdgeDRNN_location
-path_to_EdgeDRNN = os.path.join(os.path.dirname(EdgeDRNN_location.__file__), "EdgeDRNN", "python")
-if path_to_EdgeDRNN not in sys.path:
-    sys.path.insert(0, path_to_EdgeDRNN)
-
-from SI_Toolkit.Functions.Pytorch.EdgeDRNN.python.nnlayers.deltagru import DeltaGRU
-
 import collections
 from types import SimpleNamespace
 from copy import deepcopy as dcp
@@ -166,9 +159,13 @@ class Sequence(nn.Module):
                 self.network_head = nn.GRU(input_size=len(inputs_list), hidden_size=self.h_size[0],
                                            num_layers=len(self.h_size))
             elif self.net_type == 'DeltaGRU':
-                self.rnn = DeltaGRU(input_size=len(inputs_list), hidden_size=self.h_size[0], thx=0.0, thh=64.0/256.0,
-                                             num_layers=len(self.h_size))
                 import yaml
+                import SI_Toolkit.Functions.Pytorch as EdgeDRNN_location
+                path_to_EdgeDRNN = os.path.join(os.path.dirname(EdgeDRNN_location.__file__), "EdgeDRNN", "python")
+                if path_to_EdgeDRNN not in sys.path:
+                    sys.path.insert(0, path_to_EdgeDRNN)
+                from SI_Toolkit.Functions.Pytorch.EdgeDRNN.python.nnlayers.deltagru import DeltaGRU
+
                 delta_gru_dict = yaml.load(open(os.path.join("SI_Toolkit_ASF", "config_DeltaGRU.yml"), "r"),
                                    Loader=yaml.FullLoader)
                 delta_gru_dict['inp_size'] = len(inputs_list)
