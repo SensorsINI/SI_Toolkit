@@ -87,11 +87,11 @@ def get_net(a,
 
             # region check for DeltaGRU, and alternatively load normal GRU printing a warning
             convert_to_delta = False
-            if os.path.isdir(a.path_to_models + parent_net_name):
-                print('Loading a pretrained network with the full name: {}'.format(parent_net_name))
+            if os.path.isdir(os.path.join(a.path_to_models, parent_net_name)):
+                print('Loading a pretrained network with the full name  {}  from  {}'.format(parent_net_name, a.path_to_models))
             else:
                 if parent_net_name[:5] == 'Delta':
-                    if os.path.isdir(a.path_to_models + parent_net_name[5:]):
+                    if os.path.isdir(os.path.join(a.path_to_models, parent_net_name[5:])):
                         convert_to_delta = True
                         print('{} not found, loading {} instead'.format(parent_net_name, parent_net_name[5:]))
                         parent_net_name = parent_net_name[5:]
@@ -106,7 +106,7 @@ def get_net(a,
             # region Ensure that needed txt file are present in the indicated folder
             # They might be missing e.g. if a previous training session was terminated prematurely
             txt_filename = parent_net_name + '.txt'
-            txt_path = a.path_to_models + parent_net_name + '/' + txt_filename
+            txt_path = os.path.join(a.path_to_models, parent_net_name, txt_filename)
             if not os.path.isfile(txt_path):
                 txt_not_found_str = 'The corresponding .txt file is missing' \
                                     '(information about inputs and outputs) at the location {}' \
@@ -127,6 +127,11 @@ def get_net(a,
                 lines = f.read().splitlines()
 
             for i in range(len(lines)):
+                if lines[i] == 'CREATED:':
+                    created = lines[i + 1].rstrip("\n")
+                    date = created[:10]
+                    time = created[-8:]
+                    continue
                 if lines[i] == 'LIBRARY:':
                     library = lines[i + 1].rstrip("\n")
                     continue
@@ -147,13 +152,23 @@ def get_net(a,
                 if lines[i] == 'TYPE:':
                     net_type = lines[i + 1].rstrip("\n").split(sep=', ')
                     continue
+                if lines[i] == 'NORMALIZE:':
+                    truth_value = lines[i + 1].rstrip("\n")
+                    if truth_value == 'True':
+                        normalize = True
+                    elif truth_value == 'False':
+                        normalize = True
+                    else:
+                        raise KeyError(f"{truth_value} is not a recognised information about if to normalise inputs and outputs of the network.\n"
+                                       f"Accepted values are 'True' and 'False'\n"
+                                       f"Please add or correct the corresponding line in .txt file in the networks folder.\n"
+                                       f"It should look like:\n"
+                                       f"NORMALIZE:\n"
+                                       f"True/False")
                 if lines[i] == 'NORMALIZATION:':
                     path_to_normalization_info_old = lines[i + 1].rstrip("\n")
                     path_to_normalization_info = os.path.join(a.path_to_models, parent_net_name,
                                                          os.path.basename(path_to_normalization_info_old))
-                    continue
-                if lines[i] == 'SAMPLING INTERVAL:':
-                    net_sampling_interval = float(lines[i + 1].rstrip("\n")[:-2])
                     continue
                 if lines[i] == 'WASH OUT LENGTH:':
                     net_wash_out_len = float(lines[i + 1].rstrip("\n"))
@@ -167,6 +182,20 @@ def get_net(a,
                 if lines[i] == 'TIMESTEP STD:':
                     dt_std = lines[i + 1].rstrip("\n")
                     continue
+
+            variables_for_net_info = ['library', 'net_name', 'net_full_name', 'inputs', 'outputs', 'net_type',
+                                      'path_to_normalization_info', 'net_wash_out_len',
+                                      'construct_network', 'dt', 'dt_std']
+            if date > '2023-08-26':  # Ensuring back compatibility
+                variables_for_net_info.append('normalize')
+
+            missing_variables = []
+            for variable in variables_for_net_info:
+                if variable not in locals():
+                    missing_variables.append(variable)
+            if missing_variables:
+                raise NameError(f"{missing_variables} were not found in txt file in networks folder.\n"
+                                f"Please resolve, e.g. adding them manually.")
 
             print('Inputs to the loaded network: {}'.format(', '.join(map(str, inputs))))
             print('Outputs from the loaded network: {}'.format(', '.join(map(str, outputs))))
@@ -191,18 +220,18 @@ def get_net(a,
                                   'ckpt.pt']  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
             ckpt_found = False
 
-            ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filenames[0]
+            ckpt_path = os.path.join(a.path_to_models, parent_net_name, ckpt_filenames[0])
             if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
                 ckpt_found = True
             if not ckpt_found:
-                ckpt_path = a.path_to_models + parent_net_name + '/' + ckpt_filenames[1]
+                ckpt_path = os.path.join(a.path_to_models, parent_net_name, ckpt_filenames[1])
                 if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
                     ckpt_found = True
             if not ckpt_found:
                 ckpt_not_found_str = 'The corresponding .ckpt file is missing' \
                                      '(information about weights and biases). \n' \
                                      'it was not found neither at the location {} nor at {}' \
-                    .format(a.path_to_models + parent_net_name + '/' + ckpt_filenames[0], ckpt_path)
+                    .format(os.path.join(a.path_to_models, parent_net_name, ckpt_filenames[0]), ckpt_path)
 
                 if a.net_name == 'last':
                     print(ckpt_not_found_str)
@@ -280,7 +309,9 @@ def get_net(a,
         # This is the full name of pretrained net. A new full name will be given if the training is resumed
         net_info.net_full_name = net_full_name
 
-        net_info.path_to_net = a.path_to_models + parent_net_name
+        net_info.path_to_net = os.path.join(a.path_to_models, parent_net_name)
+
+        net_info.normalize = normalize
 
         # If new network uses different library - convert
         if hasattr(a, 'library') and net_info.library != a.library:
@@ -293,6 +324,7 @@ def get_net(a,
         # endregion
 
     else:
+        net_info.normalize = a.normalize
         # region Save the path to associated normalization file to net_info
         if a.path_to_normalization_info is not None:
             net_info.path_to_normalization_info = a.path_to_normalization_info
@@ -324,6 +356,13 @@ def get_net(a,
 
 
 def get_norm_info_for_net(net_info, files_for_normalization=None):
+    if hasattr(net_info, 'normalize') and not net_info.normalize:
+        return None
+
+    if not hasattr(net_info, 'normalize'):
+        print('No information weather to normalize the network provided.\n'
+              'As default the inputs and outputs will be normalized/denormalized to ensure back compatibility.')
+
     if net_info.parent_net_name == 'Network trained from scratch':
         # In this case I can either calculate a new normalization info based on training data
         if net_info.path_to_normalization_info is None:
@@ -417,6 +456,8 @@ def create_log_file(net_info, a, dfs):
     f.write(', '.join(map(str, net_info.outputs)))
     f.write('\n\nTYPE:\n')
     f.write(net_info.net_type)
+    f.write('\n\nNORMALIZE:\n')
+    f.write(net_info.normalize)
     f.write('\n\nNORMALIZATION:\n')
     f.write(net_info.path_to_normalization_info)
     f.write('\n\nPARENT NET:\n')

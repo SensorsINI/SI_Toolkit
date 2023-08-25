@@ -15,6 +15,13 @@ def get_normalization_function(
         lib,
         normalization_type='minmax_sym',
 ):
+    if normalization_info is None:
+        print('No normalization info provided! Normalization function is identity in this case!')
+
+        def normalize(denormalized_array):
+            return denormalized_array
+
+        return normalize
 
     normalizing_array = lib.to_tensor(
         normalization_info[variables_names].values, dtype=lib.float32)
@@ -49,6 +56,13 @@ def get_denormalization_function(
                                  lib,
                                  normalization_type='minmax_sym',
 ):
+    if normalization_info is None:
+        print('No normalization info provided! Denormalization function is identity in this case!')
+
+        def denormalize(normalized_array):
+            return normalized_array
+
+        return denormalize
 
     denormalizing_array = lib.to_tensor(
         normalization_info[variables_names].values, dtype=lib.float32)
@@ -84,6 +98,13 @@ def get_scaling_function_for_output_of_differential_network(
                                  lib,
                                  normalization_type='minmax_sym',
 ):
+    if normalization_info is None:
+        print('No normalization info provided! scale_output_of_differential_network function is identity in this case!')
+
+        def scale_output_of_differential_network(normalized_array):
+            return normalized_array
+
+        return scale_output_of_differential_network
 
     DIFF_NET_STATE_VARIABLES = [(x[2:] if x[:2] == 'D_' else x) for x in network_outputs]  # Outputs without D_ -> to make possible comparison with inputs
     denormalizing_derivatives = lib.to_tensor(normalization_info[network_outputs].values, dtype=lib.float32)
