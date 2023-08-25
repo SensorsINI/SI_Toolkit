@@ -186,7 +186,7 @@ class TensorFlowLibrary(ComputationLibrary):
     reshape = tf.reshape
     permute = tf.transpose
     newaxis = tf.newaxis
-    shape = lambda x: x.get_shape()  # .as_list()
+    shape = tf.shape
     to_numpy = lambda x: x.numpy()
     to_variable = lambda x, dtype: tf.Variable(x, dtype=dtype)
     to_tensor = lambda x, dtype: tf.convert_to_tensor(x, dtype=dtype)
@@ -259,6 +259,8 @@ class TensorFlowLibrary(ComputationLibrary):
     where = tf.where
     logical_and = tf.math.logical_and
     logical_or  = tf.math.logical_or
+    square = tf.square
+    divide = tf.math.divide
 
 class PyTorchLibrary(ComputationLibrary):
 
