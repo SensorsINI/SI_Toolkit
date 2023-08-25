@@ -243,9 +243,6 @@ def get_net(a,
         construct_network = a.construct_network
         normalize = a.normalize
 
-        if batch_size is None and a.initialize_batch_size:
-            batch_size = a.batch_size
-
         # endregion
 
 

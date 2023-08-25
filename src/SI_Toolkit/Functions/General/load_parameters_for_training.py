@@ -44,7 +44,6 @@ BATCH_SIZE = config['training_default']['BATCH_SIZE']
 SEED = config['training_default']['SEED']
 LR = config['training_default']['LR']
 SHIFT_LABELS = config['training_default']['SHIFT_LABELS']
-INITIALIZE_BATCH_SIZE = config['training_default']['INITIALIZE_BATCH_SIZE']
 
 WASH_OUT_LEN = config['training_default']['WASH_OUT_LEN']
 POST_WASH_OUT_LEN = config['training_default']['POST_WASH_OUT_LEN']
@@ -119,8 +118,6 @@ def args():
     parser.add_argument('--construct_network', default=CONSTRUCT_NETWORK, type=str,
                         help='For Pytorch you can decide if you want to construct network with modules or cells.'
                              'First is needed for DeltaRNN, second gives more flexibility in specifying layers sizes.')
-    parser.add_argument('--initialize_batch_size', default=INITIALIZE_BATCH_SIZE, type=bool, 
-                        help='Initialize the network with the specified batch size. This can lead to problems during testing. If false, the batch size is inferred during training.')
 
 
     args = parser.parse_args()
