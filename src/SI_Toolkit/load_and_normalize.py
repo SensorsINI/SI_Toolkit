@@ -253,7 +253,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     if paths_to_data_information is None:
         if config is None:
             raise ValueError('Either paths_to_data_information or config must be not None')
-        paths_to_data_information = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + "Recordings/Train/"
+        paths_to_data_information = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + config["paths"]["DATA_FOLDER"] + "/Train/"
 
     list_of_paths_to_datafiles = get_paths_to_datafiles(paths_to_data_information)
 
