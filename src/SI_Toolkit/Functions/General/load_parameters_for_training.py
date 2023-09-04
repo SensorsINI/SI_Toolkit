@@ -52,6 +52,13 @@ NORMALIZE = config['training_default']['NORMALIZE']
 USE_NNI = config['training_default']['USE_NNI']
 CONSTRUCT_NETWORK = config['training_default']['CONSTRUCT_NETWORK']
 
+config_reduce_lr = config['training_default']['REDUCE_LR_ON_PLATEAU']
+REDUCE_LR_ACTIVATED = config_reduce_lr['ACTIVATED']
+FACTOR = config_reduce_lr['FACTOR']
+PATIENCE = config_reduce_lr['PATIENCE']
+MIN_LR = config_reduce_lr['MIN_LR'] 
+MIN_DELTA = config_reduce_lr['MIN_DELTA']
+
 # For l2race
 # control_inputs = ['u1', 'u2']
 # state_inputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
@@ -118,6 +125,13 @@ def args():
     parser.add_argument('--construct_network', default=CONSTRUCT_NETWORK, type=str,
                         help='For Pytorch you can decide if you want to construct network with modules or cells.'
                              'First is needed for DeltaRNN, second gives more flexibility in specifying layers sizes.')
+    parser.add_argument('--reduce_lr_on_plateau', default=REDUCE_LR_ACTIVATED, type=bool,
+                        help='Use the reduce_lr_on_plateau callback from tensorflow')
+    parser.add_argument('--factor', type=float, default=FACTOR,
+                        help='Factor to reduce learning rate by when using reduce_lr_on_plateau.')
+    parser.add_argument('--patience', default=PATIENCE, type=int, help='Patience to use with reduce_lr_on_plateau')
+    parser.add_argument('--min_lr', default=MIN_LR, type=float, help='Minimum learning rate to use with reduce_lr_on_plateau')
+    parser.add_argument('--min_delta', default=MIN_LR, type=float, help='Minimum delta to use with reduce_lr_on_plateau')
 
 
     args = parser.parse_args()

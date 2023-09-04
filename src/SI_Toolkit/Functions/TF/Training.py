@@ -63,16 +63,17 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
 
     callbacks_for_training.append(model_checkpoint_callback)
 
-    # TODO: Move these parameters to config
-    reduce_lr = keras.callbacks.ReduceLROnPlateau(
-        monitor='val_loss',
-        factor=0.316,  # sqrt(0.1)
-        patience=1,
-        min_lr=1.0e-5,
-        verbose=2
-    )
+    if a.reduce_lr_on_plateau:
+        reduce_lr = keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss',
+            factor=a.factor,
+            patience=a.patience,
+            min_lr=a.min_lr,
+            verbose=2,
+            min_delta=a.min_delta
+        )
 
-    callbacks_for_training.append(reduce_lr)
+        callbacks_for_training.append(reduce_lr)
 
     csv_logger = keras.callbacks.CSVLogger(net_info.path_to_net + 'log_training.csv', append=False, separator=';')
     callbacks_for_training.append(csv_logger)
