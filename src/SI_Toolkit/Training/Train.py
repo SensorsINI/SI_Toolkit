@@ -108,7 +108,7 @@ def train_network():
     plt.yscale('log')
     plt.legend()
     plt.title(net_info.net_full_name)
-    plt.savefig(net_info.path_to_net + 'training_curve' + '.png')
+    plt.savefig(os.path.join(net_info.path_to_net, 'training_curve' + '.png'))
     plt.show()
     # endregion
 

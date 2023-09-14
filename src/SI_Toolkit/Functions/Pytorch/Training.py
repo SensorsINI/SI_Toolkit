@@ -1,4 +1,5 @@
 import numpy as np
+import os
 
 import torch.nn as nn
 import torch.optim as optim
@@ -106,7 +107,7 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
 
     # The epoch_saved variable will indicate from which epoch is the last RNN model,
     # which was good enough to be saved
-    torch.save(net.state_dict(), net_info.path_to_net + 'ckpt' + '.pt', _use_new_zipfile_serialization=False)
+    torch.save(net.state_dict(), os.path.join(net_info.path_to_net, 'ckpt' + '.pt'), _use_new_zipfile_serialization=False)
     epoch_saved = -1
     post_epoch_training_loss = []
     for epoch in range(a.num_epochs):
@@ -169,7 +170,7 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
         if True:
             epoch_saved = epoch
             min_dev_loss = dev_loss
-            torch.save(net.state_dict(), net_info.path_to_net + 'ckpt' + '.pt', _use_new_zipfile_serialization=False)
+            torch.save(net.state_dict(), os.path.join(net_info.path_to_net, 'ckpt' + '.pt'), _use_new_zipfile_serialization=False)
             print('>>> saving best model from epoch {}'.format(epoch))
             print('')
         else:

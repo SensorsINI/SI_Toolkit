@@ -6,34 +6,17 @@ import collections
 from types import SimpleNamespace
 from copy import deepcopy as dcp
 
-#
-# def load_pretrained_net_weights(net, pt_path):
-#     """
-#     A function loading parameters (weights and biases) from a previous training to a net RNN instance
-#     :param net: An instance of RNN
-#     :param pt_path: path to .pt file storing weights and biases
-#     :return: No return. Modifies net in place.
-#     """
-#
-#     device = get_device()
-#
-#     pre_trained_model = torch.load(pt_path, map_location=device)
-#     print("Loading Model: ", pt_path)
-#     print('')
-#
-#     pre_trained_model = list(pre_trained_model.items())
-#     new_state_dict = collections.OrderedDict()
-#     count = 0
-#     num_param_key = len(pre_trained_model)
-#     for key, value in net.state_dict().items():
-#         if count >= num_param_key:
-#             break
-#         layer_name, weights = pre_trained_model[count]
-#         new_state_dict[key] = weights
-#         # print("Pre-trained Layer: %s - Loaded into new layer: %s" % (layer_name, key))
-#         count += 1
-#     print('')
-#     net.load_state_dict(new_state_dict)
+
+dict_translate = {'rnn.weight_ih_l0': 'network_head.weight_ih_l0',
+                     'rnn.weight_hh_l0': 'network_head.weight_hh_l0',
+                     'rnn.bias_ih_l0': 'network_head.bias_ih_l0',
+                     'rnn.bias_hh_l0': 'network_head.bias_hh_l0',
+                     'rnn.weight_ih_l1': 'network_head.weight_ih_l1',
+                     'rnn.weight_hh_l1': 'network_head.weight_hh_l1',
+                     'rnn.bias_ih_l1': 'network_head.bias_ih_l1',
+                     'rnn.bias_hh_l1': 'network_head.bias_hh_l1',
+                     'cl.weight': 'cl.weight',
+                     'cl.bias': 'cl.bias'}
 
 def load_pretrained_net_weights(net, pt_path):
     """
@@ -45,27 +28,23 @@ def load_pretrained_net_weights(net, pt_path):
 
     device = get_device()
 
-    pre_trained_model = torch.load(pt_path, map_location=device)
+    pre_trained_model_dict = torch.load(pt_path, map_location=device)
     print("Loading Model: ", pt_path)
     print('')
 
-    pre_trained_model = list(pre_trained_model.items())
-    pre_trained_model_state_dict = pre_trained_model[3][1]
-    new_state_dict = collections.OrderedDict()
-    old_state_dict = net.state_dict()
-    # dict_translate = {‘layers.0.weight_ih’: ‘rnn.weight_ih_l0’, ‘layers.0.weight_hh’: ‘rnn.weight_hh_l0’,
-    #                   ‘layers.0.bias_ih’: ‘rnn.bias_ih_l0’, ‘layers.0.bias_hh’: ‘rnn.bias_hh_l0’,
-    #                   ‘layers.1.weight_ih’: ‘rnn.weight_ih_l1’, ‘layers.1.weight_hh’: ‘rnn.weight_hh_l1’,
-    #                   ‘layers.1.bias_ih’: ‘rnn.bias_ih_l1’, ‘layers.1.bias_hh’: ‘rnn.bias_hh_l1’,
-    #                   ‘final_fc.weight’: ‘cl.weight’, ‘final_fc.bias’: ‘cl.bias’}
-    # dict_translate = {‘network_head.weight_ih_l0’: ‘rnn.weight_ih_l0’, ‘network_head.weight_hh_l0’: ‘rnn.weight_hh_l0’,
-    #                   ‘network_head.bias_ih’: ‘rnn.bias_ih_l0’, ‘layers.0.bias_hh’: ‘rnn.bias_hh_l0’,
-    #                   ‘layers.1.weight_ih’: ‘rnn.weight_ih_l1’, ‘layers.1.weight_hh’: ‘rnn.weight_hh_l1’,
-    #                   ‘layers.1.bias_ih’: ‘rnn.bias_ih_l1’, ‘layers.1.bias_hh’: ‘rnn.bias_hh_l1’,
-    #                   ‘final_fc.weight’: ‘cl.weight’, ‘final_fc.bias’: ‘cl.bias’}
-    for key, value in old_state_dict.items():
-        # pretrained_key = dict_translate[key]
-        weights = pre_trained_model_state_dict[key]
+    new_state_dict = net.state_dict()
+
+    use_dict_translate = False
+    for key1, key2 in zip(pre_trained_model_dict.keys(), new_state_dict.keys()):
+        if key1 != key2:
+            use_dict_translate = True
+            break
+
+    for key, value in new_state_dict.items():
+        pretrained_key = key
+        if use_dict_translate:
+            pretrained_key = dict_translate[key]
+        weights = pre_trained_model_dict[pretrained_key]
         new_state_dict[key] = weights
     print('')
     net.load_state_dict(new_state_dict)
@@ -132,10 +111,10 @@ class Sequence(nn.Module):
 
         self.h_number = len(self.h_size)
 
-        if 'GRU' in names:
-            self.net_type = 'GRU'
-        elif 'DeltaGRU' in names:
+        if 'DeltaGRU' in names:
             self.net_type = 'DeltaGRU'
+        elif 'GRU' in names:
+            self.net_type = 'GRU'
         elif 'LSTM' in names:
             self.net_type = 'LSTM'
         elif 'Dense' in names:

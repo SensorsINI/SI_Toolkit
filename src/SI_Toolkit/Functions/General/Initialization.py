@@ -157,7 +157,7 @@ def get_net(a,
                     if truth_value == 'True':
                         normalize = True
                     elif truth_value == 'False':
-                        normalize = True
+                        normalize = False
                     else:
                         raise KeyError(f"{truth_value} is not a recognised information about if to normalise inputs and outputs of the network.\n"
                                        f"Accepted values are 'True' and 'False'\n"
@@ -457,7 +457,7 @@ def create_log_file(net_info, a, dfs):
     f.write('\n\nTYPE:\n')
     f.write(net_info.net_type)
     f.write('\n\nNORMALIZE:\n')
-    f.write(net_info.normalize)
+    f.write(str(net_info.normalize))
     f.write('\n\nNORMALIZATION:\n')
     f.write(net_info.path_to_normalization_info)
     f.write('\n\nPARENT NET:\n')
