@@ -378,21 +378,17 @@ def get_norm_info_for_net(net_info, files_for_normalization=None):
 
 
 def create_full_name(net_info, path_to_models):
-    idx_end_prefix = net_info.net_name.find('-')  # finds first occurrence
-
-    net_full_name = net_info.net_name[:idx_end_prefix + 1] \
-                    + str(len(net_info.inputs)) + 'IN-' \
-                    + net_info.net_name[idx_end_prefix + 1:] \
-                    + '-' + str(len(net_info.outputs)) + 'OUT'
-
     if net_info.parent_net_name == 'Network trained from scratch':
-        net_index = 0
+        idx_end_prefix = net_info.net_name.find('-')  # finds first occurrence
+
+        net_full_name = net_info.net_name[:idx_end_prefix + 1] \
+                        + str(len(net_info.inputs)) + 'IN-' \
+                        + net_info.net_name[idx_end_prefix + 1:] \
+                        + '-' + str(len(net_info.outputs)) + 'OUT'
     else:
-        parent_index = int(net_info.parent_net_name.split('-')[-1])
-        net_full_name = f'{net_full_name}-{parent_index}'
-        net_index = 0
+        net_full_name = net_info.parent_net_name
 
-
+    net_index = 0
     while True:
         path_to_dir = path_to_models + net_full_name + '-' + str(net_index)
         if os.path.isdir(path_to_dir):
