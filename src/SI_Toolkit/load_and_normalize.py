@@ -198,7 +198,7 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
         range_function = trange
     else:
         range_function = range
-    sleep(0.1)
+    # sleep(0.1)
     for file_number in range_function(len(list_of_paths_to_datafiles)):
         filepath = list_of_paths_to_datafiles[file_number]
         # print(filepath)
