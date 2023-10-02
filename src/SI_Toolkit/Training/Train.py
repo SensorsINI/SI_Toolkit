@@ -74,6 +74,10 @@ def train_network():
     src = os.path.join('SI_Toolkit_ASF', 'config_training.yml')
     dst = os.path.join(a.path_to_models, net_info.net_full_name)
     shutil.copy2(src, dst)
+    if net_info.library == 'TF':
+        shutil.copy('SI_Toolkit/src/SI_Toolkit/Functions/TF/Training.py', dst)
+    elif net_info.library == 'Pytorch':
+        shutil.copy('SI_Toolkit/src/SI_Toolkit/Functions/Pytorch/Training.py', dst)
 
     # region Load data and prepare datasets
 

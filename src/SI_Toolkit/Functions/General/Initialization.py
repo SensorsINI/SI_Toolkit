@@ -144,6 +144,11 @@ def get_net(a,
                 if lines[i] == 'OUTPUTS:':
                     outputs = lines[i + 1].rstrip("\n").split(sep=', ')
                     continue
+                if lines[i] == 'TRANSLATION INVARIANT VARIABLES:':
+                    translation_invariant_variables = lines[i + 1].rstrip("\n").split(sep=', ')
+                    if len(translation_invariant_variables) == 1 and translation_invariant_variables[0] == '':
+                        translation_invariant_variables = []
+                    continue
                 if lines[i] == 'TYPE:':
                     net_type = lines[i + 1].rstrip("\n").split(sep=', ')
                     continue
@@ -153,12 +158,18 @@ def get_net(a,
                                                          os.path.basename(path_to_normalization_info_old))
                     continue
                 if lines[i] == 'NORMALIZE:':
-                    normalize = lines[i + 1].rstrip('\n') == True
+                    normalize = lines[i + 1].rstrip('\n') == 'True'
                 if lines[i] == 'SAMPLING INTERVAL:':
                     net_sampling_interval = float(lines[i + 1].rstrip("\n")[:-2])
                     continue
                 if lines[i] == 'WASH OUT LENGTH:':
-                    net_wash_out_len = float(lines[i + 1].rstrip("\n"))
+                    net_wash_out_len = int(lines[i + 1].rstrip("\n"))
+                    continue
+                if lines[i] == 'POST WASH OUT LENGTH:':
+                    post_wash_out_len = int(lines[i + 1].rstrip("\n"))
+                    continue
+                if lines[i] == 'SHIFT LABELS:':
+                    shift_labels = int(lines[i + 1].rstrip("\n"))
                     continue
                 if lines[i] == 'CONSTRUCT NETWORK:':
                     construct_network = lines[i + 1].rstrip("\n")
@@ -243,6 +254,10 @@ def get_net(a,
         construct_network = a.construct_network
         normalize = a.normalize
 
+        translation_invariant_variables = a.translation_invariant_variables
+        shift_labels = a.shift_labels
+        net_wash_out_len = a.wash_out_len
+        post_wash_out_len = a.post_wash_out_len
         # endregion
 
 
@@ -301,9 +316,12 @@ def get_net(a,
         net_info.parent_net_name = 'Network trained from scratch'
         net_info.path_to_net = None  # Folder for net not yer created
 
-
     net_info.library = library
     net_info.construct_network = construct_network
+    net_info.translation_invariant_variables = translation_invariant_variables
+    net_info.shift_labels = shift_labels
+    net_info.wash_out_len = net_wash_out_len
+    net_info.post_wash_out_len = post_wash_out_len
 
     if 'dt' in locals():
         net_info.dt = float(dt)
@@ -417,6 +435,8 @@ def create_log_file(net_info, a, dfs):
     f.write(', '.join(map(str, net_info.inputs)))
     f.write('\n\nOUTPUTS:\n')
     f.write(', '.join(map(str, net_info.outputs)))
+    f.write('\n\nTRANSLATION INVARIANT VARIABLES:\n')
+    f.write(', '.join(map(str, net_info.translation_invariant_variables)))
     f.write('\n\nTYPE:\n')
     f.write(net_info.net_type)
     f.write('\n\nNORMALIZATION:\n')
@@ -424,9 +444,13 @@ def create_log_file(net_info, a, dfs):
     f.write('\n\nNORMALIZE:\n')
     f.write(str(a.normalize))
     f.write('\n\nPARENT NET:\n')
-    f.write(net_info.parent_net_name)
+    f.write(str(net_info.parent_net_name))
     f.write('\n\nWASH OUT LENGTH:\n')
     f.write(str(net_info.wash_out_len))
+    f.write('\n\nPOST WASH OUT LENGTH:\n')
+    f.write(str(net_info.post_wash_out_len))
+    f.write('\n\nSHIFT LABELS:\n')
+    f.write(str(net_info.shift_labels))
     f.write('\n\nCONSTRUCT NETWORK:\n')
     f.write(net_info.construct_network)
 
