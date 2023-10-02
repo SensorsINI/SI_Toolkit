@@ -15,18 +15,19 @@ from SI_Toolkit.Functions.TF.Loss import loss_msr_sequence_customizable
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
 # Warning! It may affect performance. I would discourage you to use it for long training tasks
 # @profile(precision=4)
-def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a):
+def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a):
 
     # region Prepare data for training
     # DataSelectorInstance = DataSelector(a)
     # DataSelectorInstance.load_data_into_selector(training_dfs_norm)
     # training_dataset = DataSelectorInstance.return_dataset_for_training(shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
-    training_dataset = Dataset(training_dfs_norm, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
+    shuffle = False
+    training_dataset = Dataset(training_dfs, a, shuffle=shuffle, inputs=net_info.inputs, outputs=net_info.outputs)
 
-    validation_dataset = Dataset(validation_dfs_norm, a, shuffle=True, inputs=net_info.inputs,
+    validation_dataset = Dataset(validation_dfs, a, shuffle=shuffle, inputs=net_info.inputs,
                                  outputs=net_info.outputs)
 
-    del training_dfs_norm, validation_dfs_norm, test_dfs_norm
+    del training_dfs, validation_dfs, test_dfs
 
     print('')
     print('Number of samples in training set: {}'.format(training_dataset.number_of_samples))
