@@ -44,13 +44,15 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     #     optimizer=keras.optimizers.Adam(a.lr)
     # )
 
+    optimizer = keras.optimizers.Adam(a.lr)
+    loss = loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
+                                          post_wash_out_len=a.post_wash_out_len,
+                                          discount_factor=1.0)
     net.compile(
-        loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
-                                            post_wash_out_len=a.post_wash_out_len,
-                                            discount_factor=1.0),
-        optimizer=keras.optimizers.Adam(a.lr),
-        run_eagerly=True
+        loss=loss,
+        optimizer=optimizer,
     )
+    net.optimizer = optimizer  # When loading a pretrained network, setting optimizer in compile does nothing.
     # region Define callbacks to be used in training
 
     callbacks_for_training = []
