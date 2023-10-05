@@ -6,15 +6,16 @@ import tensorflow as tf
 
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 
-def load_pretrained_net_weights(net, ckpt_path):
+def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     """
     A function loading parameters (weights and biases) from a previous training to a net RNN instance
     :param net: An instance of RNN
     :param ckpt_path: path to .ckpt file storing weights and biases
     :return: No return. Modifies net in place.
     """
-    print("Loading Model: ", ckpt_path)
-    print('')
+    if verbose:
+        print("Loading Model: ", ckpt_path)
+        print('')
 
     net.load_weights(ckpt_path).expect_partial()
 
