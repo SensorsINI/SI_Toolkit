@@ -35,10 +35,10 @@ def compose_net_from_module(net_info,
                             stateful=False,
                             **kwargs,
                             ):
-    net_type, path, class_name = net_info.net_name.split('-')
-    module_name = Path(path).stem
+    net_type, module_name, class_name = net_info.net_name.split('-')
+    path = './SI_Toolkit_ASF/Modules/'
 
-    fp, path, desc = imp.find_module(module_name)
+    fp, path, desc = imp.find_module(module_name, [path])
     module = imp.load_module(f'{module_name}.{class_name}', fp, path, desc)
     net = getattr(module, class_name)(time_series_length, batch_size, net_info)
     net.build((batch_size, time_series_length, len(net_info.inputs)))
