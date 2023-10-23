@@ -99,9 +99,13 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
         validation_data=validation_dataset,
         callbacks=callbacks_for_training,
     )
-
-    loss = history.history['loss']
-    validation_loss = history.history['val_loss']
+    try:
+        loss = history.history['loss']
+        validation_loss = history.history['val_loss']
+    except KeyError:
+        print('Could not find loss in history. Maybe you set the number of epochs to zero? Continuing with the losses set to 0.0.')
+        loss = 0.0
+        validation_loss = 0.0
 
     # endregion
 
