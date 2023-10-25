@@ -15,7 +15,7 @@ from SI_Toolkit.Functions.TF.Loss import loss_msr_sequence_customizable
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
 # Warning! It may affect performance. I would discourage you to use it for long training tasks
 # @profile(precision=4)
-def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a):
+def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a, flag_fim): # default training process or to get FIM
 
     # region Prepare data for training
     # DataSelectorInstance = DataSelector(a)
@@ -42,6 +42,18 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     #     loss="mse",
     #     optimizer=keras.optimizers.Adam(a.lr)
     # )
+
+    if flag_fim:
+        # to store the FIM
+        from train_ewc import train_ewc
+
+        loss_fn = loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
+                                            post_wash_out_len=a.post_wash_out_len,
+                                            discount_factor=1.0),
+        optimizer = keras.optimizers.Adam(1e-05)
+        train_ewc(net, training_dataset, loss_fn, optimizer)
+
+        return [0], [0]
 
     net.compile(
         loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,

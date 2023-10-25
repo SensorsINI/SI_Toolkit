@@ -81,6 +81,17 @@ class predictor_autoregressive_neural(template_predictor):
         self.net, self.net_info = \
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
+        
+        # para = self.net.trainable_variables
+        # pre_para = {}
+        # for p,ele in enumerate(para):
+        #     pre_para[p] = np.zeros_like(ele.numpy())
+
+        # self.prev = None
+
+        self.net_copy, _ = \
+            get_net(a, flag_ewc=False, flag_multi_head=False, time_series_length=30,
+                    batch_size=None)
 
         # Allows to use predictor for simple network evaluation
         self.mode = mode
@@ -96,7 +107,7 @@ class predictor_autoregressive_neural(template_predictor):
 
         if self.net_info.library == 'TF':
             net, _ = \
-                get_net(a, time_series_length=1,
+                get_net(a, flag_ewc=False, time_series_length=1,
                         batch_size=self.batch_size, stateful=True)
             self.memory_states_ref = net.layers
         elif self.net_info.library == 'Pytorch':
@@ -250,14 +261,14 @@ class predictor_autoregressive_neural(template_predictor):
 
     def _predict_tf(self, initial_state, Q):
 
-        self.lib.assign(self.last_initial_state, initial_state)
+        self.lib.assign(self.last_initial_state, initial_state[:,:6])
 
         initial_state_normed = self.normalize_state(initial_state)
 
         if self.dmah:
             self.dmah.set_starting_point(initial_state_normed)
 
-        self.lib.assign(self.model_initial_input_normed, self.lib.gather_last(initial_state_normed, self.model_initial_input_indices))
+        self.lib.assign(self.model_initial_input_normed, self.lib.gather_last(initial_state_normed[:,:6], self.model_initial_input_indices))
 
         model_external_input_normed = self.lib.gather_last(self.normalize_control_inputs(Q), self.model_external_input_indices)
 
@@ -281,7 +292,7 @@ class predictor_autoregressive_neural(template_predictor):
         outputs_augmented = self.lib.gather_last(outputs_augmented, self.indices_outputs)
 
         if not self.mode == "simple evaluation":
-            outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), axis=1)
+            outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :6], outputs_augmented), axis=1)
 
         return outputs_augmented
 
@@ -318,6 +329,14 @@ class predictor_autoregressive_neural(template_predictor):
 
             net_input = self.lib.reshape(self.lib.concat([Q0_normed[:, 0, :], net_input_reg_normed], axis=1),
                                    [-1, 1, len(self.net_info.inputs)])
+                                         
+            # if self.prev is None:
+            #     net_input = self.lib.reshape(self.lib.concat([Q0_normed[:, 0, :], net_input_reg_normed, self.normalize_control_inputs(self.lib.zeros((1,1,1)))[:,0,:], self.normalize_inputs(self.lib.zeros((1,5)))], axis=1),
+            #                        [-1, 1, len(self.net_info.inputs)])
+            #     self.prev = self.lib.concat([Q0_normed[:, 0, :], net_input_reg_normed], axis=1)
+            # else:
+            #     net_input = self.lib.reshape(self.lib.concat([Q0_normed[:, 0, :], net_input_reg_normed, self.prev], axis=1),
+            #                        [-1, 1, len(self.net_info.inputs)])
 
             self.net(net_input)  # Using net directly
 

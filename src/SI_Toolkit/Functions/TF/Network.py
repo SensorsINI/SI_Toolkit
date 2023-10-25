@@ -4,6 +4,8 @@ import tensorflow as tf
 
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 
+from differentiable_plasticity import Plastic_Dense_Layer # introduce hebbian term for test
+
 def load_pretrained_net_weights(net, ckpt_path):
     """
     A function loading parameters (weights and biases) from a previous training to a net RNN instance
@@ -23,6 +25,9 @@ def compose_net_from_net_name(net_name,
                               time_series_length,
                               batch_size=None,
                               stateful=False,
+                              F=None, # fisher information matrix
+                              bases=None, # previous optimal parameters
+                              flag_multi_head=False,
                               **kwargs,
                               ):
 
@@ -51,6 +56,9 @@ def compose_net_from_net_name(net_name,
     elif 'Dense' in names:
         net_type = 'Dense'
         layer_type = tf.keras.layers.Dense
+    elif 'PlasticDense' in names:
+        net_type = 'PlasticDense'
+        layer_type = Plastic_Dense_Layer
     else:
         net_type = 'RNN-Basic'
         layer_type = tf.keras.layers.SimpleRNN
@@ -59,30 +67,78 @@ def compose_net_from_net_name(net_name,
 
     # Construct network
     # Either dense...
-    if net_type == 'Dense':
+    if net_type == 'Dense': # consider to test 'relu'
         net.add(tf.keras.Input(shape=(time_series_length, len(inputs_list))))
         for i in range(h_number):
             net.add(layer_type(
                 units=h_size[i], activation='tanh', batch_size=batch_size
             ))
+    elif net_type == 'PlasticDense':
+        net.add(tf.keras.Input(shape=(time_series_length, len(inputs_list))))
+        for i in range(h_number):
+            net.add(tf.keras.layers.Dense(
+                units=h_size[i], activation='tanh', batch_size=batch_size
+            ))
+        # net.add(layer_type(input_dim=len(inputs_list) , unit=h_size[0]))
+        # net.add(tf.keras.layers.Dense(units=h_size[0], activation='tanh', batch_size=batch_size))
+        # for i in range(1,h_number):
+        #     net.add(layer_type(
+        #         input_dim=h_size[i-1] , unit=h_size[i]
+        #     ))
+    # Or RNN...
     else:
-        # Or RNN...
-        net.add(layer_type(
-            units=h_size[0],
-            batch_input_shape=(batch_size, time_series_length, len(inputs_list)),
-            return_sequences=True,
-            stateful=stateful
-        ))
-        # Define following layers
-        for i in range(1, len(h_size)):
+        if F is None:
             net.add(layer_type(
-                units=h_size[i],
+                units=h_size[0],
+                batch_input_shape=(batch_size, time_series_length, len(inputs_list)),
                 return_sequences=True,
                 stateful=stateful
             ))
+            # Define following layers
+            for i in range(1, len(h_size)):
+                net.add(layer_type(
+                    units=h_size[i],
+                    return_sequences=True,
+                    stateful=stateful
+                ))
+        else:
+            from train_ewc import EWCRegularizer
+            net.add(layer_type(
+                units=h_size[0],
+                batch_input_shape=(batch_size, time_series_length, len(inputs_list)),
+                return_sequences=True,
+                stateful=stateful,
+                kernel_regularizer=EWCRegularizer(F[0],bases[0]),
+                recurrent_regularizer=EWCRegularizer(F[1],bases[1]),
+                bias_regularizer=EWCRegularizer(F[2],bases[2])
+            ))
+            # Define following layers
+            for i in range(1, len(h_size)):
+                net.add(layer_type(
+                    units=h_size[i],
+                    return_sequences=True,
+                    stateful=stateful,
+                    kernel_regularizer=EWCRegularizer(F[3],bases[3]),
+                    recurrent_regularizer=EWCRegularizer(F[4],bases[4]),
+                    bias_regularizer=EWCRegularizer(F[5],bases[5])
+                ))
 
     # net.add(tf.keras.layers.Dense(units=len(outputs_list), activation='tanh'))
-    net.add(tf.keras.layers.Dense(units=len(outputs_list)))
+    if net_type == 'PlasticDense':
+        net.add(layer_type(input_dim=h_size[-1], unit=len(outputs_list), activation=False))
+    else:
+        # net.add(tf.keras.layers.Dense(units=len(outputs_list)))
+        if F is None:
+            net.add(tf.keras.layers.Dense(units=len(outputs_list)))
+        else:
+            # if using regularizer in output layer depends on whether using multi-head or not
+            if flag_multi_head:
+                print('!!!!!!')
+                print('multi head')
+                net.add(tf.keras.layers.Dense(units=len(outputs_list)))
+            else:
+                net.add(tf.keras.layers.Dense(units=len(outputs_list),
+                                            kernel_regularizer=EWCRegularizer(F[6],bases[6]),bias_regularizer=EWCRegularizer(F[7],bases[7])))
 
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
           .format(net_type, len(h_size), ', '.join(map(str, h_size))))

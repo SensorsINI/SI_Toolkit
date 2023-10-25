@@ -3,6 +3,8 @@ import time
 import timeit
 import shutil
 
+import numpy as np # used for visualizing weights
+
 try:
     import nni
 except ModuleNotFoundError:
@@ -18,7 +20,7 @@ from SI_Toolkit.Functions.General.Initialization import create_full_name, create
 
 
 
-def train_network():
+def train_network(flag_check_weights=False, flag_fim=False, flag_ewc=False, flag_multi_head=False): # add args for testing; may be moved to config_training afterwards
 
     # region Import and print "command line" arguments
     # print('')
@@ -59,7 +61,48 @@ def train_network():
         pass
     # endregion
 
-    net, net_info = get_net(a)
+    net, net_info = get_net(a, flag_ewc, flag_multi_head)
+
+    # for weights checking
+    if flag_check_weights:
+        print('Hello! Content below is for weights checking.')
+        weights = net.trainable_variables
+        dic = {}
+        for i,ele in enumerate(weights):
+            dic[i] = ele.numpy()
+        print(dic)
+        print(len(dic))
+        print(dic.keys())
+        print(weights)
+        # np.save('base.npy',dic) # store theta_pre_star for EWC
+        return
+
+        # upper = None
+        # lower = None
+        # for i in range(len(weights)):
+        #     if upper==None:
+        #         upper = np.max(weights[i])
+        #     elif upper<np.max(weights[i]):
+        #         upper = np.max(weights[i])
+        #     if lower==None:
+        #         lower = np.min(weights[i])
+        #     elif lower>np.min(weights[i]):
+        #         lower = np.min(weights[i])
+        # weights = (weights-lower)/(upper-lower)*255
+
+        # num = len(weights)//2
+        # for i in range(num):
+        #     row = weights[2*i].shape[0]+1
+        #     col = weights[2*i].shape[1]
+        #     blank = np.zeros((row,col))
+        #     blank[:-1,:] = weights[2*i]
+        #     blank[-1,:] = weights[2*i+1]
+        #     plt.figure()
+        #     plt.imshow(np.uint8(blank))
+        #     plt.show()
+        #     print(i)
+        #     print(weights[i].shape)
+        # return
 
     if net_info.library == 'TF':  # If loading pretrained network this has precedence against a.library
         from SI_Toolkit.Functions.TF.Training import train_network_core
@@ -95,7 +138,10 @@ def train_network():
     # endregion
 
     # Run the training function
-    loss, validation_loss = train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a)
+    loss, validation_loss = train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a, flag_fim)
+    # run one more self-defined training to get the FIM
+    if flag_fim:
+        return
 
     # region Plot loss change during training
     plt.figure()

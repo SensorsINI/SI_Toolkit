@@ -29,6 +29,8 @@ def set_seed(args):
 
 
 def get_net(a,
+            flag_ewc=False, # if introducing regularizers
+            flag_multi_head=False, # if implementing multi-head EWC
             # If any of arguments provided it overwrite what is given in a
             time_series_length=None,
             batch_size=None,
@@ -252,17 +254,36 @@ def get_net(a,
         from SI_Toolkit.Functions.Pytorch.Network import compose_net_from_net_name, load_pretrained_net_weights
 
     # Create network architecture
-    net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
-                                              time_series_length=time_series_length,
-                                              batch_size=batch_size, stateful=stateful,
-                                              construct_network=construct_network)
-
+    # default creation pocedure
+    if not flag_ewc:
+        net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
+                                                time_series_length=time_series_length,
+                                                batch_size=batch_size, stateful=stateful,
+                                                construct_network=construct_network)
+    # add regularizers
+    else:
+        from train_ewc import get_FIM, get_bases
+        F = get_FIM()
+        bases = get_bases()
+        net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
+                                                time_series_length=time_series_length,
+                                                batch_size=batch_size, stateful=stateful,
+                                                F=F, bases=bases, flag_multi_head=flag_multi_head,
+                                                construct_network=construct_network)
 
     # We load a pretrained network
     if load_pretrained:
 
         # Load the pretrained weights
         load_pretrained_net_weights(net, ckpt_path)
+        
+        # temporarily added for testing EWC with multiple heads
+        # from train_ewc import get_bases
+        # bases = get_bases()
+        # print('!!!!!!!!!!!!!')
+        # print('old head')
+        # net.trainable_weights[-1].assign(bases[7])
+        # net.trainable_weights[-2].assign(bases[6])
 
         # net_info.wash_out_len = a.wash_out_len
 
