@@ -1,13 +1,13 @@
 import os
 from typing import Optional
 from SI_Toolkit.computation_library import ComputationLibrary
-import yaml
+from SI_Toolkit.load_and_normalize import load_yaml
 from copy import deepcopy as dcp
 from types import MappingProxyType, SimpleNamespace
 
 
 # predictors config
-predictors_config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_predictors.yml'), 'r'), Loader=yaml.FullLoader)
+predictors_config = load_yaml(os.path.join('ControlGym/SI_Toolkit_ASF', 'config_predictors.yml'), 'r')
 
 NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM']
 

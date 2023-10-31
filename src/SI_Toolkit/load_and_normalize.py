@@ -24,8 +24,21 @@ try:
 except:
     print('SI_Toolkit_ASF not created yet')
 
-import yaml, os
-config_SI = yaml.load(open(os.path.join("SI_Toolkit_ASF", "config_training.yml"), "r"), yaml.FullLoader)
+import yaml, os, sys
+
+
+def load_yaml(default_location, x='r'):
+    if os.path.exists(default_location): # Default option
+        return yaml.load(open(default_location, x), yaml.FullLoader)
+    else:
+        for directory in sys.path:
+            potential_path = os.path.join(directory, default_location)
+            if os.path.exists(potential_path):
+                # print(f"Loading yaml file from {potential_path}")
+                return yaml.load(open(potential_path, x), yaml.FullLoader)
+
+
+config_SI = load_yaml(os.path.join("SI_Toolkit_ASF", "config_training.yml"))
 
 normalization_rounding_decimals = 5
 
