@@ -7,7 +7,7 @@ from types import MappingProxyType, SimpleNamespace
 
 
 # predictors config
-predictors_config = load_yaml(os.path.join('ControlGym/SI_Toolkit_ASF', 'config_predictors.yml'), 'r')
+predictors_config = load_yaml(os.path.join('SI_Toolkit_ASF', 'config_predictors.yml'), 'r')
 
 NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM']
 
