@@ -2,6 +2,7 @@ import os.path
 import time
 import timeit
 import shutil
+import pickle
 
 try:
     import nni
@@ -95,12 +96,21 @@ def train_network():
     # endregion
 
     # Run the training function
-    loss, validation_loss = train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a)
+    history = train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a)
+
+    with open(os.path.join(net_info.path_to_net, 'training_history.pkl'), 'wb') as file_pi:
+        pickle.dump(history.history, file_pi)
+
+    loss = history.history['loss']
+    validation_loss = history.history['val_loss']
 
     # region Plot loss change during training
     plt.figure()
     plt.plot(loss, label='train')
     plt.plot(validation_loss, label='validation')
+    for key in history.history.keys():
+        if key.startswith('val_loss_'):
+            plt.plot(history.history[key], label=key)
     plt.xlabel("Training Epoch")
     plt.ylabel("Loss")
     plt.yscale('log')

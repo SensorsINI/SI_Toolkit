@@ -1,8 +1,8 @@
 import numpy as np
-
+import tqdm
 from tensorflow import keras
 
-from SI_Toolkit.Functions.TF.Dataset import Dataset
+from SI_Toolkit.Functions.TF.Dataset import Dataset, ExtendedHorizonDataset
 
 try:
     from SI_Toolkit_ASF.DataSelector import DataSelector
@@ -21,9 +21,18 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     # DataSelectorInstance = DataSelector(a)
     # DataSelectorInstance.load_data_into_selector(training_dfs_norm)
     # training_dataset = DataSelectorInstance.return_dataset_for_training(shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
-    training_dataset = Dataset(training_dfs_norm, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
+    if a.extend_horizon:
+        print('YOOOO')
+        training_dataset = ExtendedHorizonDataset(training_dfs_norm, a, shuffle=True,
+                                                  inputs=net_info.inputs, outputs=net_info.outputs)
+        validation_dataset = ExtendedHorizonDataset(validation_dfs_norm, a, shuffle=True,
+                                                    inputs=net_info.inputs,
+                                                    outputs=net_info.outputs)
 
-    validation_dataset = Dataset(validation_dfs_norm, a, shuffle=True, inputs=net_info.inputs,
+    else:
+        training_dataset = Dataset(training_dfs_norm, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
+
+        validation_dataset = Dataset(validation_dfs_norm, a, shuffle=True, inputs=net_info.inputs,
                                  outputs=net_info.outputs)
 
     del training_dfs_norm, validation_dfs_norm, test_dfs_norm
@@ -47,7 +56,8 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
         loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
                                             post_wash_out_len=a.post_wash_out_len,
                                             discount_factor=1.0),
-        optimizer=keras.optimizers.Adam(a.lr)
+        optimizer=keras.optimizers.Adam(a.lr),
+        run_eagerly=True,
     )
 
     # region Define callbacks to be used in training
@@ -77,6 +87,16 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     csv_logger = keras.callbacks.CSVLogger(net_info.path_to_net + 'log_training.csv', append=False, separator=';')
     callbacks_for_training.append(csv_logger)
 
+    class ClearRunningAverageCallBack(keras.callbacks.Callback):
+        def __init__(self, shift_labels):
+            self.shift_labels = shift_labels
+
+        def on_epoch_begin(self, *_):
+            self.model.set_initial_loss_tracker(self.shift_labels)
+
+    callbacks_for_training.append(ClearRunningAverageCallBack(shift_labels=
+                                                              validation_dataset.shift_labels))
+
     # endregion
 
     # region Print information about the network
@@ -96,13 +116,10 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
         callbacks=callbacks_for_training,
     )
 
-    loss = history.history['loss']
-    validation_loss = history.history['val_loss']
-
     # endregion
 
     # region Save final weights as checkpoint
     net.save_weights(net_info.path_to_net + 'ckpt' + '.ckpt')
     # endregion
 
-    return loss, validation_loss
+    return history

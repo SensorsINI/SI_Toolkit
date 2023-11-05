@@ -20,6 +20,7 @@ def load_pretrained_net_weights(net, ckpt_path):
 def compose_net_from_net_name(net_name,
                               inputs_list,
                               outputs_list,
+                              args,
                               time_series_length,
                               batch_size=None,
                               stateful=False,
@@ -55,8 +56,10 @@ def compose_net_from_net_name(net_name,
         net_type = 'RNN-Basic'
         layer_type = tf.keras.layers.SimpleRNN
 
-    net = tf.keras.Sequential()
-
+    if args.extend_horizon:
+        net = ExtendedHorizonBaselineModel(args)
+    else:
+        net = tf.keras.Sequential()
     # Construct network
     # Either dense...
     if net_type == 'Dense':
@@ -95,6 +98,78 @@ def compose_net_from_net_name(net_name,
     net_info.net_type = net_type
 
     return net, net_info
+
+
+class ExtendedHorizonBaselineModel(tf.keras.Sequential):
+
+    def __init__(self, args):
+        super(ExtendedHorizonBaselineModel, self).__init__()
+        self.args = args
+        self.all_losses = []
+
+    def train_step(self, data):
+        features, targets = data
+
+        with tf.GradientTape() as tape:
+            x = features[:, :1, :]
+            y = targets[:, :1, :]
+            y_pred = self(x, training=True)
+            batches = [(y, y_pred)]
+            shift_labels = features.shape[1]
+            for i in range(1, shift_labels):
+                y = targets[:, i:i+1, :]
+                added_inputs_idx = [self.args.inputs.index(inp) for inp in
+                                    self.args.control_inputs]
+                for idx in added_inputs_idx:
+                    addeds = tf.expand_dims(features[:, i:i+1, idx], axis=-1)
+                    x = tf.concat([y_pred[:, :, :idx], addeds, y_pred[:, :, idx:]], axis=2)
+                y_pred = self(x, training=True)
+                batches.append((y, y_pred))
+            ys = tf.concat([pair[0] for pair in batches], axis=0)
+            y_preds = tf.concat([pair[1] for pair in batches], axis=0)
+            loss = self.compiled_loss(ys, y_preds, regularization_losses=self.losses)
+
+        # Compute gradients
+        trainable_vars = self.trainable_variables
+        gradients = tape.gradient(loss, trainable_vars)
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        self.compiled_metrics.update_state(ys, y_preds)
+        # history = {m.name: m.result() / shift_labels for m in self.metrics}
+        history = {m.name: m.result() for m in self.metrics}
+
+        return history
+
+    def test_step(self, data):
+        features, targets = data
+
+        x = features[:, :1, :]
+        y = targets[:, :1, :]
+        y_pred = self(x, training=False)
+        batches = [(y, y_pred)]
+        shift_labels = features.shape[1]
+        for i in range(1, shift_labels):
+            y = targets[:, i:i + 1, :]
+            added_inputs_idx = [self.args.inputs.index(inp) for inp in self.args.control_inputs]
+            for idx in added_inputs_idx:
+                addeds = tf.expand_dims(features[:, i:i + 1, idx], axis=-1)
+                x = tf.concat([y_pred[:, :, :idx], addeds, y_pred[:, :, idx:]], axis=2)
+            y_pred = self(x, training=False)
+            batches.append((y, y_pred))
+        ys = tf.concat([pair[0] for pair in batches], axis=0)
+        y_preds = tf.concat([pair[1] for pair in batches], axis=0)
+        self.compiled_loss(ys, y_preds, regularization_losses=self.losses)
+        self.compiled_metrics.update_state(ys, y_preds)
+        history = {m.name: m.result() for m in self.metrics}
+        losses = [tf.reduce_mean(self.loss(*x)) for x in batches]
+        for idx, loss in enumerate(losses):
+            self.all_losses[idx].append(loss)
+        history.update({f'loss_{n+1}': sum(x)/len(x) for n, x in enumerate(self.all_losses)})
+        history['shift_labels_history'] = shift_labels
+
+        return history
+
+    def set_initial_loss_tracker(self, shift_labels):
+        self.all_losses = [[] for x in range(shift_labels)]
 
 
 def _copy_internal_states_to_ref(net, memory_states_ref):
