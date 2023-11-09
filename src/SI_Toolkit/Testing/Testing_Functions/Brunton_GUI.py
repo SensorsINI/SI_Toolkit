@@ -102,9 +102,11 @@ class MainWindow(QMainWindow):
         self.downsample = False
         self.current_point_at_timeaxis = (self.time_axis.shape[0]-self.max_horizon)//2
         self.select_dataset(0)
+        self.combine_features = False
 
         self.MSE_at_horizon: float = 0.0
         self.sqrt_MSE_at_horizon: float = 0.0
+        self.max_error_at_horizon: float = 0.0
 
         # region - Create container for top level layout
         layout = QVBoxLayout()
@@ -214,8 +216,12 @@ class MainWindow(QMainWindow):
         l_model.addLayout(lr_d)
 
         # Add MSE at horizon
-        self.lab_MSE = QLabel('sqrt(MSE) at horizon:')
+        self.lab_MSE = QLabel('Error at horizon - sqrt(MSE): ')
         l_model.addWidget(self.lab_MSE)
+
+        # Add max at horizon
+        self.lab_max = QLabel(', Max: ')
+        l_model.addWidget(self.lab_max)
 
         layout.addLayout(l_model)
 
@@ -237,6 +243,14 @@ class MainWindow(QMainWindow):
             self.cb_downsample.toggle()
         self.cb_downsample.toggled.connect(self.cb_downsample_f)
         l_cb.addWidget(self.cb_downsample)
+        # endregion
+
+        # region -- Checkbox: Combine features
+        self.cb_combine_features = QCheckBox('Combine features', self)
+        if self.combine_features:
+            self.cb_combine_features.toggle()
+        self.cb_combine_features.toggled.connect(self.cb_combine_features_f)
+        l_cb.addWidget(self.cb_combine_features)
         # endregion
 
         l_cb.addStretch(1)
@@ -316,6 +330,19 @@ class MainWindow(QMainWindow):
 
         self.redraw_canvas()
 
+    def cb_combine_features_f(self, combine):
+        if combine:
+            self.combine_features = True
+            if self.cb_select_feature2.currentText() == '':
+                self.cb_select_feature2.setCurrentText(self.features[0])
+                self.cb_select_feature2_f()
+            self.canvas2.hide()
+            self.redraw_canvas()
+        else:
+            self.combine_features = False
+            self.cb_select_feature2.setCurrentText('')
+            self.cb_select_feature2_f()
+
     def cb_downsample_f(self, state):
         if state:
             self.downsample = True
@@ -370,7 +397,8 @@ class MainWindow(QMainWindow):
             feature_label_to_display = self.cb_select_feature2.currentText()
             self.feature_to_display_2 = list(self.features2_labels_dict.keys())[
                 list(self.features2_labels_dict.values()).index(feature_label_to_display)]
-            self.canvas2.show()
+            if not self.combine_features:
+                self.canvas2.show()
         else:
             self.feature_to_display_2 = None
             self.canvas2.hide()
@@ -392,63 +420,114 @@ class MainWindow(QMainWindow):
     def redraw_canvas(self):
 
         self.fig.Ax.clear()
+        
+        if not self.combine_features:
+            brunton_widget(self.features, self.ground_truth, self.dataset, self.time_axis,
+                        axs=self.fig.Ax,
+                        current_point_at_timeaxis=self.current_point_at_timeaxis,
+                        feature_to_display=self.feature_to_display,
+                        max_horizon=self.max_horizon,
+                        horizon=self.horizon,
+                        show_all=self.show_all,
+                        downsample=self.downsample,
+                        dt_predictions=self.dt_predictions)
 
-        brunton_widget(self.features, self.ground_truth, self.dataset, self.time_axis,
-                       axs=self.fig.Ax,
-                       current_point_at_timeaxis=self.current_point_at_timeaxis,
-                       feature_to_display=self.feature_to_display,
-                       max_horizon=self.max_horizon,
-                       horizon=self.horizon,
-                       show_all=self.show_all,
-                       downsample=self.downsample,
-                       dt_predictions=self.dt_predictions)
-
-        self.fig2.Ax.clear()
-        # brunton_widget(self.features, self.ground_truth, self.dataset, self.time_axis,
-        #                axs=self.fig2.Ax,
-        #                current_point_at_timeaxis=self.current_point_at_timeaxis,
-        #                feature_to_display=self.feature_to_display,
-        #                max_horizon=self.max_horizon,
-        #                horizon=self.horizon,
-        #                show_all=self.show_all,
-        #                downsample=self.downsample,
-        #                dt_predictions=self.dt_predictions)
-        if self.feature_to_display_2 is not None:
-            canvas2_plot(self.features, self.ground_truth, self.time_axis,
-                         axs=self.fig2.Ax,
-                         current_point_at_timeaxis=self.current_point_at_timeaxis,
-                         feature_to_display=self.feature_to_display_2,
-                         horizon=self.horizon,
-                         show_all=self.show_all,
-                         dt_predictions=self.dt_predictions,
-                         )
+            self.fig2.Ax.clear()
+            # brunton_widget(self.features, self.ground_truth, self.dataset, self.time_axis,
+            #                axs=self.fig2.Ax,
+            #                current_point_at_timeaxis=self.current_point_at_timeaxis,
+            #                feature_to_display=self.feature_to_display,
+            #                max_horizon=self.max_horizon,
+            #                horizon=self.horizon,
+            #                show_all=self.show_all,
+            #                downsample=self.downsample,
+            #                dt_predictions=self.dt_predictions)
+            if self.feature_to_display_2 is not None:
+                canvas2_plot(self.features, self.ground_truth, self.time_axis,
+                            axs=self.fig2.Ax,
+                            current_point_at_timeaxis=self.current_point_at_timeaxis,
+                            feature_to_display=self.feature_to_display_2,
+                            horizon=self.horizon,
+                            show_all=self.show_all,
+                            dt_predictions=self.dt_predictions,
+                            )
+        else:
+            brunton_widget_combined(self.features, self.ground_truth, self.dataset, self.time_axis,
+                        axs=self.fig.Ax,
+                        current_point_at_timeaxis=self.current_point_at_timeaxis,
+                        feature_to_display_1=self.feature_to_display,
+                        feature_to_display_2=self.feature_to_display_2,
+                        max_horizon=self.max_horizon,
+                        horizon=self.horizon,
+                        show_all=self.show_all,
+                        downsample=self.downsample,
+                        dt_predictions=self.dt_predictions)
 
         self.get_sqrt_MSE_at_horizon()
-        self.lab_MSE.setText("sqrt(MSE) at horizon: {:.2f}".format(self.sqrt_MSE_at_horizon))
+        self.lab_MSE.setText("Error at horizon - sqrt(MSE): {:.4f}".format(self.sqrt_MSE_at_horizon))
+        self.lab_max.setText(", Max: {:.4f}".format(self.max_error_at_horizon))
         self.fig.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.fig2.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.canvas.draw()
         self.canvas2.draw()
 
     def get_sqrt_MSE_at_horizon(self):
-
-        feature_idx, = np.where(self.features == self.feature_to_display)
-        ground_truth_feature_idx, = np.where(self.ground_truth[1] == self.feature_to_display)
-
-        if self.dt_predictions == 0.0:
-            idx_shift = 0
+        if self.combine_features:
+            feature_idx_1, = np.where(self.features == self.feature_to_display)
+            ground_truth_feature_idx_1, = np.where(self.ground_truth[1] == self.feature_to_display)
+            feature_idx_2, = np.where(self.features == self.feature_to_display_2)
+            ground_truth_feature_idx_2, = np.where(self.ground_truth[1] == self.feature_to_display_2)
+            
+            if self.dt_predictions == 0.0:
+                idx_shift = 0
+            else:
+                idx_shift = self.horizon
+                
+            if self.show_all:
+                predictions_at_horizon_1 = self.dataset[:self.dataset.shape[0]-idx_shift, self.horizon-1, feature_idx_1]
+                predictions_at_horizon_2 = self.dataset[:self.dataset.shape[0]-idx_shift, self.horizon-1, feature_idx_2]
+                self.MSE_at_horizon = np.mean(
+                    (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
+                    + (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
+                )
+                self.max_error_at_horizon = np.max(
+                    np.abs((self.ground_truth[0][idx_shift:, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
+                    + (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
+                    ))
+            else:
+                predictions_at_horizon_1 = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx_1]
+                predictions_at_horizon_2 = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx_2]
+                self.MSE_at_horizon = np.mean(
+                    (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
+                    + (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
+                )
+                self.max_error_at_horizon = np.max(
+                    np.abs((self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
+                    + (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
+                    ))
+  
         else:
-            idx_shift = self.horizon
+            feature_idx, = np.where(self.features == self.feature_to_display)
+            ground_truth_feature_idx, = np.where(self.ground_truth[1] == self.feature_to_display)
 
-        if self.show_all:
-            predictions_at_horizon = self.dataset[:self.dataset.shape[0]-idx_shift, self.horizon-1, feature_idx]
-            self.MSE_at_horizon = np.mean(
-                    (self.ground_truth[0][idx_shift:, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
+            if self.dt_predictions == 0.0:
+                idx_shift = 0
+            else:
+                idx_shift = self.horizon
 
-        else:
-            predictions_at_horizon = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx]
-            self.MSE_at_horizon = np.mean(
-                (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
+            if self.show_all:
+                predictions_at_horizon = self.dataset[:self.dataset.shape[0]-idx_shift, self.horizon-1, feature_idx]
+                self.MSE_at_horizon = np.mean(
+                        (self.ground_truth[0][idx_shift:, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
+                self.max_error_at_horizon = np.max(
+                        np.abs((self.ground_truth[0][idx_shift:, ground_truth_feature_idx] - predictions_at_horizon)))
+
+            else:
+                predictions_at_horizon = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx]
+                self.MSE_at_horizon = np.mean(
+                    (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
+                self.max_error_at_horizon = np.max(
+                    np.abs((self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx] - predictions_at_horizon)))
 
         self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
 
@@ -505,6 +584,10 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
             if downsample:
                 if (i % 2) == 0:
                     continue
+            
+            axs.plot(time_axis[current_point_at_timeaxis + i + 1],
+                 ground_truth[0][current_point_at_timeaxis + i + 1, ground_truth_feature_idx],
+                 'b.', label='Ground truth')
 
             axs.plot(time_axis_predictions[i + 1], prediction_distance[i],
                      c=cmap((float(i) / max_horizon)*0.8+0.2),
@@ -522,6 +605,87 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                         c=cmap((float(i) / max_horizon)*0.8+0.2),
                         marker='.', linestyle = '')
 
+    axs.set_ylim(y_lim)
+    plt.show()
+
+
+def brunton_widget_combined(features, ground_truth, predictions_array, time_axis, axs=None,
+                   current_point_at_timeaxis=None,
+                   feature_to_display_1=None,
+                   feature_to_display_2=None,
+                   max_horizon=10, horizon=None,
+                   show_all=True,
+                   downsample=False,
+                   dt_predictions=0.0,
+                   ):
+
+    # Start at should be done by widget (slider)
+    feature_idx_1, = np.where(features == feature_to_display_1)
+    ground_truth_feature_idx_1, = np.where(ground_truth[1] == feature_to_display_1)
+
+    feature_idx_2, = np.where(features == feature_to_display_2)
+    ground_truth_feature_idx_2, = np.where(ground_truth[1] == feature_to_display_2)
+
+    # Brunton Plot
+    if axs is None:
+        fig, axs = plt.subplots(1, 1, figsize=(18, 10), sharex=True)
+
+    axs.plot(ground_truth[0][:, ground_truth_feature_idx_1], ground_truth[0][:, ground_truth_feature_idx_2], 'k:', label='Ground Truth', marker='.', markersize=2, linewidth=0.5)
+    y_lim = axs.get_ylim()
+    x_lim = axs.get_xlim()
+    prediction_distance_1 = []
+    prediction_distance_2 = []
+
+    try:
+        y_label = get_feature_label(feature_to_display_2)
+    except NameError:
+        y_label = feature_to_display_2
+    axs.set_ylabel(y_label, fontsize=14)
+
+    try:
+        x_label = get_feature_label(feature_to_display_1)
+    except NameError:
+        x_label = feature_to_display_1
+    axs.set_xlabel(x_label, fontsize=14)
+    axs.set_ylabel(y_label, fontsize=14)
+
+    for item in axs.get_xticklabels()+axs.get_yticklabels():
+        item.set_fontsize(14)
+
+    if not show_all:
+        axs.plot(ground_truth[0][current_point_at_timeaxis, ground_truth_feature_idx_1],
+                 ground_truth[0][current_point_at_timeaxis, ground_truth_feature_idx_2],
+                 'g.', markersize=16, label='Start')
+        # time_axis_predictions = np.arange(horizon+1)*dt_predictions + time_axis[current_point_at_timeaxis]
+        for i in range(horizon):
+
+            prediction_distance_1.append(predictions_array[current_point_at_timeaxis, i, feature_idx_1])
+            prediction_distance_2.append(predictions_array[current_point_at_timeaxis, i, feature_idx_2])
+            if downsample:
+                if (i % 2) == 0:
+                    continue
+
+            axs.plot(ground_truth[0][current_point_at_timeaxis + i + 1, ground_truth_feature_idx_1],
+                     ground_truth[0][current_point_at_timeaxis + i + 1, ground_truth_feature_idx_2],
+                     'b.', label='Ground Truth')
+            axs.plot(prediction_distance_1[i], prediction_distance_2[i],
+                     c=cmap((float(i) / max_horizon)*0.8+0.2),
+                     marker='.')
+
+    else:
+
+        for i in range(horizon):
+            prediction_distance_1.append(predictions_array[:-(i+1), i, feature_idx_1])
+            prediction_distance_2.append(predictions_array[:-(i+1), i, feature_idx_2])
+            if downsample:
+                if (i % 2) == 0:
+                    continue
+
+            axs.plot(prediction_distance_1[i], prediction_distance_2[i],
+                        c=cmap((float(i) / max_horizon)*0.8+0.2),
+                        marker='.', linestyle = '')
+
+    axs.set_xlim(x_lim)
     axs.set_ylim(y_lim)
     plt.show()
 
