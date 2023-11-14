@@ -334,8 +334,10 @@ class MainWindow(QMainWindow):
         if combine:
             self.combine_features = True
             if self.cb_select_feature2.currentText() == '':
-                self.cb_select_feature2.setCurrentText(self.features[0])
+                self.cb_select_feature2.setCurrentText('pose_y')
                 self.cb_select_feature2_f()
+            self.cb_select_feature.setCurrentText('pose_x')
+            self.cb_select_feature_f()
             self.canvas2.hide()
             self.redraw_canvas()
         else:
@@ -491,7 +493,7 @@ class MainWindow(QMainWindow):
                     + (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
                 )
                 self.max_error_at_horizon = np.max(
-                    np.abs((self.ground_truth[0][idx_shift:, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
+                    np.sqrt((self.ground_truth[0][idx_shift:, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
                     + (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
                     ))
             else:
@@ -502,7 +504,7 @@ class MainWindow(QMainWindow):
                     + (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
                 )
                 self.max_error_at_horizon = np.max(
-                    np.abs((self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
+                    np.sqrt((self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
                     + (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
                     ))
   
