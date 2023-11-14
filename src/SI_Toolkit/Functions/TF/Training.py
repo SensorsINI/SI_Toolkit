@@ -52,7 +52,7 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
         loss=loss,
         optimizer=optimizer,
     )
-    net.optimizer = optimizer  # When loading a pretrained network, setting optimizer in compile does nothing.
+    net.optimizer = keras.optimizers.Adam(a.lr)  # When loading a pretrained network, setting optimizer in compile does nothing.
     # region Define callbacks to be used in training
 
     callbacks_for_training = []
