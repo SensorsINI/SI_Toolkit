@@ -20,15 +20,6 @@ def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     net.load_weights(ckpt_path).expect_partial()
 
 
-def compose_net_info(net_name, inputs_list, outputs_list, net_type):
-    net_info = SimpleNamespace()
-    net_info.net_name = net_name
-    net_info.inputs = inputs_list
-    net_info.outputs = outputs_list
-    net_info.net_type = net_type
-    return net_info
-
-
 def compose_net_from_module(net_info,
                             time_series_length,
                             batch_size,

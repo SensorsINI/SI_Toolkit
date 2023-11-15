@@ -36,13 +36,15 @@ def load_pretrained_net_weights(net, pt_path):
     net.load_state_dict(new_state_dict)
 
 
-def compose_net_from_net_name(net_name,
-                              inputs_list,
-                              outputs_list,
+def compose_net_from_net_name(net_info,
                               time_series_length,
                               batch_size=None,
                               stateful=False,
                               construct_network='with cells'):
+
+    net_name = net_info.net_name
+    inputs_list = net_info.inputs
+    outputs_list = net_info.outputs
 
     net = Sequence(net_name=net_name, inputs_list=inputs_list, outputs_list=outputs_list,
                    batch_size=batch_size, construct_network=construct_network)
@@ -50,11 +52,6 @@ def compose_net_from_net_name(net_name,
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
           .format(net.net_type, len(net.h_size), ', '.join(map(str, net.h_size))))
 
-    # Compose net_info
-    net_info = SimpleNamespace()
-    net_info.net_name = net_name
-    net_info.inputs = inputs_list
-    net_info.outputs = outputs_list
     net_info.net_type = net.net_type
 
     return net, net_info
