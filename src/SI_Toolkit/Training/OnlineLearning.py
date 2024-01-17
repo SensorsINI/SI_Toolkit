@@ -131,6 +131,8 @@ class OnlineLearning:
 
         self.s_previous = None
         self.u_previous = None
+        self.steps_since_last_model_update = 0
+
 
         self.normalization_info = self.predictor.predictor.normalization_info
         self.lib = TensorFlowLibrary
@@ -293,3 +295,11 @@ class OnlineLearning:
             self.N_step += 1
         self.s_previous = s
         self.u_previous = u
+        
+    def update_predictor(self):
+        if (self.steps_since_last_model_update > self.config.get('controller_load_net_every_n_steps', np.inf)
+            and self.config.get('activated', False)):
+            load_pretrained_net_weights(self.predictor.predictor.net, f'{self.predictor.predictor.net_info.path_to_net}/ckpt.ckpt', verbose=False)
+            self.steps_since_last_model_update = 0
+        else:
+            self.steps_since_last_model_update += 1
