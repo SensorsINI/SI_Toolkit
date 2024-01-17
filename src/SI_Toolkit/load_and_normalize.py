@@ -198,7 +198,7 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
         range_function = trange
     else:
         range_function = range
-    # sleep(0.1)
+    sleep(0.1)
     for file_number in range_function(len(list_of_paths_to_datafiles)):
         filepath = list_of_paths_to_datafiles[file_number]
         # print(filepath)
@@ -436,10 +436,10 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
         for feature in df_norm_info.columns:
             if feature in df_total.columns:
+                plt.clf()
                 plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
                 plt.title(feature)
                 plt.savefig(histograms_path + '/' + feature + '.png')
-                plt.show()
 
     # endregion
 
