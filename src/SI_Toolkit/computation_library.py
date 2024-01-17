@@ -101,7 +101,8 @@ class ComputationLibrary:
     logical_and: Callable[[TensorType, TensorType], TensorType] = None
     logical_or: Callable[[TensorType, TensorType], TensorType] = None
     print: Callable[[Any], None] = None
-
+    square: Callable[[TensorType], TensorType] = None
+    divide: Callable[[TensorType, TensorType], TensorType] = None
 
 class NumpyLibrary(ComputationLibrary):
     lib = 'Numpy'
@@ -184,6 +185,8 @@ class NumpyLibrary(ComputationLibrary):
     logical_and = np.logical_and
     logical_or  = np.logical_or
     print = print
+    square = np.square
+    divide = np.divide
 
 
 
@@ -192,7 +195,7 @@ class TensorFlowLibrary(ComputationLibrary):
     reshape = tf.reshape
     permute = tf.transpose
     newaxis = tf.newaxis
-    shape = lambda x: x.get_shape()  # .as_list()
+    shape = tf.shape
     to_numpy = lambda x: x.numpy()
     to_variable = lambda x, dtype: tf.Variable(x, dtype=dtype)
     to_tensor = lambda x, dtype: tf.convert_to_tensor(x, dtype=dtype)
@@ -268,6 +271,8 @@ class TensorFlowLibrary(ComputationLibrary):
     logical_and = tf.math.logical_and
     logical_or  = tf.math.logical_or
     print = tf.print
+    square = tf.square
+    divide = tf.math.divide
 
 class PyTorchLibrary(ComputationLibrary):
 
@@ -359,3 +364,5 @@ class PyTorchLibrary(ComputationLibrary):
     logical_and = torch.logical_and
     logical_or  = torch.logical_or
     print = print
+    square = torch.square
+    divide = torch.div

@@ -30,3 +30,11 @@ Use this repository to train neural networks on dynamical systems.
 5. Run simulator with trained network model
   - Specify `NET_NAME` in config -> this is the network used in `predictor_autoregressive_neural.py`
   - When using the CartPoleSimulator repo as system: In the CartPoleSimulator config, specify `"predictor_autoregressive_neural"` as predictor type
+
+## Using a custom model
+To train more complex models, you can write your own:
+1. Write your module `SI_Toolkit_ASF/Modules/[module_name].py`
+  - Write a class that inherits from `tf.keras.Model`
+  - The class must have a `__init__(self)` function and a `call(self, x)` function. `x` is a tensor containing the input to the network. Refer to https://keras.io/api/models/model/ for more information on how to write your own model.
+2. For training, follow the steps outlined above. 
+  - Use your custom model by specifying `--net-name Custom-[module_name]-[class_name]`

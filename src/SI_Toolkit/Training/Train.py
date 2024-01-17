@@ -74,6 +74,10 @@ def train_network():
     src = os.path.join('SI_Toolkit_ASF', 'config_training.yml')
     dst = os.path.join(a.path_to_models, net_info.net_full_name)
     shutil.copy2(src, dst)
+    if net_info.library == 'TF':
+        shutil.copy('SI_Toolkit/src/SI_Toolkit/Functions/TF/Training.py', dst)
+    elif net_info.library == 'Pytorch':
+        shutil.copy('SI_Toolkit/src/SI_Toolkit/Functions/Pytorch/Training.py', dst)
 
     # region Load data and prepare datasets
 
@@ -85,12 +89,12 @@ def train_network():
     validation_dfs = load_data(paths_to_datafiles_validation)
     test_dfs = load_data(paths_to_datafiles_test)
 
-    create_log_file(net_info, a, training_dfs)
-
     if net_info.normalize:
         training_dfs = normalize_df(training_dfs, normalization_info)
         validation_dfs = normalize_df(validation_dfs, normalization_info)
         test_dfs = normalize_df(test_dfs, normalization_info)
+
+    create_log_file(net_info, a, training_dfs)
 
     # endregion
 

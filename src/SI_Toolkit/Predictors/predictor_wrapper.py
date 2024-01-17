@@ -9,7 +9,7 @@ from types import MappingProxyType, SimpleNamespace
 # predictors config
 predictors_config = load_yaml(os.path.join('SI_Toolkit_ASF', 'config_predictors.yml'), 'r')
 
-NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM']
+NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM', 'Custom']
 
 class PredictorWrapper:
     """Wrapper class for creating a predictor.

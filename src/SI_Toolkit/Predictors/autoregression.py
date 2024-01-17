@@ -126,12 +126,15 @@ class differential_model_autoregression_helper:
                 ):
         self.lib = lib
 
-        self.rescale_output_diff_model = get_scaling_function_for_output_of_differential_network(
-            normalization_info,
-            outputs,
-            dt,
-            self.lib
-        )
+        if normalization_info is not None:
+            self.rescale_output_diff_model = get_scaling_function_for_output_of_differential_network(
+                normalization_info,
+                outputs,
+                dt,
+                self.lib
+            )
+        else:
+            self.rescale_output_diff_model = lambda x: x * dt
 
         outputs_names_after_integration = np.array([x[2:] for x in outputs])
 

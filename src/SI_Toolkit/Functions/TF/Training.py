@@ -16,18 +16,18 @@ from SI_Toolkit.Functions.TF.Loss import loss_msr_sequence_customizable
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
 # Warning! It may affect performance. I would discourage you to use it for long training tasks
 # @profile(precision=4)
-def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, test_dfs_norm, a):
+def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a):
 
     # region Prepare data for training
     # DataSelectorInstance = DataSelector(a)
     # DataSelectorInstance.load_data_into_selector(training_dfs_norm)
     # training_dataset = DataSelectorInstance.return_dataset_for_training(shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
-    training_dataset = Dataset(training_dfs_norm, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
+    training_dataset = Dataset(training_dfs, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
 
-    validation_dataset = Dataset(validation_dfs_norm, a, shuffle=False, inputs=net_info.inputs,
+    validation_dataset = Dataset(validation_dfs, a, shuffle=False, inputs=net_info.inputs,
                                  outputs=net_info.outputs)
 
-    del training_dfs_norm, validation_dfs_norm, test_dfs_norm
+    del training_dfs, validation_dfs, test_dfs
 
     print('')
     print('Number of samples in training set: {}'.format(training_dataset.number_of_samples))
@@ -45,13 +45,15 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     #     optimizer=keras.optimizers.Adam(a.lr_initial)
     # )
 
+    optimizer = keras.optimizers.Adam(a.lr_initial)
+    loss = loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
+                                          post_wash_out_len=a.post_wash_out_len,
+                                          discount_factor=1.0)
     net.compile(
-        loss=loss_msr_sequence_customizable(wash_out_len=a.wash_out_len,
-                                            post_wash_out_len=a.post_wash_out_len,
-                                            discount_factor=1.0),
-        optimizer=keras.optimizers.Adam(a.lr_initial)
+        loss=loss,
+        optimizer=optimizer,
     )
-
+    net.optimizer = optimizer  # When loading a pretrained network, setting optimizer in compile does nothing.
     # region Define callbacks to be used in training
 
     callbacks_for_training = []
@@ -65,15 +67,17 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
 
     callbacks_for_training.append(model_checkpoint_callback)
 
-    reduce_lr = keras.callbacks.ReduceLROnPlateau(
-        monitor='val_loss',
-        factor=a.lr_decrease_factor,
-        patience=a.lr_patience,
-        min_lr=a.lr_minimal,
-        verbose=2
-    )
+    if a.reduce_lr_on_plateau:
+        reduce_lr = keras.callbacks.ReduceLROnPlateau(
+            monitor='val_loss',
+            factor=a.lr_decrease_factor,
+            patience=a.lr_patience,
+            min_lr=a.lr_minimal,
+            min_delta=a.min_delta,
+            verbose=2
+        )
 
-    callbacks_for_training.append(reduce_lr)
+        callbacks_for_training.append(reduce_lr)
 
     post_epoch_training_loss = []
     class AdditionalValidation(keras.callbacks.Callback):
@@ -113,10 +117,12 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     try:
         loss = history.history['loss']
     except KeyError:
+        print('Could not find loss in history. Maybe you set the number of epochs to zero? Continuing with the loss set to [].')
         loss = []
     try:
         validation_loss = history.history['val_loss']
     except KeyError:
+        print('Could not find validation loss in history. Maybe you set the number of epochs to zero? Continuing with the validation loss set to [].')
         validation_loss = []
 
     # endregion

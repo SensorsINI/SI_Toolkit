@@ -1,30 +1,56 @@
 from types import SimpleNamespace
+import imp
+from pathlib import Path
 
 import tensorflow as tf
 
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 
-def load_pretrained_net_weights(net, ckpt_path):
+def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     """
     A function loading parameters (weights and biases) from a previous training to a net RNN instance
     :param net: An instance of RNN
     :param ckpt_path: path to .ckpt file storing weights and biases
     :return: No return. Modifies net in place.
     """
-    print("Loading Model: ", ckpt_path)
-    print('')
+    if verbose:
+        print("Loading Model: ", ckpt_path)
+        print('')
 
     net.load_weights(ckpt_path).expect_partial()
 
 
-def compose_net_from_net_name(net_name,
-                              inputs_list,
-                              outputs_list,
+def compose_net_from_module(net_info,
+                            time_series_length,
+                            batch_size,
+                            stateful=False,
+                            **kwargs,
+                            ):
+    net_type, module_name, class_name = net_info.net_name.split('-')
+    path = './SI_Toolkit_ASF/Modules/'
+
+    fp, path, desc = imp.find_module(module_name, [path])
+    module = imp.load_module(f'{module_name}.{class_name}', fp, path, desc)
+    net = getattr(module, class_name)(time_series_length, batch_size, net_info)
+    net.build((batch_size, time_series_length, len(net_info.inputs)))
+
+    print(f'Loaded the model {class_name} from {path}.')
+
+    net_info.net_type = net_type
+
+    return net, net_info
+
+
+def compose_net_from_net_name(net_info,
                               time_series_length,
                               batch_size=None,
                               stateful=False,
                               **kwargs,
                               ):
+
+    net_name = net_info.net_name
+    inputs_list = net_info.inputs
+    outputs_list = net_info.outputs
 
     # Get the information about network architecture from the network name
     # Split the names into "LSTM/GRU", "128H1", "64H2" etc.
@@ -86,11 +112,6 @@ def compose_net_from_net_name(net_name,
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
           .format(net_type, len(h_size), ', '.join(map(str, h_size))))
 
-    # Compose net_info
-    net_info = SimpleNamespace()
-    net_info.net_name = net_name
-    net_info.inputs = inputs_list
-    net_info.outputs = outputs_list
     net_info.net_type = net_type
 
     return net, net_info

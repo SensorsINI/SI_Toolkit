@@ -266,7 +266,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     if paths_to_data_information is None:
         if config is None:
             raise ValueError('Either paths_to_data_information or config must be not None')
-        paths_to_data_information = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + "Recordings/Train/"
+        paths_to_data_information = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + config["paths"]["DATA_FOLDER"] + "/Train/"
 
     list_of_paths_to_datafiles = get_paths_to_datafiles(paths_to_data_information)
 
@@ -449,10 +449,10 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
 
         for feature in df_norm_info.columns:
             if feature in df_total.columns:
+                plt.clf()
                 plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
                 plt.title(feature)
                 plt.savefig(histograms_path + '/' + feature + '.png')
-                plt.show()
 
     # endregion
 
@@ -616,6 +616,52 @@ def normalize_numpy_array(denormalized_array,
     return normalized_array
 
 
+def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, file_names=None, cut=1):
+    no_time_axis_in_files = []
+
+    df = df.reset_index(drop=True)
+
+    try:
+        t = df['time'].values
+    except KeyError:
+        no_time_axis_in_files.append(file_name)
+        t = np.arange(df.shape[0])
+    y = df[variables_for_derivative].values
+    dy = np.zeros_like(y)
+    for j in range(len(variables_for_derivative)):
+        if derivative_algorithm == 'finite_difference':
+            dy[:, j] = dxdt(y[:, j], t, kind=derivative_algorithm, k=cut)
+        elif derivative_algorithm == 'single_difference':
+            cut = 1
+            dy[:-1, j] = (y[1:, j]-y[:-1, j])/(t[1:]-t[:-1])
+        elif derivative_algorithm == 'backward_difference':
+            cut = 1
+            dy[1:, j] = (y[1:, j]-y[:-1, j])/(t[1:]-t[:-1])
+        else:
+            raise NotImplemented('{} is not a recognised name for derivative algorithm'.format(derivative_algorithm))
+
+    derivatives_names = ['D_' + x for x in variables_for_derivative]
+    derivatives = pd.DataFrame(data=dy, columns=derivatives_names)
+
+    df = pd.concat([df, derivatives], axis=1)
+
+    # cut first and last k where derivative is not well determined
+    df = df.iloc[cut:-cut, :].reset_index(drop=True)
+
+    if no_time_axis_in_files:
+        if set(no_time_axis_in_files) == set(file_names):
+            print('No time axis provided. Calculated increments dx for all the files.')
+        else:
+            print('WARNING!!!! \n Some data files have time axes, but some not. \n'
+                    'The derivative calculation across files is inconsistent!')
+            print('The files without time axis are:')
+            for filename in no_time_axis_in_files:
+                print(filename)
+
+    return df
+
+
+
 def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings, verbose=True):
     """
     Takes list of dataframes dfs
@@ -632,10 +678,9 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, path
 
     file_names = [os.path.basename(paths_to_recordings[i]) for i in range(len(paths_to_recordings))]
 
-    cut = 7
+    cut = 1
     dfs_with_derivatives = []
     paths_with_derivatives = []
-    no_time_axis_in_files = []
     for j in range_function(len(dfs)):
 
         df_composed = dfs[j]
@@ -652,48 +697,10 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, path
 
         dfs_processed = []
         for df in dfs_split:
-
-            df = df.reset_index(drop=True)
-
+            # print(file_names)
             if df.shape[0] < 2 * cut:
                 continue
-
-            # print(file_names)
-            try:
-                t = df['time'].values
-            except KeyError:
-                no_time_axis_in_files.append(file_name)
-                t = np.arange(df.shape[0])
-            y = df[variables_for_derivative].values
-            dy = np.zeros_like(y)
-            for j in range(len(variables_for_derivative)):
-                if derivative_algorithm == 'finite_difference':
-                    dy[:, j] = dxdt(y[:, j], t, kind=derivative_algorithm, k=cut)
-                elif derivative_algorithm == 'single_difference':
-                    cut = 1
-                    dy[:-1, j] = (y[1:, j]-y[:-1, j])/(t[1:]-t[:-1])
-                else:
-                    raise NotImplemented('{} is not a recognised name for derivative algorithm'.format(derivative_algorithm))
-
-            derivatives_names = ['D_' + x for x in variables_for_derivative]
-            derivatives = pd.DataFrame(data=dy, columns=derivatives_names)
-
-            df = pd.concat([df, derivatives], axis=1)
-
-            # cut first and last k where derivative is not well determined
-            df = df.iloc[cut:-cut, :].reset_index(drop=True)
-
-
-            if no_time_axis_in_files:
-                if set(no_time_axis_in_files) == set(file_names):
-                    print('No time axis provided. Calculated increments dx for all the files.')
-                else:
-                    print('WARNING!!!! \n Some data files have time axes, but some not. \n'
-                          'The derivative calculation across files is inconsistent!')
-                    print('The files without time axis are:')
-                    for filename in no_time_axis_in_files:
-                        print(filename)
-
+            df = append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, file_names, cut)
             dfs_processed.append(df)
 
         if dfs_processed:
