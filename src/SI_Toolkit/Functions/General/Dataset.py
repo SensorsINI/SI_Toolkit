@@ -126,7 +126,7 @@ class DatasetTemplate:
         self.df_lengths_cs = []
         if type(self.data) == list:
             for data_set in self.data:
-                self.df_lengths.append(data_set.shape[0] - self.exp_len - self.shift_labels)
+                self.df_lengths.append(data_set.shape[0] - self.exp_len - self.shift_labels + 1)
                 if not self.df_lengths_cs:
                     self.df_lengths_cs.append(self.df_lengths[0])
                 else:

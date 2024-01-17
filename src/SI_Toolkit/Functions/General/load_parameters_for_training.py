@@ -14,9 +14,9 @@ library = config['library']
 net_name = config['modeling']['NET_NAME']
 
 # Path to trained models and their logs
-PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "Models/"
+PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + '/' + config['paths']['path_to_experiment'] + '/' "Models/"
 
-PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "NormalizationInfo/"
+PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + '/' + config['paths']['path_to_experiment'] + '/' + "NormalizationInfo/"
 
 # Get path to normalisation info as to a newest csv file in indicated folder
 paths = sorted([os.path.join(PATH_TO_NORMALIZATION_INFO, d) for d in os.listdir(PATH_TO_NORMALIZATION_INFO)], key=os.path.getctime)
@@ -25,9 +25,10 @@ for path in paths:
         PATH_TO_NORMALIZATION_INFO = path
 
 # The following paths to dictionaries may be replaced by the list of paths to data files.
-TRAINING_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "/Recordings/Train/"
-VALIDATION_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "/Recordings/Validate/"
-TEST_FILES = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config['paths']['path_to_experiment'] + "/Recordings/Test/"
+full_experiment_path = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + '/' + config['paths']['path_to_experiment'] + '/' + config['paths']['DATA_FOLDER']
+TRAINING_FILES = full_experiment_path + "/Train/"
+VALIDATION_FILES = full_experiment_path + "/Validate/"
+TEST_FILES = full_experiment_path + "/Test/"
 
 
 # region Set inputs and outputs
@@ -50,6 +51,13 @@ ON_FLY_DATA_GENERATION = config['training_default']['ON_FLY_DATA_GENERATION']
 NORMALIZE = config['training_default']['NORMALIZE']
 USE_NNI = config['training_default']['USE_NNI']
 CONSTRUCT_NETWORK = config['training_default']['CONSTRUCT_NETWORK']
+
+config_reduce_lr = config['training_default']['REDUCE_LR_ON_PLATEAU']
+REDUCE_LR_ACTIVATED = config_reduce_lr['ACTIVATED']
+FACTOR = config_reduce_lr['FACTOR']
+PATIENCE = config_reduce_lr['PATIENCE']
+MIN_LR = config_reduce_lr['MIN_LR'] 
+MIN_DELTA = config_reduce_lr['MIN_DELTA']
 
 # For l2race
 # control_inputs = ['u1', 'u2']
@@ -117,6 +125,13 @@ def args():
     parser.add_argument('--construct_network', default=CONSTRUCT_NETWORK, type=str,
                         help='For Pytorch you can decide if you want to construct network with modules or cells.'
                              'First is needed for DeltaRNN, second gives more flexibility in specifying layers sizes.')
+    parser.add_argument('--reduce_lr_on_plateau', default=REDUCE_LR_ACTIVATED, type=bool,
+                        help='Use the reduce_lr_on_plateau callback from tensorflow')
+    parser.add_argument('--factor', type=float, default=FACTOR,
+                        help='Factor to reduce learning rate by when using reduce_lr_on_plateau.')
+    parser.add_argument('--patience', default=PATIENCE, type=int, help='Patience to use with reduce_lr_on_plateau')
+    parser.add_argument('--min_lr', default=MIN_LR, type=float, help='Minimum learning rate to use with reduce_lr_on_plateau')
+    parser.add_argument('--min_delta', default=MIN_LR, type=float, help='Minimum delta to use with reduce_lr_on_plateau')
 
 
     args = parser.parse_args()
