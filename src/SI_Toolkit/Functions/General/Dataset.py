@@ -126,7 +126,7 @@ class DatasetTemplate:
         self.df_lengths_cs = []
         if type(self.data) == list:
             for data_set in self.data:
-                self.df_lengths.append(data_set.shape[0] - self.exp_len - self.shift_labels + 1)
+                self.df_lengths.append(data_set.shape[0] - (self.exp_len-1) - self.shift_labels)
                 if not self.df_lengths_cs:
                     self.df_lengths_cs.append(self.df_lengths[0])
                 else:
@@ -134,7 +134,7 @@ class DatasetTemplate:
             self.number_of_samples = self.df_lengths_cs[-1]
 
         else:
-            self.number_of_samples = self.data.shape[0] - self.exp_len - self.shift_labels
+            self.number_of_samples = self.data.shape[0] - (self.exp_len-1) - self.shift_labels
 
         if np.any(np.array(self.df_lengths) < 1):
             raise ValueError('One of the datasets is too short to use it for training. Remove it manually and try again.')
