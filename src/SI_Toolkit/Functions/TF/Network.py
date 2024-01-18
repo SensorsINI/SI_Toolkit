@@ -1,6 +1,4 @@
-from types import SimpleNamespace
-import imp
-from pathlib import Path
+import importlib.util
 
 import tensorflow as tf
 
@@ -29,8 +27,10 @@ def compose_net_from_module(net_info,
     net_type, module_name, class_name = net_info.net_name.split('-')
     path = './SI_Toolkit_ASF/Modules/'
 
-    fp, path, desc = imp.find_module(module_name, [path])
-    module = imp.load_module(f'{module_name}.{class_name}', fp, path, desc)
+    spec = importlib.util.spec_from_file_location(f"{module_name}.{class_name}", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+
     net = getattr(module, class_name)(time_series_length, batch_size, net_info)
     net.build((batch_size, time_series_length, len(net_info.inputs)))
 
