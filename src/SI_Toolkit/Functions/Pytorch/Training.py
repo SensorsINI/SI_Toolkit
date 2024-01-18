@@ -55,15 +55,17 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
     optimizer = optim.Adam(net.parameters(), amsgrad=False, lr=a.lr_initial)
 
     # TODO: Verify if scheduler is working. Try tweaking parameters of below scheduler and try cyclic lr scheduler
-    # scheduler = lr_scheduler.CyclicLR(optimizer, base_lr=lr, max_lr=0.1)
-    # scheduler = lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.5)
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
-                                               'min',
-                                               factor=a.lr_decrease_factor,  # sqrt(0.1)
-                                               patience=a.lr_patience,
-                                               min_lr=a.lr_minimal,
-                                               verbose=True,
-                                               )
+    if a.reduce_lr_on_plateau:
+        # scheduler = lr_scheduler.CyclicLR(optimizer, base_lr=lr, max_lr=0.1)
+        # scheduler = lr_scheduler.StepLR(optimizer, step_size=200, gamma=0.5)
+        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer,
+                                                   'min',
+                                                   factor=a.lr_decrease_factor,  # sqrt(0.1)
+                                                   patience=a.lr_patience,
+                                                   min_lr=a.lr_minimal,
+                                                   threshold=a.min_delta,
+                                                   verbose=True,
+                                                   )
 
     # Select Loss Function
     # criterion = nn.MSELoss()  # Mean square error loss function, might be not the same as TF - MSE, not checked
@@ -128,7 +130,8 @@ def train_network_core(net, net_info, training_dfs_norm, validation_dfs_norm, te
         for param_group in optimizer.param_groups:
             lr_curr = param_group['lr']
 
-        scheduler.step(dev_loss)
+        if a.reduce_lr_on_plateau:
+            scheduler.step(dev_loss)
 
         # Write the summary information about the training for the just completed epoch to a dictionary
 

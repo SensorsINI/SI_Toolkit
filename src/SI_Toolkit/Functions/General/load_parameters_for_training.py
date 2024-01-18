@@ -44,15 +44,11 @@ SEED = config['training_default']['SEED']
 SHIFT_LABELS = config['training_default']['SHIFT_LABELS']
 
 LR_INITIAL = config['training_default']['LR']['INITIAL']
-LR_MINIMAL = config['training_default']['LR']['REDUCE_LR_ON_PLATEAU']
+REDUCE_LR_ACTIVATED = config['training_default']['LR']['REDUCE_LR_ON_PLATEAU']
 MIN_DELTA = config['training_default']['LR']['MIN_DELTA']
 LR_MINIMAL = config['training_default']['LR']['MINIMAL']
 LR_PATIENCE = config['training_default']['LR']['PATIENCE']
 LR_DECREASE_FACTOR = config['training_default']['LR']['DECREASE_FACTOR']
-
-config_reduce_lr = config['training_default']['REDUCE_LR_ON_PLATEAU']
-REDUCE_LR_ACTIVATED = config_reduce_lr['ACTIVATED']
-MIN_DELTA = config_reduce_lr['MIN_DELTA']
 
 WASH_OUT_LEN = config['training_default']['WASH_OUT_LEN']
 POST_WASH_OUT_LEN = config['training_default']['POST_WASH_OUT_LEN']
