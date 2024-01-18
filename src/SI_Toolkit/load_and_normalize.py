@@ -36,6 +36,7 @@ def load_yaml(default_location, x='r'):
             if os.path.exists(potential_path):
                 # print(f"Loading yaml file from {potential_path}")
                 return yaml.load(open(potential_path, x), yaml.FullLoader)
+        raise FileNotFoundError(f"Could not find yaml file using {default_location} neither searching from working directory nor from sys.path")
 
 
 config_SI = load_yaml(os.path.join("SI_Toolkit_ASF", "config_training.yml"))
