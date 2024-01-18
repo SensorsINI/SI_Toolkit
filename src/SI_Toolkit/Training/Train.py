@@ -62,9 +62,9 @@ def train_network():
     net, net_info = get_net(a)
 
     if net_info.library == 'TF':  # If loading pretrained network this has precedence against a.library
-        from SI_Toolkit.Functions.TF.Training import train_network_core
+        import SI_Toolkit.Functions.TF.Training as Training
     else:
-        from SI_Toolkit.Functions.Pytorch.Training import train_network_core
+        import SI_Toolkit.Functions.Pytorch.Training as Training
 
     # Create new full name for the pretrained net
     create_full_name(net_info, a.path_to_models)
@@ -74,10 +74,8 @@ def train_network():
     src = os.path.join('SI_Toolkit_ASF', 'config_training.yml')
     dst = os.path.join(a.path_to_models, net_info.net_full_name)
     shutil.copy2(src, dst)
-    if net_info.library == 'TF':
-        shutil.copy('SI_Toolkit/src/SI_Toolkit/Functions/TF/Training.py', dst)
-    elif net_info.library == 'Pytorch':
-        shutil.copy('SI_Toolkit/src/SI_Toolkit/Functions/Pytorch/Training.py', dst)
+    path_to_training_script = os.path.join(os.path.dirname(Training.__file__), 'Training.py')
+    shutil.copy(path_to_training_script, dst)
 
     # region Load data and prepare datasets
 
@@ -99,7 +97,7 @@ def train_network():
     # endregion
 
     # Run the training function
-    loss, validation_loss, post_epoch_training_loss = train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
+    loss, validation_loss, post_epoch_training_loss = Training.train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
 
     # region Plot loss change during training
     plt.figure()
