@@ -616,15 +616,13 @@ def normalize_numpy_array(denormalized_array,
     return normalized_array
 
 
-def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, file_names=None, cut=1):
-    no_time_axis_in_files = []
+def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut=1):
 
     df = df.reset_index(drop=True)
 
     try:
         t = df['time'].values
     except KeyError:
-        no_time_axis_in_files.append(file_name)
         t = np.arange(df.shape[0])
     y = df[variables_for_derivative].values
     dy = np.zeros_like(y)
@@ -647,16 +645,6 @@ def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm,
 
     # cut first and last k where derivative is not well determined
     df = df.iloc[cut:-cut, :].reset_index(drop=True)
-
-    if no_time_axis_in_files:
-        if set(no_time_axis_in_files) == set(file_names):
-            print('No time axis provided. Calculated increments dx for all the files.')
-        else:
-            print('WARNING!!!! \n Some data files have time axes, but some not. \n'
-                    'The derivative calculation across files is inconsistent!')
-            print('The files without time axis are:')
-            for filename in no_time_axis_in_files:
-                print(filename)
 
     return df
 
@@ -681,11 +669,15 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, path
     cut = 1
     dfs_with_derivatives = []
     paths_with_derivatives = []
+    no_time_axis_in_files = []
     for j in range_function(len(dfs)):
 
         df_composed = dfs[j]
         path_to_recording = paths_to_recordings[j]
         file_name = file_names[j]
+
+        if 'time' not in df_composed:
+            no_time_axis_in_files.append(file_name)
 
         dfs_split = []
         if 'experiment_index' in df_composed.columns:
@@ -700,7 +692,7 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, path
             # print(file_names)
             if df.shape[0] < 2 * cut:
                 continue
-            df = append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, file_names, cut)
+            df = append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut)
             dfs_processed.append(df)
 
         if dfs_processed:
@@ -711,6 +703,16 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, path
 
         dfs_processed = pd.concat(dfs_processed, axis=0).reset_index(drop=True)
         dfs_with_derivatives.append(dfs_processed)
+
+    if no_time_axis_in_files:
+        if set(no_time_axis_in_files) == set(file_names):
+            print('No time axis provided. Calculated increments dx for all the files.')
+        else:
+            print('WARNING!!!! \n Some data files have time axes, but some not. \n'
+                    'The derivative calculation across files is inconsistent!')
+            print('The files without time axis are:')
+            for filename in no_time_axis_in_files:
+                print(filename)
 
     return dfs_with_derivatives, paths_with_derivatives
 
