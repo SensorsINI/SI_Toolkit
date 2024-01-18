@@ -103,7 +103,7 @@ def load_net_info_from_txt_file(txt_path, parent_net_name, convert_to_delta, net
     return net_info
 
 
-def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
+def load_pretrained_network(net_info, time_series_length, batch_size, stateful, remove_redundant_dimensions=False):
     # In case net_name is 'last' iterate till a valid file is found
     while True:  # Exit from while loop is done with break statement or when getting an error
         # region In case net_name is 'last' we have to first find (full) name of the last trained net
@@ -235,7 +235,8 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
     else:
         net, net_info = compose_net_from_net_name(net_info,
                                                   time_series_length=time_series_length,
-                                                  batch_size=batch_size, stateful=stateful)
+                                                  batch_size=batch_size, stateful=stateful,
+                                                  remove_redundant_dimensions=remove_redundant_dimensions)
 
     # Load the pretrained weights
     load_pretrained_net_weights(net, ckpt_path)
@@ -244,7 +245,7 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
     return net, net_info
 
 
-def load_new_network(net_info, time_series_length, batch_size, stateful):
+def load_new_network(net_info, time_series_length, batch_size, stateful, remove_redundant_dimensions=False):
     '''Create a new network according to provided parameters'''
 
     print('')
@@ -281,7 +282,8 @@ def load_new_network(net_info, time_series_length, batch_size, stateful):
     else:
         net, net_info = compose_net_from_net_name(net_info,
                                                   time_series_length=time_series_length,
-                                                  batch_size=batch_size, stateful=stateful)
+                                                  batch_size=batch_size, stateful=stateful,
+                                                  remove_redundant_dimensions=remove_redundant_dimensions)
 
     return net, net_info
 
@@ -291,6 +293,7 @@ def get_net(a,
             time_series_length=None,
             batch_size=None,
             stateful=False,
+            remove_redundant_dimensions=False,
             ):
     """
     A quite big (too big?) chunk of creating a network, its associated net_info variable
@@ -315,9 +318,9 @@ def get_net(a,
     net_name_is_a_full_name = all(c in "0123456789" for c in last_part_of_net_name)
 
     if net_name_is_a_full_name or a.net_name == 'last':
-        net, net_info = load_pretrained_network(a, time_series_length, batch_size, stateful)
+        net, net_info = load_pretrained_network(a, time_series_length, batch_size, stateful, remove_redundant_dimensions)
     else:
-        net, net_info = load_new_network(a, time_series_length, batch_size, stateful)
+        net, net_info = load_new_network(a, time_series_length, batch_size, stateful, remove_redundant_dimensions)
 
     return net, net_info
 

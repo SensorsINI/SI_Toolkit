@@ -45,6 +45,7 @@ def compose_net_from_net_name(net_info,
                               time_series_length,
                               batch_size=None,
                               stateful=False,
+                              remove_redundant_dimensions=False,
                               **kwargs,
                               ):
 
@@ -86,16 +87,29 @@ def compose_net_from_net_name(net_info,
     # Construct network
     # Either dense...
     if net_type == 'Dense':
-        net.add(tf.keras.Input(batch_size=batch_size, shape=(time_series_length, len(inputs_list))))
+
+        if remove_redundant_dimensions and time_series_length==1:
+            shape_input = (len(inputs_list),)
+            batch_size = None
+        else:
+            shape_input = (time_series_length, len(inputs_list))
+
+        net.add(tf.keras.Input(batch_size=batch_size, shape=shape_input))
         for i in range(h_number):
             net.add(layer_type(
-                units=h_size[i], activation='tanh', batch_size=batch_size,  name='layers.{}'.format(i)
+                units=h_size[i], activation='tanh', batch_size=batch_size,  name='layers_{}'.format(i)
             ))
     else:
+
+        if remove_redundant_dimensions and batch_size==1:
+            shape_input = (time_series_length, len(inputs_list))
+        else:
+            shape_input = (batch_size, time_series_length, len(inputs_list))
+
         # Or RNN...
         net.add(layer_type(
             units=h_size[0],
-            batch_input_shape=(batch_size, time_series_length, len(inputs_list)),
+            batch_input_shape=shape_input,
             return_sequences=True,
             stateful=stateful
         ))
