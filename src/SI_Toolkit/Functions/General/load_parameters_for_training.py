@@ -25,9 +25,9 @@ for path in paths:
         PATH_TO_NORMALIZATION_INFO = path
 
 # The following paths to dictionaries may be replaced by the list of paths to data files.
-TRAINING_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], "Recordings/Train")
-VALIDATION_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], "Recordings/Validate")
-TEST_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], "Recordings/Test")
+TRAINING_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Train")
+VALIDATION_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Validate")
+TEST_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Test")
 
 
 # region Set inputs and outputs
