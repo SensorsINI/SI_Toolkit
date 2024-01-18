@@ -282,8 +282,7 @@ def load_new_network(net_info, time_series_length, batch_size, stateful, remove_
     else:
         net, net_info = compose_net_from_net_name(net_info,
                                                   time_series_length=time_series_length,
-                                                  batch_size=batch_size, stateful=stateful,
-                                                  remove_redundant_dimensions=remove_redundant_dimensions)
+                                                  batch_size=batch_size, stateful=stateful)
 
     return net, net_info
 
