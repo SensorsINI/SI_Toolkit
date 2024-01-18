@@ -233,19 +233,10 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
                                                 time_series_length=time_series_length,
                                                 batch_size=batch_size, stateful=stateful)
     else:
-        from SI_Toolkit.Functions.Pytorch.Network import compose_net_from_net_name, load_pretrained_net_weights
-
-    # Create network architecture
-    net, net_info = compose_net_from_net_name(net_name, inputs, outputs,
-                                              time_series_length=time_series_length,
-                                              batch_size=batch_size, stateful=stateful,
-                                              construct_network=construct_network,
-                                              remove_redundant_dimensions=remove_redundant_dimensions)
-    net_info.library = library
-
-
-    # We load a pretrained network
-    if load_pretrained:
+        net, net_info = compose_net_from_net_name(net_info,
+                                                  time_series_length=time_series_length,
+                                                  batch_size=batch_size, stateful=stateful,
+                                                  remove_redundant_dimensions=remove_redundant_dimensions)
 
     # Load the pretrained weights
     load_pretrained_net_weights(net, ckpt_path)
