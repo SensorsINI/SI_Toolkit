@@ -58,7 +58,11 @@ def compose_net_from_net_name(net_info,
                               time_series_length,
                               batch_size=None,
                               stateful=False,
-                              construct_network='with cells'):
+                              construct_network='with cells',
+                              remove_redundant_dimensions=False):
+
+    if remove_redundant_dimensions == True:
+        raise NotImplementedError('Removing redundant dimensions not implemented for Pytorch.')
 
     net_name = net_info.net_name
     inputs_list = net_info.inputs
