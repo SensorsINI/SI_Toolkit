@@ -53,7 +53,7 @@ def get_prediction(
     predictor_external_input_array = [predictor_external_input[..., i:-predictor_horizon + i, :] for i in range(predictor_horizon)]
     predictor_external_input_array = np.stack(predictor_external_input_array, axis=1)
 
-    if dt_predictions == 0.0:
+    if routine == "simple evaluation":
         predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input) - test_max_horizon, ...]
     else:
         predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input), ...]

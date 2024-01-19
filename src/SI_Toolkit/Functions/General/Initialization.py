@@ -93,11 +93,11 @@ def load_net_info_from_txt_file(txt_path, parent_net_name, convert_to_delta, net
         if lines[i] == 'CONSTRUCT NETWORK:':
             net_info.construct_network = lines[i + 1].rstrip("\n")
             continue
-        if lines[i] == 'TIMESTEP MEAN:':
-            net_info.dt = lines[i + 1].rstrip("\n")
+        if lines[i] == 'TIMESTEP MEAN [s]:':
+            net_info.dt = float(lines[i + 1].rstrip("\n"))
             continue
-        if lines[i] == 'TIMESTEP STD:':
-            net_info.dt_std = lines[i + 1].rstrip("\n")
+        if lines[i] == 'TIMESTEP STD [s]:':
+            net_info.dt_std = float(lines[i + 1].rstrip("\n"))
             continue
 
     return net_info
@@ -162,14 +162,6 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
         net_info.parent_net_name = parent_net_name
 
         net_info.path_to_net = os.path.join(net_info.path_to_models, parent_net_name)
-
-        if 'dt' in locals():
-            net_info.dt = float(dt)
-            net_info.dt_std = float(dt_std)
-        else:
-            print('Warning! Net info does not contain information about dt!')
-            net_info.dt = None
-            net_info.dt_std = None
 
         if not hasattr(net_info, 'wash_out_len'):
             print('Wash out not defined.')
@@ -257,14 +249,6 @@ def load_new_network(net_info, time_series_length, batch_size, stateful, remove_
 
     if not hasattr(net_info, 'wash_out_len'):
         print('Wash out not defined.')
-
-    if 'dt' in locals():
-        net_info.dt = float(dt)
-        net_info.dt_std = float(dt_std)
-    else:
-        print('Warning! Net info does not contain information about dt!')
-        net_info.dt = None
-        net_info.dt_std = None
 
     if not hasattr(net_info, 'path_to_normalization_info'):
         net_info.path_to_normalization_info = None
@@ -463,17 +447,24 @@ def create_log_file(net_info, a, dfs):
             dt = time[1:]-time[:-1]
             all_dt.append(dt)
         all_dt = np.concatenate(all_dt)
-        dt_mean = np.mean(all_dt)*np.sqrt(a.shift_labels)
-        dt_std = np.std(all_dt)*np.sqrt(a.shift_labels)
+        dt_mean = np.mean(all_dt)*a.shift_labels
+        dt_std = np.std(all_dt)*a.shift_labels
     else:
         dt_mean = None
         dt_std = None
 
-    f.write('\n\nTIMESTEP MEAN:\n')
-    f.write(str(dt_mean))
+    if dt_mean is None:
+        f.write('\n\nTIMESTEP MEAN [datafile rows]:\n')
+        f.write(str(a.shift_labels))
 
-    f.write('\n\nTIMESTEP STD:\n')
-    f.write(str(dt_std))
+        f.write('\n\nTIMESTEP STD [datafile rows]:\n')
+        f.write(str(0))
+    else:
+        f.write('\n\nTIMESTEP MEAN [s]:\n')
+        f.write(str(dt_mean))
+
+        f.write('\n\nTIMESTEP STD [s]:\n')
+        f.write(str(dt_std))
 
 
     f.close()
