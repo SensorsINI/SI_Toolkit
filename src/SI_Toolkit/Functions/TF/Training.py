@@ -165,7 +165,8 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     if a.pruning_activated:
         net = strip_pruning(net)
     # region Save final weights as checkpoint
-    net.save_weights(net_info.path_to_net + 'ckpt' + '.ckpt')
+    net.save(os.path.join(net_info.path_to_net, net_info.net_full_name + '.keras'))
+    net.save_weights(os.path.join(net_info.path_to_net, 'ckpt' + '.ckpt'))
     # endregion
 
     return np.array(loss), validation_loss, post_epoch_training_loss
