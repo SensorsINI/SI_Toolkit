@@ -1,7 +1,13 @@
 import os
+import sys
 import numpy as np
 
 from tensorflow import keras
+try:
+    from tensorflow_model_optimization.python.core.sparsity.keras import prune, pruning_callbacks, pruning_schedule
+    from tensorflow_model_optimization.sparsity.keras import strip_pruning
+except ModuleNotFoundError:
+    print('tensorflow_model_optimization not found. Pruning will not be available.')
 
 from SI_Toolkit.Functions.TF.Dataset import Dataset
 
@@ -38,6 +44,33 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     # endregion
 
     # region Set basic training features: optimizer, loss, scheduler...
+
+    # region Defining pruning
+    if a.pruning_activated:
+        if 'tensorflow_model_optimization' not in sys.modules:
+            raise ModuleNotFoundError('tensorflow_model_optimization not found. Pruning will not be available. Change config_training or install the module')
+        if a.pruning_schedule == 'CONSTANT_SPARSITY':
+            pruning_schedule_params = a.pruning_schedules[a.pruning_schedule]
+            selected_pruning_schedule = pruning_schedule.ConstantSparsity(
+                target_sparsity=pruning_schedule_params['target_sparsity'],
+                begin_step=int(pruning_schedule_params['begin_step_in_epochs']*training_dataset.number_of_batches),
+                end_step=int(pruning_schedule_params['end_step_in_training_fraction']*a.num_epochs*training_dataset.number_of_batches),
+                frequency=int(np.maximum(1, training_dataset.number_of_batches/pruning_schedule_params['frequency_per_epoch'])))
+        elif a.pruning_schedule == 'POLYNOMIAL_DECAY':
+            pruning_schedule_params = a.pruning_schedules[a.pruning_schedule]
+            selected_pruning_schedule = pruning_schedule.PolynomialDecay(
+                initial_sparsity=pruning_schedule_params['initial_sparsity'],
+                final_sparsity=pruning_schedule_params['final_sparsity'],
+                begin_step=int(pruning_schedule_params['begin_step_in_epochs']*training_dataset.number_of_batches),
+                end_step=int(pruning_schedule_params['end_step_in_training_fraction']*a.num_epochs*training_dataset.number_of_batches),
+                power=pruning_schedule_params['power'],
+                frequency=int(np.maximum(1, training_dataset.number_of_batches/pruning_schedule_params['frequency_per_epoch'])))
+        else:
+            raise NotImplementedError('Pruning schedule {} is not implemented yet.'.format(a.pruning_schedule))
+
+        pruning_params = {"pruning_schedule": selected_pruning_schedule}
+        net = prune.prune_low_magnitude(net, **pruning_params)
+    # endregion
 
     # Might be not the same as Pytorch - MSE, not checked
     # net.compile(
@@ -78,6 +111,9 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
         )
 
         callbacks_for_training.append(reduce_lr)
+
+    if a.pruning_activated:
+        callbacks_for_training.append(pruning_callbacks.UpdatePruningStep())
 
     post_epoch_training_loss = []
     class AdditionalValidation(keras.callbacks.Callback):
@@ -126,7 +162,8 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
         validation_loss = []
 
     # endregion
-
+    if a.pruning_activated:
+        net = strip_pruning(net)
     # region Save final weights as checkpoint
     net.save_weights(net_info.path_to_net + 'ckpt' + '.ckpt')
     # endregion
