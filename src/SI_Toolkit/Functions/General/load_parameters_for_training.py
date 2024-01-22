@@ -59,6 +59,8 @@ CONSTRUCT_NETWORK = config['training_default']['CONSTRUCT_NETWORK']
 
 VALIDATE_ALSO_ON_TRAINING_SET = config['training_default']['VALIDATE_ALSO_ON_TRAINING_SET']
 
+REGULARIZATION = config['REGULARIZATION']
+
 PRUNING_ACTIVATED = config['PRUNING']['ACTIVATED']
 PRUNING_SCHEDULE = config['PRUNING']['PRUNING_PARAMS']['PRUNING_SCHEDULE']
 PRUNING_SCHEDULES = config['PRUNING']['PRUNING_SCHEDULES']
@@ -164,6 +166,8 @@ def args():
 
     if args.outputs is not None:
         args.outputs = sorted(args.outputs)
+
+    args.regularization = REGULARIZATION
 
     args.pruning_activated = PRUNING_ACTIVATED
     args.pruning_schedule = PRUNING_SCHEDULE

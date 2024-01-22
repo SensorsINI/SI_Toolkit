@@ -82,6 +82,15 @@ def compose_net_from_net_name(net_info,
         net_type = 'RNN-Basic'
         layer_type = tf.keras.layers.SimpleRNN
 
+    if hasattr(net_info, 'regularization') and net_info.regularization['ACTIVATED']:
+        regularization_kernel = net_info.regularization['KERNEL']
+        regularization_bias = net_info.regularization['BIAS']
+        regularization_activity = net_info.regularization['ACTIVITY']
+    else:
+        regularization_kernel = {'l1': 0.0, 'l2': 0.0}
+        regularization_bias = {'l1': 0.0, 'l2': 0.0}
+        regularization_activity = {'l1': 0.0, 'l2': 0.0}
+
     net = tf.keras.Sequential()
 
     # Construct network
@@ -97,7 +106,10 @@ def compose_net_from_net_name(net_info,
         net.add(tf.keras.Input(batch_size=batch_size, shape=shape_input))
         for i in range(h_number):
             net.add(layer_type(
-                units=h_size[i], activation='tanh', batch_size=batch_size,  name='layers_{}'.format(i)
+                units=h_size[i], activation='tanh', batch_size=batch_size,  name='layers_{}'.format(i),
+                kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
+                bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
             ))
     else:
 
@@ -111,17 +123,26 @@ def compose_net_from_net_name(net_info,
             units=h_size[0],
             batch_input_shape=shape_input,
             return_sequences=True,
-            stateful=stateful
+            stateful=stateful,
+            kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
+            bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+            activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
         ))
         # Define following layers
         for i in range(1, len(h_size)):
             net.add(layer_type(
                 units=h_size[i],
                 return_sequences=True,
-                stateful=stateful
+                stateful=stateful,
+                kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
+                bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
             ))
 
-    net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers.{}'.format(h_number)))
+    net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers.{}'.format(h_number), activation='linear',
+                                  kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
+                                  bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                                  ))
 
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
           .format(net_type, len(h_size), ', '.join(map(str, h_size))))
