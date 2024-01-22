@@ -90,9 +90,13 @@ class predictor_autoregressive_neural(template_predictor):
             self.predictor_output_features = np.array(self.net_info.outputs)
             self.horizon = 1
 
-        if hasattr(self.net_info, 'dt') and self.net_info.dt == 0.0:
-            print('Horizon set to 0!')
-            self.horizon = 1
+        if hasattr(self.net_info, 'dt'):
+            if self.net_info.dt != self.dt:
+                print(f'\n dt of the network {self.net_info.dt} s is different from dt requested of the predictor {self.dt}.\n'
+                      f'Using dt of the network {self.net_info.dt} s.\n'
+                      f'If it is what you intended (e.g. in Brunton test), ignore this message.\n')
+            self.dt = self.net_info.dt
+
 
         if self.net_info.library == 'TF':
             net, _ = \
