@@ -499,6 +499,8 @@ class MainWindow(QMainWindow):
         ground_truth = self.ground_truth[0][:, ground_truth_feature_idx]
         predictions = self.dataset[:, :, feature_idx]
 
+        error = self._get_error(predictions, ground_truth, labels_shift)
+
         if self.combine_features:
             feature_idx_2, = np.where(self.features == self.feature_to_display_2)
             ground_truth_feature_idx_2, = np.where(self.ground_truth[1] == self.feature_to_display_2)
@@ -508,54 +510,52 @@ class MainWindow(QMainWindow):
             ground_truth_2 = self.ground_truth[0][:, ground_truth_feature_idx_2]
             predictions_2 = self.dataset[:, :, feature_idx_2]
 
-            if self.show_all:
-                predictions_at_horizon_1 = predictions[:self.dataset.shape[0]-self.horizon, self.horizon-1]
-                predictions_at_horizon_2 = predictions_2[:self.dataset.shape[0]-self.horizon, self.horizon-1]
+            error_2 = self._get_error(predictions_2, ground_truth_2, labels_shift)
 
-                error1 = ground_truth[self.horizon:] - predictions_at_horizon_1
-                error2 = ground_truth_2[self.horizon:] - predictions_at_horizon_2
+            error = np.sqrt(error ** 2 + error_2 ** 2)
 
-            else:
-                predictions_at_horizon_1 = predictions[self.current_point_at_timeaxis, self.horizon-1]
-                predictions_at_horizon_2 = predictions_2[self.current_point_at_timeaxis, self.horizon-1]
-
-
-                error1 = predictions_at_horizon_1 - ground_truth[self.current_point_at_timeaxis + self.horizon]
-                error2 = predictions_at_horizon_2 - ground_truth_2[self.current_point_at_timeaxis + self.horizon]
-
-            error = np.sqrt(error1 ** 2 + error2 ** 2)
-
-            self.MSE_along_horizon = np.mean(error ** 2)
-            self.max_error = np.max(np.abs(error))
-  
-        else:
-
-            if self.show_all:
-
-                if labels_shift == 0:
-                    predictions = predictions[:, :self.horizon]
-                else:
-                    predictions = predictions[:-self.horizon*labels_shift, :self.horizon]
-                    ground_truth = ground_truth_for_error_calculation_show_all(ground_truth, self.horizon, labels_shift)
-
-            else:
-                if labels_shift == 0:
-                    ground_truth = ground_truth[self.current_point_at_timeaxis, np.newaxis]  # Just the current point but keep the dimensions
-                    predictions = predictions[self.current_point_at_timeaxis, 0, np.newaxis]
-                else:
-                    ground_truth = ground_truth[self.current_point_at_timeaxis+labels_shift: self.current_point_at_timeaxis + (self.horizon+1)*labels_shift: labels_shift]
-                    predictions = predictions[self.current_point_at_timeaxis, :self.horizon]
-
-            error = predictions - ground_truth
-
-            self.MSE_along_horizon = np.mean(error ** 2)
-            self.MSE_at_horizon = np.mean(error[..., -1] ** 2)
-            self.max_error = np.max(np.abs(error))
+        self.MSE_along_horizon = np.mean(error ** 2)
+        self.MSE_at_horizon = np.mean(error[..., -1] ** 2)
+        self.max_error = np.max(np.abs(error))
 
         # Compute the square root of the calculated MSE to get the final error metric.
         self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
         self.sqrt_MSE_along_horizon = np.sqrt(self.MSE_along_horizon)
 
+    def _get_error(self, predictions, ground_truth, labels_shift):
+        if self.show_all:
+
+            if labels_shift == 0:
+                predictions = predictions[:, :self.horizon]
+            else:
+                predictions = predictions[:-self.horizon * labels_shift, :self.horizon]
+                ground_truth = self.ground_truth_for_error_calculation_show_all(ground_truth, self.horizon, labels_shift)
+
+        else:
+            if labels_shift == 0:
+                ground_truth = ground_truth[
+                    self.current_point_at_timeaxis, np.newaxis]  # Just the current point but keep the dimensions
+                predictions = predictions[self.current_point_at_timeaxis, 0, np.newaxis]
+            else:
+                ground_truth = ground_truth[
+                               self.current_point_at_timeaxis + labels_shift: self.current_point_at_timeaxis + (
+                                           self.horizon + 1) * labels_shift: labels_shift]
+                predictions = predictions[self.current_point_at_timeaxis, :self.horizon]
+
+        return predictions - ground_truth
+
+    @staticmethod
+    def ground_truth_for_error_calculation_show_all(ground_truth, horizon, labels_shift):
+        gt_slices = []
+        for i in range(1, horizon + 1):
+            gt_slices_partial = []
+            for j in range(labels_shift):
+                gt_slices_partial.append(ground_truth[i * labels_shift + j:ground_truth.shape[0] - (
+                        horizon - i) * labels_shift + j:labels_shift])
+            gt_slices_partial = np.dstack(gt_slices_partial).flatten()
+            gt_slices.append(gt_slices_partial)
+
+        return np.stack(gt_slices, axis=1)
 
 
 def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=None,
@@ -770,16 +770,3 @@ def canvas2_plot(features, ground_truth, time_axis, axs=None,
         item.set_fontsize(10)
 
     plt.show()
-
-
-def ground_truth_for_error_calculation_show_all(ground_truth, horizon, labels_shift):
-    gt_slices = []
-    for i in range(1, horizon + 1):
-        gt_slices_partial = []
-        for j in range(labels_shift):
-            gt_slices_partial.append(ground_truth[i * labels_shift + j:ground_truth.shape[0] - (
-                        horizon - i) * labels_shift + j:labels_shift])
-        gt_slices_partial = np.dstack(gt_slices_partial).flatten()
-        gt_slices.append(gt_slices_partial)
-
-    return np.stack(gt_slices, axis=1)
