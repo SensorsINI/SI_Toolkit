@@ -481,62 +481,67 @@ class MainWindow(QMainWindow):
 
     def get_sqrt_MSE_at_horizon(self):
 
+        if self.horizon == 0:
+            self.MSE_along_horizon = 0.0
+            self.MSE_at_horizon = 0.0
+            self.sqrt_MSE_along_horizon = 0.0
+            self.sqrt_MSE_at_horizon = 0.0
+            self.max_error = 0.0
+            return
+
         labels_shift = int(np.round(self.dt_predictions / np.mean(self.time_axis[1:] - self.time_axis[:-1])))
 
+        feature_idx, = np.where(self.features == self.feature_to_display)
+        ground_truth_feature_idx, = np.where(self.ground_truth[1] == self.feature_to_display)
+        feature_idx = int(feature_idx)
+        ground_truth_feature_idx = int(ground_truth_feature_idx)
+
         if self.combine_features:
-            feature_idx_1, = np.where(self.features == self.feature_to_display)
-            ground_truth_feature_idx_1, = np.where(self.ground_truth[1] == self.feature_to_display)
             feature_idx_2, = np.where(self.features == self.feature_to_display_2)
             ground_truth_feature_idx_2, = np.where(self.ground_truth[1] == self.feature_to_display_2)
-
-            idx_shift = self.horizon
+            feature_idx_2 = int(feature_idx_2)
+            ground_truth_feature_idx_2 = int(ground_truth_feature_idx_2)
 
             if self.show_all:
-                predictions_at_horizon_1 = self.dataset[:self.dataset.shape[0]-idx_shift, self.horizon-1, feature_idx_1]
-                predictions_at_horizon_2 = self.dataset[:self.dataset.shape[0]-idx_shift, self.horizon-1, feature_idx_2]
-                self.MSE_along_horizon = np.mean(
-                    (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
-                    + (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
-                )
-                self.MSE_at_horizon = np.max(
-                    np.sqrt((self.ground_truth[0][idx_shift:, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
-                    + (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
-                    ))
+                predictions_at_horizon_1 = self.dataset[:self.dataset.shape[0]-self.horizon, self.horizon-1, feature_idx]
+                predictions_at_horizon_2 = self.dataset[:self.dataset.shape[0]-self.horizon, self.horizon-1, feature_idx_2]
+
+                error1 = self.ground_truth[0][self.horizon:, ground_truth_feature_idx] - predictions_at_horizon_1
+                error2 = self.ground_truth[0][self.horizon:, ground_truth_feature_idx_2] - predictions_at_horizon_2
+
             else:
-                predictions_at_horizon_1 = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx_1]
+                predictions_at_horizon_1 = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx]
                 predictions_at_horizon_2 = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx_2]
-                self.MSE_along_horizon = np.mean(
-                    (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
-                    + (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
-                )
-                self.MSE_at_horizon = np.max(
-                    np.sqrt((self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
-                    + (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
-                    ))
+
+
+                error1 = predictions_at_horizon_1 - self.ground_truth[0][self.current_point_at_timeaxis + self.horizon, ground_truth_feature_idx]
+                error2 = predictions_at_horizon_2 - self.ground_truth[0][self.current_point_at_timeaxis + self.horizon, ground_truth_feature_idx_2]
+
+            error = np.sqrt(error1 ** 2 + error2 ** 2)
+
+            self.MSE_along_horizon = np.mean(error ** 2)
+            self.max_error = np.max(np.abs(error))
   
         else:
-            if self.horizon == 0:
-                self.MSE_along_horizon = 0.0
-                self.MSE_at_horizon = 0.0
-                self.sqrt_MSE_along_horizon = 0.0
-                self.sqrt_MSE_at_horizon = 0.0
-                self.max_error = 0.0
-                return
-
-            feature_idx, = np.where(self.features == self.feature_to_display)
-            ground_truth_feature_idx, = np.where(self.ground_truth[1] == self.feature_to_display)
-            feature_idx = int(feature_idx)
-            ground_truth_feature_idx = int(ground_truth_feature_idx)
 
 
             if self.show_all:
 
                 ground_truth = self.ground_truth[0][:, ground_truth_feature_idx]
-                predictions = self.dataset[:-self.horizon, :self.horizon, feature_idx]
+                if labels_shift == 0:
+                    predictions = self.dataset[:, :self.horizon, feature_idx]
+                else:
+                    predictions = self.dataset[:-self.horizon*labels_shift, :self.horizon, feature_idx]
 
-                ground_truth = np.stack(
-                    [ground_truth[i * labels_shift:ground_truth.shape[0]-(self.horizon - i) * labels_shift:labels_shift]
-                     for i in range(1, self.horizon + 1)], axis=1)
+                    gt_slices = []
+                    for i in range(1, self.horizon + 1):
+                        gt_slices_partial = []
+                        for j in range(labels_shift):
+                            gt_slices_partial.append(ground_truth[i * labels_shift+j:ground_truth.shape[0] - (self.horizon - i) * labels_shift + j:labels_shift])
+                        gt_slices_partial = np.dstack(gt_slices_partial).flatten()
+                        gt_slices.append(gt_slices_partial)
+
+                    ground_truth = np.stack(gt_slices, axis=1)
 
             else:
                 if labels_shift == 0:
