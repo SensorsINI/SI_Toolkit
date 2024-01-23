@@ -104,9 +104,11 @@ class MainWindow(QMainWindow):
         self.select_dataset(0)
         self.combine_features = False
 
+        self.MSE_along_horizon: float = 0.0
+        self.sqrt_MSE_along_horizon: float = 0.0
         self.MSE_at_horizon: float = 0.0
         self.sqrt_MSE_at_horizon: float = 0.0
-        self.max_error_at_horizon: float = 0.0
+        self.max_error: float = 0.0
 
         # region - Create container for top level layout
         layout = QVBoxLayout()
@@ -166,7 +168,8 @@ class MainWindow(QMainWindow):
 
         # region - Slider horizon
         l_sl_h = QVBoxLayout()
-        l_sl_h.addWidget(QLabel('Prediction horizon:'))
+        self.horizon_slider_label = QLabel('Prediction horizon: {}'.format(self.horizon))
+        l_sl_h.addWidget(self.horizon_slider_label)
         self.sl_h = QSlider(Qt.Orientation.Horizontal)
         self.sl_h.setMinimum(0)
         self.sl_h.setMaximum(self.max_horizon)
@@ -216,11 +219,15 @@ class MainWindow(QMainWindow):
         l_model.addLayout(lr_d)
 
         # Add MSE at horizon
-        self.lab_MSE = QLabel('Error at horizon - sqrt(MSE): ')
+        self.lab_MSE = QLabel('Error at horizon - sqrt(MSE): ,')
         l_model.addWidget(self.lab_MSE)
 
-        # Add max at horizon
-        self.lab_max = QLabel(', Max: ')
+        # Add error at horizon
+        self.lab_end = QLabel('End: ,')
+        l_model.addWidget(self.lab_end)
+
+        # Add max error along horizon
+        self.lab_max = QLabel('Max: ')
         l_model.addWidget(self.lab_max)
 
         layout.addLayout(l_model)
@@ -302,10 +309,7 @@ class MainWindow(QMainWindow):
 
 
     def set_horizon(self):
-        if self.dt_predictions == 0.0:
-            self.max_horizon = 1
-        else:
-            self.max_horizon = self.predictions_list[0][0].shape[-2]
+        self.max_horizon = self.predictions_list[0][0].shape[-2]
         self.horizon = int(np.ceil(self.max_horizon / 2))
 
         if hasattr(self, 'sl_h'):
@@ -465,73 +469,94 @@ class MainWindow(QMainWindow):
                         downsample=self.downsample,
                         dt_predictions=self.dt_predictions)
 
+        self.horizon_slider_label.setText('Prediction horizon: {}'.format(self.horizon))
         self.get_sqrt_MSE_at_horizon()
-        self.lab_MSE.setText("Error at horizon - sqrt(MSE): {:.4f}".format(self.sqrt_MSE_at_horizon))
-        self.lab_max.setText(", Max: {:.4f}".format(self.max_error_at_horizon))
+        self.lab_MSE.setText("Error - Avg (sqrt(MSE) all): {:.4f},  ".format(self.sqrt_MSE_along_horizon))
+        self.lab_end.setText("End (sqrt(MSE) end): {:.4f},  ".format(self.sqrt_MSE_at_horizon))
+        self.lab_max.setText("Max: {:.4f}".format(self.max_error))
         self.fig.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.fig2.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.canvas.draw()
         self.canvas2.draw()
 
     def get_sqrt_MSE_at_horizon(self):
+
+        labels_shift = int(np.round(self.dt_predictions / np.mean(self.time_axis[1:] - self.time_axis[:-1])))
+
         if self.combine_features:
             feature_idx_1, = np.where(self.features == self.feature_to_display)
             ground_truth_feature_idx_1, = np.where(self.ground_truth[1] == self.feature_to_display)
             feature_idx_2, = np.where(self.features == self.feature_to_display_2)
             ground_truth_feature_idx_2, = np.where(self.ground_truth[1] == self.feature_to_display_2)
-            
-            if self.dt_predictions == 0.0:
-                idx_shift = 0
-            else:
-                idx_shift = self.horizon
-                
+
+            idx_shift = self.horizon
+
             if self.show_all:
                 predictions_at_horizon_1 = self.dataset[:self.dataset.shape[0]-idx_shift, self.horizon-1, feature_idx_1]
                 predictions_at_horizon_2 = self.dataset[:self.dataset.shape[0]-idx_shift, self.horizon-1, feature_idx_2]
-                self.MSE_at_horizon = np.mean(
+                self.MSE_along_horizon = np.mean(
                     (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
                     + (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
                 )
-                self.max_error_at_horizon = np.max(
+                self.MSE_at_horizon = np.max(
                     np.sqrt((self.ground_truth[0][idx_shift:, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
                     + (self.ground_truth[0][idx_shift:, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
                     ))
             else:
                 predictions_at_horizon_1 = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx_1]
                 predictions_at_horizon_2 = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx_2]
-                self.MSE_at_horizon = np.mean(
+                self.MSE_along_horizon = np.mean(
                     (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
                     + (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
                 )
-                self.max_error_at_horizon = np.max(
+                self.MSE_at_horizon = np.max(
                     np.sqrt((self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_1] - predictions_at_horizon_1) ** 2
                     + (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx_2] - predictions_at_horizon_2) ** 2
                     ))
   
         else:
+            if self.horizon == 0:
+                self.MSE_along_horizon = 0.0
+                self.MSE_at_horizon = 0.0
+                self.sqrt_MSE_along_horizon = 0.0
+                self.sqrt_MSE_at_horizon = 0.0
+                self.max_error = 0.0
+                return
+
             feature_idx, = np.where(self.features == self.feature_to_display)
             ground_truth_feature_idx, = np.where(self.ground_truth[1] == self.feature_to_display)
+            feature_idx = int(feature_idx)
+            ground_truth_feature_idx = int(ground_truth_feature_idx)
 
-            if self.dt_predictions == 0.0:
-                idx_shift = 0
-            else:
-                idx_shift = self.horizon
 
             if self.show_all:
-                predictions_at_horizon = self.dataset[:self.dataset.shape[0]-idx_shift, self.horizon-1, feature_idx]
-                self.MSE_at_horizon = np.mean(
-                        (self.ground_truth[0][idx_shift:, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
-                self.max_error_at_horizon = np.max(
-                        np.abs((self.ground_truth[0][idx_shift:, ground_truth_feature_idx] - predictions_at_horizon)))
+
+                ground_truth = self.ground_truth[0][:, ground_truth_feature_idx]
+                predictions = self.dataset[:-self.horizon, :self.horizon, feature_idx]
+
+                ground_truth = np.stack(
+                    [ground_truth[i * labels_shift:ground_truth.shape[0]-(self.horizon - i) * labels_shift:labels_shift]
+                     for i in range(1, self.horizon + 1)], axis=1)
 
             else:
-                predictions_at_horizon = self.dataset[self.current_point_at_timeaxis, self.horizon-1, feature_idx]
-                self.MSE_at_horizon = np.mean(
-                    (self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx] - predictions_at_horizon) ** 2)
-                self.max_error_at_horizon = np.max(
-                    np.abs((self.ground_truth[0][self.current_point_at_timeaxis + idx_shift, ground_truth_feature_idx] - predictions_at_horizon)))
+                if labels_shift == 0:
+                    ground_truth = self.ground_truth[0][self.current_point_at_timeaxis, np.newaxis, ground_truth_feature_idx]  # Just the current point but keep the dimensions
+                    predictions = self.dataset[self.current_point_at_timeaxis, 0, np.newaxis, feature_idx]
+                else:
+                    ground_truth = self.ground_truth[0][self.current_point_at_timeaxis+labels_shift: self.current_point_at_timeaxis + (self.horizon+1)*labels_shift: labels_shift, ground_truth_feature_idx]
+                    predictions = self.dataset[self.current_point_at_timeaxis, :self.horizon, feature_idx]
 
+            error = predictions - ground_truth
+
+            self.MSE_along_horizon = np.mean(error ** 2)
+
+            self.MSE_at_horizon = np.mean(error[..., -1] ** 2)
+
+            self.max_error = np.max(np.abs(error))
+
+        # Compute the square root of the calculated MSE to get the final error metric.
         self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
+        self.sqrt_MSE_along_horizon = np.sqrt(self.MSE_along_horizon)
 
 
 
