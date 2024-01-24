@@ -178,3 +178,35 @@ def _copy_internal_states_from_ref(net, memory_states_ref):
 
 copy_internal_states_to_ref = CompileTF(_copy_internal_states_to_ref)
 copy_internal_states_from_ref = CompileTF(_copy_internal_states_from_ref)
+
+def plot_weights_distribution(model, show=True, path_to_save=None):
+    import os
+    import numpy as np
+    import matplotlib.pyplot as plt
+    for i in range(len(model.layers)):
+        for j in range(len(model.layers[i].weights)):
+            w = model.layers[i].weights[j].numpy()
+            h, b = np.histogram(w, bins=100)
+            plt.figure(figsize=(7, 7))
+            plt.bar(b[:-1], h, width=b[1] - b[0])
+            plt.yscale('log')
+            plt.xlabel("params sizes")
+            plt.ylabel("number of params")
+            plt.title(f'{model.layers[i].weights[j].name}\n# of params = {np.size(w)}; % of zeros = {np.sum(w == 0) / np.size(w)}')
+
+            mean = np.mean(w)
+            min_value = np.min(w)
+            max_value = np.max(w)
+            plt.axvline(mean, color='red', linestyle='dashed', linewidth=1)
+            min_ylim, max_ylim = plt.ylim()
+            min_xlim, max_xlim = plt.xlim()
+            x_values_range = abs(max_xlim - min_xlim)
+            log_max = np.log10(max_ylim)  # Adjust these based on your y-axis range
+            plt.text(mean + 0.1*x_values_range, 10**(0.9 * log_max), f'Mean: {mean:.3f}')
+            plt.text(mean + 0.1*x_values_range, 10**(0.85 * log_max), f"Range: {min_value:.2f} - {max_value:.2f}")
+
+            if show:
+                plt.show()
+            if path_to_save is not None:
+                name_to_save = model.layers[i].weights[j].name.replace('/', '_').replace(':', '_')
+                plt.savefig(os.path.join(path_to_save, f'{name_to_save}.png'))

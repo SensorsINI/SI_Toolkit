@@ -2,6 +2,8 @@ import os
 import sys
 import numpy as np
 
+from SI_Toolkit.Functions.TF.Network import plot_weights_distribution
+
 from tensorflow import keras
 try:
     from tensorflow_model_optimization.python.core.sparsity.keras import prune, pruning_callbacks, pruning_schedule
@@ -168,5 +170,13 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     net.save(os.path.join(net_info.path_to_net, net_info.net_full_name + '.keras'))
     net.save_weights(os.path.join(net_info.path_to_net, 'ckpt' + '.ckpt'))
     # endregion
+
+    path_to_parameters_distribution_histograms = os.path.join(net_info.path_to_net, 'parameters_histograms')
+    try:
+        os.makedirs(path_to_parameters_distribution_histograms)
+    except FileExistsError:
+        pass
+
+    plot_weights_distribution(net, show=False, path_to_save=path_to_parameters_distribution_histograms)
 
     return np.array(loss), validation_loss, post_epoch_training_loss
