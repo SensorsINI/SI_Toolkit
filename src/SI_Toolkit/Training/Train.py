@@ -15,7 +15,7 @@ from SI_Toolkit.Functions.General.load_parameters_for_training import args
 from SI_Toolkit.load_and_normalize import load_data, normalize_df, get_paths_to_datafiles
 
 from SI_Toolkit.Functions.General.Initialization import create_full_name, create_log_file, get_norm_info_for_net, get_net, set_seed
-
+from SI_Toolkit.Functions.General.SavingTerminalOutput import TerminalSaver
 
 
 def train_network():
@@ -96,39 +96,41 @@ def train_network():
 
     # endregion
 
-    # Run the training function
-    loss, validation_loss, post_epoch_training_loss = Training.train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
+    with TerminalSaver(os.path.join(dst, 'terminal_output.txt')):
 
-    # region Plot loss change during training
-    plt.figure()
-    plt.plot(loss, label='loss: training')
-    if post_epoch_training_loss:
-        plt.plot(post_epoch_training_loss, label='loss: training set at epoch end')
-    plt.plot(validation_loss, label='loss: validation')
-    plt.xlabel("Training Epoch")
-    plt.ylabel("Loss")
-    plt.yscale('log')
-    plt.legend()
-    plt.title(net_info.net_full_name)
-    plt.savefig(os.path.join(net_info.path_to_net, 'training_curve' + '.png'))
-    plt.show()
-    # endregion
+        # Run the training function
+        loss, validation_loss, post_epoch_training_loss = Training.train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
 
-    # region If NNI enabled send final report
-    if nni_parameters is not None:
-        nni.report_final_result(validation_loss[-1])
-    # endregion
+        # region Plot loss change during training
+        plt.figure()
+        plt.plot(loss, label='loss: training')
+        if post_epoch_training_loss:
+            plt.plot(post_epoch_training_loss, label='loss: training set at epoch end')
+        plt.plot(validation_loss, label='loss: validation')
+        plt.xlabel("Training Epoch")
+        plt.ylabel("Loss")
+        plt.yscale('log')
+        plt.legend()
+        plt.title(net_info.net_full_name)
+        plt.savefig(os.path.join(net_info.path_to_net, 'training_curve' + '.png'))
+        plt.show()
+        # endregion
 
-    # When finished the training print the final message
-    print("Training Completed...                                               ")
-    print(" ")
+        # region If NNI enabled send final report
+        if nni_parameters is not None:
+            nni.report_final_result(validation_loss[-1])
+        # endregion
 
-    # region Calculate and print the total time it took to train the network
+        # When finished the training print the final message
+        print("Training Completed...                                               ")
+        print(" ")
 
-    stop = timeit.default_timer()
-    total_time = stop - start
+        # region Calculate and print the total time it took to train the network
 
-    # Print the total time it took to run the function
-    print('Total time of training the network: ' + str(total_time))
+        stop = timeit.default_timer()
+        total_time = stop - start
 
-    # endregion
+        # Print the total time it took to run the function
+        print('Total time of training the network: ' + str(total_time))
+
+        # endregion
