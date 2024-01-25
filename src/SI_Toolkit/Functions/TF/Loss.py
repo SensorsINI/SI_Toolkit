@@ -35,6 +35,15 @@ class LossMSRSequence(tf.keras.losses.Loss):
 
         return tf.reduce_mean(loss)
 
+    def get_config(self):
+        config = super().get_config()
+        config.update({
+            "wash_out_len": self.wash_out_len,
+            "post_wash_out_len": self.post_wash_out_len,
+            "discount_factor": self.discount_factor
+        })
+        return config
+
 # Tries to take relative instead of absolute error - I don't think it worked
 def loss_msr_sequence_customizable_relative(wash_out_len, post_wash_out_len, discount_factor=0.9):
     # Calculate discount vector
