@@ -61,6 +61,8 @@ VALIDATE_ALSO_ON_TRAINING_SET = config['training_default']['VALIDATE_ALSO_ON_TRA
 
 REGULARIZATION = config['REGULARIZATION']
 
+QUANTIZATION = config['QUANTIZATION']
+
 PRUNING_ACTIVATED = config['PRUNING']['ACTIVATED']
 PRUNING_SCHEDULE = config['PRUNING']['PRUNING_PARAMS']['PRUNING_SCHEDULE']
 PRUNING_SCHEDULES = config['PRUNING']['PRUNING_SCHEDULES']
@@ -168,6 +170,8 @@ def args():
         args.outputs = sorted(args.outputs)
 
     args.regularization = REGULARIZATION
+
+    args.quantization = QUANTIZATION
 
     args.pruning_activated = PRUNING_ACTIVATED
     args.pruning_schedule = PRUNING_SCHEDULE

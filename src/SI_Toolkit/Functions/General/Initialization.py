@@ -224,15 +224,33 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
         net, net_info = compose_net_from_module(net_info,
                                                 time_series_length=time_series_length,
                                                 batch_size=batch_size, stateful=stateful)
+
+        # Load the pretrained weights
+        load_pretrained_net_weights(net, ckpt_path)
+        print('Model loaded from a checkpoint.')
     else:
         net, net_info = compose_net_from_net_name(net_info,
                                                   time_series_length=time_series_length,
                                                   batch_size=batch_size, stateful=stateful,
                                                   remove_redundant_dimensions=remove_redundant_dimensions)
 
-    # Load the pretrained weights
-    load_pretrained_net_weights(net, ckpt_path)
-    print('Model loaded from a checkpoint.')
+        # Load the pretrained weights
+        load_pretrained_net_weights(net, ckpt_path)
+        print('Model loaded from a checkpoint.')
+
+    # Reloading for Qkeras. But we should probably migrate to loading from .keras as default.
+    # This would allow loading network with different architectures as specified in SI_Toolkit
+    if net_info.library == 'TF':
+        try:
+            from tensorflow.keras.models import load_model
+            from qkeras.utils import _add_supported_quantized_objects
+            co = {}
+            _add_supported_quantized_objects(co)
+            net = load_model(os.path.join(net_info.path_to_net, net_info.net_full_name + '.keras'), custom_objects=co)
+        except ImportError as e:
+            print('Qkeras not found. Loading from .ckpt file instead.')
+            print(e)
+
 
     return net, net_info
 

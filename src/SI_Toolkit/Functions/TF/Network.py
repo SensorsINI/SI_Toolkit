@@ -1,8 +1,15 @@
+import sys
+
 import importlib.util
 
 import tensorflow as tf
 
 from SI_Toolkit.Functions.TF.Compile import CompileTF
+
+try:
+    import qkeras
+except ModuleNotFoundError:
+    print('QKeras not found. Quantization-aware training will not be available.')
 
 def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     """
@@ -71,16 +78,46 @@ def compose_net_from_net_name(net_info,
 
     if 'GRU' in names:
         net_type = 'GRU'
-        layer_type = tf.keras.layers.GRU
     elif 'LSTM' in names:
         net_type = 'LSTM'
-        layer_type = tf.keras.layers.LSTM
     elif 'Dense' in names:
         net_type = 'Dense'
-        layer_type = tf.keras.layers.Dense
     else:
         net_type = 'RNN-Basic'
-        layer_type = tf.keras.layers.SimpleRNN
+
+    if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
+        if 'qkeras' not in sys.modules:
+            raise ModuleNotFoundError('QKeras not found. Quantization-aware training will not be available. Change config_training or install the module')
+        if 'GRU' in names:
+            layer_type = qkeras.qrecurrent.QGRU
+        elif 'LSTM' in names:
+            layer_type = qkeras.qrecurrent.QLSTM
+        elif 'Dense' in names:
+            layer_type = qkeras.qlayers.QDense
+        else:
+            layer_type = qkeras.qrecurrent.QSimpleRNN
+    else:
+        if 'GRU' in names:
+            layer_type = tf.keras.layers.GRU
+        elif 'LSTM' in names:
+            layer_type = tf.keras.layers.LSTM
+        elif 'Dense' in names:
+            layer_type = tf.keras.layers.Dense
+        else:
+            layer_type = tf.keras.layers.SimpleRNN
+
+    activation = 'tanh'
+    activation_last_layer = 'linear'
+    quantization_last_layer_args = {}
+    quantization_args = {}
+
+    if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
+        activation = qkeras.quantizers.quantized_tanh(**net_info.quantization['ACTIVATION'])
+        quantization_last_layer_args['kernel_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])
+        quantization_last_layer_args['bias_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['BIAS'])
+        quantization_args = quantization_last_layer_args.copy()
+        if net_type in ['GRU', 'LSTM', 'RNN-Basic']:
+            quantization_args['recurrent_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['RECURRENT'])
 
     if hasattr(net_info, 'regularization') and net_info.regularization['ACTIVATED']:
         regularization_kernel = net_info.regularization['KERNEL']
@@ -106,10 +143,11 @@ def compose_net_from_net_name(net_info,
         net.add(tf.keras.Input(batch_size=batch_size, shape=shape_input))
         for i in range(h_number):
             net.add(layer_type(
-                units=h_size[i], activation='tanh', batch_size=batch_size,  name='layers_{}'.format(i),
+                units=h_size[i], activation=activation, batch_size=batch_size,  name='layers_{}'.format(i),
                 kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
                 bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
                 activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+                **quantization_args,
             ))
     else:
 
@@ -121,28 +159,40 @@ def compose_net_from_net_name(net_info,
         # Or RNN...
         net.add(layer_type(
             units=h_size[0],
+            activation=activation,
             batch_input_shape=shape_input,
             return_sequences=True,
             stateful=stateful,
             kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
             bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
             activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+            **quantization_args,
         ))
         # Define following layers
         for i in range(1, len(h_size)):
             net.add(layer_type(
                 units=h_size[i],
+                activation=activation,
                 return_sequences=True,
                 stateful=stateful,
                 kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
                 bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
                 activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+                **quantization_args,
             ))
 
-    net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers.{}'.format(h_number), activation='linear',
-                                  kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                                  bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
-                                  ))
+    if hasattr(net_info, 'regularization') and net_info.regularization['ACTIVATED']:
+        net.add(qkeras.qlayers.QDense(units=len(outputs_list), name='layers.{}'.format(h_number),
+                                      activation=activation_last_layer,
+                                      kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
+                                      bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                                      **quantization_last_layer_args,
+                                      ))
+    else:
+        net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers.{}'.format(h_number), activation=activation_last_layer,
+                                      kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
+                                      bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                                      ))
 
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
           .format(net_type, len(h_size), ', '.join(map(str, h_size))))
