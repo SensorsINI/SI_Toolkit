@@ -5,9 +5,9 @@ import hls4ml
 config_hls = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_hls.yml'), 'r'), Loader=yaml.FullLoader)
 os.environ['PATH'] = config_hls['path_to_hls_installation'] + ":" + os.environ['PATH']
 
-def convert_model_with_hls4ml(model, granularity='model'):
+def convert_model_with_hls4ml(net, granularity='model'):
 
-    config = hls4ml.utils.config_from_keras_model(model, granularity=granularity)
+    config = hls4ml.utils.config_from_keras_model(net, granularity=granularity)
 
     # config['Flows'] = ['vivado:fifo_depth_optimization']
     # hls4ml.model.optimizer.get_optimizer('vivado:fifo_depth_optimization').configure(profiling_fifo_depth=100_000)
@@ -16,7 +16,7 @@ def convert_model_with_hls4ml(model, granularity='model'):
     config['Model']['Strategy'] = config_hls['Strategy']
     config['Model']['ReuseFactor'] = config_hls['ReuseFactor']
 
-    hls_model = hls4ml.converters.convert_from_keras_model(model,
+    hls_model = hls4ml.converters.convert_from_keras_model(net,
                                                            hls_config=config,
                                                            output_dir=config_hls['output_dir'],
                                                            backend=config_hls['backend'],
@@ -31,12 +31,12 @@ def convert_model_with_hls4ml(model, granularity='model'):
 
 # TODO: Not used yet as I don't have a way to feed dataset
 #   Also the issue of setting precision for different granularity is not solved.
-def hls4ml_numerical_model_profiling(model, data):
+def hls4ml_numerical_model_profiling(net, data):
 
-    hls_model, hls_model_config = convert_model_with_hls4ml(model, granularity='name')
+    hls_model, hls_model_config = convert_model_with_hls4ml(net, granularity='name')
 
     for layer in hls_model_config['LayerName'].keys():
         hls_model_config['LayerName'][layer]['Trace'] = True
 
-    hls4ml.model.profiling.numerical(model=model, hls_model=hls_model, X=data)
+    hls4ml.model.profiling.numerical(model=net, hls_model=hls_model, X=data)
 
