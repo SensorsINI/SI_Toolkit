@@ -221,7 +221,12 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
 
         # Change to float32 wherever numeric column
         cols = df.columns
-        df[cols] = df[cols].apply(pd.to_numeric, errors='ignore', downcast='float')
+
+        for col in cols:
+            try:
+                df[col] = pd.to_numeric(df[col], downcast='float')
+            except ValueError:
+                pass
 
         all_dfs.append(df)
 
