@@ -229,34 +229,90 @@ def _copy_internal_states_from_ref(net, memory_states_ref):
 copy_internal_states_to_ref = CompileTF(_copy_internal_states_to_ref)
 copy_internal_states_from_ref = CompileTF(_copy_internal_states_from_ref)
 
+def plot_params_histograms(params, title, show=True, path_to_save=None):
+    import numpy as np
+    import matplotlib.pyplot as plt
+    h, b = np.histogram(params, bins=100)
+    plt.figure(figsize=(7, 7))
+    plt.bar(b[:-1], h, width=b[1] - b[0])
+    plt.yscale('log')
+    plt.xlabel("params sizes")
+    plt.ylabel("number of params")
+    plt.title(title)
+
+    mean = np.mean(params)
+    min_value = np.min(params)
+    max_value = np.max(params)
+    plt.axvline(mean, color='red', linestyle='dashed', linewidth=1)
+    min_ylim, max_ylim = plt.ylim()
+    min_xlim, max_xlim = plt.xlim()
+    x_values_range = abs(max_xlim - min_xlim)
+    log_max = np.log10(max_ylim)  # Adjust these based on your y-axis range
+    plt.text(mean + 0.1 * x_values_range, 10 ** (0.9 * log_max), f'Mean: {mean:.3f}')
+    plt.text(mean + 0.1 * x_values_range, 10 ** (0.85 * log_max), f"Range: {min_value:.2f} - {max_value:.2f}")
+    max_int = int(np.floor(np.max([abs(min_value), abs(max_value)])))
+    num_bits = num_bits_needed_for_integer_part(max_int)
+    plt.text(mean + 0.1 * x_values_range, 10 ** (0.8 * log_max), f"Bits needed \nfor biggest integer ({max_int}): {num_bits}")
+    if show:
+        plt.show()
+    if path_to_save is not None:
+        plt.savefig(path_to_save)
+    plt.close()
+
 def plot_weights_distribution(model, show=True, path_to_save=None):
     import os
     import numpy as np
-    import matplotlib.pyplot as plt
     for i in range(len(model.layers)):
         for j in range(len(model.layers[i].weights)):
             w = model.layers[i].weights[j].numpy()
-            h, b = np.histogram(w, bins=100)
-            plt.figure(figsize=(7, 7))
-            plt.bar(b[:-1], h, width=b[1] - b[0])
-            plt.yscale('log')
-            plt.xlabel("params sizes")
-            plt.ylabel("number of params")
-            plt.title(f'{model.layers[i].weights[j].name}\n# of params = {np.size(w)}; % of zeros = {np.sum(w == 0) / np.size(w)}')
-
-            mean = np.mean(w)
-            min_value = np.min(w)
-            max_value = np.max(w)
-            plt.axvline(mean, color='red', linestyle='dashed', linewidth=1)
-            min_ylim, max_ylim = plt.ylim()
-            min_xlim, max_xlim = plt.xlim()
-            x_values_range = abs(max_xlim - min_xlim)
-            log_max = np.log10(max_ylim)  # Adjust these based on your y-axis range
-            plt.text(mean + 0.1*x_values_range, 10**(0.9 * log_max), f'Mean: {mean:.3f}')
-            plt.text(mean + 0.1*x_values_range, 10**(0.85 * log_max), f"Range: {min_value:.2f} - {max_value:.2f}")
-
-            if show:
-                plt.show()
+            name_to_save = model.layers[i].weights[j].name.replace('/', '_').replace(':', '_')
             if path_to_save is not None:
-                name_to_save = model.layers[i].weights[j].name.replace('/', '_').replace(':', '_')
-                plt.savefig(os.path.join(path_to_save, f'{name_to_save}.png'))
+                full_path_to_save = os.path.join(path_to_save, f'{name_to_save}.png')
+            else:
+                full_path_to_save = None
+            title = f'{model.layers[i].weights[j].name}\n# of params = {np.size(w)}; % of zeros = {np.sum(w == 0) / np.size(w)}'
+            plot_params_histograms(w, title, show=show, path_to_save=full_path_to_save)
+
+
+def get_activation_statistics(model, datasets, path_to_save=None):
+    import numpy as np
+    import os
+    from tqdm import tqdm
+    # Creating a list of intermediate models for each layer's output
+    intermediate_models = [tf.keras.Model(inputs=model.input, outputs=layer.output) for layer in model.layers]
+    for layer_model in tqdm(intermediate_models, desc="Processing Layers for activations statistics", leave=True, position=0):
+        layer_name = layer_model.layers[-1].name
+        activations = []
+
+        # Passing the dataset through the intermediate model
+        if isinstance(datasets, list):
+            for dataset in datasets:
+                for batch in tqdm(dataset, desc=f'Progress of the current dataset (out of {len(datasets)}) for activations statistics', leave=False, position=0):
+                    features = batch[0]
+                    batch_activations = layer_model.predict(features, verbose=0)
+                    activations.append(batch_activations)
+        else:
+            for batch in tqdm(datasets, desc=f'Progress of the dataset for activations statistics', leave=False, position=0):
+                features = batch[0]
+                batch_activations = layer_model.predict(features, verbose=0)
+                activations.append(batch_activations)
+
+        # Concatenating activations across all batches
+        activations = np.concatenate(activations, axis=0)
+
+        if path_to_save is not None:
+            full_path_to_save = os.path.join(path_to_save, f'{layer_name}_activations.png')
+        else:
+            full_path_to_save = None
+
+        plot_params_histograms(activations, title=layer_name, show=False, path_to_save=full_path_to_save)
+
+
+def num_bits_needed_for_integer_part(n):
+    import math
+    if n < 0:
+        raise ValueError("Number must be non-negative")
+    if n == 0:
+        return 1  # At least 1 bit is needed to represent 0
+    else:
+        return math.floor(math.log2(n)) + 1
