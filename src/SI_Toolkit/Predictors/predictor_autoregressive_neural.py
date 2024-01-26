@@ -78,9 +78,14 @@ class predictor_autoregressive_neural(template_predictor):
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
 
+        if hls:
+            remove_redundant_dimensions = True
+        else:
+            remove_redundant_dimensions = False
         self.net, self.net_info = \
             get_net(a, time_series_length=1,
-                    batch_size=self.batch_size, stateful=True)
+                    batch_size=self.batch_size, stateful=True,
+                    remove_redundant_dimensions=remove_redundant_dimensions,)
 
         # Allows to use predictor for simple network evaluation
         self.mode = mode
