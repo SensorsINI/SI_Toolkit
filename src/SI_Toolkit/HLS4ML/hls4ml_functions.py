@@ -5,16 +5,41 @@ import hls4ml
 config_hls = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_hls.yml'), 'r'), Loader=yaml.FullLoader)
 os.environ['PATH'] = config_hls['path_to_hls_installation'] + ":" + os.environ['PATH']
 
+
+def print_dict(d, indent=0):
+    """From hls4ml files"""
+    for key, value in d.items():
+        print('  ' * indent + str(key), end='')
+        if isinstance(value, dict):
+            print()
+            print_dict(value, indent + 1)
+        else:
+            print(':' + ' ' * (20 - len(key) - 2 * indent) + str(value))
+
+
 def convert_model_with_hls4ml(net, granularity='model'):
 
-    config = hls4ml.utils.config_from_keras_model(net, granularity=granularity)
+    config = hls4ml.utils.config_from_keras_model(net, granularity='name')
 
     # config['Flows'] = ['vivado:fifo_depth_optimization']
     # hls4ml.model.optimizer.get_optimizer('vivado:fifo_depth_optimization').configure(profiling_fifo_depth=100_000)
 
-    config['Model']['Precision'] = config_hls['precision']
+    # Iterate through all layers in the HLS configuration
+    for layer_name, layer_config in config['LayerName'].items():
+        # Check if the layer is an activation layer (assuming 'activation' in the name)
+        if 'activation' in layer_name:
+            # Set precision for activation layers
+            layer_config['Precision']['result'] = config_hls['precision_activation']
+        else:
+            # Set precision for other layers
+            layer_config['Precision']['result'] = config_hls['precision_layers']
+            layer_config['Precision']['weight'] = config_hls['precision_layers']
+            layer_config['Precision']['bias'] = config_hls['precision_layers']
+
     config['Model']['Strategy'] = config_hls['Strategy']
     config['Model']['ReuseFactor'] = config_hls['ReuseFactor']
+
+    print_dict(config)
 
     hls_model = hls4ml.converters.convert_from_keras_model(net,
                                                            hls_config=config,
