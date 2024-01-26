@@ -89,13 +89,13 @@ def compose_net_from_net_name(net_info,
         if 'qkeras' not in sys.modules:
             raise ModuleNotFoundError('QKeras not found. Quantization-aware training will not be available. Change config_training or install the module')
         if 'GRU' in names:
-            layer_type = qkeras.qrecurrent.QGRU
+            layer_type = qkeras.QGRU
         elif 'LSTM' in names:
-            layer_type = qkeras.qrecurrent.QLSTM
+            layer_type = qkeras.QLSTM
         elif 'Dense' in names:
-            layer_type = qkeras.qlayers.QDense
+            layer_type = qkeras.QDense
         else:
-            layer_type = qkeras.qrecurrent.QSimpleRNN
+            layer_type = qkeras.QSimpleRNN
     else:
         if 'GRU' in names:
             layer_type = tf.keras.layers.GRU
@@ -112,7 +112,8 @@ def compose_net_from_net_name(net_info,
     quantization_args = {}
 
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
-        activation = qkeras.quantizers.quantized_tanh(**net_info.quantization['ACTIVATION'])
+        activation = qkeras.quantizers.quantized_tanh(**net_info.quantization['ACTIVATION'], use_real_tanh=True, symmetric=True)
+        quantization_last_layer_args['activation'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])
         quantization_last_layer_args['kernel_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])
         quantization_last_layer_args['bias_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['BIAS'])
         quantization_args = quantization_last_layer_args.copy()
@@ -141,14 +142,27 @@ def compose_net_from_net_name(net_info,
             shape_input = (time_series_length, len(inputs_list))
 
         net.add(tf.keras.Input(batch_size=batch_size, shape=shape_input))
+        if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
+            net.add(qkeras.QActivation(activation=qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])))
         for i in range(h_number):
-            net.add(layer_type(
-                units=h_size[i], activation=activation, batch_size=batch_size,  name='layers_{}'.format(i),
-                kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
-                activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
-                **quantization_args,
-            ))
+            if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
+                net.add(layer_type(
+                    units=h_size[i], batch_size=batch_size, name='layers_{}'.format(i),
+                    kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
+                    bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                    activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+                    **quantization_args,
+                ))
+                net.add(qkeras.QActivation(activation=activation))
+            else:
+                net.add(layer_type(
+                    units=h_size[i], batch_size=batch_size, name='layers_{}'.format(i),
+                    kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
+                    bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                    activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+                    **quantization_args,
+                ))
+                net.add(tf.keras.layers.Activation(tf.keras.activations.tanh))
     else:
 
         if remove_redundant_dimensions and batch_size==1:
@@ -181,15 +195,15 @@ def compose_net_from_net_name(net_info,
                 **quantization_args,
             ))
 
-    if hasattr(net_info, 'regularization') and net_info.regularization['ACTIVATED']:
-        net.add(qkeras.qlayers.QDense(units=len(outputs_list), name='layers.{}'.format(h_number),
-                                      activation=activation_last_layer,
+    if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
+        net.add(qkeras.QDense(units=len(outputs_list), name='layers_{}'.format(h_number),
                                       kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
                                       bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
                                       **quantization_last_layer_args,
                                       ))
+        net.add(qkeras.QActivation(activation=qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])))
     else:
-        net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers.{}'.format(h_number), activation=activation_last_layer,
+        net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers_{}'.format(h_number), activation=activation_last_layer,
                                       kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
                                       bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
                                       ))
