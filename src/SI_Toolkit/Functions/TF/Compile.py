@@ -35,10 +35,11 @@ else:
         CompileTF = tf_function_jit
         # CompileTF = tf_function_experimental # Should be same as tf_function_jit, not appropriate for newer version of TF
 
-def CompileAdaptive(fun):
-    instance = fun.__self__
-    assert hasattr(instance, "lib"), "Instance with this method has no computation library defined"
-    computation_library: "type[ComputationLibrary]" = instance.lib
+def CompileAdaptive(fun, computation_library=None):
+    if computation_library is None:
+        instance = fun.__self__
+        assert hasattr(instance, "lib"), "Instance with this method has no computation library defined"
+        computation_library: "type[ComputationLibrary]" = instance.lib
     lib_name = computation_library.lib
 
     if GLOBALLY_DISABLE_COMPILATION:

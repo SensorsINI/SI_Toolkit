@@ -3,16 +3,25 @@ from SI_Toolkit.Predictors import template_predictor
 from SI_Toolkit.computation_library import TensorFlowLibrary
 
 
-from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE_tf, STATE_VARIABLES
-from SI_Toolkit.Functions.TF.Compile import CompileTF
-
-import tensorflow as tf
+from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE, STATE_VARIABLES, CONTROL_INPUTS
+from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
 
 lib = TensorFlowLibrary
 
-from SI_Toolkit.Predictors.autoregression import check_dimensions
+from SI_Toolkit.Predictors.autoregression import autoregression_loop, check_dimensions
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
+
+
+class model_interface:
+    def __init__(self, single_step_predictor):
+        self.model = single_step_predictor
+
+    def __call__(self, model_input):
+        Q = model_input[:, 0, :len(CONTROL_INPUTS)]
+        s = model_input[:, 0, len(CONTROL_INPUTS):]
+        return self.model.step(s, Q)
+
 
 class predictor_ODE_tf(template_predictor):
     supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
@@ -36,46 +45,55 @@ class predictor_ODE_tf(template_predictor):
         self.dt = dt
         self.intermediate_steps = intermediate_steps
 
-        self.next_step_predictor = next_state_predictor_ODE_tf(
+        self.next_step_predictor = next_state_predictor_ODE(
             dt,
             intermediate_steps,
+            self.lib,
             self.batch_size,
             variable_parameters=variable_parameters,
             disable_individual_compilation=True,
         )
 
+        self.model = model_interface(self.next_step_predictor)
+
+        self.AL: autoregression_loop = autoregression_loop(
+            model_inputs_len=len(STATE_VARIABLES) + len(CONTROL_INPUTS),
+            model_outputs_len=len(STATE_VARIABLES),
+            batch_size=self.batch_size,
+            lib=self.lib,
+            differential_model_autoregression_helper_instance=None,
+        )
+
         if disable_individual_compilation:
-            self.predict_tf = self._predict_tf
+            self.predict_core = self._predict_core
         else:
-            self.predict_tf = CompileTF(self._predict_tf)
+            self.predict_core = CompileAdaptive(self._predict_core)
 
 
     def predict(self, initial_state, Q):
+
         initial_state = self.lib.to_tensor(initial_state, dtype=self.lib.float32)
         Q = self.lib.to_tensor(Q, dtype=self.lib.float32)
 
-        initial_state, Q = check_dimensions(initial_state, Q, self.lib)
+        self.initial_state, Q = check_dimensions(initial_state, Q, self.lib)
 
         self.batch_size = self.lib.shape(Q)[0]
-        self.initial_state = initial_state
 
-        output = self.predict_tf(self.initial_state, Q)
+        output = self.predict_core(self.initial_state, Q)
 
         return output.numpy()
 
 
-    def _predict_tf(self, initial_state, Q):
+    def _predict_core(self, initial_state, Q):
 
-        self.output = tf.TensorArray(self.lib.float32, size=self.horizon + 1, dynamic_size=False)
-        self.output = self.output.write(0, initial_state)
+        self.output = self.AL.run(
+            model=self.model,
+            horizon=self.horizon,
+            initial_input=initial_state,
+            external_input_left=Q,
+        )
 
-        next_state = initial_state
-
-        for k in self.lib.arange(0, self.horizon):
-            next_state = self.next_step_predictor.step(next_state, Q[:, k, :])
-            self.output = self.output.write(k + 1, next_state)
-
-        self.output = self.lib.permute(self.output.stack(), perm=[1, 0, 2])
+        self.output = self.lib.concat((initial_state[:, self.lib.newaxis, :], self.output), axis=1)
 
         return self.output
 
