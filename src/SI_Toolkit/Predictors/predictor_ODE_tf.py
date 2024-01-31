@@ -1,4 +1,4 @@
-
+import os
 from SI_Toolkit.Predictors import template_predictor
 from SI_Toolkit.computation_library import TensorFlowLibrary
 
@@ -8,25 +8,11 @@ from SI_Toolkit.Functions.TF.Compile import CompileTF
 
 import tensorflow as tf
 
+lib = TensorFlowLibrary
 
-def check_dimensions(s, Q):
-    # Make sure the input is at least 2d
-    if tf.rank(s) == 1:
-        s = s[tf.newaxis, :]
+from SI_Toolkit.Predictors.autoregression import check_dimensions
 
-    if tf.rank(Q) == 3:  # Q.shape = [batch_size, timesteps, features]
-        pass
-    elif tf.rank(Q) == 2:  # Q.shape = [timesteps, features]
-        Q = Q[tf.newaxis, :, :]
-    else:  # Q.shape = [features;  tf.rank(Q) == 1
-        Q = Q[tf.newaxis, tf.newaxis, :]
-
-    return s, Q
-
-
-def convert_to_tensors(s, Q):
-    return tf.convert_to_tensor(s, dtype=tf.float32), tf.convert_to_tensor(Q, dtype=tf.float32)
-
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
 class predictor_ODE_tf(template_predictor):
     supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
@@ -39,11 +25,11 @@ class predictor_ODE_tf(template_predictor):
                  batch_size=1,
                  variable_parameters=None,
                  **kwargs):
+        super().__init__(horizon=horizon, batch_size=batch_size)
+        self.lib = lib
         self.disable_individual_compilation = disable_individual_compilation
 
-        super().__init__(horizon=tf.convert_to_tensor(horizon), batch_size=batch_size)
-
-        self.initial_state = tf.zeros(shape=(1, len(STATE_VARIABLES)))
+        self.initial_state = self.lib.zeros(shape=(1, len(STATE_VARIABLES)))
         self.output = None
         self.disable_individual_compilation = disable_individual_compilation
 
@@ -65,10 +51,12 @@ class predictor_ODE_tf(template_predictor):
 
 
     def predict(self, initial_state, Q):
-        initial_state, Q = convert_to_tensors(initial_state, Q)
-        initial_state, Q = check_dimensions(initial_state, Q)
+        initial_state = self.lib.to_tensor(initial_state, dtype=self.lib.float32)
+        Q = self.lib.to_tensor(Q, dtype=self.lib.float32)
 
-        self.batch_size = tf.shape(Q)[0]
+        initial_state, Q = check_dimensions(initial_state, Q, self.lib)
+
+        self.batch_size = self.lib.shape(Q)[0]
         self.initial_state = initial_state
 
         output = self.predict_tf(self.initial_state, Q)
@@ -78,16 +66,16 @@ class predictor_ODE_tf(template_predictor):
 
     def _predict_tf(self, initial_state, Q):
 
-        self.output = tf.TensorArray(tf.float32, size=self.horizon + 1, dynamic_size=False)
+        self.output = tf.TensorArray(self.lib.float32, size=self.horizon + 1, dynamic_size=False)
         self.output = self.output.write(0, initial_state)
 
         next_state = initial_state
 
-        for k in tf.range(self.horizon):
+        for k in self.lib.arange(0, self.horizon):
             next_state = self.next_step_predictor.step(next_state, Q[:, k, :])
             self.output = self.output.write(k + 1, next_state)
 
-        self.output = tf.transpose(self.output.stack(), perm=[1, 0, 2])
+        self.output = self.lib.permute(self.output.stack(), perm=[1, 0, 2])
 
         return self.output
 
