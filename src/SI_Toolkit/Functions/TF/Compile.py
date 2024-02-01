@@ -35,7 +35,28 @@ else:
         CompileTF = tf_function_jit
         # CompileTF = tf_function_experimental # Should be same as tf_function_jit, not appropriate for newer version of TF
 
-def CompileAdaptive(fun, computation_library=None):
+
+def CompileAdaptive(arg=None):
+    if isinstance(arg, type) and issubclass(arg, ComputationLibrary):
+
+        computation_library = arg
+
+        def decorator_factory(fun):
+            return decorator(fun, computation_library)
+
+        return decorator_factory
+
+    elif callable(arg):  # No arguments provided, the only argument is the function to be decorated
+        function = arg
+        return decorator(function)
+
+    else:
+        # Handle other cases or raise an error.
+        raise TypeError("Invalid argument to CompileAdaptive")
+
+
+
+def decorator(fun, computation_library=None):
     if computation_library is None:
         instance = fun.__self__
         assert hasattr(instance, "lib"), "Instance with this method has no computation library defined"
