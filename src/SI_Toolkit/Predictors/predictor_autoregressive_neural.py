@@ -215,10 +215,10 @@ class predictor_autoregressive_neural(template_predictor):
             self.predict_with_update_tf = CompileAdaptive(self._predict_with_update_tf)  # This was compiled per default before I implemented hls. As for hls one need not compiled version.
 
             if disable_individual_compilation:
-                self.predict_tf = self._predict_tf
+                self.predict_core = self._predict_core
                 self.update_internal_state_tf = self._update_internal_state_tf
             else:
-                self.predict_tf = CompileAdaptive(self._predict_tf)
+                self.predict_core = CompileAdaptive(self._predict_core)
                 self.update_internal_state_tf = CompileAdaptive(self._update_internal_state_tf)
         else:
             # Manipulating of internal state currently not implemented.
@@ -231,7 +231,7 @@ class predictor_autoregressive_neural(template_predictor):
             self.net.compile()
             # Not compilation supported for HLS models
             self.predict_with_update_tf = self._predict_with_update_tf
-            self.predict_tf = self._predict_tf
+            self.predict_core = self._predict_core
             self.update_internal_state_tf = self._update_internal_state_tf
 
     def predict(self, initial_state, Q, last_optimal_control_input=None) -> np.array:
@@ -251,16 +251,16 @@ class predictor_autoregressive_neural(template_predictor):
             output = self.predict_with_update_tf(initial_state, Q, self.last_initial_state,
                                                      last_optimal_control_input)
         else:
-            output = self.predict_tf(initial_state, Q)
+            output = self.predict_core(initial_state, Q)
 
         self.output = self.lib.to_numpy(output)
         return self.output
 
     def _predict_with_update_tf(self, initial_state, Q, last_initial_state, last_optimal_control_input):
         self._update_internal_state_tf(last_optimal_control_input, last_initial_state)
-        return self._predict_tf(initial_state, Q)
+        return self._predict_core(initial_state, Q)
 
-    def _predict_tf(self, initial_state, Q):
+    def _predict_core(self, initial_state, Q):
 
         self.lib.assign(self.last_initial_state, initial_state)
 
