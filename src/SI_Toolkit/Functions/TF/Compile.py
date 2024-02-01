@@ -58,15 +58,23 @@ def CompileAdaptive(arg=None):
 
 def decorator(fun, computation_library=None):
     if computation_library is None:
-        instance = fun.__self__
-        assert hasattr(instance, "lib"), "Instance with this method has no computation library defined"
-        computation_library: "type[ComputationLibrary]" = instance.lib
-    lib_name = computation_library.lib
+        if hasattr(fun, "__self__"):
+            instance = fun.__self__
+            assert hasattr(instance, "lib"), "Instance with this method has no computation library defined"
+            computation_library: "type[ComputationLibrary]" = instance.lib
+
+    if computation_library is not None:
+        lib_name = computation_library.lib
+    else:
+        lib_name = None
+        print("Not compiling")
 
     if GLOBALLY_DISABLE_COMPILATION:
         return identity(fun)
     elif lib_name == 'TF':
         return CompileTF(fun)
-    else:
+    elif lib_name == 'Pytorch':
         print('Jit compilation for Pytorch not yet implemented.')
+        return identity(fun)
+    else:
         return identity(fun)
