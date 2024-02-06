@@ -57,7 +57,7 @@ class predictor_ODE_tf(template_predictor):
         self.model = model_interface(self.next_step_predictor)
 
         self.AL: autoregression_loop = autoregression_loop(
-            model_inputs_len=len(STATE_VARIABLES) + len(CONTROL_INPUTS),
+            model_inputs_len=len(STATE_VARIABLES)  + len(CONTROL_INPUTS),
             model_outputs_len=len(STATE_VARIABLES),
             batch_size=self.batch_size,
             lib=self.lib,
