@@ -133,16 +133,17 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
 
     # endregion
 
+    # endregion
+
+
+    loss_eval = net.evaluate(validation_dataset)
+    print('Validation loss before starting training is {}'.format(loss_eval))
+
     # region Print information about the network
     net.summary()
     # endregion
 
-    # endregion
-
     # region Training loop
-    loss_eval = net.evaluate(validation_dataset)
-    print('Validation loss before starting training is {}'.format(loss_eval))
-
     history = net.fit(
         training_dataset,
         epochs=a.num_epochs,
