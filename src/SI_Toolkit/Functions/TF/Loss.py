@@ -24,7 +24,13 @@ class LossMSRSequence(tf.keras.losses.Loss):
         self.discount_vector = tf.convert_to_tensor(discount_vector, dtype=tf.float32)
 
     def call(self, y_true, y_predicted):
-        losses = keras.losses.MSE(y_true, y_predicted)
+
+        losses = tf.cond(
+            tf.equal(tf.shape(y_predicted)[1], tf.shape(y_true)[1] + 1),
+            lambda: keras.losses.MSE(y_true, y_predicted[:, 1:, :]),  # A case where we train a predictor which output includes the input
+            lambda: keras.losses.MSE(y_true, y_predicted)  # If condition is False, normal training of a network
+        )
+
         # losses has shape [batch_size, time steps] -> this is the loss for every time step
         losses = losses[:, self.wash_out_len:] # This discards losses for timesteps ≤ wash_out_len
 
