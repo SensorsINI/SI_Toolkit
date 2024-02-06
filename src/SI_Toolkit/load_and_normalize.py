@@ -378,13 +378,10 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     if path_to_norm_info is None:
         if config is None:
             raise ValueError('Either path_to_norm_info or config must be not None')
-        path_to_norm_info = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + config["paths"]["path_to_experiment"] + 'NormalizationInfo/'
-
-    if path_to_norm_info[-1] != '/':
-        path_to_norm_info = path_to_norm_info + '/'
+        path_to_norm_info = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config["paths"]["path_to_experiment"], 'NormalizationInfo')
 
     try:
-        os.makedirs(path_to_norm_info[:-1])
+        os.makedirs(path_to_norm_info)
     except FileExistsError:
         pass
 
@@ -395,7 +392,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     time_now = datetime.now().strftime('%H-%M-%S')
 
     normalization_info_name = 'NI_' + date_now + '_' + time_now
-    csv_filepath = path_to_norm_info + normalization_info_name + '.csv'
+    csv_filepath = os.path.join(path_to_norm_info, normalization_info_name + '.csv')
 
     with open(csv_filepath, "a", newline='') as outfile:
         writer = csv.writer(outfile)
@@ -447,7 +444,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     if plot_histograms:
         # Plot historgrams to make the firs check about gaussian assumption
         # Save histograms to folder with same name
-        histograms_path = path_to_norm_info + 'histograms'
+        histograms_path = os.path.join(path_to_norm_info, 'histograms')
         try:
             os.makedirs(histograms_path)
         except FileExistsError:
