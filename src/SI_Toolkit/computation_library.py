@@ -91,6 +91,7 @@ class ComputationLibrary:
     abs: Callable[[TensorType], TensorType] = None
     sqrt: Callable[[TensorType], TensorType] = None
     argpartition: Callable[[TensorType, int], TensorType] = None
+    argmax: Callable[[TensorType, int], TensorType] = None
     norm: Callable[[TensorType, int], bool] = None
     matmul: Callable[[TensorType, TensorType], TensorType] = None
     cross: Callable[[TensorType, TensorType], TensorType] = None
@@ -175,6 +176,7 @@ class NumpyLibrary(ComputationLibrary):
     abs = np.abs
     sqrt = np.sqrt
     argpartition = lambda x, k: np.argpartition(x, k)[..., :k]
+    argmax = lambda x, a: np.argmax(x, axis=a)
     norm = lambda x, axis: np.linalg.norm(x, axis=axis)
     matmul = np.matmul
     cross = np.cross
@@ -261,6 +263,7 @@ class TensorFlowLibrary(ComputationLibrary):
     abs = tf.abs
     sqrt = tf.sqrt
     argpartition = lambda x, k: tf.math.top_k(-x, k, sorted=False)[1]
+    argmax = lambda x, a: tf.math.argmax(x, axis=a)
     norm = lambda x, axis: tf.norm(x, axis=axis)
     matmul = tf.linalg.matmul
     cross = tf.linalg.cross
@@ -354,6 +357,7 @@ class PyTorchLibrary(ComputationLibrary):
     abs = torch.abs
     sqrt = torch.sqrt
     argpartition = torch.topk
+    argmax = lambda x, a: torch.argmax(x, dim=a)
     norm = lambda x, axis: torch.linalg.norm(x, dim=axis)
     matmul = torch.matmul
     cross = torch.linalg.cross
