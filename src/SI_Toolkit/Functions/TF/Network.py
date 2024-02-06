@@ -34,12 +34,11 @@ def compose_net_from_module(net_info,
     net_type, module_name, class_name = net_info.net_name.split('-')
     path = './SI_Toolkit_ASF/Modules/'
 
-    spec = importlib.util.spec_from_file_location(f"{module_name}.{class_name}", path)
+    spec = importlib.util.spec_from_file_location(class_name, f"{path}/{module_name}.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
     net = getattr(module, class_name)(time_series_length, batch_size, net_info)
-    net.build((batch_size, time_series_length, len(net_info.inputs)))
 
     print(f'Loaded the model {class_name} from {path}.')
 
