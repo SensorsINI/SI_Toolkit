@@ -53,7 +53,7 @@ class predictor_ODE_tf(template_predictor):
             variable_parameters=variable_parameters,
             disable_individual_compilation=True,
         )
-
+        self.params = self.next_step_predictor.params
         self.model = model_interface(self.next_step_predictor)
 
         self.AL: autoregression_loop = autoregression_loop(
