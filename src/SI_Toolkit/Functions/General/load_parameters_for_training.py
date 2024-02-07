@@ -67,6 +67,7 @@ PRUNING_ACTIVATED = config['PRUNING']['ACTIVATED']
 PRUNING_SCHEDULE = config['PRUNING']['PRUNING_PARAMS']['PRUNING_SCHEDULE']
 PRUNING_SCHEDULES = config['PRUNING']['PRUNING_SCHEDULES']
 
+PLOT_WEIGHTS_DISTRIBUTION = config['training_default']['PLOT_WEIGHTS_DISTRIBUTION']
 
 # For l2race
 # control_inputs = ['u1', 'u2']
@@ -168,6 +169,8 @@ def args():
 
     if args.outputs is not None:
         args.outputs = sorted(args.outputs)
+
+    args.plot_weights_distribution = PLOT_WEIGHTS_DISTRIBUTION
 
     args.regularization = REGULARIZATION
 

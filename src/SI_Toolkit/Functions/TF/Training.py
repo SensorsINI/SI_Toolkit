@@ -175,7 +175,8 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     path_to_parameters_distribution_histograms = os.path.join(net_info.path_to_net, 'parameters_histograms')
     os.makedirs(path_to_parameters_distribution_histograms)
 
-    plot_weights_distribution(net, show=False, path_to_save=path_to_parameters_distribution_histograms)
+    if a.plot_weights_distribution:
+        plot_weights_distribution(net, show=False, path_to_save=path_to_parameters_distribution_histograms)
 
     # if a.activation_statistics:
     activation_statistics_datasets = [validation_dataset]
