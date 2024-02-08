@@ -172,15 +172,14 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     net.save_weights(os.path.join(net_info.path_to_net, 'ckpt' + '.ckpt'))
     # endregion
 
-    path_to_parameters_distribution_histograms = os.path.join(net_info.path_to_net, 'parameters_histograms')
-    os.makedirs(path_to_parameters_distribution_histograms)
-
     if a.plot_weights_distribution:
-        plot_weights_distribution(net, show=False, path_to_save=path_to_parameters_distribution_histograms)
+        path_to_parameters_distribution_histograms = os.path.join(net_info.path_to_net, 'parameters_histograms')
+        os.makedirs(path_to_parameters_distribution_histograms)
 
-    # if a.activation_statistics:
-    activation_statistics_datasets = [validation_dataset]
-    # activation_statistics_datasets = [training_dataset, validation_dataset]
-    get_activation_statistics(net, activation_statistics_datasets, path_to_save=path_to_parameters_distribution_histograms)
+        plot_weights_distribution(net, show=False, path_to_save=path_to_parameters_distribution_histograms)
+        # if a.activation_statistics:
+        activation_statistics_datasets = [validation_dataset]
+        # activation_statistics_datasets = [training_dataset, validation_dataset]
+        get_activation_statistics(net, activation_statistics_datasets, path_to_save=path_to_parameters_distribution_histograms)
 
     return np.array(loss), validation_loss, post_epoch_training_loss

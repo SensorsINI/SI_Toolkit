@@ -291,23 +291,28 @@ def get_activation_statistics(model, datasets, path_to_save=None):
     import numpy as np
     import os
     from tqdm import tqdm
+    print()
+    print('Calculating activations statistics...')
+    print('For each - except for last - layer the calculation is done twice: with and without the activation function')
     # Creating a list of intermediate models for each layer's output
     intermediate_models = [tf.keras.Model(inputs=model.input, outputs=layer.output) for layer in model.layers]
-    for layer_model in tqdm(intermediate_models, desc="Processing Layers for activations statistics", leave=True, position=0):
+    for i in range(len(intermediate_models)):
+        layer_model = intermediate_models[i]
         layer_name = layer_model.layers[-1].name
         activations = []
 
         # Passing the dataset through the intermediate model
         if isinstance(datasets, list):
-            for dataset in datasets:
-                for batch in tqdm(dataset, desc=f'Progress of the current dataset (out of {len(datasets)}) for activations statistics', leave=False, position=0):
+            for k in range(len(datasets)):
+                for batch in tqdm(datasets[k], desc=f'Progress layer or activation {i+1} (out of {len(intermediate_models)}) '
+                                                    f'dataset {k+1} (out of {len(datasets)}) - activations statistics', leave=False, position=0):
                     features = batch[0]
-                    batch_activations = layer_model.predict(features, verbose=0)
+                    batch_activations = layer_model(features, training=False)
                     activations.append(batch_activations)
         else:
-            for batch in tqdm(datasets, desc=f'Progress of the dataset for activations statistics', leave=False, position=0):
+            for batch in tqdm(datasets, desc=f'Progress layer or activation {i+1} (out of {len(intermediate_models)}) - activations statistics', leave=False, position=0):
                 features = batch[0]
-                batch_activations = layer_model.predict(features, verbose=0)
+                batch_activations = layer_model(features, training=False)
                 activations.append(batch_activations)
 
         # Concatenating activations across all batches
