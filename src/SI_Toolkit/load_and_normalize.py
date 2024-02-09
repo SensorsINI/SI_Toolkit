@@ -209,6 +209,7 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
         cols = df.columns
         df[cols] = df[cols].apply(pd.to_numeric, errors='ignore', downcast='float')
 
+        df = df.dropna()
         all_dfs.append(df)
 
     return all_dfs
