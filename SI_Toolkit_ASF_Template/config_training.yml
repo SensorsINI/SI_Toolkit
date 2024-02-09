@@ -18,6 +18,7 @@ training_default:
   # inputs = ['position', 'positionD', 'angle_sin', 'angle_cos', 'angleD']
   # outputs = inputs_list
   # For training of a network imitating MPC:
+  # control_inputs: []
   # state_inputs: ['position', 'positionD', 'angle_cos', 'angle_sin', 'angleD', 'target_equilibrium', 'target_position']
   # outputs: ['Q']
   EPOCHS: 5
