@@ -124,13 +124,13 @@ def compose_net_from_net_name(net_info,
             quantization_args['recurrent_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['RECURRENT'])
 
     if hasattr(net_info, 'regularization') and net_info.regularization['ACTIVATED']:
-        regularization_kernel = net_info.regularization['KERNEL']
-        regularization_bias = net_info.regularization['BIAS']
-        regularization_activity = net_info.regularization['ACTIVITY']
+        regularization_kernel = tf.keras.regularizers.l1_l2(**net_info.regularization['KERNEL'])
+        regularization_bias = tf.keras.regularizers.l1_l2(**net_info.regularization['BIAS'])
+        regularization_activity = tf.keras.regularizers.l1_l2(**net_info.regularization['ACTIVITY'])
     else:
-        regularization_kernel = {'l1': 0.0, 'l2': 0.0}
-        regularization_bias = {'l1': 0.0, 'l2': 0.0}
-        regularization_activity = {'l1': 0.0, 'l2': 0.0}
+        regularization_kernel = None
+        regularization_bias = None
+        regularization_activity = None
 
     net = tf.keras.Sequential()
 
@@ -151,18 +151,18 @@ def compose_net_from_net_name(net_info,
             if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
                 net.add(layer_type(
                     units=h_size[i], batch_size=batch_size, name='layers_{}'.format(i),
-                    kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                    bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
-                    activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+                    kernel_regularizer=regularization_kernel,
+                    bias_regularizer=regularization_bias,
+                    activity_regularizer=regularization_activity,
                     **quantization_args,
                 ))
                 net.add(qkeras.QActivation(activation=activation))
             else:
                 net.add(layer_type(
                     units=h_size[i], batch_size=batch_size, name='layers_{}'.format(i),
-                    kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                    bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
-                    activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+                    kernel_regularizer=regularization_kernel,
+                    bias_regularizer=regularization_bias,
+                    activity_regularizer=regularization_activity,
                     **quantization_args,
                 ))
                 net.add(tf.keras.layers.Activation(tf.keras.activations.tanh))
@@ -180,9 +180,9 @@ def compose_net_from_net_name(net_info,
             batch_input_shape=shape_input,
             return_sequences=True,
             stateful=stateful,
-            kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-            bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
-            activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+            kernel_regularizer=regularization_kernel,
+            bias_regularizer=regularization_bias,
+            activity_regularizer=regularization_activity,
             **quantization_args,
         ))
         # Define following layers
@@ -192,23 +192,23 @@ def compose_net_from_net_name(net_info,
                 activation=activation,
                 return_sequences=True,
                 stateful=stateful,
-                kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
-                activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+                kernel_regularizer=regularization_kernel,
+                bias_regularizer=regularization_bias,
+                activity_regularizer=regularization_activity,
                 **quantization_args,
             ))
 
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
         net.add(qkeras.QDense(units=len(outputs_list), name='layers_{}'.format(h_number),
-                                      kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                                      bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                                      kernel_regularizer=regularization_kernel,
+                                      bias_regularizer=regularization_bias,
                                       **quantization_last_layer_args,
                                       ))
         net.add(qkeras.QActivation(activation=qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])))
     else:
         net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers_{}'.format(h_number), activation=activation_last_layer,
-                                      kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                                      bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                                      kernel_regularizer=regularization_kernel,
+                                      bias_regularizer=regularization_bias,
                                       ))
 
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
