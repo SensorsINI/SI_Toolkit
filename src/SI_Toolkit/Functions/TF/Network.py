@@ -3,6 +3,7 @@ import sys
 import importlib.util
 
 import tensorflow as tf
+import numpy as np
 
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 
@@ -14,6 +15,12 @@ except (ModuleNotFoundError, ImportError, AttributeError) as error:
           f'Got an error: \n'
           f'{error}. \n'
           )
+
+try:
+    from tensorflow_model_optimization.python.core.sparsity.keras import prune, pruning_callbacks, pruning_schedule
+    from tensorflow_model_optimization.sparsity.keras import strip_pruning
+except ModuleNotFoundError:
+    print('tensorflow_model_optimization not found. Pruning will not be available.')
 
 def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     """
@@ -338,3 +345,57 @@ def num_bits_needed_for_integer_part(n):
         return 1  # At least 1 bit is needed to represent 0
     else:
         return math.floor(math.log2(n)) + 1
+
+def get_pruning_params(net_info, number_of_batches):
+    # region Defining pruning
+    if hasattr(net_info, 'pruning_activated') and net_info.pruning_activated:
+        if 'tensorflow_model_optimization' not in sys.modules:
+            raise ModuleNotFoundError('tensorflow_model_optimization not found. Pruning will not be available. Change config_training or install the module')
+        if net_info.pruning_schedule == 'CONSTANT_SPARSITY':
+            pruning_schedule_params = net_info.pruning_schedules[net_info.pruning_schedule]
+            selected_pruning_schedule = pruning_schedule.ConstantSparsity(
+                target_sparsity=pruning_schedule_params['target_sparsity'],
+                begin_step=int(pruning_schedule_params['begin_step_in_epochs']*number_of_batches),
+                end_step=int(pruning_schedule_params['end_step_in_training_fraction']*net_info.num_epochs*number_of_batches),
+                frequency=int(np.maximum(1, number_of_batches/pruning_schedule_params['frequency_per_epoch'])))
+        elif net_info.pruning_schedule == 'POLYNOMIAL_DECAY':
+            pruning_schedule_params = net_info.pruning_schedules[net_info.pruning_schedule]
+            selected_pruning_schedule = pruning_schedule.PolynomialDecay(
+                initial_sparsity=pruning_schedule_params['initial_sparsity'],
+                final_sparsity=pruning_schedule_params['final_sparsity'],
+                begin_step=int(pruning_schedule_params['begin_step_in_epochs']*number_of_batches),
+                end_step=int(pruning_schedule_params['end_step_in_training_fraction']*net_info.num_epochs*number_of_batches),
+                power=pruning_schedule_params['power'],
+                frequency=int(np.maximum(1, number_of_batches/pruning_schedule_params['frequency_per_epoch'])))
+        else:
+            raise NotImplementedError('Pruning schedule {} is not implemented yet.'.format(net_info.pruning_schedule))
+
+        pruning_params = {"pruning_schedule": selected_pruning_schedule}
+        return pruning_params
+
+def make_prunable(net, net_info, number_of_batches):
+    pruning_params = get_pruning_params(net_info, number_of_batches)
+
+    # Rebuild the model with pruned layers
+    pruned_layers = []
+    for i, layer in enumerate(net.layers):
+        # Adjust pruning parameters for the last layer if needed
+        if i == len(net.layers) - 1:
+            net_info.pruning_schedules['CONSTANT_SPARSITY']['target_sparsity'] = \
+            net_info.pruning_schedules['CONSTANT_SPARSITY']['target_sparsity_last_layer']
+            net_info.pruning_schedules['POLYNOMIAL_DECAY']['final_sparsity'] = \
+            net_info.pruning_schedules['POLYNOMIAL_DECAY']['final_sparsity_last_layer']
+            pruning_params = get_pruning_params(net_info, number_of_batches)
+        if not isinstance(layer, tf.keras.layers.InputLayer):  # Skip input layer
+            # Wrap layer with pruning
+            pruned_layer = prune.prune_low_magnitude(layer, **pruning_params)
+        else:
+            pruned_layer = layer  # Keep input layer unchanged
+        pruned_layers.append(pruned_layer)
+
+    # Reconstruct the model with pruned layers
+    prunable_model = tf.keras.Sequential(pruned_layers)
+
+    # Prune whole network
+    # prunable_model = prune.prune_low_magnitude(net, **pruning_params)
+    return prunable_model
