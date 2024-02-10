@@ -21,6 +21,14 @@ static_requirements = load_requirements()
 
 
 dynamic_requirements = []
+
+if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
+    tensorflow_requirements = ['tensorflow-macos-2.8']
+    print('On 10.02.2024 there is a problem with higher versions regarding quantization and pruning.')
+else:
+    tensorflow_requirements = ['tensorflow']
+
+
 # Dynamic dependencies based on Ubuntu version
 version = platform.version()
 if 'Ubuntu' in version and '18.04' in version:

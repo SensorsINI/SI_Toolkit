@@ -8,8 +8,12 @@ from SI_Toolkit.Functions.TF.Compile import CompileTF
 
 try:
     import qkeras
-except ModuleNotFoundError:
-    print('QKeras not found. Quantization-aware training will not be available.')
+except (ModuleNotFoundError, ImportError, AttributeError) as error:
+    print('QKeras not found or not working. \n'
+          'Quantization-aware training will not be available.'
+          f'Got an error: \n'
+          f'{error}. \n'
+          )
 
 def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     """

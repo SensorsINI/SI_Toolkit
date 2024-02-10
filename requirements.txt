@@ -3,7 +3,11 @@ numpy
 pandas
 derivative
 gitpython
+pyyaml
 ruamel.yaml
 torch
 tensorflow
 tensorflow_model_optimization
+tqdm
+qkeras
+#nni
