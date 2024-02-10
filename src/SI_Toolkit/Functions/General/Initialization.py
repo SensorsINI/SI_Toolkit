@@ -471,7 +471,7 @@ def create_log_file(net_info, a, dfs):
 
     # Save config for Delta Network
 
-    if net_info.delta_gru_dict:
+    if hasattr(net_info, 'delta_gru_dict') and net_info.delta_gru_dict:
         import yaml
         yaml_path = os.path.join(a.path_to_models, net_info.net_full_name, 'delta_gru_hyperparameters' + '.yaml')
         file = open(yaml_path, "w")
