@@ -1,0 +1,9 @@
+matplotlib
+numpy
+pandas
+derivative
+gitpython
+ruamel.yaml
+torch
+tensorflow
+tensorflow_model_optimization
