@@ -24,6 +24,7 @@ def convert_model_with_hls4ml(net, granularity='model'):
     # config['Flows'] = ['vivado:fifo_depth_optimization']
     # hls4ml.model.optimizer.get_optimizer('vivado:fifo_depth_optimization').configure(profiling_fifo_depth=100_000)
 
+    config['Model']['Precision'] = config_hls['precision_activation']
     # Iterate through all layers in the HLS configuration
     for layer_name, layer_config in config['LayerName'].items():
         # Check if the layer is an activation layer (assuming 'activation' in the name)
