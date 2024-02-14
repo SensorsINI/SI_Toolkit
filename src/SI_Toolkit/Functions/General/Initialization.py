@@ -32,7 +32,7 @@ def set_seed(args):
         pass
 
 
-def load_net_info_from_txt_file(txt_path, parent_net_name, convert_to_delta, net_info=None):
+def load_net_info_from_txt_file(txt_path, parent_net_name=None, convert_to_delta=False, net_info=None):
     # region Get information about the pretrained network from the associated txt file
     if net_info is None:
         net_info = SimpleNamespace()
@@ -72,9 +72,10 @@ def load_net_info_from_txt_file(txt_path, parent_net_name, convert_to_delta, net
             net_info.net_type = lines[i + 1].rstrip("\n").split(sep=', ')
             continue
         if lines[i] == 'NORMALIZATION:':
-            path_to_normalization_info_old = lines[i + 1].rstrip("\n")
-            net_info.path_to_normalization_info = os.path.join(net_info.path_to_models, parent_net_name,
-                                                               os.path.basename(path_to_normalization_info_old))
+            path_to_normalization_info = lines[i + 1].rstrip("\n")
+            if parent_net_name is not None:
+                path_to_normalization_info = os.path.join(net_info.path_to_models, parent_net_name, os.path.basename(path_to_normalization_info))
+            net_info.path_to_normalization_info = path_to_normalization_info
             continue
         if lines[i] == 'NORMALIZE:':
             net_info.normalize = lines[i + 1].rstrip('\n') == 'True'

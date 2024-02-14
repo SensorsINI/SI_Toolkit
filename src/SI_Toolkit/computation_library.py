@@ -47,6 +47,7 @@ class ComputationLibrary:
     floormod: Callable[[TensorType], TensorType] = None
     floor: Callable[[TensorType], TensorType] = None
     ceil: Callable[[TensorType], TensorType] = None
+    rint: Callable[[TensorType], TensorType] = None
     float32 = None
     float64 = None
     int32 = None
@@ -132,6 +133,7 @@ class NumpyLibrary(ComputationLibrary):
     floormod = np.mod
     floor = np.floor
     ceil = np.ceil
+    rint = np.rint
     float32 = np.float32
     float64 = np.float64
     int32 = np.int32
@@ -219,6 +221,7 @@ class TensorFlowLibrary(ComputationLibrary):
     floormod = tf.math.floormod
     floor = tf.math.floor
     ceil = tf.math.ceil
+    rint = tf.math.rint
     float32 = tf.float32
     float64 = tf.float64
     int32 = tf.int32
@@ -309,6 +312,7 @@ class PyTorchLibrary(ComputationLibrary):
     floormod = torch.remainder
     floor = lambda x: torch.floor(torch.as_tensor(x))
     ceil = lambda x: torch.ceil(torch.as_tensor(x))
+    rint = lambda x: torch.round(torch.as_tensor(x), decimals=0)
     float32 = torch.float32
     float64 = torch.float64
     int32 = torch.int32
