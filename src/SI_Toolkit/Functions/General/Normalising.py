@@ -8,12 +8,16 @@ and rows in the order
 3 -> min
 """
 
+from SI_Toolkit.computation_library import NumpyLibrary
+import numpy as np
+import os
 
 def get_normalization_function(
         normalization_info,
         variables_names,
-        lib,
+        lib=NumpyLibrary,
         normalization_type='minmax_sym',
+        return_coeffs=False,
 ):
     if normalization_info is None:
         print('No normalization info provided! Normalization function is identity in this case!')
@@ -47,14 +51,18 @@ def get_normalization_function(
         normalized_array = a * denormalized_array + b
         return normalized_array
 
-    return normalize
+    if return_coeffs:
+        return normalize, a, b
+    else:
+        return normalize
 
 
 def get_denormalization_function(
                                  normalization_info,
                                  variables_names,
-                                 lib,
+                                 lib=NumpyLibrary,
                                  normalization_type='minmax_sym',
+                                 return_coeffs=False,
 ):
     if normalization_info is None:
         print('No normalization info provided! Denormalization function is identity in this case!')
@@ -88,15 +96,19 @@ def get_denormalization_function(
         denormalized_array = A * normalized_array + B
         return denormalized_array
 
-    return denormalize
+    if return_coeffs:
+        return denormalize, A, B
+    else:
+        return denormalize
 
 
 def get_scaling_function_for_output_of_differential_network(
                                  normalization_info,
                                  network_outputs,
                                  dt,
-                                 lib,
+                                 lib=NumpyLibrary,
                                  normalization_type='minmax_sym',
+                                 return_coeffs=False,
 ):
     if normalization_info is None:
         print('No normalization info provided! scale_output_of_differential_network function is identity in this case!')
@@ -162,4 +174,24 @@ def get_scaling_function_for_output_of_differential_network(
         scaled_array = p1 * normalized_array + p2
         return scaled_array
 
-    return scale_output_of_differential_network
+    if return_coeffs:
+        return scale_output_of_differential_network, p1, p2
+    else:
+        return scale_output_of_differential_network
+
+
+def write_out_normalization_vectors(normalization_info, net_info):
+    _,  a, b = get_normalization_function(normalization_info, net_info.inputs, return_coeffs=True)
+    _, A, B = get_denormalization_function(normalization_info, net_info.outputs, return_coeffs=True)
+    # with open(os.path.join(net_info.path_to_net, 'normalization_vectors.txt'), 'w') as f:
+    #     f.write('Normalization coefficients for inputs\n')
+    #     f.write('a = ' + str(a) + '\n')
+    #     f.write('b = ' + str(b) + '\n')
+    #     f.write('Denormalization coefficients for outputs\n')
+    #     f.write('A = ' + str(A) + '\n')
+    #     f.write('B = ' + str(B) + '\n')
+
+    np.savetxt(os.path.join(net_info.path_to_net, "normalization_vec_a.csv"), a[np.newaxis, :], delimiter=",", fmt='%0.8f')
+    np.savetxt(os.path.join(net_info.path_to_net, "normalization_vec_b.csv"), b[np.newaxis, :], delimiter=",", fmt='%0.8f')
+    np.savetxt(os.path.join(net_info.path_to_net, "denormalization_vec_A.csv"), A[np.newaxis, :], delimiter=",", fmt='%0.8f')
+    np.savetxt(os.path.join(net_info.path_to_net, "denormalization_vec_B.csv"), B[np.newaxis, :], delimiter=",", fmt='%0.8f')
