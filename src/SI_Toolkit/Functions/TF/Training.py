@@ -6,6 +6,7 @@ from SI_Toolkit.Functions.TF.Network import plot_weights_distribution, get_activ
 
 from tensorflow import keras
 try:
+    from SI_Toolkit.Functions.TF.Network import get_pruning_params, make_prunable
     from tensorflow_model_optimization.python.core.sparsity.keras import prune, pruning_callbacks, pruning_schedule
     from tensorflow_model_optimization.sparsity.keras import strip_pruning
 except ModuleNotFoundError:
@@ -47,32 +48,8 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
 
     # region Set basic training features: optimizer, loss, scheduler...
 
-    # region Defining pruning
     if a.pruning_activated:
-        if 'tensorflow_model_optimization' not in sys.modules:
-            raise ModuleNotFoundError('tensorflow_model_optimization not found. Pruning will not be available. Change config_training or install the module')
-        if a.pruning_schedule == 'CONSTANT_SPARSITY':
-            pruning_schedule_params = a.pruning_schedules[a.pruning_schedule]
-            selected_pruning_schedule = pruning_schedule.ConstantSparsity(
-                target_sparsity=pruning_schedule_params['target_sparsity'],
-                begin_step=int(pruning_schedule_params['begin_step_in_epochs']*training_dataset.number_of_batches),
-                end_step=int(pruning_schedule_params['end_step_in_training_fraction']*a.num_epochs*training_dataset.number_of_batches),
-                frequency=int(np.maximum(1, training_dataset.number_of_batches/pruning_schedule_params['frequency_per_epoch'])))
-        elif a.pruning_schedule == 'POLYNOMIAL_DECAY':
-            pruning_schedule_params = a.pruning_schedules[a.pruning_schedule]
-            selected_pruning_schedule = pruning_schedule.PolynomialDecay(
-                initial_sparsity=pruning_schedule_params['initial_sparsity'],
-                final_sparsity=pruning_schedule_params['final_sparsity'],
-                begin_step=int(pruning_schedule_params['begin_step_in_epochs']*training_dataset.number_of_batches),
-                end_step=int(pruning_schedule_params['end_step_in_training_fraction']*a.num_epochs*training_dataset.number_of_batches),
-                power=pruning_schedule_params['power'],
-                frequency=int(np.maximum(1, training_dataset.number_of_batches/pruning_schedule_params['frequency_per_epoch'])))
-        else:
-            raise NotImplementedError('Pruning schedule {} is not implemented yet.'.format(a.pruning_schedule))
-
-        pruning_params = {"pruning_schedule": selected_pruning_schedule}
-        net = prune.prune_low_magnitude(net, **pruning_params)
-    # endregion
+        net = make_prunable(net, a, training_dataset.number_of_batches)
 
     # Might be not the same as Pytorch - MSE, not checked
     # net.compile(
@@ -172,15 +149,16 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     net.save_weights(os.path.join(net_info.path_to_net, 'ckpt' + '.ckpt'))
     # endregion
 
-    path_to_parameters_distribution_histograms = os.path.join(net_info.path_to_net, 'parameters_histograms')
-    os.makedirs(path_to_parameters_distribution_histograms)
-
     if a.plot_weights_distribution:
-        plot_weights_distribution(net, show=False, path_to_save=path_to_parameters_distribution_histograms)
+        path_to_parameters_distribution_histograms = os.path.join(net_info.path_to_net, 'parameters_histograms')
+        os.makedirs(path_to_parameters_distribution_histograms)
 
-    # if a.activation_statistics:
-    activation_statistics_datasets = [validation_dataset]
-    # activation_statistics_datasets = [training_dataset, validation_dataset]
-    get_activation_statistics(net, activation_statistics_datasets, path_to_save=path_to_parameters_distribution_histograms)
+        plot_weights_distribution(net, show=False, path_to_save=path_to_parameters_distribution_histograms)
+        # if a.activation_statistics:
+        if a.pruning_activated:
+            net = keras.models.clone_model(net)
+        activation_statistics_datasets = [validation_dataset]
+        # activation_statistics_datasets = [training_dataset, validation_dataset]
+        get_activation_statistics(net, activation_statistics_datasets, path_to_save=path_to_parameters_distribution_histograms)
 
     return np.array(loss), validation_loss, post_epoch_training_loss

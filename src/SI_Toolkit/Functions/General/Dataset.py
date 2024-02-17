@@ -34,7 +34,10 @@ class DatasetTemplate:
         else:
             self.outputs = outputs
 
-        self.tiv = args.translation_invariant_variables
+        if hasattr(args, 'translation_invariant_variables'):
+            self.tiv = args.translation_invariant_variables
+        else:
+            self.tiv = []
         self.tiv_in_inputs_idx = [i for i, e in enumerate(self.inputs) if e in self.tiv]
         self.tiv_in_outputs_idx = [i for i, e in enumerate(self.outputs) if e in self.tiv]
         self.tiv_for_inputs_idx = [i for i, e in enumerate(self.tiv) if e in self.inputs]
@@ -72,9 +75,9 @@ class DatasetTemplate:
         self.args = args
 
         self.shift_labels = self.args.shift_labels
+        self.warm_up_len = self.args.wash_out_len
 
         self.exp_len = None
-        self.warm_up_len = self.args.wash_out_len
         self.df_lengths = []
         self.df_lengths_cs = []
 

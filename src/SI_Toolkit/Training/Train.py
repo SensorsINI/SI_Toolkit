@@ -16,6 +16,7 @@ from SI_Toolkit.load_and_normalize import load_data, normalize_df, get_paths_to_
 
 from SI_Toolkit.Functions.General.Initialization import create_full_name, create_log_file, get_norm_info_for_net, get_net, set_seed
 from SI_Toolkit.Functions.General.SavingTerminalOutput import TerminalSaver
+from SI_Toolkit.Functions.General.Normalising import write_out_normalization_vectors
 
 
 def train_network():
@@ -69,6 +70,8 @@ def train_network():
     # Create new full name for the pretrained net
     create_full_name(net_info, a.path_to_models)
     normalization_info = get_norm_info_for_net(net_info, files_for_normalization=a.training_files)
+
+    write_out_normalization_vectors(normalization_info, net_info)
 
     # Copy training config
     src = os.path.join('SI_Toolkit_ASF', 'config_training.yml')

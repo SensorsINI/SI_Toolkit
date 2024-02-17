@@ -3,13 +3,24 @@ import sys
 import importlib.util
 
 import tensorflow as tf
+import numpy as np
 
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 
 try:
     import qkeras
+except (ModuleNotFoundError, ImportError, AttributeError) as error:
+    print('QKeras not found or not working. \n'
+          'Quantization-aware training will not be available.'
+          f'Got an error: \n'
+          f'{error}. \n'
+          )
+
+try:
+    from tensorflow_model_optimization.python.core.sparsity.keras import prune, pruning_callbacks, pruning_schedule
+    from tensorflow_model_optimization.sparsity.keras import strip_pruning
 except ModuleNotFoundError:
-    print('QKeras not found. Quantization-aware training will not be available.')
+    print('tensorflow_model_optimization not found. Pruning will not be available.')
 
 def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     """
@@ -120,13 +131,13 @@ def compose_net_from_net_name(net_info,
             quantization_args['recurrent_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['RECURRENT'])
 
     if hasattr(net_info, 'regularization') and net_info.regularization['ACTIVATED']:
-        regularization_kernel = net_info.regularization['KERNEL']
-        regularization_bias = net_info.regularization['BIAS']
-        regularization_activity = net_info.regularization['ACTIVITY']
+        regularization_kernel = tf.keras.regularizers.l1_l2(**net_info.regularization['KERNEL'])
+        regularization_bias = tf.keras.regularizers.l1_l2(**net_info.regularization['BIAS'])
+        regularization_activity = tf.keras.regularizers.l1_l2(**net_info.regularization['ACTIVITY'])
     else:
-        regularization_kernel = {'l1': 0.0, 'l2': 0.0}
-        regularization_bias = {'l1': 0.0, 'l2': 0.0}
-        regularization_activity = {'l1': 0.0, 'l2': 0.0}
+        regularization_kernel = None
+        regularization_bias = None
+        regularization_activity = None
 
     net = tf.keras.Sequential()
 
@@ -147,18 +158,18 @@ def compose_net_from_net_name(net_info,
             if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
                 net.add(layer_type(
                     units=h_size[i], batch_size=batch_size, name='layers_{}'.format(i),
-                    kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                    bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
-                    activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+                    kernel_regularizer=regularization_kernel,
+                    bias_regularizer=regularization_bias,
+                    activity_regularizer=regularization_activity,
                     **quantization_args,
                 ))
                 net.add(qkeras.QActivation(activation=activation))
             else:
                 net.add(layer_type(
                     units=h_size[i], batch_size=batch_size, name='layers_{}'.format(i),
-                    kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                    bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
-                    activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+                    kernel_regularizer=regularization_kernel,
+                    bias_regularizer=regularization_bias,
+                    activity_regularizer=regularization_activity,
                     **quantization_args,
                 ))
                 net.add(tf.keras.layers.Activation(tf.keras.activations.tanh))
@@ -176,9 +187,9 @@ def compose_net_from_net_name(net_info,
             batch_input_shape=shape_input,
             return_sequences=True,
             stateful=stateful,
-            kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-            bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
-            activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+            kernel_regularizer=regularization_kernel,
+            bias_regularizer=regularization_bias,
+            activity_regularizer=regularization_activity,
             **quantization_args,
         ))
         # Define following layers
@@ -188,23 +199,23 @@ def compose_net_from_net_name(net_info,
                 activation=activation,
                 return_sequences=True,
                 stateful=stateful,
-                kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
-                activity_regularizer=tf.keras.regularizers.l1_l2(**regularization_activity),
+                kernel_regularizer=regularization_kernel,
+                bias_regularizer=regularization_bias,
+                activity_regularizer=regularization_activity,
                 **quantization_args,
             ))
 
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
         net.add(qkeras.QDense(units=len(outputs_list), name='layers_{}'.format(h_number),
-                                      kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                                      bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                                      kernel_regularizer=regularization_kernel,
+                                      bias_regularizer=regularization_bias,
                                       **quantization_last_layer_args,
                                       ))
         net.add(qkeras.QActivation(activation=qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])))
     else:
         net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers_{}'.format(h_number), activation=activation_last_layer,
-                                      kernel_regularizer=tf.keras.regularizers.l1_l2(**regularization_kernel),
-                                      bias_regularizer=tf.keras.regularizers.l1_l2(**regularization_bias),
+                                      kernel_regularizer=regularization_kernel,
+                                      bias_regularizer=regularization_bias,
                                       ))
 
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
@@ -291,23 +302,28 @@ def get_activation_statistics(model, datasets, path_to_save=None):
     import numpy as np
     import os
     from tqdm import tqdm
+    print()
+    print('Calculating activations statistics...')
+    print('For each - except for last - layer the calculation is done twice: with and without the activation function')
     # Creating a list of intermediate models for each layer's output
     intermediate_models = [tf.keras.Model(inputs=model.input, outputs=layer.output) for layer in model.layers]
-    for layer_model in tqdm(intermediate_models, desc="Processing Layers for activations statistics", leave=True, position=0):
+    for i in range(len(intermediate_models)):
+        layer_model = intermediate_models[i]
         layer_name = layer_model.layers[-1].name
         activations = []
 
         # Passing the dataset through the intermediate model
         if isinstance(datasets, list):
-            for dataset in datasets:
-                for batch in tqdm(dataset, desc=f'Progress of the current dataset (out of {len(datasets)}) for activations statistics', leave=False, position=0):
+            for k in range(len(datasets)):
+                for batch in tqdm(datasets[k], desc=f'Progress layer or activation {i+1} (out of {len(intermediate_models)}) '
+                                                    f'dataset {k+1} (out of {len(datasets)}) - activations statistics', leave=False, position=0):
                     features = batch[0]
-                    batch_activations = layer_model.predict(features, verbose=0)
+                    batch_activations = layer_model(features, training=False)
                     activations.append(batch_activations)
         else:
-            for batch in tqdm(datasets, desc=f'Progress of the dataset for activations statistics', leave=False, position=0):
+            for batch in tqdm(datasets, desc=f'Progress layer or activation {i+1} (out of {len(intermediate_models)}) - activations statistics', leave=False, position=0):
                 features = batch[0]
-                batch_activations = layer_model.predict(features, verbose=0)
+                batch_activations = layer_model(features, training=False)
                 activations.append(batch_activations)
 
         # Concatenating activations across all batches
@@ -329,3 +345,57 @@ def num_bits_needed_for_integer_part(n):
         return 1  # At least 1 bit is needed to represent 0
     else:
         return math.floor(math.log2(n)) + 1
+
+def get_pruning_params(net_info, number_of_batches):
+    # region Defining pruning
+    if hasattr(net_info, 'pruning_activated') and net_info.pruning_activated:
+        if 'tensorflow_model_optimization' not in sys.modules:
+            raise ModuleNotFoundError('tensorflow_model_optimization not found. Pruning will not be available. Change config_training or install the module')
+        if net_info.pruning_schedule == 'CONSTANT_SPARSITY':
+            pruning_schedule_params = net_info.pruning_schedules[net_info.pruning_schedule]
+            selected_pruning_schedule = pruning_schedule.ConstantSparsity(
+                target_sparsity=pruning_schedule_params['target_sparsity'],
+                begin_step=int(pruning_schedule_params['begin_step_in_epochs']*number_of_batches),
+                end_step=int(pruning_schedule_params['end_step_in_training_fraction']*net_info.num_epochs*number_of_batches),
+                frequency=int(np.maximum(1, number_of_batches/pruning_schedule_params['frequency_per_epoch'])))
+        elif net_info.pruning_schedule == 'POLYNOMIAL_DECAY':
+            pruning_schedule_params = net_info.pruning_schedules[net_info.pruning_schedule]
+            selected_pruning_schedule = pruning_schedule.PolynomialDecay(
+                initial_sparsity=pruning_schedule_params['initial_sparsity'],
+                final_sparsity=pruning_schedule_params['final_sparsity'],
+                begin_step=int(pruning_schedule_params['begin_step_in_epochs']*number_of_batches),
+                end_step=int(pruning_schedule_params['end_step_in_training_fraction']*net_info.num_epochs*number_of_batches),
+                power=pruning_schedule_params['power'],
+                frequency=int(np.maximum(1, number_of_batches/pruning_schedule_params['frequency_per_epoch'])))
+        else:
+            raise NotImplementedError('Pruning schedule {} is not implemented yet.'.format(net_info.pruning_schedule))
+
+        pruning_params = {"pruning_schedule": selected_pruning_schedule}
+        return pruning_params
+
+def make_prunable(net, net_info, number_of_batches):
+    pruning_params = get_pruning_params(net_info, number_of_batches)
+
+    # Rebuild the model with pruned layers
+    pruned_layers = []
+    for i, layer in enumerate(net.layers):
+        # Adjust pruning parameters for the last layer if needed
+        if i == len(net.layers) - 1:
+            net_info.pruning_schedules['CONSTANT_SPARSITY']['target_sparsity'] = \
+            net_info.pruning_schedules['CONSTANT_SPARSITY']['target_sparsity_last_layer']
+            net_info.pruning_schedules['POLYNOMIAL_DECAY']['final_sparsity'] = \
+            net_info.pruning_schedules['POLYNOMIAL_DECAY']['final_sparsity_last_layer']
+            pruning_params = get_pruning_params(net_info, number_of_batches)
+        if not isinstance(layer, tf.keras.layers.InputLayer):  # Skip input layer
+            # Wrap layer with pruning
+            pruned_layer = prune.prune_low_magnitude(layer, **pruning_params)
+        else:
+            pruned_layer = layer  # Keep input layer unchanged
+        pruned_layers.append(pruned_layer)
+
+    # Reconstruct the model with pruned layers
+    prunable_model = tf.keras.Sequential(pruned_layers)
+
+    # Prune whole network
+    # prunable_model = prune.prune_low_magnitude(net, **pruning_params)
+    return prunable_model

@@ -1,45 +1,45 @@
-"""
-This was the file to package SI_Toolkit and consequently to be able to install it with PIP.
-The motivation was to easier imports between SI_Toolkit, SI_Toolkit application specific files and rest of projects where it is used
-We abandoned the idea because it would not, or not necessarily be a sub-git-project
-and this could once again cause that different versions of SI_Toolkit would start to diverge.
-"""
-
-
 import setuptools
-
 import platform
 
-if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
-    tensorflow_requirements = []
-    print('Some functionalities of SI_Toolkit require Tensorflow.\n'
-          'For M1 Apple processor you need to install it manually.\n'
-          'Use commands:\n'
-          'conda install -c apple tensorflow-deps\n'
-          'pip install tensorflow-metal\n'
-          'This is without GPU support which at the time of writing was working very poorly.\n'
-          'You may want to check if anything better was released in the meantime.')
-else:
-    tensorflow_requirements = ['tensorflow==2.8']
+import sys
+import os
 
+current_dir = os.path.abspath(os.path.dirname(__file__))
+sys.path.append(current_dir)
+from create_pycharm_run_configurations import create_run_configurations
+create_run_configurations(os.path.join(current_dir, 'PycharmRunConfigurations'))
+sys.path.remove(current_dir)
+
+# Function to read static requirements from requirements.txt
+def load_requirements(filename='requirements.txt'):
+    with open(filename, 'r') as file:
+        return file.read().splitlines()
+
+
+# Static dependencies
+static_requirements = load_requirements()
+
+
+dynamic_requirements = []
+
+if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
+    tensorflow_requirements = ['tensorflow-macos-2.8']
+    print('On 10.02.2024 there is a problem with higher versions regarding quantization and pruning.')
+else:
+    tensorflow_requirements = ['tensorflow']
+
+
+# Dynamic dependencies based on Ubuntu version
 version = platform.version()
 if 'Ubuntu' in version and '18.04' in version:
-    PyQt_requirements = ['PyQt5']
-    print('SI_Toolkit is design to work with PyQt6 which does not support Ubuntu 18.04.\n'
+    dynamic_requirements.append('PyQt5')
+    print('SI_Toolkit is designed to work with PyQt6 which does not support Ubuntu 18.04.\n'
           'You can find however on Github a separate branch with PyQt5 which will be installed now for you.')
 else:
-    PyQt_requirements = ['PyQt6']
+    dynamic_requirements.append('PyQt6')
 
-requirements = [
-    'matplotlib',
-    'numpy',
-    'pandas',
-    'torch',
-    'derivative',
-    'gitpython',
-    'ruamel.yaml'
-]
-requirements = requirements + tensorflow_requirements + PyQt_requirements
+# Combine static and dynamic dependencies
+requirements = static_requirements + dynamic_requirements
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()

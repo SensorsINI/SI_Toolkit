@@ -10,24 +10,81 @@ training_default:
   # For training closed loop dynamics model:
   control_inputs: ['Q']
   state_inputs: ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
-  setpoint_inputs: []  # Can be only 'target' or empty for CartPole
+  setpoint_inputs: []  # Can be only 'target_position' or empty for CartPole
   outputs: ['angle_sin', 'angle_cos', 'angleD', 'position', 'positionD']
+  #  outputs: ['D_angle_sin', 'D_angle_cos', 'D_angleD', 'D_position', 'D_positionD'] # Don't forget to change SHIFT_LABELS to 0
   translation_invariant_variables: []
   # For training open loop dynamics model:
   # inputs = ['position', 'positionD', 'angle_sin', 'angle_cos', 'angleD']
   # outputs = inputs_list
-  # For training of RNN imitating MPC:
-  # inputs = ['position', 'positionD', 'angle', 'angleD', 'target']
-  # outputs = ['Q']
+  # For training of a network imitating MPC:
+  # control_inputs: []
+  # state_inputs: ['position', 'positionD', 'angle_cos', 'angle_sin', 'angleD', 'target_equilibrium', 'target_position']
+  # outputs: ['Q']
   EPOCHS: 5
   BATCH_SIZE: 16
   SEED: 1873
-  LR: 1.0e-2
+  LR:
+    INITIAL: 1.0e-2
+    REDUCE_LR_ON_PLATEAU: True
+    MINIMAL: 1.0e-5
+    PATIENCE: 1
+    DECREASE_FACTOR: 0.316 # sqrt(0.1)
+    MIN_DELTA: 1.0e-4
   WASH_OUT_LEN: 10
   POST_WASH_OUT_LEN: 20
   ON_FLY_DATA_GENERATION: False
   NORMALIZE: True
   SHIFT_LABELS: 1  # for k, as a label to row i is taken row i+k
   USE_NNI: False  # Decide if you want to use NNI package
-  CONSTRUCT_NETWORK: 'with cells'  # Matters only for Pytorch
+  CONSTRUCT_NETWORK: 'with cells'  # Matters only for Pytorch; 'with cells' or 'with modules'
+  VALIDATE_ALSO_ON_TRAINING_SET: false
+  PLOT_WEIGHTS_DISTRIBUTION: false # Calculate histograms of weights and biases and activations, take long time
 
+REGULARIZATION:   # Implemented only for TF, no regularization for Pytorch
+  ACTIVATED: False
+  KERNEL:  # For all layers
+    l1: 0.01
+    l2: 0.01
+  BIAS:  # For all layers
+    l1: 0.01
+    l2: 0.01
+  ACTIVITY:  # Not for last layer, this has activity regularization set to 0
+    l1: 0.00
+    l2: 0.00
+
+
+QUANTIZATION: # Not implemented yet
+  ACTIVATED: False
+  ACTIVATION:
+    bits: 6
+  KERNEL:
+    bits: 11
+    integer: 6
+    symmetric: True
+  BIAS:
+    bits: 11
+    integer: 6
+    symmetric: True
+  RECURRENT:
+    bits: 11
+    integer: 6
+    symmetric: True
+
+PRUNING: # TF only for the moment
+  ACTIVATED: False
+  PRUNING_PARAMS:
+    PRUNING_SCHEDULE: 'CONSTANT_SPARSITY'
+  PRUNING_SCHEDULES:
+    CONSTANT_SPARSITY:
+      target_sparsity: 0.75
+      begin_step_in_epochs: 1.0  # fraction of epoch allowed
+      end_step_in_training_fraction: 1.0
+      frequency_per_epoch: 100.0 # fraction of epoch allowed
+    POLYNOMIAL_DECAY:
+      initial_sparsity: 0.0
+      final_sparsity: 0.75
+      begin_step_in_epochs: 1.0  # fraction of epoch allowed
+      end_step_in_training_fraction: 0.8
+      power: 3.0
+      frequency_per_epoch: 1000 # fraction of epoch allowed
