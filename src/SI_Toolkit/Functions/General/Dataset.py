@@ -62,6 +62,9 @@ class DatasetTemplate:
             dfs = dfs_split
 
         for df in dfs:
+            needed_columns = list(set(self.inputs) | set(self.outputs))
+            df = df[needed_columns]
+            df = df.dropna(axis=0)
             if 'time' in df.columns:
                 self.time_axes.append(df['time'])
             self.data.append(df[self.inputs])

@@ -228,8 +228,6 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
             except ValueError:
                 pass
 
-        df = df.dropna()
-
         all_dfs.append(df)
 
     return all_dfs
