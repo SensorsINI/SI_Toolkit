@@ -2,9 +2,9 @@ from SI_Toolkit.computation_library import TensorFlowLibrary
 
 from SI_Toolkit.Functions.General.Normalising import get_scaling_function_for_output_of_differential_network
 
-from SI_Toolkit_ASF.predictors_customization import (CONTROL_INPUTS,
-                                                     STATE_INDICES,
-                                                     STATE_VARIABLES)
+from SI_Toolkit_ASF.predictors_customization_tf import (CONTROL_INPUTS,
+                                                        STATE_INDICES,
+                                                        STATE_VARIABLES)
 
 import numpy as np
 
