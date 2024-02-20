@@ -2,7 +2,7 @@ from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 import numpy as np
 from tqdm import trange
 
-from SI_Toolkit_ASF.predictors_customization_tf import STATE_VARIABLES, CONTROL_INPUTS
+from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, CONTROL_INPUTS
 
 def get_prediction(
         dataset,

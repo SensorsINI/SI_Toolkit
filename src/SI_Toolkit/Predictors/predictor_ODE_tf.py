@@ -3,7 +3,7 @@ from SI_Toolkit.Predictors import template_predictor
 from SI_Toolkit.computation_library import TensorFlowLibrary
 
 
-from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE, STATE_VARIABLES, CONTROL_INPUTS
+from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES, CONTROL_INPUTS
 from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
 
 lib = TensorFlowLibrary
