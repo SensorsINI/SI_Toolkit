@@ -26,7 +26,7 @@ class predictor_ODE_tf(template_predictor):
     def __init__(self,
                  horizon: int,
                  dt: float,
-                 computation_library=NumpyLibrary,
+                 computation_library=TensorFlowLibrary,
                  intermediate_steps=10,
                  disable_individual_compilation=False,
                  batch_size=1,
