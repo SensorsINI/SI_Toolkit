@@ -43,6 +43,9 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
             return wrapper
 
     elif library == 'tf':
+        devices = tf.config.list_physical_devices()
+        if device_name not in [d.name for d in devices] and '/physical_'+device_name[1:] not in [d.name for d in devices]:
+            raise ValueError(f"Requested device {device_name} not found in the list of physical devices: {devices}")
         # TensorFlow device management
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             @functools.wraps(func)
@@ -52,7 +55,12 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
             return wrapper
 
     elif library == 'pytorch':
+        devices = [torch.device(f'cuda:{i}') for i in
+                   range(torch.cuda.device_count())] if torch.cuda.is_available() else [torch.device('cpu')]
         target_device = torch.device(device_name)  # Create a torch.device object for comparison
+
+        if target_device not in devices:
+            raise ValueError(f"Requested device {device_name} not found in the list of physical devices: {devices}")
 
         def decorator(func):
             @functools.wraps(func)
