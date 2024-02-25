@@ -84,8 +84,9 @@ def get_paths_to_datafiles(paths_to_data_information):
                 list_of_paths_to_datafiles.append(path)
             else:
                 # Assume that path to folder was provided
-                folder_content = glob.glob(path + '*.csv')
-                list_of_paths_to_datafiles += folder_content
+                for dirpath, dirnames, filenames in os.walk(path):
+                    for filename in [f for f in filenames if f.endswith(".csv")]:
+                        list_of_paths_to_datafiles.append(os.path.join(dirpath, filename))
 
     elif isinstance(paths_to_data_information, str):
         if paths_to_data_information[-4:] == '.csv':
