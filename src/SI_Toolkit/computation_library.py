@@ -57,14 +57,16 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
         def decorator(func):
             @functools.wraps(func)
             def wrapper(*args, **kwargs):
-                new_args = [
-                    (arg.to(target_device) if isinstance(arg, torch.Tensor) and arg.device != target_device else arg)
-                    for arg in args]
-
-                # Assuming `args[0]` could be 'self' for class methods
+                # Process the first argument separately if it's a class instance with a .to() method
                 if args and hasattr(args[0], 'to'):
-                    args = (args[0].to(target_device) if args[0].device != target_device else args[0],) + args[1:]
+                    first_arg = args[0].to(target_device) if getattr(args[0], 'device', None) != target_device else args[0]
+                    args = (first_arg,) + args[1:]
 
+                # Then, handle all the args and kwargs
+                new_args = [
+                    arg.to(target_device) if isinstance(arg, torch.Tensor) and arg.device != target_device else arg
+                    for arg in args
+                ]
                 new_kwargs = {
                     k: (v.to(target_device) if isinstance(v, torch.Tensor) and v.device != target_device else v) for
                     k, v in kwargs.items()}
