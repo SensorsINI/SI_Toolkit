@@ -1,5 +1,6 @@
 from typing import Callable, Optional, Union, Sequence, Any
 
+import functools
 import numpy as np
 import tensorflow as tf
 import torch
@@ -20,8 +21,65 @@ class LibraryHelperFunctions:
         v.assign(x)
 
 
+
+def set_device_general(device_name: str, library: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    A decorator to set the computation device for the decorated function.
+
+    Parameters:
+    - device_name: str - The name of the device (e.g., '/cpu:0', '/gpu:0').
+
+    Returns:
+    - A callable decorator that wraps the original function, ensuring it runs on the specified device.
+    """
+    library = library.lower()  # Normalize the library name for case-insensitive comparison
+
+    if library == 'numpy':
+        # Numpy does not require device management, so this is a no-op
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            @functools.wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                return func(*args, **kwargs)
+            return wrapper
+
+    elif library == 'tf':
+        # TensorFlow device management
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            @functools.wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                with tf.device(device_name):
+                    return func(*args, **kwargs)
+            return wrapper
+
+    elif library == 'pytorch':
+        target_device = torch.device(device_name)  # Create a torch.device object for comparison
+
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                new_args = [
+                    (arg.to(target_device) if isinstance(arg, torch.Tensor) and arg.device != target_device else arg)
+                    for arg in args]
+
+                # Assuming `args[0]` could be 'self' for class methods
+                if args and hasattr(args[0], 'to'):
+                    args = (args[0].to(target_device) if args[0].device != target_device else args[0],) + args[1:]
+
+                new_kwargs = {
+                    k: (v.to(target_device) if isinstance(v, torch.Tensor) and v.device != target_device else v) for
+                    k, v in kwargs.items()}
+                return func(*new_args, **new_kwargs)
+
+            return wrapper
+    else:
+        raise ValueError('Invalid library name')
+
+    return decorator
+
+
 class ComputationLibrary:
     lib = None
+    set_device: Callable[[str], Callable[[Callable[..., Any]], Callable[..., Any]]] = None
     reshape: Callable[[TensorType, "tuple[int, ...]"], TensorType] = None
     permute: Callable[[TensorType, "tuple[int]"], TensorType] = None
     newaxis = None
@@ -108,6 +166,7 @@ class ComputationLibrary:
 
 class NumpyLibrary(ComputationLibrary):
     lib = 'Numpy'
+    set_device = lambda device_name: set_device_general(device_name, 'numpy')
     reshape = lambda x, shape: np.reshape(x, shape)
     permute = np.transpose
     newaxis = np.newaxis
@@ -196,6 +255,7 @@ class NumpyLibrary(ComputationLibrary):
 
 class TensorFlowLibrary(ComputationLibrary):
     lib = 'TF'
+    set_device = lambda device_name: set_device_general(device_name, 'tf')
     reshape = tf.reshape
     permute = tf.transpose
     newaxis = tf.newaxis
@@ -287,6 +347,7 @@ class PyTorchLibrary(ComputationLibrary):
         return a[..., index_vector]
 
     lib = 'Pytorch'
+    set_device = lambda device_name: set_device_general(device_name, 'pytorch')
     reshape = torch.reshape
     permute = torch.permute
     newaxis = None
