@@ -19,7 +19,7 @@ try:
 except:
     print('No DataSelector found.')
 
-from SI_Toolkit.Functions.TF.Loss import LossMSRSequence
+from SI_Toolkit.Functions.TF.Loss import LossMSRSequence, LossMSRSequenceCustomizableRelative
 
 
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
@@ -58,9 +58,13 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     # )
 
     optimizer = keras.optimizers.Adam(a.lr_initial)
-    loss = LossMSRSequence(wash_out_len=a.wash_out_len,
-                           post_wash_out_len=a.post_wash_out_len,
-                           discount_factor=1.0)
+
+    # loss = LossMSRSequenceCustomizableRelative(
+    loss = LossMSRSequence(
+        wash_out_len=a.wash_out_len,
+        post_wash_out_len=a.post_wash_out_len,
+        discount_factor=1.0)
+
     net.compile(
         loss=loss,
         optimizer=optimizer,
