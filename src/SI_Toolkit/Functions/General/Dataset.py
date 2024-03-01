@@ -1,7 +1,7 @@
 import numpy as np
 from copy import deepcopy
 from SI_Toolkit.Functions.General.value_precision import set_value_precision
-
+from tqdm import tqdm
 
 def augment_data_placeholder(data, labels):
     return data, labels
@@ -60,14 +60,14 @@ class DatasetTemplate:
             else:
                 dfs_split.append(df)
 
-            dfs = dfs_split
+        dfs = dfs_split
 
-        for df in dfs:
+        for df in tqdm(dfs, desc="Processing data files"):
             needed_columns = list(set(self.inputs) | set(self.outputs))
             df = df[needed_columns]
             df = df.dropna(axis=0)
             if hasattr(args, 'quantization') and args.quantization['ACTIVATED'] and args.quantization['QUANTIZATION_DATASET'] != 'float':
-                df = df.applymap(lambda x: set_value_precision(x, args.quantization_dataset))
+                df = df.map(lambda x: set_value_precision(x, args.quantization['QUANTIZATION_DATASET']))
             if 'time' in df.columns:
                 self.time_axes.append(df['time'])
             self.data.append(df[self.inputs])
