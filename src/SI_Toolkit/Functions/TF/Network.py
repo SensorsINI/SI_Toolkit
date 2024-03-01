@@ -123,12 +123,12 @@ def compose_net_from_net_name(net_info,
 
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
         activation = qkeras.quantizers.quantized_tanh(**net_info.quantization['ACTIVATION'], use_real_tanh=True, symmetric=True)
-        quantization_last_layer_args['activation'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])
-        quantization_last_layer_args['kernel_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])
-        quantization_last_layer_args['bias_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['BIAS'])
+        quantization_last_layer_args['activation'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'], alpha=1)
+        quantization_last_layer_args['kernel_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'], alpha=1)
+        quantization_last_layer_args['bias_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['BIAS'], alpha=1)
         quantization_args = quantization_last_layer_args.copy()
         if net_type in ['GRU', 'LSTM', 'RNN-Basic']:
-            quantization_args['recurrent_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['RECURRENT'])
+            quantization_args['recurrent_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['RECURRENT'], alpha=1)
 
     if hasattr(net_info, 'regularization') and net_info.regularization['ACTIVATED']:
         regularization_kernel = tf.keras.regularizers.l1_l2(**net_info.regularization['KERNEL'])
