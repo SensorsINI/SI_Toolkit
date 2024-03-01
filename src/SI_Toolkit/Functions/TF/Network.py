@@ -264,6 +264,7 @@ def plot_params_histograms(params, title, show=True, path_to_save=None):
     plt.ylabel("number of params")
     plt.title(title)
 
+    number_params = len(params)
     mean = np.mean(params)
     min_value = np.min(params)
     max_value = np.max(params)
@@ -277,6 +278,15 @@ def plot_params_histograms(params, title, show=True, path_to_save=None):
     max_int = int(np.floor(np.max([abs(min_value), abs(max_value)])))
     num_bits = num_bits_needed_for_integer_part(max_int)
     plt.text(mean + 0.1 * x_values_range, 10 ** (0.8 * log_max), f"Bits needed \nfor biggest integer ({max_int}): {num_bits}")
+    plt.text(mean + 0.1 * x_values_range, 10 ** (0.7 * log_max), f'Number params: {number_params}')
+
+    unique_params = np.unique(params)
+    diff = np.diff(np.sort(unique_params))
+    plt.text(mean + 0.1 * x_values_range, 10 ** (0.65 * log_max),
+             f"Unique params & min difference: \n(indicates quantization) \n{unique_params}; {diff}")
+
+
+
     if show:
         plt.show()
     if path_to_save is not None:
