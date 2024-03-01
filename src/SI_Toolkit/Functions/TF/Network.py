@@ -152,8 +152,7 @@ def compose_net_from_net_name(net_info,
             shape_input = (time_series_length, len(inputs_list))
 
         net.add(tf.keras.Input(batch_size=batch_size, shape=shape_input))
-        if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
-            net.add(qkeras.QActivation(activation=qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])))
+
         for i in range(h_number):
             if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
                 net.add(layer_type(
@@ -211,7 +210,6 @@ def compose_net_from_net_name(net_info,
                                       bias_regularizer=regularization_bias,
                                       **quantization_last_layer_args,
                                       ))
-        net.add(qkeras.QActivation(activation=qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])))
     else:
         net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers_{}'.format(h_number), activation=activation_last_layer,
                                       kernel_regularizer=regularization_kernel,

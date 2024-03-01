@@ -1,5 +1,6 @@
 import numpy as np
 from copy import deepcopy
+from SI_Toolkit.Functions.General.value_precision import set_value_precision
 
 
 def augment_data_placeholder(data, labels):
@@ -65,6 +66,8 @@ class DatasetTemplate:
             needed_columns = list(set(self.inputs) | set(self.outputs))
             df = df[needed_columns]
             df = df.dropna(axis=0)
+            if hasattr(args, 'quantization') and args.quantization['ACTIVATED'] and args.quantization['QUANTIZATION_DATASET'] != 'float':
+                df = df.applymap(lambda x: set_value_precision(x, args.quantization_dataset))
             if 'time' in df.columns:
                 self.time_axes.append(df['time'])
             self.data.append(df[self.inputs])
