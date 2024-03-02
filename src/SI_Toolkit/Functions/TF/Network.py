@@ -274,19 +274,25 @@ def plot_params_histograms(params, title, show=True, path_to_save=None):
     log_min = np.log10(min_ylim)
 
     plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.95 * (log_max-log_min)), f'Mean: {mean:.3f}')
-    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.90 * (log_max-log_min)), f"Range: {min_value:.2f} - {max_value:.2f}")
+    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.85 * (log_max-log_min)), f"Range: {min_value:.2f} - {max_value:.2f}")
     max_int = int(np.floor(np.max([abs(min_value), abs(max_value)])))
     num_bits = num_bits_needed_for_integer_part(max_int)
-    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.85 * (log_max-log_min)), f"Bits needed \nfor biggest integer ({max_int}): {num_bits}")
-    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.75 * (log_max-log_min)), f'Number params: {number_params}')
+    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.80 * (log_max-log_min)), f"Bits needed \nfor biggest integer ({max_int}): {num_bits}")
+    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.65 * (log_max-log_min)), f'Number params: {number_params}')
     unique_params = np.unique(params)
     diff = np.diff(np.sort(unique_params))
     if len(diff) == 0:
         minimum_difference = 0
     else:
         minimum_difference = np.min(diff)
+
+    if minimum_difference == 0:
+        fractional_bits = np.inf
+    else:
+        fractional_bits = -np.log2(minimum_difference)
+
     plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.70 * (log_max-log_min)),
-             f"Unique params & -log2(min difference): \n(indicates quantization) \n{len(unique_params)}; {-np.log2(minimum_difference)}")
+             f"Unique params & -log2(min difference): \n(indicates quantization) \n{len(unique_params)}; {fractional_bits}")
 
 
 
