@@ -10,8 +10,8 @@ from SI_Toolkit_ASF.predictors_customization import CONTROL_INPUTS
 import numpy as np
 batch_size = 2000
 horizon = 50
-path_to_model = './SI_Toolkit_ASF/Experiments/Pretrained-RNN-1/Models'
-net_name = 'GRU-6IN-32H1-32H2-5OUT-0' # if applies
+path_to_model = './SI_Toolkit_ASF/Experiments/CPS-17-02-2023-UpDown-Model/Models/'
+net_name = 'Dense-6IN-32H1-32H2-5OUT-0' # if applies
 GP_name = 'SGP_10'
 initial_state = np.float32(np.random.random(size=(batch_size, 6)))
 Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
