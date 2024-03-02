@@ -27,6 +27,7 @@ from SI_Toolkit.Functions.General.Initialization import (get_net,
 from SI_Toolkit.Functions.General.Normalising import (
     get_denormalization_function, get_normalization_function,
     )
+from SI_Toolkit.Functions.General.value_precision import set_value_precision
 from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
 from SI_Toolkit_ASF.predictors_customization import \
     predictor_output_augmentation_tf
@@ -52,6 +53,7 @@ class predictor_autoregressive_neural(template_predictor):
         update_before_predicting=True,
         mode=None,
         hls=False,
+        input_quantization='float',
         **kwargs
     ):
         super().__init__(horizon=horizon, batch_size=batch_size)
@@ -203,6 +205,8 @@ class predictor_autoregressive_neural(template_predictor):
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(self.predictor_output_features)],
                                dtype=np.float32)
 
+        self.input_quantization = input_quantization
+
         self.AL: autoregression_loop = autoregression_loop(
             model_inputs_len=len(self.net_info.inputs),
             model_outputs_len=len(self.net_info.outputs),
@@ -275,7 +279,14 @@ class predictor_autoregressive_neural(template_predictor):
 
         self.lib.assign(self.model_initial_input_normed, self.lib.gather_last(initial_state_normed, self.model_initial_input_indices))
 
+        model_initial_input_normed = self.lib.gather_last(initial_state_normed, self.model_initial_input_indices)
         model_external_input_normed = self.lib.gather_last(Q, self.model_external_input_indices)
+
+        if self.input_quantization != 'float':
+            model_initial_input_normed = set_value_precision(model_initial_input_normed, self.input_quantization, lib=self.lib)
+            model_external_input_normed = set_value_precision(model_external_input_normed, self.input_quantization, lib=self.lib)
+
+        self.lib.assign(self.model_initial_input_normed, model_initial_input_normed)
 
         # load internal RNN state if applies
         self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
