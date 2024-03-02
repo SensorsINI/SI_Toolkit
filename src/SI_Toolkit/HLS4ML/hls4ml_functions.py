@@ -27,12 +27,12 @@ def convert_model_with_hls4ml(net, granularity='model'):
     config['Model']['Precision'] = config_hls['PRECISION']['intermediate_results']
     # Iterate through all layers in the HLS configuration
     for layer_name, layer_config in config['LayerName'].items():
-        if 'input_1' in layer_name:
+        if 'input' in layer_name:
             layer_config['Precision']['result'] = config_hls['PRECISION']['input_and_output']
             layer_config['Precision']['weight'] = config_hls['PRECISION']['weights_and_biases']  # Not sure what does
             layer_config['Precision']['bias'] = config_hls['PRECISION']['weights_and_biases']
         # Check if the layer is an activation layer (assuming 'activation' in the name)
-        if 'activation' in layer_name:
+        elif 'activation' in layer_name:
             # Set precision for activation layers
             layer_config['Precision']['result'] = config_hls['PRECISION']['activations']
         else:
