@@ -69,7 +69,7 @@ predictor = predictor_ODE(horizon, 0.02, 10)
 
     initialisation_ODE_tf = '''
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-predictor = predictor_ODE_tf(horizon, 0.02, 10)
+predictor = predictor_ODE_tf(horizon=horizon, dt=0.02, intermediate_steps=10)
 '''
 
     initialisation_autoregressive_neural = '''
