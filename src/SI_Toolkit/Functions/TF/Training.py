@@ -149,6 +149,15 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     if a.pruning_activated:
         net = strip_pruning(net)
     # region Save final weights as checkpoint
+    if net_info.quantization['ACTIVATED']:
+        from qkeras.utils import model_save_quantized_weights
+        model_save_quantized_weights(net, os.path.join(net_info.path_to_net, net_info.net_full_name + '.h5'))
+        try:
+            from SI_Toolkit.HLS4ML.convert_with_hls4ml import convert_model_with_hls4ml
+            convert_model_with_hls4ml(net)
+        except ImportError:
+            print('HLS4ML not found. No corresponding info possible.')
+
     net.save(os.path.join(net_info.path_to_net, net_info.net_full_name + '.keras'))
     net.save_weights(os.path.join(net_info.path_to_net, 'ckpt' + '.ckpt'))
     # endregion
