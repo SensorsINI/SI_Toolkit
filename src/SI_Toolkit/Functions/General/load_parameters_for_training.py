@@ -69,6 +69,8 @@ PRUNING_SCHEDULES = config['PRUNING']['PRUNING_SCHEDULES']
 
 PLOT_WEIGHTS_DISTRIBUTION = config['training_default']['PLOT_WEIGHTS_DISTRIBUTION']
 
+FILTERS = config['FILTERS']
+
 # For l2race
 # control_inputs = ['u1', 'u2']
 # state_inputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
@@ -179,6 +181,8 @@ def args():
     args.pruning_activated = PRUNING_ACTIVATED
     args.pruning_schedule = PRUNING_SCHEDULE
     args.pruning_schedules = PRUNING_SCHEDULES
+
+    args.filters = FILTERS
 
     return args
 
