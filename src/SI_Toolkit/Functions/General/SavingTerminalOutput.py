@@ -1,9 +1,14 @@
 import sys
+import os
 
 
 class DualOutput:
     def __init__(self, filename, terminal):
         self.terminal = terminal
+        try:
+            os.makedirs(os.path.dirname(filename))
+        except FileExistsError:
+            pass
         self.log = open(filename, "a")
         self.progress_bar_state = ""
 
