@@ -2,12 +2,7 @@ import tensorflow as tf
 
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 
-STATE_INDICES = {} # This could be imported
-STATE_INDICES_TF = tf.lookup.StaticHashTable(  # TF style dictionary
-    initializer=tf.lookup.KeyValueTensorInitializer(
-        keys=tf.constant(list(STATE_INDICES.keys())), values=tf.constant(list(STATE_INDICES.values()))),
-    default_value=-100, name=None
-)
+STATE_INDICES = {}  # This could be imported
 
 
 class next_state_predictor_ODE_tf():

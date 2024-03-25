@@ -19,7 +19,7 @@ class template_predictor:
         self.num_states = len(STATE_VARIABLES)
         self.num_control_inputs = len(CONTROL_INPUTS)
     
-    def predict_tf(self, s: tf.Tensor, Q: tf.Tensor):
+    def predict_core(self, s: tf.Tensor, Q: tf.Tensor):
         """Predict the whole MPC horizon using tensorflow
 
         :param s: Initial state [batch_size x state_dim]

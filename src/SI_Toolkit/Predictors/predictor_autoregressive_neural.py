@@ -27,8 +27,9 @@ from SI_Toolkit.Functions.General.Initialization import (get_net,
 from SI_Toolkit.Functions.General.Normalising import (
     get_denormalization_function, get_normalization_function,
     )
+from SI_Toolkit.Functions.General.value_precision import set_value_precision
 from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
-from SI_Toolkit_ASF.predictors_customization_tf import \
+from SI_Toolkit_ASF.predictors_customization import \
     predictor_output_augmentation_tf
 
 from SI_Toolkit.Predictors.autoregression import autoregression_loop, differential_model_autoregression_helper, check_dimensions
@@ -52,6 +53,7 @@ class predictor_autoregressive_neural(template_predictor):
         update_before_predicting=True,
         mode=None,
         hls=False,
+        input_quantization='float',
         **kwargs
     ):
         super().__init__(horizon=horizon, batch_size=batch_size)
@@ -78,9 +80,14 @@ class predictor_autoregressive_neural(template_predictor):
 
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
 
+        if hls:
+            remove_redundant_dimensions = True
+        else:
+            remove_redundant_dimensions = False
         self.net, self.net_info = \
             get_net(a, time_series_length=1,
-                    batch_size=self.batch_size, stateful=True)
+                    batch_size=self.batch_size, stateful=True,
+                    remove_redundant_dimensions=remove_redundant_dimensions,)
 
         # Allows to use predictor for simple network evaluation
         self.mode = mode
@@ -90,9 +97,13 @@ class predictor_autoregressive_neural(template_predictor):
             self.predictor_output_features = np.array(self.net_info.outputs)
             self.horizon = 1
 
-        if hasattr(self.net_info, 'dt') and self.net_info.dt == 0.0:
-            print('Horizon set to 0!')
-            self.horizon = 1
+        if hasattr(self.net_info, 'dt'):
+            if self.net_info.dt != self.dt:
+                print(f'\n dt of the network {self.net_info.dt} s is different from dt requested of the predictor {self.dt}.\n'
+                      f'Using dt of the network {self.net_info.dt} s.\n'
+                      f'If it is what you intended (e.g. in Brunton test), ignore this message.\n')
+            self.dt = self.net_info.dt
+
 
         if self.net_info.library == 'TF':
             net, _ = \
@@ -194,6 +205,8 @@ class predictor_autoregressive_neural(template_predictor):
         self.output = np.zeros([self.batch_size, self.horizon + 1, len(self.predictor_output_features)],
                                dtype=np.float32)
 
+        self.input_quantization = input_quantization
+
         self.AL: autoregression_loop = autoregression_loop(
             model_inputs_len=len(self.net_info.inputs),
             model_outputs_len=len(self.net_info.outputs),
@@ -206,10 +219,10 @@ class predictor_autoregressive_neural(template_predictor):
             self.predict_with_update_tf = CompileAdaptive(self._predict_with_update_tf)  # This was compiled per default before I implemented hls. As for hls one need not compiled version.
 
             if disable_individual_compilation:
-                self.predict_tf = self._predict_tf
+                self.predict_core = self._predict_core
                 self.update_internal_state_tf = self._update_internal_state_tf
             else:
-                self.predict_tf = CompileAdaptive(self._predict_tf)
+                self.predict_core = CompileAdaptive(self._predict_core)
                 self.update_internal_state_tf = CompileAdaptive(self._update_internal_state_tf)
         else:
             # Manipulating of internal state currently not implemented.
@@ -217,12 +230,12 @@ class predictor_autoregressive_neural(template_predictor):
             self.copy_internal_states_from_ref = lambda *args: None
             self.copy_internal_states_to_ref = lambda *args: None
             # Convert network to HLS form
-            from SI_Toolkit_ASF.hls.hls4ml_functions import convert_model_with_hls4ml
+            from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
             self.net, _ = convert_model_with_hls4ml(self.net)
             self.net.compile()
             # Not compilation supported for HLS models
             self.predict_with_update_tf = self._predict_with_update_tf
-            self.predict_tf = self._predict_tf
+            self.predict_core = self._predict_core
             self.update_internal_state_tf = self._update_internal_state_tf
 
     def predict(self, initial_state, Q, last_optimal_control_input=None) -> np.array:
@@ -242,16 +255,16 @@ class predictor_autoregressive_neural(template_predictor):
             output = self.predict_with_update_tf(initial_state, Q, self.last_initial_state,
                                                      last_optimal_control_input)
         else:
-            output = self.predict_tf(initial_state, Q)
+            output = self.predict_core(initial_state, Q)
 
         self.output = self.lib.to_numpy(output)
         return self.output
 
     def _predict_with_update_tf(self, initial_state, Q, last_initial_state, last_optimal_control_input):
         self._update_internal_state_tf(last_optimal_control_input, last_initial_state)
-        return self._predict_tf(initial_state, Q)
+        return self._predict_core(initial_state, Q)
 
-    def _predict_tf(self, initial_state, Q):
+    def _predict_core(self, initial_state, Q):
 
         self.lib.assign(self.last_initial_state, initial_state)
 
@@ -266,7 +279,14 @@ class predictor_autoregressive_neural(template_predictor):
 
         self.lib.assign(self.model_initial_input_normed, self.lib.gather_last(initial_state_normed, self.model_initial_input_indices))
 
+        model_initial_input_normed = self.lib.gather_last(initial_state_normed, self.model_initial_input_indices)
         model_external_input_normed = self.lib.gather_last(Q, self.model_external_input_indices)
+
+        if self.input_quantization != 'float':
+            model_initial_input_normed = set_value_precision(model_initial_input_normed, self.input_quantization, lib=self.lib)
+            model_external_input_normed = set_value_precision(model_external_input_normed, self.input_quantization, lib=self.lib)
+
+        self.lib.assign(self.model_initial_input_normed, model_initial_input_normed)
 
         # load internal RNN state if applies
         self.copy_internal_states_from_ref(self.net, self.memory_states_ref)

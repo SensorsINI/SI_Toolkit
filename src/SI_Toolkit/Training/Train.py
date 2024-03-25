@@ -15,7 +15,8 @@ from SI_Toolkit.Functions.General.load_parameters_for_training import args
 from SI_Toolkit.load_and_normalize import load_data, normalize_df, get_paths_to_datafiles
 
 from SI_Toolkit.Functions.General.Initialization import create_full_name, create_log_file, get_norm_info_for_net, get_net, set_seed
-
+from SI_Toolkit.Functions.General.SavingTerminalOutput import TerminalSaver
+from SI_Toolkit.Functions.General.Normalising import write_out_normalization_vectors
 
 
 def train_network():
@@ -54,7 +55,7 @@ def train_network():
 
     # region Make folder to keep trained models and their logs if not yet exist
     try:
-        os.makedirs(a.path_to_models[:-1])
+        os.makedirs(a.path_to_models)
     except FileExistsError:
         pass
     # endregion
@@ -62,22 +63,22 @@ def train_network():
     net, net_info = get_net(a)
 
     if net_info.library == 'TF':  # If loading pretrained network this has precedence against a.library
-        from SI_Toolkit.Functions.TF.Training import train_network_core
+        import SI_Toolkit.Functions.TF.Training as Training
     else:
-        from SI_Toolkit.Functions.Pytorch.Training import train_network_core
+        import SI_Toolkit.Functions.Pytorch.Training as Training
 
     # Create new full name for the pretrained net
     create_full_name(net_info, a.path_to_models)
     normalization_info = get_norm_info_for_net(net_info, files_for_normalization=a.training_files)
 
+    write_out_normalization_vectors(normalization_info, net_info)
+
     # Copy training config
     src = os.path.join('SI_Toolkit_ASF', 'config_training.yml')
     dst = os.path.join(a.path_to_models, net_info.net_full_name)
     shutil.copy2(src, dst)
-    if net_info.library == 'TF':
-        shutil.copy('SI_Toolkit/src/SI_Toolkit/Functions/TF/Training.py', dst)
-    elif net_info.library == 'Pytorch':
-        shutil.copy('SI_Toolkit/src/SI_Toolkit/Functions/Pytorch/Training.py', dst)
+    path_to_training_script = os.path.join(os.path.dirname(Training.__file__), 'Training.py')
+    shutil.copy(path_to_training_script, dst)
 
     # region Load data and prepare datasets
 
@@ -98,37 +99,41 @@ def train_network():
 
     # endregion
 
-    # Run the training function
-    loss, validation_loss = train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
+    with TerminalSaver(os.path.join(dst, 'terminal_output.txt')):
 
-    # region Plot loss change during training
-    plt.figure()
-    plt.plot(loss, label='train')
-    plt.plot(validation_loss, label='validation')
-    plt.xlabel("Training Epoch")
-    plt.ylabel("Loss")
-    plt.yscale('log')
-    plt.legend()
-    plt.title(net_info.net_full_name)
-    plt.savefig(net_info.path_to_net + 'training_curve' + '.png')
-    plt.show()
-    # endregion
+        # Run the training function
+        loss, validation_loss, post_epoch_training_loss = Training.train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
 
-    # region If NNI enabled send final report
-    if nni_parameters is not None:
-        nni.report_final_result(validation_loss[-1])
-    # endregion
+        # region Plot loss change during training
+        plt.figure()
+        plt.plot(loss, label='loss: training')
+        if post_epoch_training_loss:
+            plt.plot(post_epoch_training_loss, label='loss: training set at epoch end')
+        plt.plot(validation_loss, label='loss: validation')
+        plt.xlabel("Training Epoch")
+        plt.ylabel("Loss")
+        plt.yscale('log')
+        plt.legend()
+        plt.title(net_info.net_full_name)
+        plt.savefig(os.path.join(net_info.path_to_net, 'training_curve' + '.png'))
+        plt.show()
+        # endregion
 
-    # When finished the training print the final message
-    print("Training Completed...                                               ")
-    print(" ")
+        # region If NNI enabled send final report
+        if nni_parameters is not None:
+            nni.report_final_result(validation_loss[-1])
+        # endregion
 
-    # region Calculate and print the total time it took to train the network
+        # When finished the training print the final message
+        print("Training Completed...                                               ")
+        print(" ")
 
-    stop = timeit.default_timer()
-    total_time = stop - start
+        # region Calculate and print the total time it took to train the network
 
-    # Print the total time it took to run the function
-    print('Total time of training the network: ' + str(total_time))
+        stop = timeit.default_timer()
+        total_time = stop - start
 
-    # endregion
+        # Print the total time it took to run the function
+        print('Total time of training the network: ' + str(total_time))
+
+        # endregion

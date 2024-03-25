@@ -4,7 +4,7 @@ from run_data_generator import run_data_generator
 
 import yaml, os
 config_SI = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_training.yml')), Loader=yaml.FullLoader)
-config_cartpole = yaml.load(open('config.yml'), Loader=yaml.FullLoader)
+config_cartpole = yaml.load(open('cartpole_physical_parameters.yml'), Loader=yaml.FullLoader)
 
 def get_record_path():
     experiment_index = 1

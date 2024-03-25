@@ -1,0 +1,13 @@
+matplotlib
+numpy
+pandas
+derivative
+gitpython
+pyyaml
+ruamel.yaml
+torch
+tensorflow==2.14  # as for 10.02.2024 this is the latest version working with tensorflow_model_optimization
+tensorflow_model_optimization
+tqdm
+qkeras
+#nni

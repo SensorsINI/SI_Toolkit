@@ -1,6 +1,7 @@
 import numpy as np
 from copy import deepcopy
-
+from SI_Toolkit.Functions.General.value_precision import set_value_precision
+from tqdm import tqdm
 
 def augment_data_placeholder(data, labels):
     return data, labels
@@ -34,7 +35,10 @@ class DatasetTemplate:
         else:
             self.outputs = outputs
 
-        self.tiv = args.translation_invariant_variables
+        if hasattr(args, 'translation_invariant_variables'):
+            self.tiv = args.translation_invariant_variables
+        else:
+            self.tiv = []
         self.tiv_in_inputs_idx = [i for i, e in enumerate(self.inputs) if e in self.tiv]
         self.tiv_in_outputs_idx = [i for i, e in enumerate(self.outputs) if e in self.tiv]
         self.tiv_for_inputs_idx = [i for i, e in enumerate(self.tiv) if e in self.inputs]
@@ -56,9 +60,19 @@ class DatasetTemplate:
             else:
                 dfs_split.append(df)
 
-            dfs = dfs_split
+        dfs = dfs_split
 
-        for df in dfs:
+        data_filter = DataFilter(args)
+
+        for df in tqdm(dfs, desc="Processing data files"):
+            df = data_filter.apply_filters(df)
+            if len(df) == 0:
+                continue
+            needed_columns = list(set(self.inputs) | set(self.outputs))
+            df = df[needed_columns]
+            df = df.dropna(axis=0)
+            if hasattr(args, 'quantization') and args.quantization['ACTIVATED'] and args.quantization['QUANTIZATION_DATASET'] != 'float':
+                df = df.map(lambda x: set_value_precision(x, args.quantization['QUANTIZATION_DATASET']))
             if 'time' in df.columns:
                 self.time_axes.append(df['time'])
             self.data.append(df[self.inputs])
@@ -72,9 +86,9 @@ class DatasetTemplate:
         self.args = args
 
         self.shift_labels = self.args.shift_labels
+        self.warm_up_len = self.args.wash_out_len
 
         self.exp_len = None
-        self.warm_up_len = self.args.wash_out_len
         self.df_lengths = []
         self.df_lengths_cs = []
 
@@ -126,7 +140,7 @@ class DatasetTemplate:
         self.df_lengths_cs = []
         if type(self.data) == list:
             for data_set in self.data:
-                self.df_lengths.append(data_set.shape[0] - self.exp_len - self.shift_labels + 1)
+                self.df_lengths.append(data_set.shape[0] - (self.exp_len-1) - self.shift_labels)
                 if not self.df_lengths_cs:
                     self.df_lengths_cs.append(self.df_lengths[0])
                 else:
@@ -134,7 +148,7 @@ class DatasetTemplate:
             self.number_of_samples = self.df_lengths_cs[-1]
 
         else:
-            self.number_of_samples = self.data.shape[0] - self.exp_len - self.shift_labels
+            self.number_of_samples = self.data.shape[0] - (self.exp_len-1) - self.shift_labels
 
         if np.any(np.array(self.df_lengths) < 1):
             raise ValueError('One of the datasets is too short to use it for training. Remove it manually and try again.')
@@ -246,3 +260,42 @@ class DatasetTemplate:
         self.indices_to_use = self.indices
         self.number_of_samples_to_use = self.number_of_samples
         self.number_of_batches_to_use = self.number_of_batches
+
+
+class DataFilter:
+    def __init__(self, args):
+        # Check if 'filters' field exists in the configuration
+        if hasattr(args, 'filters') and isinstance(args.filters, list):
+            self.filter_funcs = []
+            for data_filter in args.filters:
+                column = data_filter['column']
+                condition = data_filter['condition']
+                operator, value_str = condition.split(" ", 1)
+                value = float(value_str)
+                use_absolute = data_filter.get('absolute', False)
+
+                # Function to apply or bypass abs()
+                def apply_abs_if_needed(dataset_values, use_abs):
+                    return abs(dataset_values) if use_abs else dataset_values
+
+                # Creating lambda functions based on the operator
+                if operator == '<':
+                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) < v])
+                elif operator == '<=':
+                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) <= v])
+                elif operator == '>':
+                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) > v])
+                elif operator == '>=':
+                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) >= v])
+                elif operator == '==':
+                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) == v])
+                elif operator == '!=':
+                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) != v])
+        else:
+            # If 'filters' field is not in config, setup to bypass filtering
+            self.filter_funcs = [lambda df: df]
+
+    def apply_filters(self, df):
+        for func in self.filter_funcs:
+            df = func(df)
+        return df

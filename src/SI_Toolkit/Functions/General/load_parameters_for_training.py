@@ -14,9 +14,9 @@ library = config['library']
 net_name = config['modeling']['NET_NAME']
 
 # Path to trained models and their logs
-PATH_TO_MODELS = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + '/' + config['paths']['path_to_experiment'] + '/' "Models/"
+PATH_TO_MODELS = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], "Models")
 
-PATH_TO_NORMALIZATION_INFO = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + '/' + config['paths']['path_to_experiment'] + '/' + "NormalizationInfo/"
+PATH_TO_NORMALIZATION_INFO = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], "NormalizationInfo")
 
 # Get path to normalisation info as to a newest csv file in indicated folder
 paths = sorted([os.path.join(PATH_TO_NORMALIZATION_INFO, d) for d in os.listdir(PATH_TO_NORMALIZATION_INFO)], key=os.path.getctime)
@@ -25,10 +25,9 @@ for path in paths:
         PATH_TO_NORMALIZATION_INFO = path
 
 # The following paths to dictionaries may be replaced by the list of paths to data files.
-full_experiment_path = config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"] + '/' + config['paths']['path_to_experiment'] + '/' + config['paths']['DATA_FOLDER']
-TRAINING_FILES = full_experiment_path + "/Train/"
-VALIDATION_FILES = full_experiment_path + "/Validate/"
-TEST_FILES = full_experiment_path + "/Test/"
+TRAINING_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Train")
+VALIDATION_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Validate")
+TEST_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Test")
 
 
 # region Set inputs and outputs
@@ -42,8 +41,14 @@ translation_invariant_variables = config['training_default']['translation_invari
 EPOCHS = config['training_default']['EPOCHS']
 BATCH_SIZE = config['training_default']['BATCH_SIZE']
 SEED = config['training_default']['SEED']
-LR = config['training_default']['LR']
 SHIFT_LABELS = config['training_default']['SHIFT_LABELS']
+
+LR_INITIAL = config['training_default']['LR']['INITIAL']
+REDUCE_LR_ACTIVATED = config['training_default']['LR']['REDUCE_LR_ON_PLATEAU']
+MIN_DELTA = config['training_default']['LR']['MIN_DELTA']
+LR_MINIMAL = config['training_default']['LR']['MINIMAL']
+LR_PATIENCE = config['training_default']['LR']['PATIENCE']
+LR_DECREASE_FACTOR = config['training_default']['LR']['DECREASE_FACTOR']
 
 WASH_OUT_LEN = config['training_default']['WASH_OUT_LEN']
 POST_WASH_OUT_LEN = config['training_default']['POST_WASH_OUT_LEN']
@@ -52,12 +57,19 @@ NORMALIZE = config['training_default']['NORMALIZE']
 USE_NNI = config['training_default']['USE_NNI']
 CONSTRUCT_NETWORK = config['training_default']['CONSTRUCT_NETWORK']
 
-config_reduce_lr = config['training_default']['REDUCE_LR_ON_PLATEAU']
-REDUCE_LR_ACTIVATED = config_reduce_lr['ACTIVATED']
-FACTOR = config_reduce_lr['FACTOR']
-PATIENCE = config_reduce_lr['PATIENCE']
-MIN_LR = config_reduce_lr['MIN_LR'] 
-MIN_DELTA = config_reduce_lr['MIN_DELTA']
+VALIDATE_ALSO_ON_TRAINING_SET = config['training_default']['VALIDATE_ALSO_ON_TRAINING_SET']
+
+REGULARIZATION = config['REGULARIZATION']
+
+QUANTIZATION = config['QUANTIZATION']
+
+PRUNING_ACTIVATED = config['PRUNING']['ACTIVATED']
+PRUNING_SCHEDULE = config['PRUNING']['PRUNING_PARAMS']['PRUNING_SCHEDULE']
+PRUNING_SCHEDULES = config['PRUNING']['PRUNING_SCHEDULES']
+
+PLOT_WEIGHTS_DISTRIBUTION = config['training_default']['PLOT_WEIGHTS_DISTRIBUTION']
+
+FILTERS = config['FILTERS']
 
 # For l2race
 # control_inputs = ['u1', 'u2']
@@ -109,7 +121,16 @@ def args():
     parser.add_argument('--num_epochs', default=EPOCHS, type=int, help='Number of epochs of training')
     parser.add_argument('--batch_size', default=BATCH_SIZE, type=int, help='Size of a batch')
     parser.add_argument('--seed', default=SEED, type=int, help='Set seed for reproducibility')
-    parser.add_argument('--lr', default=LR, type=float, help='Learning rate')
+
+    parser.add_argument('--lr_initial', default=LR_INITIAL, type=float, help='Initial learning rate')
+    parser.add_argument('--reduce_lr_on_plateau', default=REDUCE_LR_ACTIVATED, type=bool,
+                        help='Use the reduce_lr_on_plateau callback from tensorflow')
+    parser.add_argument('--min_delta', default=MIN_DELTA, type=float, help='Minimum delta to use with reduce_lr_on_plateau')
+    parser.add_argument('--lr_minimal', default=LR_MINIMAL, type=float, help='Minimal learning rate scheduler can decrease lr to')
+    parser.add_argument('--lr_patience', default=LR_PATIENCE, type=int, help='How many epochs to wait before decreasing learning rate if validation loss is not decreasing')
+    parser.add_argument('--lr_decrease_factor', default=LR_DECREASE_FACTOR, type=float, help='By which factor to decrease learning rate in a single step of a scheduler ')
+
+
     parser.add_argument('--shift_labels', default=SHIFT_LABELS, type=int, help='How much to shift labels/targets with respect to features while reading data file for training')
 
     parser.add_argument('--path_to_models', default=PATH_TO_MODELS, type=str,
@@ -125,13 +146,9 @@ def args():
     parser.add_argument('--construct_network', default=CONSTRUCT_NETWORK, type=str,
                         help='For Pytorch you can decide if you want to construct network with modules or cells.'
                              'First is needed for DeltaRNN, second gives more flexibility in specifying layers sizes.')
-    parser.add_argument('--reduce_lr_on_plateau', default=REDUCE_LR_ACTIVATED, type=bool,
-                        help='Use the reduce_lr_on_plateau callback from tensorflow')
-    parser.add_argument('--factor', type=float, default=FACTOR,
-                        help='Factor to reduce learning rate by when using reduce_lr_on_plateau.')
-    parser.add_argument('--patience', default=PATIENCE, type=int, help='Patience to use with reduce_lr_on_plateau')
-    parser.add_argument('--min_lr', default=MIN_LR, type=float, help='Minimum learning rate to use with reduce_lr_on_plateau')
-    parser.add_argument('--min_delta', default=MIN_LR, type=float, help='Minimum delta to use with reduce_lr_on_plateau')
+
+    parser.add_argument('--validate_also_on_training_set', default=VALIDATE_ALSO_ON_TRAINING_SET, type=bool,
+                        help='If you want to validate also on training dataset, after finished training epoch. Can make training considerably longer!')
 
 
     args = parser.parse_args()
@@ -154,6 +171,18 @@ def args():
 
     if args.outputs is not None:
         args.outputs = sorted(args.outputs)
+
+    args.plot_weights_distribution = PLOT_WEIGHTS_DISTRIBUTION
+
+    args.regularization = REGULARIZATION
+
+    args.quantization = QUANTIZATION
+
+    args.pruning_activated = PRUNING_ACTIVATED
+    args.pruning_schedule = PRUNING_SCHEDULE
+    args.pruning_schedules = PRUNING_SCHEDULES
+
+    args.filters = FILTERS
 
     return args
 
