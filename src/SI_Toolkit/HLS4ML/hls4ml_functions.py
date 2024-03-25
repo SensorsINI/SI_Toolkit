@@ -24,18 +24,25 @@ def convert_model_with_hls4ml(net, granularity='model'):
     # config['Flows'] = ['vivado:fifo_depth_optimization']
     # hls4ml.model.optimizer.get_optimizer('vivado:fifo_depth_optimization').configure(profiling_fifo_depth=100_000)
 
-    config['Model']['Precision'] = config_hls['precision_activation']
+    config['Model']['Precision'] = config_hls['PRECISION']['intermediate_results']
     # Iterate through all layers in the HLS configuration
     for layer_name, layer_config in config['LayerName'].items():
+        if 'input' in layer_name:
+            layer_config['Precision']['result'] = config_hls['PRECISION']['input_and_output']
+            layer_config['Precision']['weight'] = config_hls['PRECISION']['weights_and_biases']  # Not sure what does
+            layer_config['Precision']['bias'] = config_hls['PRECISION']['weights_and_biases']
         # Check if the layer is an activation layer (assuming 'activation' in the name)
-        if 'activation' in layer_name:
+        elif 'activation' in layer_name:
             # Set precision for activation layers
-            layer_config['Precision']['result'] = config_hls['precision_activation']
+            layer_config['Precision']['result'] = config_hls['PRECISION']['activations']
         else:
             # Set precision for other layers
-            layer_config['Precision']['result'] = config_hls['precision_layers']
-            layer_config['Precision']['weight'] = config_hls['precision_layers']
-            layer_config['Precision']['bias'] = config_hls['precision_layers']
+            layer_config['Precision']['result'] = config_hls['PRECISION']['intermediate_results']
+            layer_config['Precision']['weight'] = config_hls['PRECISION']['weights_and_biases']
+            layer_config['Precision']['bias'] = config_hls['PRECISION']['weights_and_biases']
+
+    config['LayerName'][list(config["LayerName"].keys())[-1]]['Precision']['result'] = config_hls['PRECISION']['input_and_output']  # Output of last layer
+
 
     config['Model']['Strategy'] = config_hls['Strategy']
     config['Model']['ReuseFactor'] = config_hls['ReuseFactor']

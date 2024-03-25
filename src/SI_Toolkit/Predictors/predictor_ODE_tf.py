@@ -1,12 +1,9 @@
 import os
 from SI_Toolkit.Predictors import template_predictor
-from SI_Toolkit.computation_library import TensorFlowLibrary
+from SI_Toolkit.computation_library import TensorFlowLibrary, PyTorchLibrary, NumpyLibrary
 
-
-from SI_Toolkit_ASF.predictors_customization_tf import next_state_predictor_ODE, STATE_VARIABLES, CONTROL_INPUTS
+from SI_Toolkit_ASF.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES, CONTROL_INPUTS
 from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
-
-lib = TensorFlowLibrary
 
 from SI_Toolkit.Predictors.autoregression import autoregression_loop, check_dimensions
 
@@ -24,18 +21,19 @@ class model_interface:
 
 
 class predictor_ODE_tf(template_predictor):
-    supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
+    supported_computation_libraries = {TensorFlowLibrary, PyTorchLibrary, NumpyLibrary}  # Overwrites default from parent
     
     def __init__(self,
                  horizon: int,
                  dt: float,
+                 computation_library=TensorFlowLibrary,
                  intermediate_steps=10,
                  disable_individual_compilation=False,
                  batch_size=1,
                  variable_parameters=None,
                  **kwargs):
         super().__init__(horizon=horizon, batch_size=batch_size)
-        self.lib = lib
+        self.lib = computation_library
         self.disable_individual_compilation = disable_individual_compilation
 
         self.initial_state = self.lib.zeros(shape=(1, len(STATE_VARIABLES)))

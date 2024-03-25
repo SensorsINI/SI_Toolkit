@@ -84,8 +84,9 @@ def get_paths_to_datafiles(paths_to_data_information):
                 list_of_paths_to_datafiles.append(path)
             else:
                 # Assume that path to folder was provided
-                folder_content = glob.glob(path + '*.csv')
-                list_of_paths_to_datafiles += folder_content
+                for dirpath, dirnames, filenames in os.walk(path):
+                    for filename in [f for f in filenames if f.endswith(".csv")]:
+                        list_of_paths_to_datafiles.append(os.path.join(dirpath, filename))
 
     elif isinstance(paths_to_data_information, str):
         if paths_to_data_information[-4:] == '.csv':
@@ -753,7 +754,7 @@ def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_de
             dfs[i].to_csv(file_path, index=False, mode='a')
 
 
-def add_shifted_columns(get_files_from, save_files_to, variables_to_shift, indices_by_which_to_shift):
+def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
 
     paths_to_recordings = get_paths_to_datafiles(get_files_from)
 
@@ -768,38 +769,15 @@ def add_shifted_columns(get_files_from, save_files_to, variables_to_shift, indic
     for i in trange(len(paths_to_recordings)):
         current_path = paths_to_recordings[i]
         df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
-        length_original_df = len(df)
-        for j in range(len(indices_by_which_to_shift)):
-            index_by_which_to_shift = int(indices_by_which_to_shift[j])
-            if index_by_which_to_shift == 0:
-                continue
-            new_names = [variable_to_shift + '_' + str(index_by_which_to_shift) for variable_to_shift in variables_to_shift]
-            subset = df.loc[:, variables_to_shift]
-            if index_by_which_to_shift > 0:
-                subset.index += -index_by_which_to_shift
-
-            else:
-                subset.index += abs(index_by_which_to_shift)
-
-            subset.columns = new_names
-            df = pd.concat((df, subset), axis=1)
-
-        bound_low = min(indices_by_which_to_shift)
-        if bound_low >= 0:
-            bound_low = 0
-        else:
-            bound_low = abs(bound_low)
-
-        bound_high = max(indices_by_which_to_shift)
-        if bound_high <= 0:
-            bound_high = length_original_df
-        else:
-            bound_high = length_original_df-bound_high-1  # indexing from 0!
-
-        df_processed = df.loc[bound_low:bound_high, :]
 
         processed_file_name = os.path.basename(current_path)
 
+        if transformation == 'add_shifted_columns':
+            df_processed = add_shifted_columns_single_file(df, variables_to_shift=kwargs['variables_to_shift'], indices_by_which_to_shift=kwargs['indices_by_which_to_shift'])
+        elif transformation == 'apply_sensor_quantization':
+            df_processed = apply_sensors_quantization(df, variables_quantization_dict=kwargs['variables_quantization_dict'])
+        else:
+            raise NotImplemented('Transformation {} is not implemented'.format(transformation))
 
         processed_file_path = os.path.join(save_files_to, processed_file_name)
         with open(processed_file_path, 'w', newline=''): # Overwrites if existed
@@ -813,3 +791,46 @@ def add_shifted_columns(get_files_from, save_files_to, variables_to_shift, indic
                     break
 
         df_processed.to_csv(processed_file_path, index=False, mode='a')
+
+
+def add_shifted_columns_single_file(df, variables_to_shift, indices_by_which_to_shift):
+    length_original_df = len(df)
+    for j in range(len(indices_by_which_to_shift)):
+        index_by_which_to_shift = int(indices_by_which_to_shift[j])
+        if index_by_which_to_shift == 0:
+            continue
+        new_names = [variable_to_shift + '_' + str(index_by_which_to_shift) for variable_to_shift in variables_to_shift]
+        subset = df.loc[:, variables_to_shift]
+        if index_by_which_to_shift > 0:
+            subset.index += -index_by_which_to_shift
+
+        else:
+            subset.index += abs(index_by_which_to_shift)
+
+        subset.columns = new_names
+        df = pd.concat((df, subset), axis=1)
+
+    bound_low = min(indices_by_which_to_shift)
+    if bound_low >= 0:
+        bound_low = 0
+    else:
+        bound_low = abs(bound_low)
+
+    bound_high = max(indices_by_which_to_shift)
+    if bound_high <= 0:
+        bound_high = length_original_df
+    else:
+        bound_high = length_original_df - bound_high - 1  # indexing from 0!
+
+    df_processed = df.loc[bound_low:bound_high, :]
+
+    return df_processed
+
+
+
+def apply_sensors_quantization(df, variables_quantization_dict):
+    # Apply quantization
+    for variable, precision in variables_quantization_dict.items():
+        df[variable] = (df[variable] / precision).round() * precision
+
+    return df

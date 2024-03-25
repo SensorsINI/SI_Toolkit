@@ -123,12 +123,12 @@ def compose_net_from_net_name(net_info,
 
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
         activation = qkeras.quantizers.quantized_tanh(**net_info.quantization['ACTIVATION'], use_real_tanh=True, symmetric=True)
-        quantization_last_layer_args['activation'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])
-        quantization_last_layer_args['kernel_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])
-        quantization_last_layer_args['bias_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['BIAS'])
+        quantization_last_layer_args['activation'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'], alpha=1)
+        quantization_last_layer_args['kernel_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'], alpha=1)
+        quantization_last_layer_args['bias_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['BIAS'], alpha=1)
         quantization_args = quantization_last_layer_args.copy()
         if net_type in ['GRU', 'LSTM', 'RNN-Basic']:
-            quantization_args['recurrent_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['RECURRENT'])
+            quantization_args['recurrent_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['RECURRENT'], alpha=1)
 
     if hasattr(net_info, 'regularization') and net_info.regularization['ACTIVATED']:
         regularization_kernel = tf.keras.regularizers.l1_l2(**net_info.regularization['KERNEL'])
@@ -152,8 +152,7 @@ def compose_net_from_net_name(net_info,
             shape_input = (time_series_length, len(inputs_list))
 
         net.add(tf.keras.Input(batch_size=batch_size, shape=shape_input))
-        if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
-            net.add(qkeras.QActivation(activation=qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])))
+
         for i in range(h_number):
             if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
                 net.add(layer_type(
@@ -211,7 +210,6 @@ def compose_net_from_net_name(net_info,
                                       bias_regularizer=regularization_bias,
                                       **quantization_last_layer_args,
                                       ))
-        net.add(qkeras.QActivation(activation=qkeras.quantizers.quantized_bits(**net_info.quantization['KERNEL'])))
     else:
         net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers_{}'.format(h_number), activation=activation_last_layer,
                                       kernel_regularizer=regularization_kernel,
@@ -264,6 +262,7 @@ def plot_params_histograms(params, title, show=True, path_to_save=None):
     plt.ylabel("number of params")
     plt.title(title)
 
+    number_params = np.size(params)
     mean = np.mean(params)
     min_value = np.min(params)
     max_value = np.max(params)
@@ -271,12 +270,32 @@ def plot_params_histograms(params, title, show=True, path_to_save=None):
     min_ylim, max_ylim = plt.ylim()
     min_xlim, max_xlim = plt.xlim()
     x_values_range = abs(max_xlim - min_xlim)
-    log_max = np.log10(max_ylim)  # Adjust these based on your y-axis range
-    plt.text(mean + 0.1 * x_values_range, 10 ** (0.9 * log_max), f'Mean: {mean:.3f}')
-    plt.text(mean + 0.1 * x_values_range, 10 ** (0.85 * log_max), f"Range: {min_value:.2f} - {max_value:.2f}")
+    log_max = np.log10(max_ylim)
+    log_min = np.log10(min_ylim)
+
+    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.95 * (log_max-log_min)), f'Mean: {mean:.3f}')
+    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.85 * (log_max-log_min)), f"Range: {min_value:.2f} - {max_value:.2f}")
     max_int = int(np.floor(np.max([abs(min_value), abs(max_value)])))
     num_bits = num_bits_needed_for_integer_part(max_int)
-    plt.text(mean + 0.1 * x_values_range, 10 ** (0.8 * log_max), f"Bits needed \nfor biggest integer ({max_int}): {num_bits}")
+    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.80 * (log_max-log_min)), f"Bits needed \nfor biggest integer ({max_int}): {num_bits}")
+    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.65 * (log_max-log_min)), f'Number params: {number_params}')
+    unique_params = np.unique(params)
+    diff = np.diff(np.sort(unique_params))
+    if len(diff) == 0:
+        minimum_difference = 0
+    else:
+        minimum_difference = np.min(diff)
+
+    if minimum_difference == 0:
+        fractional_bits = np.inf
+    else:
+        fractional_bits = -np.log2(minimum_difference)
+
+    plt.text(mean + 0.1 * x_values_range, 10 ** (log_min + 0.70 * (log_max-log_min)),
+             f"Unique params & -log2(min difference): \n(indicates quantization) \n{len(unique_params)}; {fractional_bits}")
+
+
+
     if show:
         plt.show()
     if path_to_save is not None:

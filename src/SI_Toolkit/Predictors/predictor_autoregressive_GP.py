@@ -12,7 +12,7 @@ from SI_Toolkit.Predictors import template_predictor
 try:
     from SI_Toolkit_ASF.predictors_customization import (
         CONTROL_INPUTS, STATE_INDICES, STATE_VARIABLES,
-        augment_predictor_output)
+        )
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
