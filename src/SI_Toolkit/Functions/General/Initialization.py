@@ -229,7 +229,9 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
         net, net_info = compose_net_from_net_name(net_info,
                                                   time_series_length=time_series_length,
                                                   batch_size=batch_size, stateful=stateful,
-                                                  remove_redundant_dimensions=remove_redundant_dimensions)
+                                                  remove_redundant_dimensions=remove_redundant_dimensions,
+                                                  construct_network=net_info.construct_network,
+                                                  )
 
     # Load the pretrained weights
     load_pretrained_net_weights(net, ckpt_path)
