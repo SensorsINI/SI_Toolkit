@@ -1,4 +1,4 @@
-# SI_Toolkit
+# System Identification Toolkit (SI_Toolkit)
 
 ## Overview
 
@@ -11,6 +11,8 @@ The SI_Toolkit is a library designed for easy and effective development of machi
 - **Brunton Test**: A unique tool that visualizes the predicted evolution of dynamical systems over time, highlighting model accuracy through error visualization. This feature is designed to provide intuitive insights into model performance.
 - **Data Processing Utilities**: Comes with features to enrich data, improving model training outcomes through time-shift adjustments, adding derivatives calculated from data, and sensor quantization.
 - **Cross-Platform Functionality**: Tested mostly on macOS M1 (Sonoma), it is used successfully on Ubuntu 20.4 and Windows, making it accessible to a wide range of users.
+- **FPGA Integration with hls4ml and EdgeDRNN**: Its unique feature is basic integration with hls4ml and the EdgeDRNN framework, which facilitates bringing trained neural networks to FPGA, making it ideal for high-performance, low-latency applications.
+- **Framework Agnostic Design**: The SI_Toolkit's architecture is designed to be independent of the underlying machine learning framework. This dual compatibility with TensorFlow and PyTorch not only offers flexibility in model development but also serves as a unique example of creating ML software that allows user to switch between both frameworks while avoiding duplicate code to implement desired functionalities.
 
 ## Target Users
 
@@ -89,10 +91,8 @@ If you create a new project:
   - Specify `NET_NAME` in config -> this is the network used in `predictor_autoregressive_neural.py`
   - When using the CartPoleSimulator repo as system: In the CartPoleSimulator config, specify `"predictor_autoregressive_neural"` as predictor type
 
-## Using a custom model
-To train more complex models, you can write your own:
-1. Write your module `SI_Toolkit_ASF/Modules/[module_name].py`
-  - Write a class that inherits from `tf.keras.Model`
-  - The class must have a `__init__(self)` function and a `call(self, x)` function. `x` is a tensor containing the input to the network. Refer to https://keras.io/api/models/model/ for more information on how to write your own model.
-2. For training, follow the steps outlined above. 
-  - Use your custom model by specifying `--net-name Custom-[module_name]-[class_name]`
+## Gallery
+Testing with Brunton GUI predicted vs actual car trajectories
+
+## More Information
+For more detailed information on features and usage, see our [detailed documentation](https://github.com/SensorsINI/SI_Toolkit/wiki/Detailed-Documentation).
