@@ -1,36 +1,24 @@
 # SI_Toolkit
-System Identification with neural networks and GPs with scripts for training, testing and related data processing.
 
-The Toolkit was tested primarily with conda python 3.11 on macOS M1 (Sonoma),
-but is used without problems on Ubuntu 20.4 and to lesser extent on Windows.
+## Overview
 
-### Features
+The SI_Toolkit is a library designed for easy and effective development of machine learning models for system identification and neural control. It facilitates the training of predictive models and controllers using neural networks (NNs) and provides scripts for data preprocessing, training via supervised learning, testing, and using the models in an autoregressive way. It provides a ready-to-use solution that allows users to focus on application, minimizing the need for custom coding. Its unique feature is basic integration with hls4ml and the EdgeDRNN framework, which facilitates bringing trained neural networks to FPGA.
 
-#### Create summary of data statistics with histograms and file which can be used to normalise data for use with ML methods.
+## Features
 
-#### Train:
-- **Neural Networks**
-  - MLP
-  - Vanilla RNN
-  - GRU
-  - LSTM
-  - Custom modules, e.g., training parameters of an ODE
-  - DeltaGRU
-- **GPs (currently cartpole only, TODO: generalise)**
-  - Classic
-  - Sparse (Add reference)
+- **Data Analysis Scripts**: Calculation of data statistics summaries and histograms to aid in data inspection before using it for machine learning applications.
+- **Model Support**: Basic models like MLP, RNN, GRU, LSTM can be trained using a simple interface with 0 coding using both Tensorflow and Pytorch backends. Custom models – either ML or ODEs with trainable parameters - can be easily added based on provided examples.
+- **Brunton Test**: A unique tool that visualizes the predicted evolution of dynamical systems over time, highlighting model accuracy through error visualization. This feature is designed to provide intuitive insights into model performance.
+- **Data Processing Utilities**: Comes with features to enrich data, improving model training outcomes through time-shift adjustments, adding derivatives calculated from data, and sensor quantization.
+- **Cross-Platform Functionality**: Tested mostly on macOS M1 (Sonoma), it is used successfully on Ubuntu 20.4 and Windows, making it accessible to a wide range of users.
 
-#### Test with:
-- Brunton Test
+## Target Users
 
-#### Other:
-- Process dataset to:
-  - Add time-shifted copies of selected columns.
-  - Add columns with derivatives (or differences) calculated from data.
-  - Convert an MLP with hls4ml to FPGA fabric.
-  - Add sensor quantization on the selected features of dataset.
-  - Convert an MLP between Tensorflow and Pytorch (we use it to test that functionalities of interest, at least for this basic case, are the same).
+The toolkit is crafted for individuals and teams eager to delve into system identification and neural control without the overhead of extensive programming. It was created for use at workshops, but is also a great working example for a pipeline from raw simulated or experimental data to a neural network model deployed on specialized hardware. Together with our other Neural Control Tools, it can substantially speed up the development of ML-based control.
 
+## Extensibility
+
+SI_Toolkit is designed for easy customization and extension. Users can adapt it to fit their specific needs and are invited to contribute to a collaborative and evolving toolkit.
 
 ## Installation
 These steps are needed only if you create a new project.
