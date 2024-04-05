@@ -2,7 +2,7 @@
 
 ## Overview
 
-The SI_Toolkit is a library designed for easy and effective development of machine learning models for system identification and neural control. It facilitates the training of predictive models and controllers using neural networks (NNs) and provides scripts for data preprocessing, training via supervised learning, testing, and using the models in an autoregressive way. It provides a ready-to-use solution that allows users to focus on application, minimizing the need for custom coding. Its unique feature is basic integration with hls4ml and the EdgeDRNN framework, which facilitates bringing trained neural networks to FPGA.
+The SI_Toolkit is a library designed for easy and effective development of machine learning models for system identification and neural control. It facilitates the training of predictive models and controllers using neural networks (NNs) and provides scripts for data preprocessing, training via supervised learning, testing, and using the models in an autoregressive way. It provides a ready-to-use solution that allows users to focus on application, minimizing the need for custom coding.
 
 ## Features
 
