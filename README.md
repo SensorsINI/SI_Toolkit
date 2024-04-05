@@ -4,6 +4,34 @@ System Identification with neural networks and GPs with scripts for training, te
 The Toolkit was tested primarily with conda python 3.11 on macOS M1 (Sonoma),
 but is used without problems on Ubuntu 20.4 and to lesser extent on Windows.
 
+### Features
+
+#### Create summary of data statistics with histograms and file which can be used to normalise data for use with ML methods.
+
+#### Train:
+- **Neural Networks**
+  - MLP
+  - Vanilla RNN
+  - GRU
+  - LSTM
+  - Custom modules, e.g., training parameters of an ODE
+  - DeltaGRU
+- **GPs (currently cartpole only, TODO: generalise)**
+  - Classic
+  - Sparse (Add reference)
+
+#### Test with:
+- Brunton Test
+
+#### Other:
+- Process dataset to:
+  - Add time-shifted copies of selected columns.
+  - Add columns with derivatives (or differences) calculated from data.
+  - Convert an MLP with hls4ml to FPGA fabric.
+  - Add sensor quantization on the selected features of dataset.
+  - Convert an MLP between Tensorflow and Pytorch (we use it to test that functionalities of interest, at least for this basic case, are the same).
+
+
 ## Installation
 These steps are needed only if you create a new project.
 
