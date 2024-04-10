@@ -20,7 +20,7 @@ class model_interface:
         return self.model.step(s, Q)
 
 
-class predictor_ODE_tf(template_predictor):
+class predictor_ODE(template_predictor):
     supported_computation_libraries = {TensorFlowLibrary, PyTorchLibrary, NumpyLibrary}  # Overwrites default from parent
     
     def __init__(self,
@@ -106,8 +106,8 @@ if __name__ == '__main__':
     from SI_Toolkit.Predictors.timer_predictor import timer_predictor
 
     initialisation = '''
-from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-predictor = predictor_ODE_tf(horizon, 0.02, 10)
+from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
+predictor = predictor_ODE(horizon, 0.02, 10)
 '''
 
     timer_predictor(initialisation)

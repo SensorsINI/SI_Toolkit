@@ -62,14 +62,14 @@ predictor.update_internal_state(Q)'''
 if __name__ == '__main__':
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Restrict printing messages from TF
 
-    initialisation_ODE = '''
+    initialisation_ODE_numba = '''
 from SI_Toolkit.Predictors.predictor_ODE_numba import predictor_ODE_numba
 predictor = predictor_ODE_numba(horizon, 0.02, 10)
 '''
 
-    initialisation_ODE_tf = '''
-from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-predictor = predictor_ODE_tf(horizon=horizon, dt=0.02, intermediate_steps=10)
+    initialisation_ODE = '''
+from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
+predictor = predictor_ODE(horizon=horizon, dt=0.02, intermediate_steps=10)
 '''
 
     initialisation_autoregressive_neural = '''
@@ -111,13 +111,13 @@ predictor = predictor_autoregressive_GP(horizon=horizon, batch_size=batch_size, 
         print('')
         print('')
         print('predictor_ODE_numba')
+        timer_predictor(initialisation_ODE_numba, number=number)
+
+
+        print('')
+        print('')
+        print('predictor_ODE')
         timer_predictor(initialisation_ODE, number=number)
-
-
-        print('')
-        print('')
-        print('predictor_ODE_tf')
-        timer_predictor(initialisation_ODE_tf, number=number)
 
 
         print('')
