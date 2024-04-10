@@ -12,10 +12,10 @@ from SI_Toolkit.Predictors import template_predictor
 import numpy as np
 from SI_Toolkit_ASF.predictors_customization_numba import STATE_VARIABLES
 from SI_Toolkit.computation_library import NumpyLibrary, TensorType
-from SI_Toolkit_ASF.predictors_customization_numba import next_state_predictor_ODE
+from SI_Toolkit_ASF.predictors_customization_numba import next_state_predictor_ODE_numba
 
 
-class predictor_ODE(template_predictor):
+class predictor_ODE_numba(template_predictor):
     supported_computation_libraries = {NumpyLibrary}  # Overwrites default from parent
     
     def __init__(
@@ -32,7 +32,7 @@ class predictor_ODE(template_predictor):
         self.initial_state = None
         self.output = None
 
-        self.next_step_predictor = next_state_predictor_ODE(
+        self.next_step_predictor = next_state_predictor_ODE_numba(
             dt=dt,
             intermediate_steps=intermediate_steps,
             batch_size=batch_size,
@@ -81,8 +81,8 @@ if __name__ == '__main__':
     from SI_Toolkit.Predictors.timer_predictor import timer_predictor
 
     initialisation = '''
-from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-predictor = predictor_ODE(horizon, 0.02, 10)
+from SI_Toolkit.Predictors.predictor_ODE_numba import predictor_ODE_numba
+predictor = predictor_ODE_numba(horizon, 0.02, 10)
 '''
 
     timer_predictor(initialisation)

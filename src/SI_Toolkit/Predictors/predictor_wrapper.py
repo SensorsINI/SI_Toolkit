@@ -71,8 +71,8 @@ class PredictorWrapper:
             self.predictor = predictor_autoregressive_GP(horizon=self.horizon, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         elif self.predictor_type == 'ODE':
-            from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-            self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
+            from SI_Toolkit.Predictors.predictor_ODE_numba import predictor_ODE_numba
+            self.predictor = predictor_ODE_numba(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
 
         elif self.predictor_type == 'ODE_TF':
             from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf

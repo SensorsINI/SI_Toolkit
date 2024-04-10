@@ -63,8 +63,8 @@ if __name__ == '__main__':
     os.environ["TF_CPP_MIN_LOG_LEVEL"] = "2"  # Restrict printing messages from TF
 
     initialisation_ODE = '''
-from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-predictor = predictor_ODE(horizon, 0.02, 10)
+from SI_Toolkit.Predictors.predictor_ODE_numba import predictor_ODE_numba
+predictor = predictor_ODE_numba(horizon, 0.02, 10)
 '''
 
     initialisation_ODE_tf = '''
@@ -110,7 +110,7 @@ predictor = predictor_autoregressive_GP(horizon=horizon, batch_size=batch_size, 
 
         print('')
         print('')
-        print('predictor_ODE')
+        print('predictor_ODE_numba')
         timer_predictor(initialisation_ODE, number=number)
 
 
