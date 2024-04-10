@@ -70,9 +70,9 @@ class PredictorWrapper:
             from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
             self.predictor = predictor_autoregressive_GP(horizon=self.horizon, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
-        elif self.predictor_type == 'ODE_numba':
-            from SI_Toolkit.Predictors.predictor_ODE_numba import predictor_ODE_numba
-            self.predictor = predictor_ODE_numba(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
+        elif self.predictor_type == 'ODE_v0':
+            from SI_Toolkit.Predictors.predictor_ODE_v0 import predictor_ODE_v0
+            self.predictor = predictor_ODE_v0(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
 
         elif self.predictor_type == 'ODE':
             from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
@@ -120,8 +120,8 @@ class PredictorWrapper:
 
         if predictor_specification_components[0] == 'ODE':
             predictor_name = 'ODE_default'
-        if predictor_specification_components[0] == 'ODE_numba':
-            predictor_name = 'ODE_numba_default'
+        if predictor_specification_components[0] == 'ODE_v0':
+            predictor_name = 'ODE_v0_default'
         if predictor_specification_components[0] == 'neural':
             predictor_name = 'neural_default'
         if predictor_specification_components[0] == 'GP':
