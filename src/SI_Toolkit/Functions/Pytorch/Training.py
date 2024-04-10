@@ -237,6 +237,8 @@ def train(net, criterion, training_generator, optimizer):
         train_loss += batch_loss  # Accumulate loss
         train_batches += 1  # Accumulate count so we can calculate mean later
 
+    training_generator.dataset.on_epoch_end()
+
     return train_loss / train_batches  # This returns loss per datapoint
 
 def validate(net, criterion, validation_generator):

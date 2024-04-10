@@ -71,6 +71,8 @@ PLOT_WEIGHTS_DISTRIBUTION = config['training_default']['PLOT_WEIGHTS_DISTRIBUTIO
 
 FILTERS = config['FILTERS']
 
+AUGMENT_DATA = config['training_default']['AUGMENT_DATA']
+
 # For l2race
 # control_inputs = ['u1', 'u2']
 # state_inputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
@@ -183,6 +185,8 @@ def args():
     args.pruning_schedules = PRUNING_SCHEDULES
 
     args.filters = FILTERS
+
+    args.augment_data = AUGMENT_DATA
 
     return args
 
