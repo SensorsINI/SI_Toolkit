@@ -62,12 +62,13 @@ If you create a new project:
    This folders contains the files that need to be customized for your project- mostly configuration files, run scripts and default output locations.
    We discuss the customization of these files in the sections related to functionalities of interest.
 
-## Main Pipeline
+## Quick Start - Main Pipeline
 1. Collect Training Data
-  - Run a data generation script on your simulation environment.
-  - Example: run_data_generator in CartPoleSimulator
-  - Or create a folder `./Experiment_Recordings/Dataset-1/` and put data in there
-2. Load Training Data and Normalize it
+  - To use SI_Toolkit you need a dataset (csv files) with columns for input and output of the network you want to train.
+  - SI_Toolkit expect to find in experiment folder a data folder (default called `Recordings`) and within it three other folders: `Train`, `Validate`, `Test` with data to be used in training and testing.
+  - In SI_Toolkit_ASF, we provide an example dataset with data from a cartpole.
+2. Calculate data statistics and inspect data
+  - This step in necessary for each new dataset, as the data statistics file calculated offline is used while training neural networks to normalize the data.
   - Set paths to experiment folders in `./SI_Toolkit_ASF/config_training.yml`
     - In our example: Set to `./Experiment_Recordings/Dataset-1/`
   - Then run `python -m SI_Toolkit_ASF.run.Create_normalization_file`
@@ -93,6 +94,7 @@ If you create a new project:
 
 ## Gallery
 Testing with Brunton GUI predicted vs actual car trajectories
+Physical Cartpole swing-up using Model Predictive Control (MPC) with neural network model trained with SI_Toolkit
 
 ## More Information
 For more detailed information on features and usage, see our [detailed documentation](https://github.com/SensorsINI/SI_Toolkit/wiki/Detailed-Documentation).
