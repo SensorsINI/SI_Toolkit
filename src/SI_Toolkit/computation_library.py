@@ -1,5 +1,6 @@
-from typing import Callable, Optional, Union, Sequence
+from typing import Callable, Optional, Union, Sequence, Any
 
+import functools
 import numpy as np
 import tensorflow as tf
 import torch
@@ -20,8 +21,75 @@ class LibraryHelperFunctions:
         v.assign(x)
 
 
+
+def set_device_general(device_name: str, library: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """
+    A decorator to set the computation device for the decorated function.
+
+    Parameters:
+    - device_name: str - The name of the device (e.g., '/cpu:0', '/gpu:0').
+
+    Returns:
+    - A callable decorator that wraps the original function, ensuring it runs on the specified device.
+    """
+    library = library.lower()  # Normalize the library name for case-insensitive comparison
+
+    if library == 'numpy':
+        # Numpy does not require device management, so this is a no-op
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            @functools.wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                return func(*args, **kwargs)
+            return wrapper
+
+    elif library == 'tf':
+        devices = tf.config.list_physical_devices()
+        if device_name not in [d.name for d in devices] and '/physical_'+device_name[1:] not in [d.name for d in devices]:
+            raise ValueError(f"Requested device {device_name} not found in the list of physical devices: {devices}")
+        # TensorFlow device management
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+            @functools.wraps(func)
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                with tf.device(device_name):
+                    return func(*args, **kwargs)
+            return wrapper
+
+    elif library == 'pytorch':
+        devices = [torch.device(f'cuda:{i}') for i in
+                   range(torch.cuda.device_count())] if torch.cuda.is_available() else [torch.device('cpu')]
+        target_device = torch.device(device_name)  # Create a torch.device object for comparison
+
+        if target_device not in devices:
+            raise ValueError(f"Requested device {device_name} not found in the list of physical devices: {devices}")
+
+        def decorator(func):
+            @functools.wraps(func)
+            def wrapper(*args, **kwargs):
+                # Process the first argument separately if it's a class instance with a .to() method
+                if args and hasattr(args[0], 'to'):
+                    first_arg = args[0].to(target_device) if getattr(args[0], 'device', None) != target_device else args[0]
+                    args = (first_arg,) + args[1:]
+
+                # Then, handle all the args and kwargs
+                new_args = [
+                    arg.to(target_device) if isinstance(arg, torch.Tensor) and arg.device != target_device else arg
+                    for arg in args
+                ]
+                new_kwargs = {
+                    k: (v.to(target_device) if isinstance(v, torch.Tensor) and v.device != target_device else v) for
+                    k, v in kwargs.items()}
+                return func(*new_args, **new_kwargs)
+
+            return wrapper
+    else:
+        raise ValueError('Invalid library name')
+
+    return decorator
+
+
 class ComputationLibrary:
     lib = None
+    set_device: Callable[[str], Callable[[Callable[..., Any]], Callable[..., Any]]] = None
     reshape: Callable[[TensorType, "tuple[int, ...]"], TensorType] = None
     permute: Callable[[TensorType, "tuple[int]"], TensorType] = None
     newaxis = None
@@ -39,6 +107,7 @@ class ComputationLibrary:
     tan: Callable[[TensorType], TensorType] = None
     tanh: Callable[[TensorType], TensorType] = None
     exp: Callable[[TensorType], TensorType] = None
+    reciprocal: Callable[[TensorType], TensorType] = None
     squeeze: Callable[[TensorType], TensorType] = None
     unsqueeze: Callable[[TensorType, int], TensorType] = None
     stack: Callable[["list[TensorType]", int], TensorType] = None
@@ -46,7 +115,9 @@ class ComputationLibrary:
     floormod: Callable[[TensorType], TensorType] = None
     floor: Callable[[TensorType], TensorType] = None
     ceil: Callable[[TensorType], TensorType] = None
+    rint: Callable[[TensorType], TensorType] = None
     float32 = None
+    float64 = None
     int32 = None
     int64 = None
     bool = None
@@ -89,6 +160,7 @@ class ComputationLibrary:
     abs: Callable[[TensorType], TensorType] = None
     sqrt: Callable[[TensorType], TensorType] = None
     argpartition: Callable[[TensorType, int], TensorType] = None
+    argmax: Callable[[TensorType, int], TensorType] = None
     norm: Callable[[TensorType, int], bool] = None
     matmul: Callable[[TensorType, TensorType], TensorType] = None
     cross: Callable[[TensorType, TensorType], TensorType] = None
@@ -98,10 +170,13 @@ class ComputationLibrary:
     where: Callable[[TensorType, TensorType, TensorType], TensorType] = None
     logical_and: Callable[[TensorType, TensorType], TensorType] = None
     logical_or: Callable[[TensorType, TensorType], TensorType] = None
-
+    print: Callable[[Any], None] = None
+    square: Callable[[TensorType], TensorType] = None
+    divide: Callable[[TensorType, TensorType], TensorType] = None
 
 class NumpyLibrary(ComputationLibrary):
     lib = 'Numpy'
+    set_device = lambda device_name: set_device_general(device_name, 'numpy')
     reshape = lambda x, shape: np.reshape(x, shape)
     permute = np.transpose
     newaxis = np.newaxis
@@ -119,6 +194,7 @@ class NumpyLibrary(ComputationLibrary):
     tan = np.tan
     tanh = np.tanh
     exp = np.exp
+    reciprocal = np.reciprocal
     squeeze = np.squeeze
     unsqueeze = np.expand_dims
     stack = np.stack
@@ -126,7 +202,9 @@ class NumpyLibrary(ComputationLibrary):
     floormod = np.mod
     floor = np.floor
     ceil = np.ceil
+    rint = np.rint
     float32 = np.float32
+    float64 = np.float64
     int32 = np.int32
     int64 = np.int64
     bool = np.bool_
@@ -169,6 +247,7 @@ class NumpyLibrary(ComputationLibrary):
     abs = np.abs
     sqrt = np.sqrt
     argpartition = lambda x, k: np.argpartition(x, k)[..., :k]
+    argmax = lambda x, a: np.argmax(x, axis=a)
     norm = lambda x, axis: np.linalg.norm(x, axis=axis)
     matmul = np.matmul
     cross = np.cross
@@ -178,11 +257,15 @@ class NumpyLibrary(ComputationLibrary):
     where = np.where
     logical_and = np.logical_and
     logical_or  = np.logical_or
+    print = print
+    square = np.square
+    divide = np.divide
 
 
 
 class TensorFlowLibrary(ComputationLibrary):
     lib = 'TF'
+    set_device = lambda device_name: set_device_general(device_name, 'tf')
     reshape = tf.reshape
     permute = tf.transpose
     newaxis = tf.newaxis
@@ -200,6 +283,7 @@ class TensorFlowLibrary(ComputationLibrary):
     tan = tf.tan
     tanh = tf.tanh
     exp = tf.exp
+    reciprocal = tf.math.reciprocal
     squeeze = tf.squeeze
     unsqueeze = tf.expand_dims
     stack = tf.stack
@@ -207,7 +291,9 @@ class TensorFlowLibrary(ComputationLibrary):
     floormod = tf.math.floormod
     floor = tf.math.floor
     ceil = tf.math.ceil
+    rint = tf.math.rint
     float32 = tf.float32
+    float64 = tf.float64
     int32 = tf.int32
     int64 = tf.int64
     bool = tf.bool
@@ -250,6 +336,7 @@ class TensorFlowLibrary(ComputationLibrary):
     abs = tf.abs
     sqrt = tf.sqrt
     argpartition = lambda x, k: tf.math.top_k(-x, k, sorted=False)[1]
+    argmax = lambda x, a: tf.math.argmax(x, axis=a)
     norm = lambda x, axis: tf.norm(x, axis=axis)
     matmul = tf.linalg.matmul
     cross = tf.linalg.cross
@@ -259,6 +346,7 @@ class TensorFlowLibrary(ComputationLibrary):
     where = tf.where
     logical_and = tf.math.logical_and
     logical_or  = tf.math.logical_or
+    print = tf.print
     square = tf.square
     divide = tf.math.divide
 
@@ -269,6 +357,7 @@ class PyTorchLibrary(ComputationLibrary):
         return a[..., index_vector]
 
     lib = 'Pytorch'
+    set_device = lambda device_name: set_device_general(device_name, 'pytorch')
     reshape = torch.reshape
     permute = torch.permute
     newaxis = None
@@ -286,6 +375,7 @@ class PyTorchLibrary(ComputationLibrary):
     tan = torch.tan
     tanh = torch.tanh
     exp = torch.exp
+    reciprocal = torch.reciprocal
     squeeze = torch.squeeze
     unsqueeze = torch.unsqueeze
     stack = torch.stack
@@ -293,7 +383,9 @@ class PyTorchLibrary(ComputationLibrary):
     floormod = torch.remainder
     floor = lambda x: torch.floor(torch.as_tensor(x))
     ceil = lambda x: torch.ceil(torch.as_tensor(x))
+    rint = lambda x: torch.round(torch.as_tensor(x), decimals=0)
     float32 = torch.float32
+    float64 = torch.float64
     int32 = torch.int32
     int64 = torch.int64
     bool = torch.bool
@@ -340,6 +432,7 @@ class PyTorchLibrary(ComputationLibrary):
     abs = torch.abs
     sqrt = torch.sqrt
     argpartition = torch.topk
+    argmax = lambda x, a: torch.argmax(x, dim=a)
     norm = lambda x, axis: torch.linalg.norm(x, dim=axis)
     matmul = torch.matmul
     cross = torch.linalg.cross
@@ -349,3 +442,6 @@ class PyTorchLibrary(ComputationLibrary):
     where = torch.where
     logical_and = torch.logical_and
     logical_or  = torch.logical_or
+    print = print
+    square = torch.square
+    divide = torch.div

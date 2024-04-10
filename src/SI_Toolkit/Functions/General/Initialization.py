@@ -32,7 +32,7 @@ def set_seed(args):
         pass
 
 
-def load_net_info_from_txt_file(txt_path, parent_net_name, convert_to_delta, net_info=None):
+def load_net_info_from_txt_file(txt_path, parent_net_name=None, convert_to_delta=False, net_info=None):
     # region Get information about the pretrained network from the associated txt file
     if net_info is None:
         net_info = SimpleNamespace()
@@ -41,6 +41,11 @@ def load_net_info_from_txt_file(txt_path, parent_net_name, convert_to_delta, net
         lines = f.read().splitlines()
 
     for i in range(len(lines)):
+        if lines[i] == 'CREATED:':
+            created = lines[i + 1].rstrip("\n")
+            date = created[:10]
+            time = created[-8:]
+            continue
         if lines[i] == 'LIBRARY:':
             net_info.library = lines[i + 1].rstrip("\n")
             continue
@@ -67,9 +72,10 @@ def load_net_info_from_txt_file(txt_path, parent_net_name, convert_to_delta, net
             net_info.net_type = lines[i + 1].rstrip("\n").split(sep=', ')
             continue
         if lines[i] == 'NORMALIZATION:':
-            path_to_normalization_info_old = lines[i + 1].rstrip("\n")
-            net_info.path_to_normalization_info = os.path.join(net_info.path_to_models, parent_net_name,
-                                                               os.path.basename(path_to_normalization_info_old))
+            path_to_normalization_info = lines[i + 1].rstrip("\n")
+            if parent_net_name is not None:
+                path_to_normalization_info = os.path.join(net_info.path_to_models, parent_net_name, os.path.basename(path_to_normalization_info))
+            net_info.path_to_normalization_info = path_to_normalization_info
             continue
         if lines[i] == 'NORMALIZE:':
             net_info.normalize = lines[i + 1].rstrip('\n') == 'True'
@@ -88,17 +94,17 @@ def load_net_info_from_txt_file(txt_path, parent_net_name, convert_to_delta, net
         if lines[i] == 'CONSTRUCT NETWORK:':
             net_info.construct_network = lines[i + 1].rstrip("\n")
             continue
-        if lines[i] == 'TIMESTEP MEAN:':
-            net_info.dt = lines[i + 1].rstrip("\n")
+        if lines[i] == 'TIMESTEP MEAN [s]:':
+            net_info.dt = float(lines[i + 1].rstrip("\n"))
             continue
-        if lines[i] == 'TIMESTEP STD:':
-            net_info.dt_std = lines[i + 1].rstrip("\n")
+        if lines[i] == 'TIMESTEP STD [s]:':
+            net_info.dt_std = float(lines[i + 1].rstrip("\n"))
             continue
 
     return net_info
 
 
-def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
+def load_pretrained_network(net_info, time_series_length, batch_size, stateful, remove_redundant_dimensions=False):
     # In case net_name is 'last' iterate till a valid file is found
     while True:  # Exit from while loop is done with break statement or when getting an error
         # region In case net_name is 'last' we have to first find (full) name of the last trained net
@@ -118,11 +124,11 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
 
         # region check for DeltaGRU, and alternatively load normal GRU printing a warning
         convert_to_delta = False
-        if os.path.isdir(net_info.path_to_models + parent_net_name):
-            print('Loading a pretrained network with the full name: {}'.format(parent_net_name))
+        if os.path.isdir(os.path.join(net_info.path_to_models, parent_net_name)):
+            print(f'Loading a pretrained network with the full name  {parent_net_name}  from  {net_info.path_to_models}')
         else:
             if parent_net_name[:5] == 'Delta':
-                if os.path.isdir(net_info.path_to_models + parent_net_name[5:]):
+                if os.path.isdir(os.path.join(net_info.path_to_models, parent_net_name[5:])):
                     convert_to_delta = True
                     print('{} not found, loading {} instead'.format(parent_net_name, parent_net_name[5:]))
                     parent_net_name = parent_net_name[5:]
@@ -135,7 +141,7 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
         # region Ensure that needed txt file are present in the indicated folder
         # They might be missing e.g. if a previous training session was terminated prematurely
         txt_filename = parent_net_name + '.txt'
-        txt_path = net_info.path_to_models + parent_net_name + '/' + txt_filename
+        txt_path = os.path.join(net_info.path_to_models, parent_net_name, txt_filename)
         if not os.path.isfile(txt_path):
             txt_not_found_str = 'The corresponding .txt file is missing' \
                                 '(information about inputs and outputs) at the location {}' \
@@ -156,15 +162,7 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
 
         net_info.parent_net_name = parent_net_name
 
-        net_info.path_to_net = net_info.path_to_models + parent_net_name
-
-        if 'dt' in locals():
-            net_info.dt = float(dt)
-            net_info.dt_std = float(dt_std)
-        else:
-            print('Warning! Net info does not contain information about dt!')
-            net_info.dt = None
-            net_info.dt_std = None
+        net_info.path_to_net = os.path.join(net_info.path_to_models, parent_net_name)
 
         if not hasattr(net_info, 'wash_out_len'):
             print('Wash out not defined.')
@@ -186,18 +184,18 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
                               'ckpt.pt']  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
         ckpt_found = False
 
-        ckpt_path = net_info.path_to_models + parent_net_name + '/' + ckpt_filenames[0]
+        ckpt_path = os.path.join(net_info.path_to_models, parent_net_name, ckpt_filenames[0])
         if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
             ckpt_found = True
         if not ckpt_found:
-            ckpt_path = net_info.path_to_models + parent_net_name + '/' + ckpt_filenames[1]
+            ckpt_path = os.path.join(net_info.path_to_models, parent_net_name, ckpt_filenames[1])
             if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
                 ckpt_found = True
         if not ckpt_found:
             ckpt_not_found_str = 'The corresponding .ckpt file is missing' \
                                  '(information about weights and biases). \n' \
                                  'it was not found neither at the location {} nor at {}' \
-                .format(net_info.path_to_models + parent_net_name + '/' + ckpt_filenames[0], ckpt_path)
+                .format(os.path.join(net_info.path_to_models, parent_net_name, ckpt_filenames[0], ckpt_path))
 
             if net_info.net_name == 'last':
                 print(ckpt_not_found_str)
@@ -230,7 +228,10 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
     else:
         net, net_info = compose_net_from_net_name(net_info,
                                                   time_series_length=time_series_length,
-                                                  batch_size=batch_size, stateful=stateful)
+                                                  batch_size=batch_size, stateful=stateful,
+                                                  remove_redundant_dimensions=remove_redundant_dimensions,
+                                                  construct_network=net_info.construct_network,
+                                                  )
 
     # Load the pretrained weights
     load_pretrained_net_weights(net, ckpt_path)
@@ -239,7 +240,7 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful):
     return net, net_info
 
 
-def load_new_network(net_info, time_series_length, batch_size, stateful):
+def load_new_network(net_info, time_series_length, batch_size, stateful, remove_redundant_dimensions=False):
     '''Create a new network according to provided parameters'''
 
     print('')
@@ -252,14 +253,6 @@ def load_new_network(net_info, time_series_length, batch_size, stateful):
     if not hasattr(net_info, 'wash_out_len'):
         print('Wash out not defined.')
 
-    if 'dt' in locals():
-        net_info.dt = float(dt)
-        net_info.dt_std = float(dt_std)
-    else:
-        print('Warning! Net info does not contain information about dt!')
-        net_info.dt = None
-        net_info.dt_std = None
-        
     if not hasattr(net_info, 'path_to_normalization_info'):
         net_info.path_to_normalization_info = None
 
@@ -286,6 +279,7 @@ def get_net(a,
             time_series_length=None,
             batch_size=None,
             stateful=False,
+            remove_redundant_dimensions=False,
             ):
     """
     A quite big (too big?) chunk of creating a network, its associated net_info variable
@@ -310,9 +304,9 @@ def get_net(a,
     net_name_is_a_full_name = all(c in "0123456789" for c in last_part_of_net_name)
 
     if net_name_is_a_full_name or a.net_name == 'last':
-        net, net_info = load_pretrained_network(a, time_series_length, batch_size, stateful)
+        net, net_info = load_pretrained_network(a, time_series_length, batch_size, stateful, remove_redundant_dimensions)
     else:
-        net, net_info = load_new_network(a, time_series_length, batch_size, stateful)
+        net, net_info = load_new_network(a, time_series_length, batch_size, stateful, remove_redundant_dimensions)
 
     return net, net_info
 
@@ -331,7 +325,7 @@ def get_norm_info_for_net(net_info, files_for_normalization=None, copy_files=Tru
             normalization_info = load_normalization_info(net_info.path_to_normalization_info)
             if copy_files:
                 shutil_copy(net_info.path_to_normalization_info, net_info.path_to_net)
-                net_info.path_to_normalization_info = net_info.path_to_net + os.path.basename(net_info.path_to_normalization_info)
+                net_info.path_to_normalization_info = os.path.join(net_info.path_to_net, os.path.basename(net_info.path_to_normalization_info))
     else:
         # In this case (retraining) we need to provide a normalization info.
         # This normalization info should in general come from the folder of retrained network,
@@ -367,7 +361,7 @@ def create_full_name(net_info, path_to_models):
 
     net_index = 0
     while True:
-        path_to_dir = path_to_models + net_full_name + '-' + str(net_index)
+        path_to_dir = os.path.join(path_to_models, net_full_name + '-' + str(net_index))
         if os.path.isdir(path_to_dir):
             pass
         else:
@@ -380,7 +374,7 @@ def create_full_name(net_info, path_to_models):
     print('Full name given to the currently trained network is {}.'.format(net_full_name))
     print('')
     net_info.net_full_name = net_full_name
-    net_info.path_to_net = path_to_dir + '/'
+    net_info.path_to_net = path_to_dir
 
 
 def create_log_file(net_info, a, dfs):
@@ -392,7 +386,7 @@ def create_log_file(net_info, a, dfs):
     except:
         git_revision = 'unknown'
 
-    txt_path = a.path_to_models + net_info.net_full_name + '/' + net_info.net_full_name + '.txt'
+    txt_path = os.path.join(a.path_to_models, net_info.net_full_name, net_info.net_full_name + '.txt')
     f = open(txt_path, 'w')
     f.write('CREATED:\n')
     f.write(date_now + ' at time ' + time_now)
@@ -456,17 +450,34 @@ def create_log_file(net_info, a, dfs):
             dt = time[1:]-time[:-1]
             all_dt.append(dt)
         all_dt = np.concatenate(all_dt)
-        dt_mean = np.mean(all_dt)*np.sqrt(a.shift_labels)
-        dt_std = np.std(all_dt)*np.sqrt(a.shift_labels)
+        dt_mean = np.mean(all_dt)*a.shift_labels
+        dt_std = np.std(all_dt)*a.shift_labels
     else:
         dt_mean = None
         dt_std = None
 
-    f.write('\n\nTIMESTEP MEAN:\n')
-    f.write(str(dt_mean))
+    if dt_mean is None:
+        f.write('\n\nTIMESTEP MEAN [datafile rows]:\n')
+        f.write(str(a.shift_labels))
 
-    f.write('\n\nTIMESTEP STD:\n')
-    f.write(str(dt_std))
+        f.write('\n\nTIMESTEP STD [datafile rows]:\n')
+        f.write(str(0))
+    else:
+        f.write('\n\nTIMESTEP MEAN [s]:\n')
+        f.write(str(dt_mean))
+
+        f.write('\n\nTIMESTEP STD [s]:\n')
+        f.write(str(dt_std))
 
 
     f.close()
+
+    # Save config for Delta Network
+
+    if hasattr(net_info, 'delta_gru_dict') and net_info.delta_gru_dict:
+        import yaml
+        yaml_path = os.path.join(a.path_to_models, net_info.net_full_name, 'delta_gru_hyperparameters' + '.yaml')
+        file = open(yaml_path, "w")
+        yaml.dump(net_info.delta_gru_dict, file)
+        file.close()
+

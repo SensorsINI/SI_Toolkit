@@ -12,7 +12,7 @@ from SI_Toolkit.Predictors import template_predictor
 try:
     from SI_Toolkit_ASF.predictors_customization import (
         CONTROL_INPUTS, STATE_INDICES, STATE_VARIABLES,
-        augment_predictor_output)
+        )
 except ModuleNotFoundError:
     print('SI_Toolkit_ApplicationSpecificFiles not yet created')
 
@@ -84,7 +84,7 @@ class predictor_autoregressive_GP(template_predictor):
         )
 
     def predict(self, initial_state, Q_seq):
-        outputs = self.predict_tf(initial_state, Q_seq)
+        outputs = self.predict_core(initial_state, Q_seq)
         return outputs.numpy()
 
     @CompileTF
@@ -100,7 +100,7 @@ class predictor_autoregressive_GP(template_predictor):
         return s
 
     @CompileTF
-    def predict_tf(self, initial_state, Q):
+    def predict_core(self, initial_state, Q):
 
         self.lib.assign(self.last_initial_state, initial_state)
 

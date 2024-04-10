@@ -2,7 +2,7 @@ from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 import numpy as np
 from tqdm import trange
 
-from SI_Toolkit_ASF.predictors_customization_tf import STATE_VARIABLES, CONTROL_INPUTS
+from SI_Toolkit_ASF.predictors_customization import STATE_VARIABLES, CONTROL_INPUTS
 
 def get_prediction(
         dataset,
@@ -47,13 +47,29 @@ def get_prediction(
     predictor_initial_input = dataset[predictor.predictor.predictor_initial_input_features].to_numpy()
     if predictor_initial_input is not None:
         predictor_initial_input = predictor_initial_input[:-test_max_horizon, :]
-    predictor_external_input = dataset[predictor.predictor.predictor_external_input_features].to_numpy()
+    try:
+        predictor_external_input = dataset[predictor.predictor.predictor_external_input_features].to_numpy()
+    except KeyError as e:
+        similar_features = []
+        for element in dataset.columns:
+            # Check if any element in predictor.predictor.predictor_external_input_features is a substring of the current element in dataset.columns
+            if any(fx in element for fx in predictor.predictor.predictor_external_input_features):
+                # If yes, add the element to the similar_features
+                similar_features.append(element)
+        print(f"Predictor external input features {predictor.predictor.predictor_external_input_features} not found in the dataset.\n"
+                       f"Similar features to requested found in the dataset: {similar_features}\n"
+                       f"It might be that there exist versions of the feature with and without added noise.\n"
+                       f"For cartpole e.g. this is Q (old but still used, general one), Q_applied (with noise), Q_calculated (without noise)\n"
+                       "Select the proper one, for cartpole in state_utilities.py\n"
+                       )
+        raise KeyError(f'{e}' + f" See terminal output for more information.")
+
 
 
     predictor_external_input_array = [predictor_external_input[..., i:-predictor_horizon + i, :] for i in range(predictor_horizon)]
     predictor_external_input_array = np.stack(predictor_external_input_array, axis=1)
 
-    if dt_predictions == 0.0:
+    if routine == "simple evaluation":
         predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input) - test_max_horizon, ...]
     else:
         predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input), ...]

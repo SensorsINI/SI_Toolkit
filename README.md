@@ -1,13 +1,74 @@
-# SI_Toolkit
-System identification with neural networks - training and testing scripts
+# System Identification Toolkit (SI_Toolkit)
 
-Use this repository to train neural networks on dynamical systems.
+## Overview
 
+The SI_Toolkit is a library designed for easy and effective development of machine learning models for system identification and neural control. It facilitates the training of predictive models and controllers using neural networks (NNs) and provides scripts for data preprocessing, training via supervised learning, testing, and using the models in an autoregressive way. It provides a ready-to-use solution that allows users to focus on application, minimizing the need for custom coding.
+
+## Features
+
+- **Data Analysis Scripts**: Calculation of data statistics summaries and histograms to aid in data inspection before using it for machine learning applications.
+- **Model Support**: Basic models like MLP, RNN, GRU, LSTM can be trained using a simple interface with 0 coding using both Tensorflow and Pytorch backends. Custom models – either ML or ODEs with trainable parameters - can be easily added based on provided examples.
+- **Brunton Test**: A unique tool that visualizes the predicted evolution of dynamical systems over time, highlighting model accuracy through error visualization. This feature is designed to provide intuitive insights into model performance.
+- **Data Processing Utilities**: Comes with features to enrich data, improving model training outcomes through time-shift adjustments, adding derivatives calculated from data, and sensor quantization.
+- **Cross-Platform Functionality**: Tested mostly on macOS M1 (Sonoma), it is used successfully on Ubuntu 20.4 and Windows, making it accessible to a wide range of users.
+- **FPGA Integration with hls4ml and EdgeDRNN**: Its unique feature is basic integration with hls4ml and the EdgeDRNN framework, which facilitates bringing trained neural networks to FPGA, making it ideal for high-performance, low-latency applications.
+- **Framework Agnostic Design**: The SI_Toolkit's architecture is designed to be independent of the underlying machine learning framework. This dual compatibility with TensorFlow and PyTorch not only offers flexibility in model development but also serves as a unique example of creating ML software that allows user to switch between both frameworks while avoiding duplicate code to implement desired functionalities.
+
+## Target Users
+
+The toolkit is crafted for individuals and teams eager to delve into system identification and neural control without the overhead of extensive programming. It was created for use at workshops, but is also a great working example for a pipeline from raw simulated or experimental data to a neural network model deployed on specialized hardware. Together with our other Neural Control Tools, it can substantially speed up the development of ML-based control.
+
+## Extensibility
+
+SI_Toolkit is designed for easy customization and extension. Users can adapt it to fit their specific needs and are invited to contribute to a collaborative and evolving toolkit.
+
+## Installation
+These steps are needed only if you create a new project.
+
+Our projects which use the Toolkit have it as a submodule and it is cloned and  installed automatically.
+If you create a new project:
+
+0. Create python 3.11 environment, if you haven't done it yet. e.g.
+
+    `conda create -n myenv python=3.11`
+
+    `conda activate myenv`
+
+    `conda install pip`
+
+1. Clone the repository
+
+    SI_Toolkit is an installable library to be used as part of bigger project.
+    we recommend that you add it as a submodule at the root of your project hierarchy with
+
+    `git submodule add https://github.com/SensorsINI/SI_Toolkit`
+
+    or otherwise clone it to your project directory with
+
+    `git clone https://github.com/SensorsINI/SI_Toolkit`
+
+2. Install the Toolkit
+
+    `pip install -e ./SI_Toolkit`
+
+    This line assumes that you cloned the Toolkit to the root of your project hierarchy, otherwise adjust the path.
+    -e flag installs the Toolkit in editable mode, so you can modify the Toolkit and see the changes in your project without reinstalling it.
+    This installation also installs all the dependencies - it is quite a lot of packages, so it may take a while.
+3. Copy SI_Toolkit_ASF_Template to the root of your project hierarchy and rename it to SI_Toolkit_ASF, e.g.
+
+    `cp -r ./SI_Toolkit/SI_Toolkit_ASF_Template ./SI_Toolkit_ASF`
+
+   The ASF stand for Application Specific files.
+   This folders contains the files that need to be customized for your project- mostly configuration files, run scripts and default output locations.
+   We discuss the customization of these files in the sections related to functionalities of interest.
+
+## Quick Start - Main Pipeline
 1. Collect Training Data
-  - Run a data generation script on your simulation environment.
-  - Example: run_data_generator in CartPoleSimulator
-  - Or create a folder `./Experiment_Recordings/Dataset-1/` and put data in there
-2. Load Training Data and Normalize it
+  - To use SI_Toolkit you need a dataset (csv files) with columns for input and output of the network you want to train.
+  - SI_Toolkit expect to find in experiment folder a data folder (default called `Recordings`) and within it three other folders: `Train`, `Validate`, `Test` with data to be used in training and testing.
+  - In SI_Toolkit_ASF, we provide an example dataset with data from a cartpole.
+2. Calculate data statistics and inspect data
+  - This step in necessary for each new dataset, as the data statistics file calculated offline is used while training neural networks to normalize the data.
   - Set paths to experiment folders in `./SI_Toolkit_ASF/config_training.yml`
     - In our example: Set to `./Experiment_Recordings/Dataset-1/`
   - Then run `python -m SI_Toolkit_ASF.run.Create_normalization_file`
@@ -31,10 +92,9 @@ Use this repository to train neural networks on dynamical systems.
   - Specify `NET_NAME` in config -> this is the network used in `predictor_autoregressive_neural.py`
   - When using the CartPoleSimulator repo as system: In the CartPoleSimulator config, specify `"predictor_autoregressive_neural"` as predictor type
 
-## Using a custom model
-To train more complex models, you can write your own:
-1. Write your module `SI_Toolkit_ASF/Modules/[module_name].py`
-  - Write a class that inherits from `tf.keras.Model`
-  - The class must have a `__init__(self)` function and a `call(self, x)` function. `x` is a tensor containing the input to the network. Refer to https://keras.io/api/models/model/ for more information on how to write your own model.
-2. For training, follow the steps outlined above. 
-  - Use your custom model by specifying `--net-name Custom-[module_name]-[class_name]`
+## Gallery
+Testing with Brunton GUI predicted vs actual car trajectories
+Physical Cartpole swing-up using Model Predictive Control (MPC) with neural network model trained with SI_Toolkit
+
+## More Information
+For more detailed information on features and usage, see our [detailed documentation](https://github.com/SensorsINI/SI_Toolkit/wiki/Detailed-Documentation).

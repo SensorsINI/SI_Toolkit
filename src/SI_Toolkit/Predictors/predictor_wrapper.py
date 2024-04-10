@@ -1,13 +1,13 @@
 import os
 from typing import Optional
-from SI_Toolkit.computation_library import ComputationLibrary
-import yaml
+from SI_Toolkit.computation_library import ComputationLibrary, TensorFlowLibrary
+from SI_Toolkit.load_and_normalize import load_yaml
 from copy import deepcopy as dcp
 from types import MappingProxyType, SimpleNamespace
 
 
 # predictors config
-predictors_config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_predictors.yml'), 'r'), Loader=yaml.FullLoader)
+predictors_config = load_yaml(os.path.join('SI_Toolkit_ASF', 'config_predictors.yml'), 'r')
 
 NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM', 'Custom']
 
@@ -76,6 +76,8 @@ class PredictorWrapper:
 
         elif self.predictor_type == 'ODE_TF':
             from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
+            if computation_library is None:  # TODO: Remove it after making sure that the predictor gets the right library everywhere it is used.
+                computation_library = TensorFlowLibrary
             self.predictor = predictor_ODE_tf(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         else:
@@ -162,8 +164,8 @@ class PredictorWrapper:
     def predict(self, s, Q):
         return self.predictor.predict(s, Q)
 
-    def predict_tf(self, s, Q):  # TODO: This function should disappear: predict() should manage the right library
-        return self.predictor.predict_tf(s, Q)
+    def predict_core(self, s, Q):  # TODO: This function should disappear: predict() should manage the right library
+        return self.predictor.predict_core(s, Q)
 
     def update(self, Q0, s):
         if self.predictor_type == 'neural':

@@ -10,8 +10,8 @@ from SI_Toolkit_ASF.predictors_customization import CONTROL_INPUTS
 import numpy as np
 batch_size = 2000
 horizon = 50
-path_to_model = './SI_Toolkit_ASF/Experiments/Pretrained-RNN-1/Models'
-net_name = 'GRU-6IN-32H1-32H2-5OUT-0' # if applies
+path_to_model = './SI_Toolkit_ASF/Experiments/CPS-17-02-2023-UpDown-Model/Models/'
+net_name = 'Dense-6IN-32H1-32H2-5OUT-0' # if applies
 GP_name = 'SGP_10'
 initial_state = np.float32(np.random.random(size=(batch_size, 6)))
 Q = np.float32(np.random.random(size=(batch_size, horizon, len(CONTROL_INPUTS))))
@@ -69,7 +69,7 @@ predictor = predictor_ODE(horizon, 0.02, 10)
 
     initialisation_ODE_tf = '''
 from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
-predictor = predictor_ODE_tf(horizon, 0.02, 10)
+predictor = predictor_ODE_tf(horizon=horizon, dt=0.02, intermediate_steps=10)
 '''
 
     initialisation_autoregressive_neural = '''

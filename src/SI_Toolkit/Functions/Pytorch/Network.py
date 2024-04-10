@@ -1,11 +1,24 @@
 import torch
 import torch.nn as nn
-from SI_Toolkit.Functions.Pytorch.DeltaGRU.deltagru import DeltaGRU
+
+import sys
+import os
 
 import collections
 from types import SimpleNamespace
 from copy import deepcopy as dcp
 
+
+dict_translate = {'rnn.weight_ih_l0': 'network_head.weight_ih_l0',
+                     'rnn.weight_hh_l0': 'network_head.weight_hh_l0',
+                     'rnn.bias_ih_l0': 'network_head.bias_ih_l0',
+                     'rnn.bias_hh_l0': 'network_head.bias_hh_l0',
+                     'rnn.weight_ih_l1': 'network_head.weight_ih_l1',
+                     'rnn.weight_hh_l1': 'network_head.weight_hh_l1',
+                     'rnn.bias_ih_l1': 'network_head.bias_ih_l1',
+                     'rnn.bias_hh_l1': 'network_head.bias_hh_l1',
+                     'cl.weight': 'cl.weight',
+                     'cl.bias': 'cl.bias'}
 
 def load_pretrained_net_weights(net, pt_path):
     """
@@ -17,21 +30,26 @@ def load_pretrained_net_weights(net, pt_path):
 
     device = get_device()
 
-    pre_trained_model = torch.load(pt_path, map_location=device)
+    pre_trained_model_dict = torch.load(pt_path, map_location=device)
+    if 'state_dict' in pre_trained_model_dict:
+        pre_trained_model_dict = pre_trained_model_dict['state_dict']
     print("Loading Model: ", pt_path)
     print('')
 
-    pre_trained_model = list(pre_trained_model.items())
-    new_state_dict = collections.OrderedDict()
-    count = 0
-    num_param_key = len(pre_trained_model)
-    for key, value in net.state_dict().items():
-        if count >= num_param_key:
+    new_state_dict = net.state_dict()
+
+    use_dict_translate = False
+    for key1, key2 in zip(pre_trained_model_dict.keys(), new_state_dict.keys()):
+        if key1 != key2:
+            use_dict_translate = True
             break
-        layer_name, weights = pre_trained_model[count]
+
+    for key, value in new_state_dict.items():
+        pretrained_key = key
+        if use_dict_translate:
+            pretrained_key = dict_translate[key]
+        weights = pre_trained_model_dict[pretrained_key]
         new_state_dict[key] = weights
-        # print("Pre-trained Layer: %s - Loaded into new layer: %s" % (layer_name, key))
-        count += 1
     print('')
     net.load_state_dict(new_state_dict)
 
@@ -40,7 +58,11 @@ def compose_net_from_net_name(net_info,
                               time_series_length,
                               batch_size=None,
                               stateful=False,
-                              construct_network='with cells'):
+                              construct_network='with cells',
+                              remove_redundant_dimensions=False):
+
+    if remove_redundant_dimensions == True:
+        raise NotImplementedError('Removing redundant dimensions not implemented for Pytorch.')
 
     net_name = net_info.net_name
     inputs_list = net_info.inputs
@@ -53,6 +75,7 @@ def compose_net_from_net_name(net_info,
           .format(net.net_type, len(net.h_size), ', '.join(map(str, net.h_size))))
 
     net_info.net_type = net.net_type
+    net_info.delta_gru_dict = net.delta_gru_dict
 
     return net, net_info
 
@@ -78,6 +101,8 @@ class Sequence(nn.Module):
 
         self.batch_size = batch_size
 
+        self.delta_gru_dict = None
+
         # Get the information about network architecture from the network name
         # Split the names into "LSTM/GRU", "128H1", "64H2" etc.
         names = net_name.split('-')
@@ -94,10 +119,10 @@ class Sequence(nn.Module):
 
         self.h_number = len(self.h_size)
 
-        if 'GRU' in names:
-            self.net_type = 'GRU'
-        elif 'DeltaGRU' in names:
+        if 'DeltaGRU' in names:
             self.net_type = 'DeltaGRU'
+        elif 'GRU' in names:
+            self.net_type = 'GRU'
         elif 'LSTM' in names:
             self.net_type = 'LSTM'
         elif 'Dense' in names:
@@ -135,8 +160,38 @@ class Sequence(nn.Module):
                 self.network_head = nn.GRU(input_size=len(inputs_list), hidden_size=self.h_size[0],
                                            num_layers=len(self.h_size))
             elif self.net_type == 'DeltaGRU':
-                self.network_head = DeltaGRU(n_inp=len(inputs_list), n_hid=self.h_size[0],
-                                             num_layers=len(self.h_size))
+                import yaml
+                import SI_Toolkit.Functions.Pytorch as EdgeDRNN_location
+                path_to_EdgeDRNN = os.path.join(os.path.dirname(EdgeDRNN_location.__file__), "EdgeDRNN", "python")
+                if path_to_EdgeDRNN not in sys.path:
+                    sys.path.insert(0, path_to_EdgeDRNN)
+                from SI_Toolkit.Functions.Pytorch.EdgeDRNN.python.nnlayers.deltagru import DeltaGRU
+
+                delta_gru_dict = yaml.load(open(os.path.join("SI_Toolkit_ASF", "config_DeltaGRU.yml"), "r"),
+                                   Loader=yaml.FullLoader)
+                delta_gru_dict['inp_size'] = len(inputs_list)
+                delta_gru_dict['rnn_size'] = self.h_size[0]
+                delta_gru_dict['rnn_layers'] = len(self.h_size)
+                delta_gru_dict['num_classes'] = len(outputs_list)
+                self.delta_gru_dict = delta_gru_dict
+
+                self.rnn = DeltaGRU(
+                    input_size=delta_gru_dict['inp_size'],
+                    hidden_size=delta_gru_dict['rnn_size'],
+                    num_layers=delta_gru_dict['rnn_layers'],
+                    batch_first=delta_gru_dict['batch_first'],
+                    thx=delta_gru_dict['thx'],
+                    thh=delta_gru_dict['thh'],
+                    qa=delta_gru_dict['qa'],
+                    aqi=delta_gru_dict['aqi'],
+                    aqf=delta_gru_dict['aqf'],
+                    qw=delta_gru_dict['qw'],
+                    wqi=delta_gru_dict['wqi'],
+                    wqf=delta_gru_dict['wqf'],
+                    nqi=delta_gru_dict['afqi'],
+                    nqf=delta_gru_dict['afqf'],
+                    debug=delta_gru_dict['debug'],
+                )
             elif self.net_type == 'LSTM':
                 self.network_head = nn.LSTM(input_size=len(inputs_list), hidden_size=self.h_size[0],
                                             num_layers=len(self.h_size))
@@ -144,17 +199,22 @@ class Sequence(nn.Module):
                 self.network_head = nn.RNN(input_size=len(inputs_list), hidden_size=self.h_size[0],
                                            num_layers=len(self.h_size))
 
-        self.final_fc = nn.Linear(self.h_size[-1], len(outputs_list))  # RNN out
 
         if self.construct_network == 'with cells':
             self.layers = nn.ModuleList([])
+            self.net_cell.append(nn.Linear(self.h_size[-1], len(outputs_list)).to(self.device))
             for cell in self.net_cell:
                 self.layers.append(cell)
-            self.layers.append(self.final_fc)
+        else:
+            self.cl = nn.Linear(self.h_size[-1], len(outputs_list)).to(self.device)
+
+
 
         # Declaration of the variables keeping internal state of GRU hidden layers
         self.h = [None] * len(self.h_size)
         self.c = [None] * len(self.h_size)  # Internal state cell - only matters for LSTM
+
+        self.activation_function = nn.Tanh()
 
         # Send the whole RNN to GPU if available, otherwise send it to CPU
         self.to(self.device)
@@ -188,8 +248,10 @@ class Sequence(nn.Module):
             for iteration, input_t in enumerate(network_input.chunk(network_input.size(0), dim=0)):
                 if self.net_type == 'Dense':
                     self.h[0] = self.layers[0](input_t.squeeze(0))
+                    self.h[0] = self.activation_function(self.h[0])
                     for i in range(len(self.h_size) - 1):
                         self.h[i + 1] = self.layers[i + 1](self.h[i])
+                        self.h[i + 1] = self.activation_function(self.h[i + 1])
                 elif self.net_type == 'LSTM':
                     self.h[0], self.c[0] = self.layers[0](input_t.squeeze(0), (self.h[0], self.c[0]))
                     for i in range(len(self.h_size) - 1):
@@ -199,7 +261,7 @@ class Sequence(nn.Module):
                     for i in range(len(self.h_size) - 1):
                         self.h[i + 1] = self.layers[i + 1](self.h[i], self.h[i + 1])
 
-                output = self.final_fc(self.h[-1])
+                output = self.layers[-1](self.h[-1])
 
                 outputs += [output]
 
@@ -208,9 +270,11 @@ class Sequence(nn.Module):
         elif self.construct_network == 'with modules':
             if self.net_type == 'LSTM':
                 outputs, (self.h, self.c) = self.network_head(network_input, (self.h, self.c))
-            elif self.net_type == 'GRU' or self.net_type == 'DeltaGRU' or self.net_type == 'RNN-Basic':
+            elif self.net_type == 'GRU' or self.net_type == 'RNN-Basic':
                 outputs, self.h = self.network_head(network_input, self.h)
-            outputs = self.final_fc(outputs)
+            elif self.net_type == 'DeltaGRU':
+                outputs, self.h, _ = self.rnn(network_input, self.h)
+            outputs = self.cl(outputs)
 
             outputs = torch.transpose(outputs, 0, 1)
 
@@ -235,7 +299,10 @@ class Sequence(nn.Module):
                         if self.net_type == 'LSTM':
                             self.c[i] = torch.zeros(batch_size, self.h_size[i], dtype=torch.float).to(self.device)
                 else:
-                    self.h = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
+                    if self.net_type == 'DeltaGRU':
+                        self.h = None
+                    else:
+                        self.h = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)  # [Batch size, output of RNN layer]
                     if self.net_type == 'LSTM':
                         self.c = torch.zeros(len(self.h_size), batch_size, self.h_size[0], dtype=torch.float).to(self.device)
 
