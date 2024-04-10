@@ -14,11 +14,6 @@ except ModuleNotFoundError:
 
 from SI_Toolkit.Functions.TF.Dataset import Dataset
 
-try:
-    from SI_Toolkit_ASF.DataSelector import DataSelector
-except:
-    print('No DataSelector found.')
-
 from SI_Toolkit.Functions.TF.Loss import LossMSRSequence, LossMSRSequenceCustomizableRelative
 
 
@@ -27,10 +22,6 @@ from SI_Toolkit.Functions.TF.Loss import LossMSRSequence, LossMSRSequenceCustomi
 # @profile(precision=4)
 def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a):
 
-    # region Prepare data for training
-    # DataSelectorInstance = DataSelector(a)
-    # DataSelectorInstance.load_data_into_selector(training_dfs_norm)
-    # training_dataset = DataSelectorInstance.return_dataset_for_training(shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
     training_dataset = Dataset(training_dfs, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
 
     validation_dataset = Dataset(validation_dfs, a, shuffle=False, inputs=net_info.inputs,
