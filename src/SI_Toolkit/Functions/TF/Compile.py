@@ -1,16 +1,16 @@
 import logging
 import platform
+import os
 
 import tensorflow as tf
 import torch
 
 from SI_Toolkit.computation_library import ComputationLibrary
 
-try:
-    from SI_Toolkit_ASF import GLOBALLY_DISABLE_COMPILATION, USE_JIT_COMPILATION
-except ImportError:
-    logging.warn("No compilation option set in SI_Toolkit_ASF. Setting GLOBALLY_DISABLE_COMPILATION to True.")
-    GLOBALLY_DISABLE_COMPILATION = True
+from SI_Toolkit.load_and_normalize import load_yaml
+config_compilation = load_yaml(os.path.join('SI_Toolkit_ASF', 'config_compilation.yml'))
+GLOBALLY_DISABLE_COMPILATION = config_compilation['GLOBALLY_DISABLE_COMPILATION']
+USE_JIT_COMPILATION = config_compilation['USE_JIT_COMPILATION']
 
 def tf_function_jit(func):
     return tf.function(func=func, jit_compile=True)
