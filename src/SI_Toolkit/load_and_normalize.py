@@ -654,7 +654,7 @@ def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm,
 
 
 
-def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings, verbose=True):
+def append_derivatives(df, variables_for_derivative, derivative_algorithm, df_name, verbose=False):
     """
     Takes list of dataframes dfs
     and augment it with derivatives of columns indicated in variables_for_derivative
@@ -662,96 +662,57 @@ def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, path
     The output file is shorter - first and last indices for which it is difficult to get good derivative are dropped.
     """
 
-    if verbose:
-        print('Calculating derivatives')
-        range_function = trange
-    else:
-        range_function = range
-
-    file_names = [os.path.basename(paths_to_recordings[i]) for i in range(len(paths_to_recordings))]
-
     cut = 1
-    dfs_with_derivatives = []
+
     paths_with_derivatives = []
-    no_time_axis_in_files = []
-    for j in range_function(len(dfs)):
 
-        df_composed = dfs[j]
-        path_to_recording = paths_to_recordings[j]
-        file_name = file_names[j]
+    dfs_split = []
+    if 'experiment_index' in df.columns:
+        grouped = df.groupby(df.experiment_index)
+        for i in df.experiment_index.unique():
+            dfs_split.append(grouped.get_group(i))
+    else:
+        dfs_split.append(df)
 
-        if 'time' not in df_composed:
-            no_time_axis_in_files.append(file_name)
+    dfs_processed = []
+    for df_partial in dfs_split:
+        # print(file_names)
+        if df_partial.shape[0] < 2 * cut:
+            continue
+        df_partial = append_derivatives_to_df(df_partial, variables_for_derivative, derivative_algorithm, cut)
+        dfs_processed.append(df_partial)
 
-        dfs_split = []
-        if 'experiment_index' in df_composed.columns:
-            grouped = df_composed.groupby(df_composed.experiment_index)
-            for i in df_composed.experiment_index.unique():
-                dfs_split.append(grouped.get_group(i))
-        else:
-            dfs_split.append(df_composed)
+    if dfs_processed:
+        paths_with_derivatives.append(df_name)
+    else:
+        print('Dropping {} as too short'.format(df_name))
 
-        dfs_processed = []
-        for df in dfs_split:
-            # print(file_names)
-            if df.shape[0] < 2 * cut:
-                continue
-            df = append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut)
-            dfs_processed.append(df)
-
-        if dfs_processed:
-            paths_with_derivatives.append(path_to_recording)
-        else:
-            print('Dropping {} as too short'.format(file_name))
-
-
+    if dfs_processed:
         dfs_processed = pd.concat(dfs_processed, axis=0).reset_index(drop=True)
-        dfs_with_derivatives.append(dfs_processed)
+    else:
+        dfs_processed = None
 
-    if no_time_axis_in_files:
-        if set(no_time_axis_in_files) == set(file_names):
-            print('No time axis provided. Calculated increments dx for all the files.')
-        else:
-            print('WARNING!!!! \n Some data files have time axes, but some not. \n'
-                    'The derivative calculation across files is inconsistent!')
+
+    # The remaining part of the function keeps track of names of all the processed files and checks if all have time axis
+    if not hasattr(append_derivatives, 'no_time_axis_in_files'):
+        # At the first call of the function, create the lists
+        append_derivatives.all_processed_files = []
+        append_derivatives.no_time_axis_in_files = []
+    append_derivatives.all_processed_files.append(df_name)  # Keep track of all processed files
+    if 'time' not in df:
+        append_derivatives.no_time_axis_in_files.append(df_name)  # Keep track of files without time axis
+
+    if append_derivatives.no_time_axis_in_files:  # True if the list of files without time axis is not empty
+        if set(append_derivatives.no_time_axis_in_files) != set(append_derivatives.all_processed_files):
+            print('\033[91mWARNING!!!! \n Some data files have time axes, but some not. \n'
+                  'The derivative calculation across files is inconsistent!\033[0m')
             print('The files without time axis are:')
-            for filename in no_time_axis_in_files:
+            for filename in append_derivatives.no_time_axis_in_files:
                 print(filename)
+        elif verbose and set(append_derivatives.no_time_axis_in_files) == set(append_derivatives.all_processed_files):
+            print('No time axis provided. Calculated increments dx for all the files.')
 
-    return dfs_with_derivatives, paths_with_derivatives
-
-
-def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_derivative, derivative_algorithm='finite_difference'):
-    paths_to_recordings = get_paths_to_datafiles(get_files_from)
-    if not paths_to_recordings:
-        Exception('No files found')
-
-    try:
-        os.makedirs(save_files_to)
-    except FileExistsError:
-        pass
-
-    for j in trange(len(paths_to_recordings)):
-
-        dfs = load_data(list_of_paths_to_datafiles=[paths_to_recordings[j]], verbose=False)
-
-        dfs, paths_with_derivative = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, [paths_to_recordings[j]], verbose=False)
-
-        file_names = [os.path.basename(paths_with_derivative[i]) for i in range(len(paths_with_derivative))]
-
-        for i in range(len(dfs)):
-            old_file_path = paths_with_derivative[i]
-            file_path = os.path.join(save_files_to, file_names[i])
-            with open(file_path, 'w', newline=''): # Overwrites if existed
-                pass
-            with open(old_file_path, "r", newline='') as f_input, \
-                    open(file_path, "a", newline='') as f_output:
-                for line in f_input:
-                    if line[0:len('#')] == '#':
-                        csv.writer(f_output).writerow([line.strip()])
-                    else:
-                        break
-            dfs[i].to_csv(file_path, index=False, mode='a')
+    return dfs_processed
 
 
 def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
@@ -776,11 +737,19 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
             df_processed = add_shifted_columns_single_file(df, variables_to_shift=kwargs['variables_to_shift'], indices_by_which_to_shift=kwargs['indices_by_which_to_shift'])
         elif transformation == 'apply_sensor_quantization':
             df_processed = apply_sensors_quantization(df, variables_quantization_dict=kwargs['variables_quantization_dict'])
+        elif transformation == 'add_derivatives':
+            df_processed = append_derivatives(df, variables_for_derivative=kwargs['variables_for_derivative'], derivative_algorithm=kwargs['derivative_algorithm'], df_name=processed_file_name)
         else:
             raise NotImplemented('Transformation {} is not implemented'.format(transformation))
 
+        if df_processed is None:
+            print('Dropping {}, transformation not successful. '.format(current_path))
+            if transformation == 'add_derivatives':
+                print('Probably too short to calculate derivatives.')
+            continue
+
         processed_file_path = os.path.join(save_files_to, processed_file_name)
-        with open(processed_file_path, 'w', newline=''): # Overwrites if existed
+        with open(processed_file_path, 'w', newline=''):  # Overwrites if existed
             pass
         with open(current_path, "r", newline='') as f_input, \
                 open(processed_file_path, "a", newline='') as f_output:
