@@ -11,11 +11,8 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import csv
 
-try:
-    # Use gitpython to get a current revision number and use it in description of experimental data
-    from git import Repo
-except:
-    pass
+# Use gitpython to get a current revision number and use it to better annotate of experimental or simulated data
+from git import Repo
 
 import yaml, os, sys
 
