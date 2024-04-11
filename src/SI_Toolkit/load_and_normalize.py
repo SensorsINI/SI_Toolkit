@@ -17,11 +17,6 @@ try:
 except:
     pass
 
-try:
-    from SI_Toolkit_ASF.user_defined_normalization_correction import apply_user_defined_normalization_correction
-except:
-    print('SI_Toolkit_ASF not created yet')
-
 import yaml, os, sys
 
 
@@ -346,11 +341,20 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # User defined normalization values:
 
     if user_correction:
+
         try:
-            df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
-        except NameError:
+            from SI_Toolkit_ASF.user_defined_normalization_correction import apply_user_defined_normalization_correction
+        except ImportError:
             print('User defined normalization correction not applied. \n'
                   'The needed function not found in SI_Toolkit_ASF.user_defined_normalization_correction.py')
+
+            # Define a placeholder function that matches the expected interface
+            def apply_user_defined_normalization_correction(df_norm_info):
+                # Since the real function couldn't be imported, return the input unmodified
+                print("Fallback: No normalization correction applied.")
+                return df_norm_info
+
+        df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
 
     if df_norm_info.equals(df_norm_info_from_data):
         modified = 'No'
