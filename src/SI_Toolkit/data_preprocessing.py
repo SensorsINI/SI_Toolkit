@@ -13,10 +13,14 @@ import pandas as pd
 from derivative import dxdt
 from tqdm import trange
 
+from SI_Toolkit.Functions.set_working_directory import set_working_directory
+
 from SI_Toolkit.load_and_normalize import get_paths_to_datafiles, load_data
 
 
 def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
+
+    set_working_directory()
 
     paths_to_recordings = get_paths_to_datafiles(get_files_from)
 
