@@ -8,7 +8,7 @@ def augment_data_placeholder(data, labels):
 
 
 try:
-    from SI_Toolkit_ASF.data_augmentation import augment_data
+    from SI_Toolkit_ASF.ToolkitCustomization.data_augmentation import augment_data
 except:
     print("Data augmentation function not found. Data will not be transformed no matter the value of AUGMENT_DATA in config_training.")
     augment_data = augment_data_placeholder

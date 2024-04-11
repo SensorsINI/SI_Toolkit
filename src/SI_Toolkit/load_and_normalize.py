@@ -340,7 +340,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     if user_correction:
 
         try:
-            from SI_Toolkit_ASF.user_defined_normalization_correction import apply_user_defined_normalization_correction
+            from SI_Toolkit_ASF.ToolkitCustomization.user_defined_normalization_correction import apply_user_defined_normalization_correction
         except ImportError:
             print('User defined normalization correction not applied. \n'
                   'The needed function not found in SI_Toolkit_ASF.user_defined_normalization_correction.py')

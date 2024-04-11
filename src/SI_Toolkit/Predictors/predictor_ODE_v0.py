@@ -10,9 +10,9 @@ While designing the controller you just chose the predictor you want,
 from typing import Callable, Optional
 from SI_Toolkit.Predictors import template_predictor
 import numpy as np
-from SI_Toolkit_ASF.predictors_customization_v0 import STATE_VARIABLES
+from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization_v0 import STATE_VARIABLES
 from SI_Toolkit.computation_library import NumpyLibrary, TensorType
-from SI_Toolkit_ASF.predictors_customization_v0 import next_state_predictor_ODE_v0
+from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization_v0 import next_state_predictor_ODE_v0
 
 
 class predictor_ODE_v0(template_predictor):

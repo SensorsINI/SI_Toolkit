@@ -30,7 +30,7 @@ import numpy as np
 
 try:
     # pass
-    from SI_Toolkit_ASF.brunton_widget_extensions import get_feature_label, convert_units_inplace
+    from SI_Toolkit_ASF.ToolkitCustomization.brunton_widget_extensions import get_feature_label, convert_units_inplace
 except ModuleNotFoundError or ImportError:
     print('Application specific extension to Brunton widget not found.')
     # raise ImportError
