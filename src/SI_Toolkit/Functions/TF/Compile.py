@@ -8,7 +8,7 @@ import torch
 from SI_Toolkit.computation_library import ComputationLibrary
 
 from SI_Toolkit.load_and_normalize import load_yaml
-config_compilation = load_yaml(os.path.join('SI_Toolkit_ASF', 'config_compilation.yml'))
+config_compilation = load_yaml(os.path.join('SI_Toolkit_ASF', 'CONFIG_COMPILATION.yml'))
 GLOBALLY_DISABLE_COMPILATION = config_compilation['GLOBALLY_DISABLE_COMPILATION']
 USE_JIT_COMPILATION = config_compilation['USE_JIT_COMPILATION']
 
