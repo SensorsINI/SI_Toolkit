@@ -10,16 +10,16 @@ A class predictor_output_augmentation which is used to augment the output of the
 E.g. the neural network predicts sin and cos this class can take care of adding angle to the predictor output.
 """
 
-# The STATE_INDICES, STATE_VARIABLES, CONTROL_INPUTS import is needed
-# as from here the variables are imported to other files
-from CartPole.state_utilities import STATE_INDICES, STATE_VARIABLES, CONTROL_INPUTS, CONTROL_INDICES
 
 from SI_Toolkit.computation_library import NumpyLibrary
-from CartPole.cartpole_equations import CartPoleEquations
-
 from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
 
-from CartPole.state_utilities import ANGLE_IDX, ANGLE_COS_IDX, ANGLE_SIN_IDX
+import numpy as np
+
+STATE_VARIABLES = ...  # Change this or import from another file
+STATE_INDICES = {x: np.where(STATE_VARIABLES == x)[0][0] for x in STATE_VARIABLES}
+CONTROL_INPUTS = ...  # Change this or import from another file
+CONTROL_INDICES = {x: np.where(CONTROL_INPUTS == x)[0][0] for x in CONTROL_INPUTS}
 
 class next_state_predictor_ODE:
 
