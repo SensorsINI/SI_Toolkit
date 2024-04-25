@@ -15,9 +15,4 @@ rename it to SI_Toolkit_ASF.
 
 Most of the functions it contains
 does not need to be modified for basic functionalities.
-You will however surely need to modify the cofig.yml.
-
-In fact, first thing you should do
-is to provide list of Control Inputs, State Inputs and Outputs of neural network.
-
-
+You will however surely need to modify the cofig_x.yml.
