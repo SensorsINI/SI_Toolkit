@@ -16,10 +16,14 @@ from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
 
 import numpy as np
 
-STATE_VARIABLES = ...  # Change this or import from another file
+STATE_VARIABLES = np.sort([...])  # Change this or import from another file
 STATE_INDICES = {x: np.where(STATE_VARIABLES == x)[0][0] for x in STATE_VARIABLES}
-CONTROL_INPUTS = ...  # Change this or import from another file
+CONTROL_INPUTS = np.sort([...])  # Change this or import from another file
 CONTROL_INDICES = {x: np.where(CONTROL_INPUTS == x)[0][0] for x in CONTROL_INPUTS}
+
+# Check for Ellipsis and raise an error if found
+if Ellipsis in STATE_VARIABLES or Ellipsis in CONTROL_INPUTS:
+    raise ValueError("You must replace the ... placeholders with actual variables names.")
 
 class next_state_predictor_ODE:
 
