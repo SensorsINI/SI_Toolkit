@@ -43,9 +43,14 @@ If you create a new project:
 
     `git submodule add https://github.com/SensorsINI/SI_Toolkit`
 
-    or otherwise clone it to your project directory with
+    or otherwise, if you rather wanted a separate copy in your repository,
+    clone it to your project directory with
 
     `git clone https://github.com/SensorsINI/SI_Toolkit`
+
+    Notice that as of today,
+    Pycharm requires restart to recognize the new submodule,
+    and show it within its git tools.
 
 2. Install the Toolkit
 

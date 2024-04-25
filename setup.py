@@ -6,8 +6,8 @@ import os
 
 current_dir = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(current_dir)
-from create_pycharm_run_configurations import create_run_configurations
-create_run_configurations(os.path.join(current_dir, 'PycharmRunConfigurations'))
+# from create_pycharm_run_configurations import create_run_configurations
+# create_run_configurations(os.path.join(current_dir, 'PycharmRunConfigurations'))
 sys.path.remove(current_dir)
 
 # Function to read static requirements from requirements.txt
