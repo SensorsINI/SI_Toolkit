@@ -72,6 +72,17 @@ If you create a new project:
   - To use SI_Toolkit you need a dataset (csv files) with columns for input and output of the network you want to train.
   - SI_Toolkit expect to find in experiment folder a data folder (default called `Recordings`) and within it three other folders: `Train`, `Validate`, `Test` with data to be used in training and testing.
   - In SI_Toolkit_ASF, we provide an example dataset with data from a cartpole.
+
+For all next steps - The launch scripts are located in `./SI_Toolkit_ASF/Run/`.
+They all assume that working directory is the root of the project, and that the SI_Toolkit_ASF folder is in the root of the project.
+To do it either run the scripts from terminal from root e.g.
+`python SI_Toolkit_ASF/Run/A1_Create_Normalization_File.py`
+or set the working directory in your IDE to the root of the project.
+In Pycharm it can be done in run configurations window.
+
+TODO: Make the (at least starting) working directory more flexible
+to be able to run the scripts from where they are located.
+
 2. Calculate data statistics and inspect data
   - This step in necessary for each new dataset, as the data statistics file calculated offline is used while training neural networks to normalize the data.
   - Set paths to experiment folders in `./SI_Toolkit_ASF/config_training.yml`
