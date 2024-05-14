@@ -30,7 +30,7 @@ import numpy as np
 
 try:
     # pass
-    from SI_Toolkit_ASF.ToolkitCustomization.brunton_widget_extensions import get_feature_label, convert_units_inplace
+    from SI_Toolkit_ASF.ToolkitCustomization.brunton_widget_extensions import get_feature_label, convert_units_inplace, calculete_additional_metrics
 except ModuleNotFoundError or ImportError:
     print('Application specific extension to Brunton widget not found.')
     # raise ImportError
@@ -82,9 +82,14 @@ class MainWindow(QMainWindow):
         self.time_axis = time_axis
 
         try:
-            convert_units_inplace(ground_truth, self.predictions_list)
+            convert_units_inplace(self.ground_truth, self.predictions_list)
         except NameError:
             print('Function for units conversion not available.')
+
+        try:
+            self.ground_truth, self.predictions_list = calculete_additional_metrics(ground_truth, self.predictions_list)
+        except NameError:
+            print('Function for calculating additional metrics not available.')
 
         self.dataset = None
         self.features_labels_dict = {}
