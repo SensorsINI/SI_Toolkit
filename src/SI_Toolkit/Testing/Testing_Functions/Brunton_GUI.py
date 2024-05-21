@@ -82,14 +82,14 @@ class MainWindow(QMainWindow):
         self.time_axis = time_axis
 
         try:
-            convert_units_inplace(self.ground_truth, self.predictions_list)
-        except NameError:
-            print('Function for units conversion not available.')
-
-        try:
             self.ground_truth, self.predictions_list = calculete_additional_metrics(ground_truth, self.predictions_list)
         except NameError:
             print('Function for calculating additional metrics not available.')
+
+        try:
+            convert_units_inplace(self.ground_truth, self.predictions_list)
+        except NameError:
+            print('Function for units conversion not available.')
 
         self.dataset = None
         self.features_labels_dict = {}
