@@ -40,6 +40,8 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
             df_processed = apply_sensors_quantization(df, variables_quantization_dict=kwargs['variables_quantization_dict'])
         elif transformation == 'add_derivatives':
             df_processed = append_derivatives(df, variables_for_derivative=kwargs['variables_for_derivative'], derivative_algorithm=kwargs['derivative_algorithm'], df_name=processed_file_name)
+        elif transformation == 'add_control_along_trajectories':
+            df_processed = add_control_along_trajectories(df, controller=kwargs['controller'], controller_output_variable_name=kwargs['controller_output_variable_name'])
         else:
             raise NotImplemented('Transformation {} is not implemented'.format(transformation))
 
@@ -194,5 +196,67 @@ def add_shifted_columns_single_file(df, variables_to_shift, indices_by_which_to_
 def apply_sensors_quantization(df, variables_quantization_dict):
     for variable, precision in variables_quantization_dict.items():
         df[variable] = (df[variable] / precision).round() * precision
+
+    return df
+
+
+from Control_Toolkit.others.globals_and_utils import get_controller_name, get_optimizer_name, import_controller_by_name
+from Control_Toolkit.Controllers import template_controller
+
+
+def add_control_along_trajectories(df, controller, controller_output_variable_name='Q_calculated'):
+    """
+    Adds controller to the trajectory data.
+    :param df: trajectory data
+    :param controller: controller to evaluate on data
+    :param controller_output_variable_name: name of the column with controller output
+    :return: trajectory data with controller
+    """
+
+    controller_name = controller['controller_name']
+    optimizer_name = controller.get('optimizer_name', None)
+    dt_controller = controller['dt_controller']
+
+    environment_name = controller['environment_name']
+    action_space = controller['action_space']
+    state_components = controller['state_components']
+    environment_attributes_list = controller['environment_attributes_list']
+
+    initial_environment_attributes = {key: df[key].iloc[0] for key in environment_attributes_list}
+
+    controller_name, _ = get_controller_name(
+        controller_name=controller_name
+    )
+
+    Controller: "type[template_controller]" = import_controller_by_name(controller_name)
+    controller = Controller(
+        dt=dt_controller,
+        environment_name=environment_name,
+        initial_environment_attributes=initial_environment_attributes,
+        control_limits=(action_space.low, action_space.high),
+    )
+    # Final configuration of controller
+    if controller.has_optimizer:
+        controller.configure(optimizer_name)
+        optimizer_name, _ = get_optimizer_name(
+            optimizer_name=controller.optimizer.optimizer_name
+        )
+
+    else:
+        controller.configure()
+
+    Q_calculated_list = []
+    for i in range(len(df)):
+        s = df[state_components].iloc[i]
+        time = df['time'].iloc[i]
+        environment_attributes = {key: df[key].iloc[i] for key in environment_attributes_list}
+        Q_calculated = float(controller.step(
+            s=s,
+            time=time,
+            updated_attributes=environment_attributes,
+        ))
+        Q_calculated_list.append(Q_calculated)
+
+    df[controller_output_variable_name] = Q_calculated_list
 
     return df
