@@ -28,7 +28,7 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
     except FileExistsError:
         pass
 
-    for i in trange(len(paths_to_recordings)):
+    for i in trange(len(paths_to_recordings), leave=True, position=0, desc='Processed datafiles'):
         current_path = paths_to_recordings[i]
         df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
 
@@ -247,13 +247,16 @@ def add_control_along_trajectories(df, controller, controller_output_variable_na
 
     Q_calculated_list = []
 
-    for i in trange(len(df), leave=False):
-        s = np.array(df[state_components].iloc[i])
-        time = np.array(df['time'].iloc[i])
-        environment_attributes = {key: np.array(df[key].iloc[i]) for key in environment_attributes_list}
+    s = np.array(df[state_components])
+    time = np.array(df['time'])
+    environment_attributes_array = np.array(df[environment_attributes_list])
+
+
+    for i in trange(len(df), leave=False, position=1, desc='Processing current datafile'):
+        environment_attributes = {key: environment_attributes_array[i, idx] for idx, key in enumerate(environment_attributes_list)}
         Q_calculated = float(controller.step(
-            s=s,
-            time=time,
+            s=s[i],
+            time=time[i],
             updated_attributes=environment_attributes,
         ))
         Q_calculated_list.append(Q_calculated)
