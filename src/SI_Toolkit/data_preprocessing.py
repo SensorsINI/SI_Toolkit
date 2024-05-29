@@ -246,10 +246,11 @@ def add_control_along_trajectories(df, controller, controller_output_variable_na
         controller.configure()
 
     Q_calculated_list = []
-    for i in range(len(df)):
-        s = df[state_components].iloc[i]
-        time = df['time'].iloc[i]
-        environment_attributes = {key: df[key].iloc[i] for key in environment_attributes_list}
+
+    for i in trange(len(df), leave=False):
+        s = np.array(df[state_components].iloc[i])
+        time = np.array(df['time'].iloc[i])
+        environment_attributes = {key: np.array(df[key].iloc[i]) for key in environment_attributes_list}
         Q_calculated = float(controller.step(
             s=s,
             time=time,
