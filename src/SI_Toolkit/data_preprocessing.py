@@ -30,9 +30,10 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
 
     for i in trange(len(paths_to_recordings), leave=True, position=0, desc='Processed datafiles'):
         current_path = paths_to_recordings[i]
-        df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
-
+        relative_path_to_search_root = os.path.relpath(current_path, get_files_from)
         processed_file_name = os.path.basename(current_path)
+
+        df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
 
         if transformation == 'add_shifted_columns':
             df_processed = add_shifted_columns_single_file(df, variables_to_shift=kwargs['variables_to_shift'], indices_by_which_to_shift=kwargs['indices_by_which_to_shift'])
@@ -51,7 +52,10 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
                 print('Probably too short to calculate derivatives.')
             continue
 
-        processed_file_path = os.path.join(save_files_to, processed_file_name)
+        processed_file_path = os.path.join(save_files_to, relative_path_to_search_root)
+        # Ensure the target directory exists
+        os.makedirs(os.path.dirname(processed_file_path), exist_ok=True)
+
         with open(processed_file_path, 'w', newline=''):  # Overwrites if existed
             pass
         with open(current_path, "r", newline='') as f_input, \
