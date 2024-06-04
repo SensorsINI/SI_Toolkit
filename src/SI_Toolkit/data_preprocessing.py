@@ -180,19 +180,8 @@ def add_shifted_columns_single_file(df, variables_to_shift, indices_by_which_to_
         subset.columns = new_names
         df = pd.concat((df, subset), axis=1)
 
-    bound_low = min(indices_by_which_to_shift)
-    if bound_low >= 0:
-        bound_low = 0
-    else:
-        bound_low = abs(bound_low)
-
-    bound_high = max(indices_by_which_to_shift)
-    if bound_high <= 0:
-        bound_high = length_original_df
-    else:
-        bound_high = length_original_df - bound_high - 1  # indexing from 0!
-
-    df_processed = df.loc[bound_low:bound_high, :]
+    max_shift = max(abs(shift) for shift in indices_by_which_to_shift)
+    df_processed = df.iloc[max_shift:-max_shift]
 
     return df_processed
 
