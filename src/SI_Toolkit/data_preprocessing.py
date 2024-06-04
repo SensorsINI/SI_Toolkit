@@ -15,6 +15,10 @@ from tqdm import trange
 
 from SI_Toolkit.load_and_normalize import get_paths_to_datafiles, load_data
 
+try:
+    from SI_Toolkit_ASF.ToolkitCustomization.preprocess_data import *
+except ImportError:
+    pass
 
 def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
 
@@ -35,20 +39,21 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
 
         df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
 
-        if transformation == 'add_shifted_columns':
-            df_processed = add_shifted_columns_single_file(df, variables_to_shift=kwargs['variables_to_shift'], indices_by_which_to_shift=kwargs['indices_by_which_to_shift'])
-        elif transformation == 'apply_sensor_quantization':
-            df_processed = apply_sensors_quantization(df, variables_quantization_dict=kwargs['variables_quantization_dict'])
-        elif transformation == 'add_derivatives':
-            df_processed = append_derivatives(df, variables_for_derivative=kwargs['variables_for_derivative'], derivative_algorithm=kwargs['derivative_algorithm'], df_name=processed_file_name)
-        elif transformation == 'add_control_along_trajectories':
-            df_processed = add_control_along_trajectories(df, controller=kwargs['controller'], controller_output_variable_name=kwargs['controller_output_variable_name'])
+        # Available transformations: add_control_along_trajectories, append_derivatives, apply_sensors_quantization, add_shifted_columns
+        # Plus the application specific transformations
+        if transformation == 'append_derivatives':
+            df_processed = append_derivatives(df, df_name=processed_file_name, **kwargs)
         else:
-            raise NotImplemented('Transformation {} is not implemented'.format(transformation))
+            try:
+                # Retrieve the function by name and call it with the appropriate arguments
+                transformation_function = globals()[transformation]
+                df_processed = transformation_function(df, **kwargs)
+            except KeyError:
+                raise NotImplementedError(f'Transformation {transformation} is not implemented')
 
         if df_processed is None:
             print('Dropping {}, transformation not successful. '.format(current_path))
-            if transformation == 'add_derivatives':
+            if transformation == 'append_derivatives':
                 print('Probably too short to calculate derivatives.')
             continue
 
@@ -102,7 +107,7 @@ def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm,
     return df
 
 
-def append_derivatives(df, variables_for_derivative, derivative_algorithm, df_name, verbose=False):
+def append_derivatives(df, variables_for_derivative, derivative_algorithm, df_name, verbose=False, **kwargs):
     """
     Takes list of dataframes dfs
     and augment it with derivatives of columns indicated in variables_for_derivative
@@ -163,7 +168,7 @@ def append_derivatives(df, variables_for_derivative, derivative_algorithm, df_na
     return dfs_processed
 
 
-def add_shifted_columns_single_file(df, variables_to_shift, indices_by_which_to_shift):
+def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwargs):
     length_original_df = len(df)
     for j in range(len(indices_by_which_to_shift)):
         index_by_which_to_shift = int(indices_by_which_to_shift[j])
@@ -197,7 +202,7 @@ from Control_Toolkit.others.globals_and_utils import get_controller_name, get_op
 from Control_Toolkit.Controllers import template_controller
 
 
-def add_control_along_trajectories(df, controller, controller_output_variable_name='Q_calculated'):
+def add_control_along_trajectories(df, controller, controller_output_variable_name='Q_calculated', **kwargs):
     """
     Adds controller to the trajectory data.
     :param df: trajectory data
