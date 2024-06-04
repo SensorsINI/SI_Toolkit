@@ -218,9 +218,9 @@ def add_control_along_trajectories(df, controller, controller_output_variable_na
     environment_name = controller['environment_name']
     action_space = controller['action_space']
     state_components = controller['state_components']
-    environment_attributes_list = controller['environment_attributes_list']
+    environment_attributes_dict = controller['environment_attributes_dict']
 
-    initial_environment_attributes = {key: df[key].iloc[0] for key in environment_attributes_list}
+    initial_environment_attributes = {key: df[key].iloc[0] for key in environment_attributes_dict.keys()}
 
     controller_name, _ = get_controller_name(
         controller_name=controller_name
@@ -247,11 +247,11 @@ def add_control_along_trajectories(df, controller, controller_output_variable_na
 
     s = np.array(df[state_components])
     time = np.array(df['time'])
-    environment_attributes_array = np.array(df[environment_attributes_list])
+    environment_attributes_array = np.array(df[environment_attributes_dict.values()])
 
 
     for i in trange(len(df), leave=False, position=1, desc='Processing current datafile'):
-        environment_attributes = {key: environment_attributes_array[i, idx] for idx, key in enumerate(environment_attributes_list)}
+        environment_attributes = {key: environment_attributes_array[i, idx] for idx, key in enumerate(environment_attributes_dict.values())}
         Q_calculated = float(controller.step(
             s=s[i],
             time=time[i],
