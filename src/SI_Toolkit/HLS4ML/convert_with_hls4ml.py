@@ -6,7 +6,7 @@ from types import SimpleNamespace
 
 from SI_Toolkit.Functions.General.Initialization import get_net
 from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
-from SI_Toolkit.Functions.General.SavingTerminalOutput import TerminalSaver
+from SI_Toolkit.Functions.General.TerminalContentManager import TerminalContentManager
 
 
 def convert_with_hls4ml():
@@ -19,7 +19,7 @@ def convert_with_hls4ml():
     a.path_to_models = config_hls['path_to_models']
     a.net_name = config_hls['net_name']
 
-    with TerminalSaver(os.path.join(config_hls['output_dir'], 'terminal_output.txt')):
+    with TerminalContentManager(os.path.join(config_hls['output_dir'], 'terminal_output.txt')):
         # Import network
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
         net, net_info = \

@@ -15,7 +15,7 @@ from SI_Toolkit.Functions.General.load_parameters_for_training import args
 from SI_Toolkit.load_and_normalize import load_data, normalize_df, get_paths_to_datafiles
 
 from SI_Toolkit.Functions.General.Initialization import create_full_name, create_log_file, get_norm_info_for_net, get_net, set_seed
-from SI_Toolkit.Functions.General.SavingTerminalOutput import TerminalSaver
+from SI_Toolkit.Functions.General.TerminalContentManager import TerminalContentManager
 from SI_Toolkit.Functions.General.Normalising import write_out_normalization_vectors
 
 
@@ -106,7 +106,7 @@ def train_network():
 
     # endregion
 
-    with TerminalSaver(os.path.join(dst, 'terminal_output.txt')):
+    with TerminalContentManager(os.path.join(dst, 'terminal_output.txt')):
 
         # Run the training function
         loss, validation_loss, post_epoch_training_loss = Training.train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
