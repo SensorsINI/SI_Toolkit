@@ -10,7 +10,7 @@ class DualOutput:
 
         if filename:
             try:
-                os.makedirs(os.path.dirname(filename))
+                os.makedirs(os.path.dirname(filename), exist_ok=True)
             except FileExistsError:
                 pass
             self.log = open(filename, "a")
