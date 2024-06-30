@@ -1,12 +1,15 @@
 import sys
 import os
-import io
+
 
 class DualOutput:
-    def __init__(self, filename=None, terminal=None, save_at_exit=False,):
+    def __init__(self, filename=None, terminal=None, special_print_function=False):
         self.terminal = terminal if terminal else sys.stdout
-        self.buffer = io.StringIO()
+        self.special_print_function = special_print_function
         self.progress_bar_state = ""
+        self.buffer = []  # Buffer to accumulate messages
+        self.buffer_temporary = []  # Buffer to accumulate temporary messages
+        self.counter_temporary_messages = 0
 
         if filename:
             try:
@@ -27,21 +30,50 @@ class DualOutput:
                 if self.progress_bar_state:
                     self.log.write(self.progress_bar_state + '\n')  # Ensure newline
                     self.progress_bar_state = ""
-                # Write regular messages to both file and terminal
+                # Write regular messages to both file and buffer
                 self.log.write(message)
 
         # Always write to the terminal (both progress bar updates and regular messages)
-        self.terminal.write(message)
+        if not self.special_print_function:
+            self.terminal.write(message)
+        else:
+            self.buffer.append(message)  # Accumulate messages in the buffer
 
     def flush(self):
         pass
 
+    def print_to_terminal(self):
+        """
+        This is used if special_print_function is set to True.
+        """
+        if self.special_print_function:
+            ESC = '\033['
+            CLEAR_LINE = ESC + 'K'  # Clear the entire line after the cursor
+
+            # Clear the lines with temporary messages
+            for _ in range(self.counter_temporary_messages):
+                self.terminal.write(ESC + '1A' + CLEAR_LINE)  # Move cursor up and clear the line
+
+            # Print accumulated messages to the terminal
+            for message in self.buffer:
+                self.terminal.write(message)
+            self.buffer.clear()  # Clear the buffer after printing
+
+            # Get new counter value
+            # Print temporary messages to the terminal
+            self.counter_temporary_messages = 0
+            for message in self.buffer_temporary:
+                newline_count = message.count('\n')
+                self.counter_temporary_messages += newline_count
+                self.terminal.write(message)
+            self.buffer_temporary.clear()
+
 
 class TerminalContentManager:
-    def __init__(self, filename):
+    def __init__(self, filename=None, special_print_function=False):
         self.filename = filename
         self.terminal = sys.stdout
-        self.my_stdout = DualOutput(self.filename, self.terminal)
+        self.my_stdout = DualOutput(self.filename, self.terminal, special_print_function)
 
     def __enter__(self):
         sys.stdout = self.my_stdout
@@ -53,3 +85,11 @@ class TerminalContentManager:
             self.my_stdout.log.flush()
             self.my_stdout.log.close()
         sys.stdout = self.terminal
+
+    def print_to_terminal(self):
+        self.my_stdout.print_to_terminal()
+
+    def print_temporary(self, message, end='\n'):
+        self.my_stdout.buffer_temporary.append(message + end)
+
+
