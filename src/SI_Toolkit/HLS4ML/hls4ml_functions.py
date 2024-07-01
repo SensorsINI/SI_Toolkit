@@ -1,8 +1,9 @@
 import yaml
 import os
 import hls4ml
+from SI_Toolkit.load_and_normalize import load_yaml
 
-config_hls = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_hls.yml'), 'r'), Loader=yaml.FullLoader)
+config_hls = load_yaml(os.path.join('SI_Toolkit_ASF', 'config_hls.yml'))
 os.environ['PATH'] = config_hls['path_to_hls_installation'] + ":" + os.environ['PATH']
 
 
