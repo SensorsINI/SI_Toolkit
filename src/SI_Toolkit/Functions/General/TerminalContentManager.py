@@ -68,6 +68,8 @@ class DualOutput:
                 self.terminal.write(message)
             self.buffer_temporary.clear()
 
+            self.terminal.flush()
+
 
 class TerminalContentManager:
     def __init__(self, filename=None, special_print_function=False):
