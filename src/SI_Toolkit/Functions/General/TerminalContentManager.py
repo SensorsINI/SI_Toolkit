@@ -53,11 +53,13 @@ class DualOutput:
             # Clear the lines with temporary messages
             for _ in range(self.counter_temporary_messages):
                 self.terminal.write(ESC + '1A' + CLEAR_LINE)  # Move cursor up and clear the line
+            self.terminal.flush()
 
             # Print accumulated messages to the terminal
             for message in self.buffer:
                 self.terminal.write(message)
             self.buffer.clear()  # Clear the buffer after printing
+            self.terminal.flush()
 
             # Get new counter value
             # Print temporary messages to the terminal
