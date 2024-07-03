@@ -74,6 +74,15 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
         df_processed.to_csv(processed_file_path, index=False, mode='a')
 
 
+def decimate_datasets(df, keep_every_nth_row, **kwargs):
+    """
+    Decimates the dataset by keeping only every keep_every_nth_row row.
+    """
+    df_processed = df.iloc[::keep_every_nth_row, :]
+
+    return df_processed
+
+
 def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut=1):
 
     df = df.reset_index(drop=True)
