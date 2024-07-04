@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def return_hyperbolic_function(point_1, point_2, mode=1, slope=None, fixed_point=None):
+def return_hyperbolic_function(point_1, point_2, mode=1, slope=None, fixed_point=None, return_parameters=False):
     if slope is None and fixed_point is None:
         raise ValueError('slope and fixed_point cannot be both None!')
 
@@ -37,7 +37,10 @@ def return_hyperbolic_function(point_1, point_2, mode=1, slope=None, fixed_point
     def hyperbolic_function_derivative(x):
         return a/((x+betha)**2)
 
-    return hyperbolic_function, hyperbolic_function_derivative, a
+    if return_parameters:
+        return hyperbolic_function, hyperbolic_function_derivative, a, betha, gamma
+    else:
+        return hyperbolic_function, hyperbolic_function_derivative, a
 
 
 def return_hyperbolic_function_false(slope, x_intercept, y_intercept, mode=1):
@@ -59,16 +62,16 @@ if __name__ == '__main__':
         import matplotlib
         matplotlib.use('MacOSX')
 
-    a = [30.0]
+    a = []
 
     x_intercept = -1.0
     y_intercept = 1.0
 
-    point_1 = (0.0, 65.0)
-    point_2 = (0.55, 0.0)
+    point_1 = (0.0, 0.0)
+    point_2 = (2.0, 1000.0)
 
     mode = 1
-    fixed_point = (0.2, 0.3)
+    fixed_point = (1.0-np.cos(0.15), 1.0)
 
     x_min = np.minimum(point_1[0], point_2[0])
     x_max = np.maximum(point_1[0], point_2[0])
@@ -76,7 +79,7 @@ if __name__ == '__main__':
     y_min = np.minimum(point_1[1], point_2[1])
     y_max = np.maximum(point_1[1], point_2[1])
 
-    x = np.linspace(x_min, x_max, 1000)
+    x = np.linspace(x_min, x_max, 100)
 
     y_list = []
     y_derivative_list = []
@@ -113,7 +116,7 @@ if __name__ == '__main__':
     for i in range(len(y_derivative_list)):
         plt.plot(x, y_derivative_list[i], label=slope_list[i])
 
-    plt.xlim((0, x_intercept))
+    # plt.xlim((0, x_intercept))
     plt.legend()
     plt.show()
 
