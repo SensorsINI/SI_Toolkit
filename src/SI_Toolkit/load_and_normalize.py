@@ -17,16 +17,24 @@ from git import Repo
 import yaml, os, sys
 
 
-def load_yaml(default_location, x='r'):
+def load_yaml(default_location, x='r', return_path=False):
+    config = None
     if os.path.exists(default_location): # Default option
-        return yaml.load(open(default_location, x), yaml.FullLoader)
+        path = default_location
+        config = yaml.load(open(default_location, x), yaml.FullLoader)
     else:
         for directory in sys.path:
             potential_path = os.path.join(directory, default_location)
             if os.path.exists(potential_path):
-                # print(f"Loading yaml file from {potential_path}")
-                return yaml.load(open(potential_path, x), yaml.FullLoader)
-        raise FileNotFoundError(f"Could not find yaml file using {default_location} neither searching from working directory nor from sys.path")
+                path = potential_path
+                config = yaml.load(open(potential_path, x), yaml.FullLoader)
+                break
+        if config is None:
+            raise FileNotFoundError(f"Could not find yaml file using {default_location} neither searching from working directory nor from sys.path")
+
+    if return_path:
+        return config, path
+    return config
 
 
 config_SI = load_yaml(os.path.join("SI_Toolkit_ASF", "config_training.yml"))
