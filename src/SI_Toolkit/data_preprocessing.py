@@ -13,6 +13,11 @@ import pandas as pd
 from derivative import dxdt
 from tqdm import trange
 
+import sys
+current_directory = os.getcwd()
+if current_directory not in sys.path:
+    sys.path.append(current_directory)
+
 from SI_Toolkit.load_and_normalize import get_paths_to_datafiles, load_data
 
 try:
@@ -22,7 +27,22 @@ except ImportError:
 
 def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
 
-    paths_to_recordings = get_paths_to_datafiles(get_files_from)
+    if os.path.exists(get_files_from):
+        # If the path is a file
+        if os.path.isfile(get_files_from):
+            paths_to_recordings  = [get_files_from]
+            get_files_from = os.path.dirname(get_files_from)
+        # If the path is a directory
+        elif os.path.isdir(get_files_from):
+            paths_to_recordings = get_paths_to_datafiles(get_files_from)
+        else:
+            # Path exists but is neither a file nor a directory (rare cases)
+            raise ValueError('Path exists but is neither a file nor a directory')
+    else:
+        # Path does not exist
+        raise FileNotFoundError('Path does not exist')
+
+
 
     if not paths_to_recordings:
         Exception('No files found')
