@@ -47,9 +47,9 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
             try:
                 # Retrieve the function by name and call it with the appropriate arguments
                 transformation_function = globals()[transformation]
-                df_processed = transformation_function(df, **kwargs)
             except KeyError:
                 raise NotImplementedError(f'Transformation {transformation} is not implemented')
+            df_processed = transformation_function(df, **kwargs)
 
         if df_processed is None:
             print('Dropping {}, transformation not successful. '.format(current_path))
@@ -222,7 +222,6 @@ def add_control_along_trajectories(df, controller, controller_output_variable_na
 
     controller_name = controller['controller_name']
     optimizer_name = controller.get('optimizer_name', None)
-    dt_controller = controller['dt_controller']
 
     environment_name = controller['environment_name']
     action_space = controller['action_space']
@@ -237,7 +236,6 @@ def add_control_along_trajectories(df, controller, controller_output_variable_na
 
     Controller: "type[template_controller]" = import_controller_by_name(controller_name)
     controller = Controller(
-        dt=dt_controller,
         environment_name=environment_name,
         initial_environment_attributes=initial_environment_attributes,
         control_limits=(action_space.low, action_space.high),
