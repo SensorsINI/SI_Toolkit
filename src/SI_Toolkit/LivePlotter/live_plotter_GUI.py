@@ -7,7 +7,7 @@ You will get the plots but no control over the number of samples to keep or the 
 import sys
 
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QLabel, QSlider, QComboBox
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QComboBox, QPushButton
 
 import matplotlib.animation as animation
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -60,6 +60,21 @@ class LivePlotterGUI(QWidget):
             layout.addWidget(selector)
             self.feature_selectors.append(selector)
 
+        # Horizontal layout for SAVE and PAUSE/RESUME buttons
+        button_layout = QHBoxLayout()
+
+        # Save button
+        self.save_button = QPushButton('SAVE', self)
+        self.save_button.clicked.connect(self.plotter.save_data)
+        button_layout.addWidget(self.save_button)
+
+        # Pause/Resume button
+        self.pause_resume_button = QPushButton('PAUSE', self)
+        self.pause_resume_button.clicked.connect(self.toggle_pause_resume)
+        button_layout.addWidget(self.pause_resume_button)
+
+        layout.addLayout(button_layout)
+
         self.setLayout(layout)
 
         self.ani = None
@@ -100,6 +115,15 @@ class LivePlotterGUI(QWidget):
         default_size = self.sizeHint()  # Get the recommended size for the widget
         new_size = QSize(int(default_size.width() * scale_factor), int(default_size.height() * scale_factor))
         self.resize(new_size)  # Resize the window to the new size
+
+    def toggle_pause_resume(self):
+        # Call the pause/resume function
+        self.plotter.pause_and_resume_liveplotter()
+        # Update the button label based on the current pause state
+        if self.plotter.paused:
+            self.pause_resume_button.setText('RESUME')
+        else:
+            self.pause_resume_button.setText('PAUSE')
 
 
 def run_live_plotter_gui(address=None, keep_samples=None):
