@@ -10,6 +10,7 @@ import matplotlib.animation as animation
 from datetime import datetime
 import pandas as pd
 import seaborn as sns
+from copy import deepcopy
 
 from SI_Toolkit.LivePlotter.live_plotter_x_connection_handler_receiver import LivePlotter_ConnectionHandlerReceiver
 
@@ -49,13 +50,17 @@ class LivePlotter:
 
         self.animation = None
 
+        self.paused = False
+        self.frozen_data = None
+
     def animate(self, i):
         for buffer in self.connection_handler.poll_connection():
             self.process_buffer(buffer)
 
         if self.received >= 10:
             self.received = 0
-            self.update_plots()
+            if not self.paused:
+                self.update_plots()
 
     def process_buffer(self, buffer):
         # Process incoming buffer based on its type
@@ -83,10 +88,19 @@ class LivePlotter:
             self.data = self.data[-self.keep_samples:]
         elif buffer == 'reset':
             self.reset_liveplotter()
+        elif buffer == 'pause/resume':
+            self.pause_and_resume_liveplotter()
         elif buffer == 'save' and self.header is not None:
             self.save_data()
         elif isinstance(buffer, str) and buffer == 'complete':
             print('All data received.')
+
+    def pause_and_resume_liveplotter(self):
+        # Raise flag
+        self.paused = not self.paused
+        # Make copy of the data - this is the data which will be saved to CSV and PDF if needed
+        if self.paused:
+            self.frozen_data = deepcopy(self.data)
 
     def reset_liveplotter(self):
         self.data = []
@@ -95,7 +109,8 @@ class LivePlotter:
     def save_data(self):
         # Save the current data to CSV and PDF
         filepath = 'LivePlot' + str(datetime.now().strftime('_%Y-%m-%d_%H-%M-%S'))
-        df = pd.DataFrame(self.data, columns=self.header)
+        data = self.data if not self.paused else self.frozen_data
+        df = pd.DataFrame(data, columns=self.header)
         df.to_csv(filepath + '.csv', index=False)
         plt.savefig(filepath + '.pdf')
         print(f'\nLive Plot saved: {filepath}.pdf')
