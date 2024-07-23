@@ -86,7 +86,10 @@ class LivePlotterGUI(QWidget):
             selector.clear()
             selector.addItem("None")
             selector.addItems(headers)
-            selector.setCurrentText(selected_features[i])
+            try:
+                selector.setCurrentText(selected_features[i])
+            except IndexError:
+                print("A")
 
     def resizeEvent(self, event):
         # Adjust the layout and elements on window resize

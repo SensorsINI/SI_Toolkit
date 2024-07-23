@@ -64,7 +64,8 @@ class LivePlotter:
             print(f'Header received: {self.header}')
             self.reset_liveplotter()
             if DEFAULT_FEATURES_TO_PLOT == 'default':
-                self.selected_features = self.header[:5] + ['None'] * (5 - len(self.header))  # Default first 5 headers
+                filtered_header = [h for h in self.header if h != "time"]
+                self.selected_features = filtered_header[:5] + ['None'] * (5 - len(filtered_header))  # Default first 5 headers
             elif DEFAULT_FEATURES_TO_PLOT is not None:
                 self.selected_features = [feature for feature in DEFAULT_FEATURES_TO_PLOT if feature in self.header]
                 self.selected_features = self.selected_features + ['None'] * (5 - len(self.selected_features))
@@ -104,7 +105,10 @@ class LivePlotter:
         # Update the plots with the latest data
         if len(self.data) > 0:
             df = pd.DataFrame(self.data, columns=self.header)
-            time = df.index
+            if 'time' in df.columns:
+                time = df['time'].to_numpy()
+            else:
+                time = df.index
             colors = plt.rcParams["axes.prop_cycle"]()
 
             for i, feature in enumerate(self.selected_features):

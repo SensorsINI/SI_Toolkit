@@ -21,7 +21,7 @@ def main():
     path = './ExperimentRecordings/CPP_mpc__2024-07-01_00-52-52.csv'
     # path = '../../../ExperimentRecordings/CPP_mpc__2024-07-01_00-52-52.csv'
     df = pd.read_csv(path, comment='#')
-    df = df[['angle', 'angleD', 'position', 'positionD']]
+    df = df[['time', 'angle', 'angleD', 'position', 'positionD']]
 
     try:
         # Send the header
