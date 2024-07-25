@@ -38,26 +38,24 @@ class Plotter:
         self.axs[i, 1].clear()
 
     def update_timeline(self, feature, subplot_idx, time, data_row, color):
-        # Update timeline plot
-        try:
-            self.axs[subplot_idx, 0].clear()
-        except IndexError:
-            print('Here')
-        self.axs[subplot_idx, 0].set_title(
+        axis = self.axs[subplot_idx, 0]
+        axis.clear()
+        axis.set_title(
             f"Min={data_row.min():.3f}, Max={data_row.max():.3f}, Mean={data_row.mean():.3f}, Std={data_row.std():.5f}, N={data_row.size}",
             size=8)
-        self.axs[subplot_idx, 0].plot(time, data_row, label=feature, marker='.', color=color, markersize=3,
+        axis.plot(time, data_row, label=feature, marker='.', color=color, markersize=3,
                                       linewidth=0.2)
-        self.axs[subplot_idx, 0].legend(loc='upper right')
-        self.axs[subplot_idx, 0].grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
+        axis.legend(loc='upper right')
+        axis.grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
 
     def update_histogram(self, feature, subplot_idx, data_row, color):
         # Update histogram plot
-        self.axs[subplot_idx, 1].clear()
-        self.axs[subplot_idx, 1].hist(data_row, bins=50, label=feature, color=color)
-        self.axs[subplot_idx, 1].set_ylabel('Occurrences')
-        self.axs[subplot_idx, 1].set_title(feature)
-        self.axs[subplot_idx, 1].grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
+        axis = self.axs[subplot_idx, 1]
+        axis.clear()
+        axis.hist(data_row, bins=50, label=feature, color=color)
+        axis.set_ylabel('Occurrences')
+        axis.set_title(feature)
+        axis.grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
 
     def update_subplot_layout(self, selected_features):
         self.fig.clf()  # Clear the current figure
