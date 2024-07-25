@@ -24,6 +24,9 @@ class Plotter:
                 time = df.index
             colors = plt.rcParams["axes.prop_cycle"]()
 
+            self.clear_timelines()
+            self.clear_histograms()
+
             subplot_idx = 0  # you should not use enumerate as there are some None values in selected_features
             for feature in selected_features:
                 color = next(colors)["color"]
@@ -33,25 +36,31 @@ class Plotter:
                     self.update_histogram(feature, subplot_idx, data_row, color)
                     subplot_idx += 1
 
+    def clear_timelines(self):
+        for axis in self.axs[:, 0]:
+            axis.clear()
+            axis.grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
+
+    def clear_histograms(self):
+        for axis in self.axs[:, 1]:
+            axis.clear()
+            axis.set_ylabel('Occurrences')
+            axis.grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
+
     def update_timeline(self, feature, subplot_idx, time, data_row, color):
         axis = self.axs[subplot_idx, 0]
-        axis.clear()
         axis.set_title(
             f"Min={data_row.min():.3f}, Max={data_row.max():.3f}, Mean={data_row.mean():.3f}, Std={data_row.std():.5f}, N={data_row.size}",
             size=8)
         axis.plot(time, data_row, label=feature, marker='.', color=color, markersize=3,
                   linewidth=0.2)
         axis.legend(loc='upper right')
-        axis.grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
 
     def update_histogram(self, feature, subplot_idx, data_row, color):
         # Update histogram plot
         axis = self.axs[subplot_idx, 1]
-        axis.clear()
         axis.hist(data_row, bins=50, label=feature, color=color)
-        axis.set_ylabel('Occurrences')
-        axis.set_title(feature)
-        axis.grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
+        axis.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     def update_subplot_layout(self, selected_features):
         self.fig.clf()  # Clear the current figure
