@@ -40,7 +40,7 @@ class Plotter:
             f"Min={data_row.min():.3f}, Max={data_row.max():.3f}, Mean={data_row.mean():.3f}, Std={data_row.std():.5f}, N={data_row.size}",
             size=8)
         axis.plot(time, data_row, label=feature, marker='.', color=color, markersize=3,
-                                      linewidth=0.2)
+                  linewidth=0.2)
         axis.legend(loc='upper right')
         axis.grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
 
@@ -55,7 +55,7 @@ class Plotter:
 
     def update_subplot_layout(self, selected_features):
         self.fig.clf()  # Clear the current figure
-        subplots_count = max(1, len([feature for feature in selected_features if (feature is not None and feature!='None')]))
+        subplots_count = max(1, len([feature for feature in selected_features if (feature is not None and feature != 'None')]))
         axs = self.fig.subplots(subplots_count, 2, gridspec_kw={'width_ratios': [3, 1]})  # Create new subplots
         if not isinstance(axs, np.ndarray):
             axs = np.atleast_1d(axs)
