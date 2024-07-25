@@ -39,14 +39,9 @@ class LivePlotter:
         self.selected_features = ['None'] * 5  # Default to 'None' for all subplots
         self.header_callback = header_callback  # Callback function for headers
 
-        self.fig, axs = plt.subplots(5, 2, figsize=(16, 9), gridspec_kw={'width_ratios': [3, 1]})
-
-        self.fig.subplots_adjust(hspace=0.8)
-        self.fig.canvas.manager.set_window_title('Live Plot')
-
-        if not isinstance(axs, np.ndarray):
-            axs = np.atleast_1d(axs)
-        self.axs = axs
+        self.plotter = Plotter()
+        self.fig = self.plotter.fig
+        self.axs = self.plotter.axs
 
         self.animation = None
 
@@ -60,7 +55,7 @@ class LivePlotter:
         if self.received >= 10:
             self.received = 0
             if not self.paused:
-                self.update_plots()
+                self.plotter.update_plots(self.data, self.header, self.selected_features)
 
     def process_buffer(self, buffer):
         # Process incoming buffer based on its type
@@ -112,14 +107,41 @@ class LivePlotter:
         data = self.data if not self.paused else self.frozen_data
         df = pd.DataFrame(data, columns=self.header)
         df.to_csv(filepath + '.csv', index=False)
-        plt.savefig(filepath + '.pdf')
+        self.plotter.savefig(filepath + '.pdf')
         print(f'\nLive Plot saved: {filepath}.pdf')
         print(f'Live Data saved: {filepath}.csv\n\n\n\n')
 
-    def update_plots(self):
+    def set_keep_samples(self, keep_samples):
+        self.keep_samples = keep_samples
+
+    def update_selected_features(self, features):
+        self.selected_features = features
+        self.update_subplot_layout()  # Update the subplot layout based on new selected features
+
+    def update_subplot_layout(self):
+        self.plotter.update_subplot_layout(self.selected_features)
+
+    def run_standalone(self):
+        self.animation = animation.FuncAnimation(self.fig, self.animate, interval=200)
+        plt.show()
+        print('Finished')
+
+
+class Plotter:
+    def __init__(self):
+        self.fig, axs = plt.subplots(5, 2, figsize=(16, 9), gridspec_kw={'width_ratios': [3, 1]})
+
+        self.fig.subplots_adjust(hspace=0.8)
+        self.fig.canvas.manager.set_window_title('Live Plot')
+
+        if not isinstance(axs, np.ndarray):
+            axs = np.atleast_1d(axs)
+        self.axs = axs
+
+    def update_plots(self, data, header, selected_features):
         # Update the plots with the latest data
-        if len(self.data) > 0:
-            df = pd.DataFrame(self.data, columns=self.header)
+        if len(data) > 0:
+            df = pd.DataFrame(data, columns=header)
             if 'time' in df.columns:
                 time = df['time'].to_numpy()
             else:
@@ -127,9 +149,9 @@ class LivePlotter:
             colors = plt.rcParams["axes.prop_cycle"]()
 
             subplot_idx = 0  # you should not use enumerate as there are some None values in selected_features
-            for feature in self.selected_features:
+            for feature in selected_features:
                 color = next(colors)["color"]
-                if feature in self.header:
+                if feature in header:
                     data_row = df[feature]
                     self.update_timeline(feature, subplot_idx, time, data_row, color)
                     self.update_histogram(feature, subplot_idx, data_row, color)
@@ -148,7 +170,8 @@ class LivePlotter:
         self.axs[subplot_idx, 0].set_title(
             f"Min={data_row.min():.3f}, Max={data_row.max():.3f}, Mean={data_row.mean():.3f}, Std={data_row.std():.5f}, N={data_row.size}",
             size=8)
-        self.axs[subplot_idx, 0].plot(time, data_row, label=feature, marker='.', color=color, markersize=3, linewidth=0.2)
+        self.axs[subplot_idx, 0].plot(time, data_row, label=feature, marker='.', color=color, markersize=3,
+                                      linewidth=0.2)
         self.axs[subplot_idx, 0].legend(loc='upper right')
         self.axs[subplot_idx, 0].grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
 
@@ -160,27 +183,19 @@ class LivePlotter:
         self.axs[subplot_idx, 1].set_title(feature)
         self.axs[subplot_idx, 1].grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
 
-    def set_keep_samples(self, keep_samples):
-        self.keep_samples = keep_samples
-
-    def update_selected_features(self, features):
-        self.selected_features = features
-        self.update_subplot_layout()  # Update the subplot layout based on new selected features
-
-    def update_subplot_layout(self):
+    def update_subplot_layout(self, selected_features):
         self.fig.clf()  # Clear the current figure
-        subplots_count = max(1, len([feature for feature in self.selected_features if (feature is not None and feature!='None')]))
+        subplots_count = max(1, len([feature for feature in selected_features if (feature is not None and feature!='None')]))
         axs = self.fig.subplots(subplots_count, 2, gridspec_kw={'width_ratios': [3, 1]})  # Create new subplots
         if not isinstance(axs, np.ndarray):
             axs = np.atleast_1d(axs)
         self.axs = axs
 
-    def run_standalone(self):
-        self.animation = animation.FuncAnimation(self.fig, self.animate, interval=200)
-        plt.show()
-        print('Finished')
+    @staticmethod
+    def savefig(filepath):
+        plt.savefig(filepath)
 
 
 if __name__ == '__main__':
-    plotter = LivePlotter()
-    plotter.run_standalone()
+    liveplotter = LivePlotter()
+    liveplotter.run_standalone()
