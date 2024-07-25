@@ -24,6 +24,10 @@ class Plotter:
                 time = df.index
             colors = plt.rcParams["axes.prop_cycle"]()
 
+            for txt in self.fig.texts:
+                txt.remove()
+            self.fig.text(0.98, 0.02, f"N={df.shape[0]} samples", ha='right', va='bottom', fontsize='small')
+
             self.clear_timelines()
             self.clear_histograms()
 
@@ -50,8 +54,8 @@ class Plotter:
     def update_timeline(self, feature, subplot_idx, time, data_row, color):
         axis = self.axs[subplot_idx, 0]
         axis.set_title(
-            f"Min={data_row.min():.3f}, Max={data_row.max():.3f}, Mean={data_row.mean():.3f}, Std={data_row.std():.5f}, N={data_row.size}",
-            size=8)
+            f"{feature}: Min={data_row.min():.3f}, Max={data_row.max():.3f}, Mean={data_row.mean():.3f}, Std={data_row.std():.5f}",
+            size=8, color=color)
         axis.plot(time, data_row, label=feature, marker='.', color=color, markersize=3,
                   linewidth=0.2)
         axis.legend(loc='upper right')
