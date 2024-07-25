@@ -33,10 +33,6 @@ class Plotter:
                     self.update_histogram(feature, subplot_idx, data_row, color)
                     subplot_idx += 1
 
-    def clear_subplot(self, i):
-        self.axs[i, 0].clear()
-        self.axs[i, 1].clear()
-
     def update_timeline(self, feature, subplot_idx, time, data_row, color):
         axis = self.axs[subplot_idx, 0]
         axis.clear()
