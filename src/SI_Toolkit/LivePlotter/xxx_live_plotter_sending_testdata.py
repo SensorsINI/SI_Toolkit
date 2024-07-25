@@ -18,10 +18,10 @@ def main():
     while not sender.connection_ready:
         time.sleep(0.1)
 
-    path = './ExperimentRecordings/CPP_mpc__2024-07-01_00-52-52.csv'
+    path = 'Experiment.csv'
     # path = '../../../ExperimentRecordings/CPP_mpc__2024-07-01_00-52-52.csv'
     df = pd.read_csv(path, comment='#')
-    df = df[['time', 'angle', 'angleD', 'position', 'positionD']]
+    df = df[['time', 'angle', 'angleD', 'Q', 'Q_applied']]
 
     try:
         # Send the header
@@ -32,7 +32,7 @@ def main():
         # Send data line by line
         for _, row in df.iterrows():
             sender.send_data(row.values)
-            time.sleep(0.1)  # Wait for a short time before sending the next row
+            time.sleep(0.02)  # Wait for a short time before sending the next row
 
         # Optionally, send a 'complete' message to indicate end of data
         sender.send_complete()
