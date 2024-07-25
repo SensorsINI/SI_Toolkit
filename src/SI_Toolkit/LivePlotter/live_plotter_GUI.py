@@ -7,7 +7,7 @@ You will get the plots but no control over the number of samples to keep or the 
 import sys
 
 from PyQt6.QtCore import Qt, QSize
-from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QComboBox, QPushButton
+from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QComboBox, QPushButton, QFrame
 
 import matplotlib.animation as animation
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
@@ -37,11 +37,15 @@ class LivePlotterGUI(QWidget):
         self.toolbar = NavigationToolbar(self.canvas, self)
         layout.addWidget(self.toolbar)
 
-        # Slider to control keep_samples
-        self.label = QLabel('Number of Samples to Keep:', self)
-        layout.addWidget(self.label)
+        # Frame to hold the controls
+        self.control_frame = QFrame(self)
+        self.control_layout = QVBoxLayout(self.control_frame)
 
-        self.slider = QSlider(Qt.Orientation.Horizontal, self)
+        # Slider to control keep_samples
+        self.label = QLabel('Number of Samples to Keep:', self.control_frame)
+        self.control_layout.addWidget(self.label)
+
+        self.slider = QSlider(Qt.Orientation.Horizontal, self.control_frame)
         self.slider.setMinimum(10)
         self.slider.setMaximum(min(1000, self.plotter.keep_samples * 2))
         self.slider.setValue(self.plotter.keep_samples)
@@ -49,18 +53,22 @@ class LivePlotterGUI(QWidget):
         self.slider.setTickPosition(QSlider.TickPosition.TicksBelow)
         self.slider.valueChanged.connect(self.update_samples)
         self.update_samples(self.slider.value())
-        layout.addWidget(self.slider)
+        self.control_layout.addWidget(self.slider)
 
         # Dropdowns to select features
         self.feature_selectors = []
         for i in range(5):
+            subplot_layout = QHBoxLayout()  # Horizontal layout for each subplot's selectors
             selector = QComboBox(self)
             selector.addItem("None")
             selector.currentIndexChanged.connect(self.update_feature_selection)
-            layout.addWidget(selector)
+            subplot_layout.addWidget(selector)
+            self.control_layout.addLayout(subplot_layout)
             self.feature_selectors.append(selector)
 
-        # Horizontal layout for SAVE and PAUSE/RESUME buttons
+        layout.addWidget(self.control_frame)
+
+        # Horizontal layout for SAVE, PAUSE/RESUME and TOGGLE buttons
         button_layout = QHBoxLayout()
 
         # Save button
@@ -72,6 +80,11 @@ class LivePlotterGUI(QWidget):
         self.pause_resume_button = QPushButton('PAUSE', self)
         self.pause_resume_button.clicked.connect(self.toggle_pause_resume)
         button_layout.addWidget(self.pause_resume_button)
+
+        # Toggle button
+        self.toggle_button = QPushButton('HIDE CONTROLS', self)
+        self.toggle_button.clicked.connect(self.toggle_controls)
+        button_layout.addWidget(self.toggle_button)
 
         layout.addLayout(button_layout)
 
@@ -112,6 +125,15 @@ class LivePlotterGUI(QWidget):
         default_size = self.sizeHint()  # Get the recommended size for the widget
         new_size = QSize(int(default_size.width() * scale_factor), int(default_size.height() * scale_factor))
         self.resize(new_size)  # Resize the window to the new size
+
+    def toggle_controls(self):
+        # Toggle the visibility of the control frame
+        if self.control_frame.isVisible():
+            self.control_frame.setVisible(False)
+            self.toggle_button.setText('SHOW CONTROLS')
+        else:
+            self.control_frame.setVisible(True)
+            self.toggle_button.setText('HIDE CONTROLS')
 
     def toggle_pause_resume(self):
         # Call the pause/resume function
