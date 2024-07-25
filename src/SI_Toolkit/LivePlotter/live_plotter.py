@@ -126,34 +126,39 @@ class LivePlotter:
                 time = df.index
             colors = plt.rcParams["axes.prop_cycle"]()
 
-            for i, feature in enumerate(self.selected_features):
+            subplot_idx = 0  # you should not use enumerate as there are some None values in selected_features
+            for feature in self.selected_features:
+                color = next(colors)["color"]
                 if feature in self.header:
                     data_row = df[feature]
-                    color = next(colors)["color"]
-                    self.update_timeline(i, time, data_row, color)
-                    self.update_histogram(i, data_row, color)
+                    self.update_timeline(feature, subplot_idx, time, data_row, color)
+                    self.update_histogram(feature, subplot_idx, data_row, color)
+                    subplot_idx += 1
 
     def clear_subplot(self, i):
         self.axs[i, 0].clear()
         self.axs[i, 1].clear()
 
-    def update_timeline(self, i, time, data_row, color):
+    def update_timeline(self, feature, subplot_idx, time, data_row, color):
         # Update timeline plot
-        self.axs[i, 0].clear()
-        self.axs[i, 0].set_title(
+        try:
+            self.axs[subplot_idx, 0].clear()
+        except IndexError:
+            print('Here')
+        self.axs[subplot_idx, 0].set_title(
             f"Min={data_row.min():.3f}, Max={data_row.max():.3f}, Mean={data_row.mean():.3f}, Std={data_row.std():.5f}, N={data_row.size}",
             size=8)
-        self.axs[i, 0].plot(time, data_row, label=self.selected_features[i], marker='.', color=color, markersize=3, linewidth=0.2)
-        self.axs[i, 0].legend(loc='upper right')
-        self.axs[i, 0].grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
+        self.axs[subplot_idx, 0].plot(time, data_row, label=feature, marker='.', color=color, markersize=3, linewidth=0.2)
+        self.axs[subplot_idx, 0].legend(loc='upper right')
+        self.axs[subplot_idx, 0].grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
 
-    def update_histogram(self, i, data_row, color):
+    def update_histogram(self, feature, subplot_idx, data_row, color):
         # Update histogram plot
-        self.axs[i, 1].clear()
-        self.axs[i, 1].hist(data_row, bins=50, label=self.selected_features[i], color=color)
-        self.axs[i, 1].set_ylabel('Occurrences')
-        self.axs[i, 1].set_title(self.selected_features[i])
-        self.axs[i, 1].grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
+        self.axs[subplot_idx, 1].clear()
+        self.axs[subplot_idx, 1].hist(data_row, bins=50, label=feature, color=color)
+        self.axs[subplot_idx, 1].set_ylabel('Occurrences')
+        self.axs[subplot_idx, 1].set_title(feature)
+        self.axs[subplot_idx, 1].grid(True, which='both', linestyle='-.', color='grey', linewidth=0.5)
 
     def set_keep_samples(self, keep_samples):
         self.keep_samples = keep_samples
