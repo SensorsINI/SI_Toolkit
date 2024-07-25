@@ -37,7 +37,7 @@ class LivePlotter:
         self.header = None
         self.received = 0
         self.keep_samples = keep_samples
-        self.selected_features = ['None'] * 5  # Default to 'None' for all subplots
+        self.selected_features = [['None', 'None', 'None'] for _ in range(5)]  # Default to 'None' for all subplots
         self.header_callback = header_callback  # Callback function for headers
 
         self.plotter = Plotter()
@@ -64,14 +64,14 @@ class LivePlotter:
             self.header = buffer
             print(f'Header received: {self.header}')
             self.reset_liveplotter()
-            if DEFAULT_FEATURES_TO_PLOT == 'default':
-                filtered_header = [h for h in self.header if h != "time"]
-                self.selected_features = filtered_header[:5] + ['None'] * (5 - len(filtered_header))  # Default first 5 headers
-            elif DEFAULT_FEATURES_TO_PLOT is not None:
-                self.selected_features = [feature for feature in DEFAULT_FEATURES_TO_PLOT if feature in self.header]
-                self.selected_features = self.selected_features + ['None'] * (5 - len(self.selected_features))
-            else:
-                self.selected_features = ['None'] * 5
+            self.selected_features = [['None', 'None', 'None'] for _ in range(5)]
+            if DEFAULT_FEATURES_TO_PLOT is not None:
+                if DEFAULT_FEATURES_TO_PLOT == 'default':
+                    filtered_header = [h for h in self.header if h != "time"]
+                else:
+                    filtered_header = [feature for feature in DEFAULT_FEATURES_TO_PLOT if feature in self.header]
+                for i in range(min(5, len(filtered_header))):
+                    self.selected_features[i][0] = filtered_header[i]
 
             # Update the subplot layout based on selected features
             self.update_subplot_layout()

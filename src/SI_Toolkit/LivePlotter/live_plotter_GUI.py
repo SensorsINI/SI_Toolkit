@@ -59,12 +59,19 @@ class LivePlotterGUI(QWidget):
         self.feature_selectors = []
         for i in range(5):
             subplot_layout = QHBoxLayout()  # Horizontal layout for each subplot's selectors
-            selector = QComboBox(self)
-            selector.addItem("None")
-            selector.currentIndexChanged.connect(self.update_feature_selection)
-            subplot_layout.addWidget(selector)
+
+            subplot_label = QLabel(f'Subplot {i + 1}:', self.control_frame)
+            subplot_layout.addWidget(subplot_label)
+
+            subplot_selectors = []
+            for j in range(3):  # Up to 3 features per subplot
+                selector = QComboBox(self.control_frame)
+                selector.addItem("None")
+                selector.currentIndexChanged.connect(self.update_feature_selection)
+                subplot_layout.addWidget(selector)
+                subplot_selectors.append(selector)
             self.control_layout.addLayout(subplot_layout)
-            self.feature_selectors.append(selector)
+            self.feature_selectors.append(subplot_selectors)
 
         layout.addWidget(self.control_frame)
 
@@ -101,7 +108,8 @@ class LivePlotterGUI(QWidget):
             self.plotter.set_keep_samples(value)
 
     def update_feature_selection(self):
-        selected_features = [selector.currentText() for selector in self.feature_selectors]
+        selected_features = [[selector.currentText() for selector in subplot_selectors]
+                             for subplot_selectors in self.feature_selectors]
         self.plotter.update_selected_features(selected_features)
 
     def start_animation(self):
@@ -110,11 +118,18 @@ class LivePlotterGUI(QWidget):
 
     def update_headers(self, headers, selected_features):
         self.headers = headers
-        for i, selector in enumerate(self.feature_selectors):
-            selector.clear()
-            selector.addItem("None")
-            selector.addItems(headers)
-            selector.setCurrentText(selected_features[i])
+        for subplot_selectors in self.feature_selectors:
+            # subplot_selectors is a list of 3 features which should be plotted on one chart
+            for selector in subplot_selectors:
+                selector.clear()
+                selector.addItem("None")
+                selector.addItems(headers)
+        for i, subplot_selectors in enumerate(self.feature_selectors):
+            for j, selector in enumerate(subplot_selectors):
+                if selected_features[i][j] in headers:
+                    selector.setCurrentText(selected_features[i][j])
+                else:
+                    selector.setCurrentText("None")
 
     def resizeEvent(self, event):
         # Adjust the layout and elements on window resize
