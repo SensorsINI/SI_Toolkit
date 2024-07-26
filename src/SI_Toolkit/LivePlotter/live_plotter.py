@@ -56,7 +56,8 @@ class LivePlotter:
         if self.received >= 10:
             self.received = 0
             if not self.paused:
-                self.plotter.update_plots(self.data, self.header, self.selected_features)
+                df = pd.DataFrame(self.data, columns=self.header)
+                self.plotter.update_plots(df, self.selected_features)
 
     def process_buffer(self, buffer):
         # Process incoming buffer based on its type
