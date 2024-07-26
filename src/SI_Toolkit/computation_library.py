@@ -104,7 +104,6 @@ class ComputationLibrary:
     to_numpy: Callable[[TensorType], np.ndarray] = None
     to_variable: Callable[[TensorType, type], np.ndarray] = None
     to_tensor: Callable[[TensorType, type], TensorType] = None
-    to_value: Callable[[TensorType], Any] = None
     constant: Callable[[TensorType, type], TensorType] = None
     unstack: Callable[[TensorType, int, int], "list[TensorType]"] = None
     ndim: Callable[[TensorType], int] = None
@@ -194,7 +193,6 @@ class NumpyLibrary(ComputationLibrary):
     to_numpy = lambda x: np.array(x)
     to_variable = lambda x, dtype: np.array(x, dtype=dtype)
     to_tensor = lambda x, dtype: np.array(x, dtype=dtype)
-    to_value = lambda x: x.item()
     constant = lambda x, t: np.array(x, dtype=t)
     unstack = lambda x, num, axis: list(np.moveaxis(x, axis, 0))
     ndim = np.ndim
@@ -286,7 +284,6 @@ class TensorFlowLibrary(ComputationLibrary):
     to_numpy = lambda x: x.numpy()
     to_variable = lambda x, dtype: tf.Variable(x, dtype=dtype)
     to_tensor = lambda x, dtype: tf.convert_to_tensor(x, dtype=dtype)
-    to_value = lambda x: x.numpy().item()
     constant = lambda x, t: tf.constant(x, dtype=t)
     unstack = lambda x, num, axis: tf.unstack(x, num=num, axis=axis)
     ndim = tf.rank
@@ -381,7 +378,6 @@ class PyTorchLibrary(ComputationLibrary):
     to_numpy = lambda x: x.cpu().detach().numpy()
     to_variable = lambda x, dtype: torch.as_tensor(x, dtype=dtype)
     to_tensor = lambda x, dtype: torch.as_tensor(x, dtype=dtype)
-    to_value = lambda x: x.item()
     constant = lambda x, t: torch.as_tensor(x, dtype=t)
     unstack = lambda x, num, dim: torch.unbind(x, dim=dim)
     ndim = lambda x: x.ndim
