@@ -42,7 +42,7 @@ class LivePlotter_ConnectionHandlerSender:
             self.ssh_process = self.establish_ssh_tunnel()
             time.sleep(5)  # Simulate waiting for SSH tunnel to establish
         else:
-            time.sleep(3)  # Simulate waiting for local setup
+            time.sleep(1)  # Simulate waiting for local setup
         self.connection = Client(self.address)
         self.connection_ready = True
 
