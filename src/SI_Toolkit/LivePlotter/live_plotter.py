@@ -3,6 +3,8 @@ The main file containing the code for plotting the charts of live plotter (real 
 You can either run this file to start the live plotter or live_plotter_GUI.py to start the GUI version.
 The GUI version embeds this live plotter in a PyQt6 window, adding additional controls for the user.
 """
+import os
+import yaml
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -17,7 +19,7 @@ from SI_Toolkit.LivePlotter.live_plotter_x_connection_handler_receiver import Li
 
 sns.set()
 
-DEFAULT_FEATURES_TO_PLOT = 'default'  # None, 'default', list of features
+DEFAULT_FEATURES_TO_PLOT = '../liveplotter_config.yml'  # None, 'default', list of features, or path to config
 
 KEEP_SAMPLES_DEFAULT = 100  # at least 10
 DEFAULT_ADDRESS = ('0.0.0.0', 6000)
@@ -66,13 +68,36 @@ class LivePlotter:
             print(f'Header received: {self.header}')
             self.reset_liveplotter()
             self.selected_features = [['None', 'None', 'None'] for _ in range(5)]
+
+            # Check if DEFAULT_FEATURES_TO_PLOT is provided
             if DEFAULT_FEATURES_TO_PLOT is not None:
-                if DEFAULT_FEATURES_TO_PLOT == 'default':
-                    filtered_header = [h for h in self.header if h != "time"]
+                # Check if it is a path to a YAML file
+                if os.path.isfile(DEFAULT_FEATURES_TO_PLOT):
+                    try:
+                        with open(DEFAULT_FEATURES_TO_PLOT, 'r') as file:
+                            features_to_plot = yaml.safe_load(file)
+
+                        # Ensure the loaded data is a list of lists
+                        if not isinstance(features_to_plot, list) or not all(
+                                isinstance(item, list) for item in features_to_plot):
+                            raise ValueError("YAML file does not contain a list of lists.")
+
+                        # Populate selected_features based on the YAML file
+                        for i in range(min(5, len(features_to_plot))):
+                            for j in range(min(3, len(features_to_plot[i]))):
+                                feature = features_to_plot[i][j]
+                                if feature in self.header or feature == 'None':
+                                    self.selected_features[i][j] = feature
+                    except Exception as e:
+                        print(f"Error loading YAML file: {e}")
                 else:
-                    filtered_header = [feature for feature in DEFAULT_FEATURES_TO_PLOT if feature in self.header]
-                for i in range(min(5, len(filtered_header))):
-                    self.selected_features[i][0] = filtered_header[i]
+                    # If not a YAML file, use the existing behavior
+                    if DEFAULT_FEATURES_TO_PLOT == 'default':
+                        filtered_header = [h for h in self.header if h != "time"]
+                    else:
+                        filtered_header = [feature for feature in DEFAULT_FEATURES_TO_PLOT if feature in self.header]
+                    for i in range(min(5, len(filtered_header))):
+                        self.selected_features[i][0] = filtered_header[i]
 
             # Update the subplot layout based on selected features
             self.update_subplot_layout()
