@@ -1,6 +1,7 @@
 from SI_Toolkit.LivePlotter.live_plotter_sender import LivePlotter_Sender
 import time
 import pandas as pd
+from tqdm import tqdm
 
 
 USE_REMOTE = False
@@ -30,7 +31,7 @@ def main():
         time.sleep(0.1)
 
         # Send data line by line
-        for _, row in df.iterrows():
+        for _, row in tqdm(df.iterrows()):
             sender.send_data(row.values)
             time.sleep(0.02)  # Wait for a short time before sending the next row
 
