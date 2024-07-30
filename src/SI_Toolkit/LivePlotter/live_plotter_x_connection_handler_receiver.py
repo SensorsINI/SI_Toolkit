@@ -30,7 +30,10 @@ class LivePlotter_ConnectionHandlerReceiver:
             try:
                 while self.connection.poll(timeout):
                     buffer = self.connection.recv()
-                    yield buffer
+                    if buffer == "ping":
+                        self.connection.send("pong")
+                    else:
+                        yield buffer
             except EOFError:
                 print('Connection closed')
                 self.connection = None
