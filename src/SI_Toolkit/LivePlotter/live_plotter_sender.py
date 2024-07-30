@@ -42,14 +42,24 @@ class LivePlotter_Sender:
     def send_save(self):
         if self.sender.connection_ready:
             self.sender.send('save')
+            print("Saving current data and figure to Live Plotter Server default location.")
         else:
             raise Exception("Attempted sending 'save' message but connection not established yet.")
+
+    def save_data_and_figure_if_connected(self):
+        if self.sender.connection_ready:
+            self.send_save()
 
     def send_reset(self):
         if self.sender.connection_ready:
             self.sender.send('reset')
+            print("Reset Live Plotter Server.")
         else:
             raise Exception("Attempted sending 'reset' message but connection not established yet.")
+
+    def reset_if_connected(self):
+        if self.sender.connection_ready:
+            self.send_reset()
 
     def send_complete(self):
         if self.sender.connection_ready:
@@ -64,5 +74,11 @@ class LivePlotter_Sender:
         self.headers_sent = False
         self.connection_ready = False
         print("Live Plotter: Connection closed.")
+
+    def on_off(self):
+        if not self.connection_ready:
+            self.connect()
+        else:
+            self.close()
 
 
