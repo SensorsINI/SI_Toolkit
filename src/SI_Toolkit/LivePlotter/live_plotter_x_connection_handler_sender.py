@@ -38,13 +38,36 @@ class LivePlotter_ConnectionHandlerSender:
         thread.start()
 
     def _connect(self):
-        if self.use_remote:
-            self.ssh_process = self.establish_ssh_tunnel()
-            time.sleep(5)  # Simulate waiting for SSH tunnel to establish
-        else:
-            time.sleep(1)  # Simulate waiting for local setup
-        self.connection = Client(self.address)
-        self.connection_ready = True
+        try:
+            if self.use_remote:
+                self.ssh_process = self.establish_ssh_tunnel()
+                time.sleep(5)  # Simulate waiting for SSH tunnel to establish
+            else:
+                time.sleep(1)  # Simulate waiting for local setup
+
+            self.connection = Client(self.address)
+            # Check connection by sending a ping
+            if self._check_connection():
+                self.connection_ready = True
+            else:
+                self.connection_ready = False
+                self.connection.close()
+        except Exception as e:
+            print(f"Failed to connect: {e}")
+            self.connection_ready = False
+
+    def _check_connection(self):
+        try:
+            self.connection.send("ping")
+            response = self.connection.recv()
+            if response == "pong":
+                return True
+            return False
+        except Exception as e:
+            print(f"Connection check failed: {e}")
+            print(f"Is your Live Plotter Server running?")
+            print(f"Is your address correct and SSH tunnel established (if needed)?")
+            return False
 
     @property
     def connection_ready(self):
