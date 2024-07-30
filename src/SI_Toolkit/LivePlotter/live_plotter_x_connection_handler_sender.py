@@ -62,6 +62,7 @@ class LivePlotter_ConnectionHandlerSender:
             response = self.connection.recv()
             if response == "pong":
                 return True
+            print('Could not establish connection to Live Plotter Server.')
             return False
         except Exception as e:
             print(f"Connection check failed: {e}")
