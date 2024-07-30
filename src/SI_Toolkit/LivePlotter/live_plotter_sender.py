@@ -16,6 +16,7 @@ class LivePlotter_Sender:
         self.headers_sent = False
 
     def connect(self):
+        print("Live Plotter: Connecting...")
         self.sender.connect()
 
     def _update_connection_ready(self, status):
@@ -60,5 +61,8 @@ class LivePlotter_Sender:
         if self.sender.connection_ready:
             self.send_complete()
         self.sender.close()
+        self.headers_sent = False
+        self.connection_ready = False
+        print("Live Plotter: Connection closed.")
 
 
