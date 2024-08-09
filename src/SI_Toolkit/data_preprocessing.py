@@ -40,7 +40,7 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
             raise ValueError('Path exists but is neither a file nor a directory')
     else:
         # Path does not exist
-        raise FileNotFoundError('Path does not exist')
+        raise FileNotFoundError(f"Path {get_files_from} does not exist")
 
 
 
