@@ -100,6 +100,16 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     callbacks_for_training.append(AdditionalValidation(dataset=training_dataset))
 
 
+    class saving_Callback(keras.callbacks.Callback):
+        def __init__(self, path_to_save):
+            super().__init__()
+            self.path_to_save = path_to_save
+
+        def on_epoch_end(self, epoch, logs=None):
+            self.model.save(self.path_to_save)
+
+    callbacks_for_training.append(saving_Callback(os.path.join(net_info.path_to_net, net_info.net_full_name + '.keras')))
+
     csv_logger = keras.callbacks.CSVLogger(os.path.join(net_info.path_to_net, 'log_training.csv'), append=False, separator=';')
     callbacks_for_training.append(csv_logger)
 
