@@ -6,19 +6,20 @@ from types import SimpleNamespace
 
 from SI_Toolkit.Functions.General.Initialization import get_net
 from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
-from SI_Toolkit.Functions.General.SavingTerminalOutput import TerminalSaver
-
-config_hls = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_hls.yml'), 'r'), Loader=yaml.FullLoader)
-
-# Parameters:
-a = SimpleNamespace()
-batch_size = config_hls['batch_size']
-a.path_to_models = config_hls['path_to_models']
-a.net_name = config_hls['net_name']
+from SI_Toolkit.Functions.General.TerminalContentManager import TerminalContentManager
 
 
 def convert_with_hls4ml():
-    with TerminalSaver(os.path.join(config_hls['output_dir'], 'terminal_output.txt')):
+
+    config_hls = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_hls.yml'), 'r'), Loader=yaml.FullLoader)
+
+    # Parameters:
+    a = SimpleNamespace()
+    batch_size = config_hls['batch_size']
+    a.path_to_models = config_hls['path_to_models']
+    a.net_name = config_hls['net_name']
+
+    with TerminalContentManager(os.path.join(config_hls['output_dir'], 'terminal_output.txt')):
         # Import network
         # Create a copy of the network suitable for inference (stateful and with sequence length one)
         net, net_info = \

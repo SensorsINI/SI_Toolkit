@@ -8,8 +8,9 @@ def augment_data_placeholder(data, labels):
 
 
 try:
-    from SI_Toolkit_ASF.data_augmentation import augment_data
+    from SI_Toolkit_ASF.ToolkitCustomization.data_augmentation import augment_data
 except:
+    print("Data augmentation function not found. Data will not be transformed no matter the value of AUGMENT_DATA in config_training.")
     augment_data = augment_data_placeholder
 
 
@@ -81,7 +82,8 @@ class DatasetTemplate:
         self.data_original = deepcopy(self.data)
         self.labels_original = deepcopy(self.labels)
 
-        self.data, self.labels = augment_data(self.data_original, self.labels_original)
+        if args.augment_data:
+            self.data, self.labels = augment_data(self.data_original, self.labels_original)
 
         self.args = args
 
@@ -260,6 +262,18 @@ class DatasetTemplate:
         self.indices_to_use = self.indices
         self.number_of_samples_to_use = self.number_of_samples
         self.number_of_batches_to_use = self.number_of_batches
+
+    def on_epoch_end(self):
+        if self.args.augment_data:
+            self.data, self.labels = augment_data(self.data_original, self.labels_original)
+            self.reset_exp_len(self.exp_len)
+            self.reset_number_of_samples()
+            # Batch is of relevance only for TF, Pytorch does not use Dataset to form batches.
+            self.reset_batch_size(self.batch_size)
+        if self.tiv:
+            self.scaling_tiv_epoch_factor += 1.0
+            print('scaling_tiv_epoch_factor is now {}'.format(self.scaling_tiv_epoch_factor))
+        self.shuffle_dataset()
 
 
 class DataFilter:

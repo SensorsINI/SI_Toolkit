@@ -70,15 +70,15 @@ class PredictorWrapper:
             from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
             self.predictor = predictor_autoregressive_GP(horizon=self.horizon, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
+        elif self.predictor_type == 'ODE_v0':
+            from SI_Toolkit.Predictors.predictor_ODE_v0 import predictor_ODE_v0
+            self.predictor = predictor_ODE_v0(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
+
         elif self.predictor_type == 'ODE':
             from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-            self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
-
-        elif self.predictor_type == 'ODE_TF':
-            from SI_Toolkit.Predictors.predictor_ODE_tf import predictor_ODE_tf
             if computation_library is None:  # TODO: Remove it after making sure that the predictor gets the right library everywhere it is used.
                 computation_library = TensorFlowLibrary
-            self.predictor = predictor_ODE_tf(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         else:
             raise NotImplementedError('Type of the predictor not recognised.')
@@ -120,8 +120,8 @@ class PredictorWrapper:
 
         if predictor_specification_components[0] == 'ODE':
             predictor_name = 'ODE_default'
-        if predictor_specification_components[0] == 'ODE_TF':
-            predictor_name = 'ODE_TF_default'
+        if predictor_specification_components[0] == 'ODE_v0':
+            predictor_name = 'ODE_v0_default'
         if predictor_specification_components[0] == 'neural':
             predictor_name = 'neural_default'
         if predictor_specification_components[0] == 'GP':

@@ -43,9 +43,14 @@ If you create a new project:
 
     `git submodule add https://github.com/SensorsINI/SI_Toolkit`
 
-    or otherwise clone it to your project directory with
+    or otherwise, if you rather wanted a separate copy in your repository,
+    clone it to your project directory with
 
     `git clone https://github.com/SensorsINI/SI_Toolkit`
+
+    Notice that as of today,
+    Pycharm requires restart to recognize the new submodule,
+    and show it within its git tools.
 
 2. Install the Toolkit
 
@@ -64,14 +69,30 @@ If you create a new project:
 
 ## Quick Start - Main Pipeline
 1. Collect Training Data
-  - To use SI_Toolkit you need a dataset (csv files) with columns for input and output of the network you want to train.
-  - SI_Toolkit expect to find in experiment folder a data folder (default called `Recordings`) and within it three other folders: `Train`, `Validate`, `Test` with data to be used in training and testing.
-  - In SI_Toolkit_ASF, we provide an example dataset with data from a cartpole.
+  - To use SI_Toolkit you need a dataset (csv files)
+    with columns for input and output of the network you want to train.
+  - SI_Toolkit expect to find in experiment folder a data folder (default called `Recordings`)
+    and within it three other folders: `Train`, `Validate`, `Test` with data to be used in training and testing.
+  - In SI_Toolkit_ASF, we provide an example dataset xxx with data from a cartpole.
+    You can use this for the first tests.
+
+For all next steps - The launch scripts are located in `./SI_Toolkit_ASF/Run/`.
+They all assume that working directory is the root of the project, and that the SI_Toolkit_ASF folder is in the root of the project.
+To do it either run the scripts from terminal from root e.g.
+`python SI_Toolkit_ASF/Run/A1_Create_Normalization_File.py`
+or `python -m SI_Toolkit_ASF.Run.A1_Create_Normalization_File`
+
+or set the working directory in your IDE to the root of the project.
+In Pycharm it can be done in run configurations window.
+
+TODO: Make the (at least starting) working directory more flexible
+to be able to run the scripts from where they are located.
+
 2. Calculate data statistics and inspect data
   - This step in necessary for each new dataset, as the data statistics file calculated offline is used while training neural networks to normalize the data.
   - Set paths to experiment folders in `./SI_Toolkit_ASF/config_training.yml`
     - In our example: Set to `./Experiment_Recordings/Dataset-1/`
-  - Then run `python -m SI_Toolkit_ASF.run.Create_normalization_file`
+  - Then run `python -m SI_Toolkit_ASF.Run.Create_normalization_file`
   - This creates a new normalization file in `[path_to_experiment_folder]/NormalizationInfo/`
 3. Train Network
   - Type `python -m SI_Toolkit_ASF.run.Train_Network -h` to view all arguments that can be passed to training script

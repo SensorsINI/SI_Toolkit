@@ -5,9 +5,11 @@ derivative
 gitpython
 pyyaml
 ruamel.yaml
-torch
+torch==2.1.2
+# onnx==1.12 # Installed also automatically, but in a higher version causing conflict #FIXME: Obsolete?
+# protobuf==3.20 # Installed also automatically, but in a higher version causing conflict #FIXME: Obsolete?
 tensorflow==2.14  # as for 10.02.2024 this is the latest version working with tensorflow_model_optimization
-tensorflow_model_optimization
+tensorflow_model_optimization==0.7.5
 tqdm
 qkeras
 #nni

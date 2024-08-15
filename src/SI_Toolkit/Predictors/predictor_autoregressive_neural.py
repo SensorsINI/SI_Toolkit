@@ -29,8 +29,7 @@ from SI_Toolkit.Functions.General.Normalising import (
     )
 from SI_Toolkit.Functions.General.value_precision import set_value_precision
 from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
-from SI_Toolkit_ASF.predictors_customization import \
-    predictor_output_augmentation_tf
+from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import predictor_output_augmentation
 
 from SI_Toolkit.Predictors.autoregression import autoregression_loop, differential_model_autoregression_helper, check_dimensions
 
@@ -185,7 +184,7 @@ class predictor_autoregressive_neural(template_predictor):
         if self.net_info.normalize:
             self.denormalize_outputs = get_denormalization_function(self.normalization_info, outputs_names, self.lib)
 
-        self.augmentation = predictor_output_augmentation_tf(self.net_info, self.lib, differential_network=self.differential_network)
+        self.augmentation = predictor_output_augmentation(self.net_info, self.lib, differential_network=self.differential_network)
 
         indices_outputs_rev = [self.predictor_output_indices.get(key, np.inf) for key in outputs_names+self.augmentation.features_augmentation]
         missing_indices_output = [i for i in range(len(self.predictor_output_indices)) if i not in indices_outputs_rev]

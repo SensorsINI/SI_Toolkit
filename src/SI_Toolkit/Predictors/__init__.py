@@ -2,7 +2,7 @@ from SI_Toolkit.computation_library import NumpyLibrary, PyTorchLibrary, TensorF
 import tensorflow as tf
 import numpy as np
 
-from SI_Toolkit_ASF.predictors_customization import CONTROL_INPUTS, STATE_VARIABLES
+from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import CONTROL_INPUTS, STATE_VARIABLES
 
 class template_predictor:
     supported_computation_libraries: set = {NumpyLibrary, TensorFlowLibrary, PyTorchLibrary}

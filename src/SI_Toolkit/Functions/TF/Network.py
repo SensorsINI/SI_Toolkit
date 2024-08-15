@@ -43,7 +43,7 @@ def compose_net_from_module(net_info,
                             **kwargs,
                             ):
     net_type, module_name, class_name = net_info.net_name.split('-')
-    path = './SI_Toolkit_ASF/Modules/'
+    path = './SI_Toolkit_ASF/ToolkitCustomization/Modules/'
 
     spec = importlib.util.spec_from_file_location(class_name, f"{path}/{module_name}.py")
     module = importlib.util.module_from_spec(spec)

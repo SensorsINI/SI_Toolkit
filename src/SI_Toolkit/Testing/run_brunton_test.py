@@ -1,8 +1,8 @@
 import os
-import yaml
+from SI_Toolkit.load_and_normalize import load_yaml
 
 # predictors config
-config_testing = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'), 'r'), Loader=yaml.FullLoader)
+config_testing = load_yaml(os.path.join('SI_Toolkit_ASF', 'config_testing.yml'))
 
 from SI_Toolkit.Testing.Testing_Functions.Brunton_GUI import run_test_gui
 from SI_Toolkit.Testing.Testing_Functions.get_prediction import get_prediction

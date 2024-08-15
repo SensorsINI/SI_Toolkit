@@ -10,7 +10,7 @@ from SI_Toolkit.GP.Functions.save_and_load import load_model
 from SI_Toolkit.Predictors import template_predictor
 
 try:
-    from SI_Toolkit_ASF.predictors_customization import (
+    from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import (
         CONTROL_INPUTS, STATE_INDICES, STATE_VARIABLES,
         )
 except ModuleNotFoundError:

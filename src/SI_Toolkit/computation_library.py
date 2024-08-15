@@ -20,6 +20,13 @@ class LibraryHelperFunctions:
     def set_to_variable(v: tf.Variable, x: tf.Tensor):
         v.assign(x)
 
+    @staticmethod
+    def cond(condition: TensorType, true_fn: Callable[[], Any], false_fn: Callable[[], Any]) -> Any:
+        if condition:
+            return true_fn()
+        else:
+            return false_fn()
+
 
 
 def set_device_general(device_name: str, library: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -149,6 +156,7 @@ class ComputationLibrary:
     reduce_all: Callable[[TensorType, int], bool] = None
     reduce_max: Callable[[TensorType, int], bool] = None
     reduce_min: Callable[[TensorType, Optional[int]], bool] = None
+    equal: Callable[[TensorType, TensorType], TensorType] = None
     less: Callable[[TensorType, TensorType], TensorType] = None
     less_equal: Callable[[TensorType, TensorType], TensorType] = None
     greater: Callable[[TensorType, TensorType], TensorType] = None
@@ -169,6 +177,7 @@ class ComputationLibrary:
     stop_gradient: Callable[[TensorType], TensorType] = None
     assign: Callable[[Union[TensorType, tf.Variable], TensorType], Union[TensorType, tf.Variable]] = None
     where: Callable[[TensorType, TensorType, TensorType], TensorType] = None
+    cond: Callable[[TensorType, Callable[[], Any], Callable[[], Any]], TensorType] = None
     logical_and: Callable[[TensorType, TensorType], TensorType] = None
     logical_or: Callable[[TensorType, TensorType], TensorType] = None
     print: Callable[[Any], None] = None
@@ -237,6 +246,7 @@ class NumpyLibrary(ComputationLibrary):
     reduce_all = lambda a, axis: np.all(a, axis=axis)
     reduce_max = lambda a, axis: np.max(a, axis=axis)
     reduce_min = lambda a, axis: np.min(a, axis=axis)
+    equal = lambda x, y: np.equal(x, y)
     less = lambda x, y: np.less(x, y)
     less_equal = lambda x, y: np.less_equal(x, y)
     greater = lambda x, y: np.greater(x, y)
@@ -257,6 +267,7 @@ class NumpyLibrary(ComputationLibrary):
     stop_gradient = lambda x: x
     assign = LibraryHelperFunctions.set_to_value
     where = np.where
+    cond = LibraryHelperFunctions.cond
     logical_and = np.logical_and
     logical_or  = np.logical_or
     print = print
@@ -327,6 +338,7 @@ class TensorFlowLibrary(ComputationLibrary):
     reduce_all = lambda a, axis: tf.reduce_all(a, axis=axis)
     reduce_max = lambda a, axis: tf.reduce_max(a, axis=axis)
     reduce_min = lambda a, axis: tf.reduce_min(a, axis=axis)
+    equal = lambda x, y: tf.math.equal(x, y)
     less = lambda x, y: tf.math.less(x, y)
     less_equal = lambda x, y: tf.math.less_equal(x, y)
     greater = lambda x, y: tf.math.greater(x, y)
@@ -347,6 +359,7 @@ class TensorFlowLibrary(ComputationLibrary):
     stop_gradient = tf.stop_gradient
     assign = LibraryHelperFunctions.set_to_variable
     where = tf.where
+    cond = tf.cond
     logical_and = tf.math.logical_and
     logical_or  = tf.math.logical_or
     print = tf.print
@@ -424,6 +437,7 @@ class PyTorchLibrary(ComputationLibrary):
     reduce_all = lambda a, axis: torch.all(a, dim=axis)
     reduce_max = lambda a, axis: torch.max(a, dim=axis)
     reduce_min = lambda a, axis: torch.min(a, dim=axis)[0]
+    equal = lambda x, y: torch.eq(x, y)
     less = lambda x, y: torch.less(x, y)
     less_equal = lambda x, y: torch.less_equal(x, y)
     greater = lambda x, y: torch.greater(x, y)
@@ -444,6 +458,7 @@ class PyTorchLibrary(ComputationLibrary):
     stop_gradient = tf.stop_gradient # FIXME: How to imlement this in torch?
     assign = LibraryHelperFunctions.set_to_value
     where = torch.where
+    cond = LibraryHelperFunctions.cond
     logical_and = torch.logical_and
     logical_or  = torch.logical_or
     print = print

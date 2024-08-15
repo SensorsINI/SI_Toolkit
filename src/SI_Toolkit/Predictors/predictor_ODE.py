@@ -1,80 +1,105 @@
-"""
-This is a CLASS of predictor.
-The idea is to decouple the estimation of system future state from the controller design.
-While designing the controller you just chose the predictor you want,
- initialize it while initializing the controller and while stepping the controller you just give it current state
-    and it returns the future states
-
-"""
-
-from typing import Callable, Optional
+import os
 from SI_Toolkit.Predictors import template_predictor
-import numpy as np
-from SI_Toolkit_ASF.predictors_customization_numba import STATE_VARIABLES
-from SI_Toolkit.computation_library import NumpyLibrary, TensorType
-from SI_Toolkit_ASF.predictors_customization_numba import next_state_predictor_ODE
+from SI_Toolkit.computation_library import TensorFlowLibrary, PyTorchLibrary, NumpyLibrary
+
+from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES, CONTROL_INPUTS
+from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
+
+from SI_Toolkit.Predictors.autoregression import autoregression_loop, check_dimensions
+
+os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
+
+
+class model_interface:
+    def __init__(self, single_step_predictor):
+        self.model = single_step_predictor
+
+    def __call__(self, model_input):
+        Q = model_input[:, 0, :len(CONTROL_INPUTS)]
+        s = model_input[:, 0, len(CONTROL_INPUTS):]
+        return self.model.step(s, Q)
 
 
 class predictor_ODE(template_predictor):
-    supported_computation_libraries = {NumpyLibrary}  # Overwrites default from parent
+    supported_computation_libraries = {TensorFlowLibrary, PyTorchLibrary, NumpyLibrary}  # Overwrites default from parent
     
-    def __init__(
-        self,
-        horizon: int,
-        dt: float,
-        intermediate_steps: int,
-        batch_size=1,
-        variable_parameters=None,
-        **kwargs
-    ):
+    def __init__(self,
+                 horizon: int,
+                 dt: float,
+                 computation_library=TensorFlowLibrary,
+                 intermediate_steps=10,
+                 disable_individual_compilation=False,
+                 batch_size=1,
+                 variable_parameters=None,
+                 **kwargs):
         super().__init__(horizon=horizon, batch_size=batch_size)
+        self.lib = computation_library
+        self.disable_individual_compilation = disable_individual_compilation
 
-        self.initial_state = None
+        self.initial_state = self.lib.zeros(shape=(1, len(STATE_VARIABLES)))
         self.output = None
+        self.disable_individual_compilation = disable_individual_compilation
+
+        self.dt = dt
+        self.intermediate_steps = intermediate_steps
 
         self.next_step_predictor = next_state_predictor_ODE(
-            dt=dt,
-            intermediate_steps=intermediate_steps,
-            batch_size=batch_size,
+            dt,
+            intermediate_steps,
+            self.lib,
+            self.batch_size,
             variable_parameters=variable_parameters,
+            disable_individual_compilation=True,
+        )
+        self.params = self.next_step_predictor.params
+        self.model = model_interface(self.next_step_predictor)
+
+        self.AL: autoregression_loop = autoregression_loop(
+            model_inputs_len=len(STATE_VARIABLES)  + len(CONTROL_INPUTS),
+            model_outputs_len=len(STATE_VARIABLES),
+            batch_size=self.batch_size,
+            lib=self.lib,
+            differential_model_autoregression_helper_instance=None,
         )
 
-    def predict(self, initial_state: np.ndarray, Q: np.ndarray, params=None) -> np.ndarray:
-
-        self.initial_state = initial_state
-
-        if Q.ndim == 3:  # Q.shape = [batch_size, timesteps, features]
-            self.batch_size = Q.shape[0]
-        elif Q.ndim == 2:  # Q.shape = [timesteps, features]
-            self.batch_size = 1
-            Q = Q[np.newaxis, :, :]
-        elif Q.ndim == 1:  # Q.shape = [features]
-            self.batch_size = 1
-            Q = Q[np.newaxis, np.newaxis, :]
+        if disable_individual_compilation:
+            self.predict_core = self._predict_core
         else:
-            raise ValueError()
+            self.predict_core = CompileAdaptive(self._predict_core)
 
-        # Make sure the input is at least 2d
-        if self.initial_state.ndim == 1:
-            self.initial_state = self.initial_state[np.newaxis, :]
 
-        if self.initial_state.shape[0] == 1 and Q.shape[0] != 1:  # Predicting multiple control scenarios for the same initial state
-            self.initial_state = np.tile(self.initial_state, (self.batch_size, 1))
-        elif self.initial_state.shape[0] == Q.shape[0]:  # For each control scenario there is separate initial state provided
-            pass
-        else:
-            raise ValueError('Batch size of control input contradict batch size of initial state')
+    def predict(self, initial_state, Q):
 
-        self.output = np.zeros((self.batch_size, self.horizon + 1, len(STATE_VARIABLES.tolist())), dtype=np.float32)
-        self.output[:, 0, :] = self.initial_state
+        initial_state = self.lib.to_tensor(initial_state, dtype=self.lib.float32)
+        Q = self.lib.to_tensor(Q, dtype=self.lib.float32)
 
-        for k in range(self.horizon):
-            self.output[:, k + 1, :] = self.next_step_predictor.step(self.output[:, k, :], Q[:, k, :])
+        self.initial_state, Q = check_dimensions(initial_state, Q, self.lib)
 
-        return self.output if (self.batch_size > 1) else np.squeeze(self.output)
+        self.batch_size = self.lib.shape(Q)[0]
 
-    def update_internal_state(self, Q0, s=None):
+        output = self.predict_core(self.initial_state, Q)
+
+        return output.numpy()
+
+
+    def _predict_core(self, initial_state, Q):
+
+        self.output = self.AL.run(
+            model=self.model,
+            horizon=self.horizon,
+            initial_input=initial_state,
+            external_input_left=Q,
+        )
+
+        self.output = self.lib.concat((initial_state[:, self.lib.newaxis, :], self.output), axis=1)
+
+        return self.output
+
+    def update_internal_state(self, Q, s=None):
         pass
+
+
+
 
 
 if __name__ == '__main__':
@@ -86,4 +111,3 @@ predictor = predictor_ODE(horizon, 0.02, 10)
 '''
 
     timer_predictor(initialisation)
-

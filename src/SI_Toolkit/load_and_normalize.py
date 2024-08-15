@@ -7,36 +7,34 @@ import glob
 
 import matplotlib.pyplot as plt
 
-from derivative import dxdt
-
 # Import module to get a current time and date used to name the files containing normalization information
 from datetime import datetime
 import csv
 
-try:
-    # Use gitpython to get a current revision number and use it in description of experimental data
-    from git import Repo
-except:
-    pass
-
-try:
-    from SI_Toolkit_ASF.user_defined_normalization_correction import apply_user_defined_normalization_correction
-except:
-    print('SI_Toolkit_ASF not created yet')
+# Use gitpython to get a current revision number and use it to better annotate of experimental or simulated data
+from git import Repo
 
 import yaml, os, sys
 
 
-def load_yaml(default_location, x='r'):
+def load_yaml(default_location, x='r', return_path=False):
+    config = None
     if os.path.exists(default_location): # Default option
-        return yaml.load(open(default_location, x), yaml.FullLoader)
+        path = default_location
+        config = yaml.load(open(default_location, x), yaml.FullLoader)
     else:
         for directory in sys.path:
             potential_path = os.path.join(directory, default_location)
             if os.path.exists(potential_path):
-                # print(f"Loading yaml file from {potential_path}")
-                return yaml.load(open(potential_path, x), yaml.FullLoader)
-        raise FileNotFoundError(f"Could not find yaml file using {default_location} neither searching from working directory nor from sys.path")
+                path = potential_path
+                config = yaml.load(open(potential_path, x), yaml.FullLoader)
+                break
+        if config is None:
+            raise FileNotFoundError(f"Could not find yaml file using {default_location} neither searching from working directory nor from sys.path")
+
+    if return_path:
+        return config, path
+    return config
 
 
 config_SI = load_yaml(os.path.join("SI_Toolkit_ASF", "config_training.yml"))
@@ -348,11 +346,20 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # User defined normalization values:
 
     if user_correction:
+
         try:
-            df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
-        except NameError:
+            from SI_Toolkit_ASF.ToolkitCustomization.user_defined_normalization_correction import apply_user_defined_normalization_correction
+        except ImportError:
             print('User defined normalization correction not applied. \n'
                   'The needed function not found in SI_Toolkit_ASF.user_defined_normalization_correction.py')
+
+            # Define a placeholder function that matches the expected interface
+            def apply_user_defined_normalization_correction(df_norm_info):
+                # Since the real function couldn't be imported, return the input unmodified
+                print("Fallback: No normalization correction applied.")
+                return df_norm_info
+
+        df_norm_info = apply_user_defined_normalization_correction(df_norm_info)
 
     if df_norm_info.equals(df_norm_info_from_data):
         modified = 'No'
@@ -620,217 +627,4 @@ def normalize_numpy_array(denormalized_array,
     return normalized_array
 
 
-def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut=1):
 
-    df = df.reset_index(drop=True)
-
-    try:
-        t = df['time'].values
-    except KeyError:
-        t = np.arange(df.shape[0])
-    y = df[variables_for_derivative].values
-    dy = np.zeros_like(y)
-    for j in range(len(variables_for_derivative)):
-        if derivative_algorithm == 'finite_difference':
-            dy[:, j] = dxdt(y[:, j], t, kind=derivative_algorithm, k=cut)
-        elif derivative_algorithm == 'single_difference':
-            cut = 1
-            dy[:-1, j] = (y[1:, j]-y[:-1, j])/(t[1:]-t[:-1])
-        elif derivative_algorithm == 'backward_difference':
-            cut = 1
-            dy[1:, j] = (y[1:, j]-y[:-1, j])/(t[1:]-t[:-1])
-        else:
-            raise NotImplemented('{} is not a recognised name for derivative algorithm'.format(derivative_algorithm))
-
-    derivatives_names = ['D_' + x for x in variables_for_derivative]
-    derivatives = pd.DataFrame(data=dy, columns=derivatives_names)
-
-    df = pd.concat([df, derivatives], axis=1)
-
-    # cut first and last k where derivative is not well determined
-    df = df.iloc[cut:-cut, :].reset_index(drop=True)
-
-    return df
-
-
-
-def append_derivatives(dfs, variables_for_derivative, derivative_algorithm, paths_to_recordings, verbose=True):
-    """
-    Takes list of dataframes dfs
-    and augment it with derivatives of columns indicated in variables_for_derivative
-    using algorithm indicated in derivative_algorithm.
-    The output file is shorter - first and last indices for which it is difficult to get good derivative are dropped.
-    """
-
-    if verbose:
-        print('Calculating derivatives')
-        range_function = trange
-    else:
-        range_function = range
-
-    file_names = [os.path.basename(paths_to_recordings[i]) for i in range(len(paths_to_recordings))]
-
-    cut = 1
-    dfs_with_derivatives = []
-    paths_with_derivatives = []
-    no_time_axis_in_files = []
-    for j in range_function(len(dfs)):
-
-        df_composed = dfs[j]
-        path_to_recording = paths_to_recordings[j]
-        file_name = file_names[j]
-
-        if 'time' not in df_composed:
-            no_time_axis_in_files.append(file_name)
-
-        dfs_split = []
-        if 'experiment_index' in df_composed.columns:
-            grouped = df_composed.groupby(df_composed.experiment_index)
-            for i in df_composed.experiment_index.unique():
-                dfs_split.append(grouped.get_group(i))
-        else:
-            dfs_split.append(df_composed)
-
-        dfs_processed = []
-        for df in dfs_split:
-            # print(file_names)
-            if df.shape[0] < 2 * cut:
-                continue
-            df = append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut)
-            dfs_processed.append(df)
-
-        if dfs_processed:
-            paths_with_derivatives.append(path_to_recording)
-        else:
-            print('Dropping {} as too short'.format(file_name))
-
-
-        dfs_processed = pd.concat(dfs_processed, axis=0).reset_index(drop=True)
-        dfs_with_derivatives.append(dfs_processed)
-
-    if no_time_axis_in_files:
-        if set(no_time_axis_in_files) == set(file_names):
-            print('No time axis provided. Calculated increments dx for all the files.')
-        else:
-            print('WARNING!!!! \n Some data files have time axes, but some not. \n'
-                    'The derivative calculation across files is inconsistent!')
-            print('The files without time axis are:')
-            for filename in no_time_axis_in_files:
-                print(filename)
-
-    return dfs_with_derivatives, paths_with_derivatives
-
-
-def add_derivatives_to_csv_files(get_files_from, save_files_to, variables_for_derivative, derivative_algorithm='finite_difference'):
-    paths_to_recordings = get_paths_to_datafiles(get_files_from)
-    if not paths_to_recordings:
-        Exception('No files found')
-
-    try:
-        os.makedirs(save_files_to)
-    except FileExistsError:
-        pass
-
-    for j in trange(len(paths_to_recordings)):
-
-        dfs = load_data(list_of_paths_to_datafiles=[paths_to_recordings[j]], verbose=False)
-
-        dfs, paths_with_derivative = append_derivatives(dfs, variables_for_derivative, derivative_algorithm, [paths_to_recordings[j]], verbose=False)
-
-        file_names = [os.path.basename(paths_with_derivative[i]) for i in range(len(paths_with_derivative))]
-
-        for i in range(len(dfs)):
-            old_file_path = paths_with_derivative[i]
-            file_path = os.path.join(save_files_to, file_names[i])
-            with open(file_path, 'w', newline=''): # Overwrites if existed
-                pass
-            with open(old_file_path, "r", newline='') as f_input, \
-                    open(file_path, "a", newline='') as f_output:
-                for line in f_input:
-                    if line[0:len('#')] == '#':
-                        csv.writer(f_output).writerow([line.strip()])
-                    else:
-                        break
-            dfs[i].to_csv(file_path, index=False, mode='a')
-
-
-def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
-
-    paths_to_recordings = get_paths_to_datafiles(get_files_from)
-
-    if not paths_to_recordings:
-        Exception('No files found')
-
-    try:
-        os.makedirs(save_files_to)
-    except FileExistsError:
-        pass
-
-    for i in trange(len(paths_to_recordings)):
-        current_path = paths_to_recordings[i]
-        df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
-
-        processed_file_name = os.path.basename(current_path)
-
-        if transformation == 'add_shifted_columns':
-            df_processed = add_shifted_columns_single_file(df, variables_to_shift=kwargs['variables_to_shift'], indices_by_which_to_shift=kwargs['indices_by_which_to_shift'])
-        elif transformation == 'apply_sensor_quantization':
-            df_processed = apply_sensors_quantization(df, variables_quantization_dict=kwargs['variables_quantization_dict'])
-        else:
-            raise NotImplemented('Transformation {} is not implemented'.format(transformation))
-
-        processed_file_path = os.path.join(save_files_to, processed_file_name)
-        with open(processed_file_path, 'w', newline=''): # Overwrites if existed
-            pass
-        with open(current_path, "r", newline='') as f_input, \
-                open(processed_file_path, "a", newline='') as f_output:
-            for line in f_input:
-                if line[0:len('#')] == '#':
-                    csv.writer(f_output).writerow([line.strip()])
-                else:
-                    break
-
-        df_processed.to_csv(processed_file_path, index=False, mode='a')
-
-
-def add_shifted_columns_single_file(df, variables_to_shift, indices_by_which_to_shift):
-    length_original_df = len(df)
-    for j in range(len(indices_by_which_to_shift)):
-        index_by_which_to_shift = int(indices_by_which_to_shift[j])
-        if index_by_which_to_shift == 0:
-            continue
-        new_names = [variable_to_shift + '_' + str(index_by_which_to_shift) for variable_to_shift in variables_to_shift]
-        subset = df.loc[:, variables_to_shift]
-        if index_by_which_to_shift > 0:
-            subset.index += -index_by_which_to_shift
-
-        else:
-            subset.index += abs(index_by_which_to_shift)
-
-        subset.columns = new_names
-        df = pd.concat((df, subset), axis=1)
-
-    bound_low = min(indices_by_which_to_shift)
-    if bound_low >= 0:
-        bound_low = 0
-    else:
-        bound_low = abs(bound_low)
-
-    bound_high = max(indices_by_which_to_shift)
-    if bound_high <= 0:
-        bound_high = length_original_df
-    else:
-        bound_high = length_original_df - bound_high - 1  # indexing from 0!
-
-    df_processed = df.loc[bound_low:bound_high, :]
-
-    return df_processed
-
-
-
-def apply_sensors_quantization(df, variables_quantization_dict):
-    # Apply quantization
-    for variable, precision in variables_quantization_dict.items():
-        df[variable] = (df[variable] / precision).round() * precision
-
-    return df
