@@ -90,6 +90,9 @@ def compose_net_from_net_name(net_info,
         net_type = 'GRU'
     elif 'LSTM' in names:
         net_type = 'LSTM'
+    elif 'TCN' in names:
+        from tcn import TCN
+        net_type = "TCN"
     elif 'Dense' in names:
         net_type = 'Dense'
     else:
@@ -172,6 +175,29 @@ def compose_net_from_net_name(net_info,
                     **quantization_args,
                 ))
                 net.add(tf.keras.layers.Activation(tf.keras.activations.tanh))
+    elif net_type == 'TCN':
+        net.add(TCN(input_shape=(time_series_length, len(inputs_list)),
+                    nb_filters=h_size[0],
+                    kernel_size=2,
+                    nb_stacks=1,
+                    dilations=[1, 2, 4, 8],
+                    padding='causal',
+                    use_skip_connections=True,
+                    return_sequences=True,
+                    activation='tanh',
+                    ))
+
+        for i in range(1, len(h_size)):
+            net.add(TCN(input_shape=(time_series_length, len(inputs_list)),
+                        nb_filters=h_size[i],
+                        kernel_size=2,
+                        nb_stacks=1,
+                        dilations=[1, 2, 4, 8],
+                        padding='causal',
+                        use_skip_connections=True,
+                        return_sequences=True,
+                        activation='tanh',
+                        ))
     else:
 
         if remove_redundant_dimensions and batch_size==1:
