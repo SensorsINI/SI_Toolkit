@@ -30,9 +30,11 @@ def tf2C(path_to_models, net_name, batch_size):
     # Path to the main.c and network.c files (assumed to be in the same folder as this script)
     source_main_c = os.path.join(os.path.dirname(__file__), 'main.c')
     source_network_c = os.path.join(os.path.dirname(__file__), 'network.c')
+    header_network_h = os.path.join(os.path.dirname(__file__), 'network.h')
 
     # Copy the necessary C files to the target directory
     shutil.copy(source_main_c, target_directory)
+    shutil.copy(source_network_c, target_directory)
 
     # Modify network.c to update the layer sizes dynamically based on the TensorFlow model
     input_size = net.input_shape[1]  # Input size from the model
@@ -40,18 +42,18 @@ def tf2C(path_to_models, net_name, batch_size):
     layer2_size = net.layers[2].output_shape[1]  # Second Dense layer size
     layer3_size = net.layers[4].output_shape[1]  # Third Dense layer size
 
-    with open(source_network_c, 'r') as f:
-        network_c_content = f.read()
+    with open(header_network_h, 'r') as f:
+        network_h_content = f.read()
 
     # Update the #define values for input and layer sizes
-    network_c_content = network_c_content.replace("#define INPUT_SIZE", f"#define INPUT_SIZE {input_size}")
-    network_c_content = network_c_content.replace("#define LAYER1_SIZE", f"#define LAYER1_SIZE {layer1_size}")
-    network_c_content = network_c_content.replace("#define LAYER2_SIZE", f"#define LAYER2_SIZE {layer2_size}")
-    network_c_content = network_c_content.replace("#define LAYER3_SIZE", f"#define LAYER3_SIZE {layer3_size}")
+    network_h_content = network_h_content.replace("#define INPUT_SIZE", f"#define INPUT_SIZE {input_size}")
+    network_h_content = network_h_content.replace("#define LAYER1_SIZE", f"#define LAYER1_SIZE {layer1_size}")
+    network_h_content = network_h_content.replace("#define LAYER2_SIZE", f"#define LAYER2_SIZE {layer2_size}")
+    network_h_content = network_h_content.replace("#define LAYER3_SIZE", f"#define LAYER3_SIZE {layer3_size}")
 
     # Write the modified network.c to the target directory
-    with open(os.path.join(target_directory, 'network.c'), 'w') as f:
-        f.write(network_c_content)
+    with open(os.path.join(target_directory, 'network.h'), 'w') as f:
+        f.write(network_h_content)
 
     # Convert the Keras model to C (weights and biases)
     weights1, bias1 = net.layers[0].get_weights()  # First Dense layer

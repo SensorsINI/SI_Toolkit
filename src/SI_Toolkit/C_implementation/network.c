@@ -5,13 +5,8 @@
 #include <stdlib.h>
 
 // Include the weights and biases stored as arrays in separate .c file
+#include "network.h"
 #include "network_parameters.c"
-
-// Just a template, the values are adjusted with python script
-#define INPUT_SIZE      // Input size (as seen from your debugger, you can adjust as needed)
-#define LAYER1_SIZE     // First Dense layer size
-#define LAYER2_SIZE     // Second Dense layer size
-#define LAYER3_SIZE     // Third Dense layer size (new for the third Dense layer)
 
 void applyTanh(float* x, int size) {
     for (int i = 0; i < size; i++) {
