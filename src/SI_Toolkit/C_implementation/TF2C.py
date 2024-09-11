@@ -18,7 +18,9 @@ def tf2C(path_to_models, net_name, batch_size):
     )
 
     # Define input
-    input_data = np.array([[0.1, -0.123, 0.75, 0.54, -0.345, -1.0, -0.64]], dtype=np.float32)
+    input_length = len(net_info.inputs)
+    input_data = np.random.rand(1, input_length).astype(np.float32)
+
 
     # Define the target directory
     target_directory = os.path.join(path_to_models, net_name, 'C_implementation')
