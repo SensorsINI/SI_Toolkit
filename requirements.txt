@@ -12,4 +12,5 @@ tensorflow==2.14  # as for 10.02.2024 this is the latest version working with te
 tensorflow_model_optimization==0.7.5
 tqdm
 qkeras
+watchdog
 #nni
