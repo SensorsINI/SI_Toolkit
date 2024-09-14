@@ -37,7 +37,7 @@ int main(int argc, char *argv[]) {
     double total_time = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;  // Convert clock ticks to seconds
     double time_per_call = total_time*1000000.0 / NUM_RUNS;
 
-    printf("Output: ");
+    printf("Output of C network: ");
     for (int i = 0; i < LAYER3_SIZE; i++) {
         printf("%f ", output[i]);
     }
