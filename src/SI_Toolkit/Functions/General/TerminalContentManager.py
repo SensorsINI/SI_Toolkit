@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 
 
 class DualOutput:
@@ -31,7 +32,7 @@ class DualOutput:
                     self.log.write(self.progress_bar_state + '\n')  # Ensure newline
                     self.progress_bar_state = ""
                 # Write regular messages to both file and buffer
-                self.log.write(message)
+                self.log.write(strip_escape_sequences(message))
 
         # Always write to the terminal (both progress bar updates and regular messages)
         if not self.special_print_function:
@@ -71,6 +72,11 @@ class DualOutput:
             self.buffer_temporary.clear()
 
             self.terminal.flush()
+
+def strip_escape_sequences(text):
+    # Regular expression to match ANSI escape sequences
+    ansi_escape = re.compile(r'(?:\x1B[@-_][0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', text)
 
 
 class TerminalContentManager:
