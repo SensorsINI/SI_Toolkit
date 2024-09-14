@@ -36,9 +36,6 @@ def load_yaml(default_location, x='r', return_path=False):
         return config, path
     return config
 
-
-config_SI = load_yaml(os.path.join("SI_Toolkit_ASF", "config_training.yml"))
-
 normalization_rounding_decimals = 5
 
 
