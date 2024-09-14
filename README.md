@@ -113,6 +113,21 @@ to be able to run the scripts from where they are located.
   - Specify `NET_NAME` in config -> this is the network used in `predictor_autoregressive_neural.py`
   - When using the CartPoleSimulator repo as system: In the CartPoleSimulator config, specify `"predictor_autoregressive_neural"` as predictor type
 
+## HLS4ML
+
+SI_Toolkit integrates hls4ml and allows for conversion of trained neural networks to FPGA deployable code.
+To make the conversion:
+1. Install Vivado 2020.1 - at the time of writing, this is the latest version supported by hls4ml.
+We recommend you install Vivado together with Vitis - unless you know you need only Vivado,
+but our programs need Vitis too.
+2. Open config_hls.yml and set the path to Vivado installation.
+3. Set the parameters for the network conversion.
+4. Optional: Testing the networks quantization effect with Brunton GUI - check the section on Brunton GUI for details.
+5. Run the launch script `python -m SI_Toolkit_ASF.Run.Convert_Network_With_hls4ml`
+
+
+
+
 ## Gallery
 Testing with Brunton GUI predicted vs actual car trajectories
 Physical Cartpole swing-up using Model Predictive Control (MPC) with neural network model trained with SI_Toolkit
