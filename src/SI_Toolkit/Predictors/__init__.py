@@ -1,11 +1,11 @@
 from SI_Toolkit.computation_library import NumpyLibrary, PyTorchLibrary, TensorFlowLibrary
-import tensorflow as tf
+# import tensorflow as tf
 import numpy as np
 
 from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import CONTROL_INPUTS, STATE_VARIABLES
 
 class template_predictor:
-    supported_computation_libraries: set = {NumpyLibrary, TensorFlowLibrary, PyTorchLibrary}
+    supported_computation_libraries = (NumpyLibrary, TensorFlowLibrary, PyTorchLibrary)
     
     def __init__(self, horizon: float, batch_size: int) -> None:
         self.horizon = horizon
@@ -19,7 +19,7 @@ class template_predictor:
         self.num_states = len(STATE_VARIABLES)
         self.num_control_inputs = len(CONTROL_INPUTS)
     
-    def predict_core(self, s: tf.Tensor, Q: tf.Tensor):
+    def predict_core(self, s: 'tf.Tensor', Q: 'tf.Tensor'):
         """Predict the whole MPC horizon using tensorflow
 
         :param s: Initial state [batch_size x state_dim]
