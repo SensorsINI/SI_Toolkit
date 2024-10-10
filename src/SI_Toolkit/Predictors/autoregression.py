@@ -26,7 +26,7 @@ class autoregression_loop:
         self.batch_size = batch_size
 
 
-        if self.lib == TensorFlowLibrary:
+        if isinstance(self.lib, TensorFlowLibrary):
             from tensorflow import TensorArray
             self.TensorArray = TensorArray
 

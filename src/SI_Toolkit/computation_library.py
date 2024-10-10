@@ -2,30 +2,51 @@ from typing import Callable, Optional, Union, Sequence, Any
 
 import functools
 import numpy as np
-import tensorflow as tf
-import torch
+
 from numpy.random import Generator, SFC64
 
-TensorType = Union[np.ndarray, tf.Tensor, torch.Tensor]
-RandomGeneratorType = Union[Generator, tf.random.Generator, torch.Generator]
-NumericType = Union[float, int]
 
+# TensorType = Union[np.ndarray, tf.Tensor, torch.Tensor]
+TensorType = Union["np.ndarray", "tf.Tensor", "torch.Tensor"]
+RandomGeneratorType = Union["Generator", "tf.random.Generator", "torch.Generator"]
+NumericType = Union[float, int]
 
 class LibraryHelperFunctions:
     @staticmethod
-    def set_to_value(v: TensorType, x: TensorType):
-        v[...] = x
+    def set_to_value(v: "TensorType", x: "TensorType"):
+        # Handle NumPy
+        if isinstance(v, np.ndarray):
+            v[...] = x
+        # Handle TensorFlow
+        elif isinstance(v, tf.Tensor):
+            import tensorflow as tf  # Lazy import
+            v.assign(x)
+        # Handle PyTorch
+        elif isinstance(v, torch.Tensor):
+            import torch  # Lazy import
+            v.copy_(x)
+        else:
+            raise TypeError("Unsupported tensor type")
 
     @staticmethod
-    def set_to_variable(v: tf.Variable, x: tf.Tensor):
+    def set_to_variable(v: "tf.Variable", x: "tf.Tensor"):
         v.assign(x)
 
     @staticmethod
-    def cond(condition: TensorType, true_fn: Callable[[], Any], false_fn: Callable[[], Any]) -> Any:
-        if condition:
-            return true_fn()
+    def cond(condition: "TensorType", true_fn: Callable[[], Any], false_fn: Callable[[], Any]) -> Any:
+        # Handle NumPy
+        if isinstance(condition, np.ndarray):
+            return true_fn() if condition else false_fn()
+        # Handle TensorFlow
+        elif isinstance(condition, tf.Tensor):
+            import tensorflow as tf  # Lazy import
+            return tf.cond(condition, true_fn, false_fn)
+        # Handle PyTorch
+        elif isinstance(condition, torch.Tensor):
+            return true_fn() if condition.item() else false_fn()
         else:
-            return false_fn()
+            raise TypeError("Unsupported tensor type")
+
 
 
 
@@ -50,6 +71,7 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
             return wrapper
 
     elif library == 'tf':
+        import tensorflow as tf
         devices = tf.config.list_physical_devices()
         if device_name not in [d.name for d in devices] and '/physical_'+device_name[1:] not in [d.name for d in devices]:
             raise ValueError(f"Requested device {device_name} not found in the list of physical devices: {devices}")
@@ -175,7 +197,7 @@ class ComputationLibrary:
     cross: Callable[[TensorType, TensorType], TensorType] = None
     dot: Callable[[TensorType, TensorType], TensorType] = None
     stop_gradient: Callable[[TensorType], TensorType] = None
-    assign: Callable[[Union[TensorType, tf.Variable], TensorType], Union[TensorType, tf.Variable]] = None
+    assign: Callable[[Union[TensorType, "tf.Variable"], TensorType], Union[TensorType, "tf.Variable"]] = None
     where: Callable[[TensorType, TensorType, TensorType], TensorType] = None
     cond: Callable[[TensorType, Callable[[], Any], Callable[[], Any]], TensorType] = None
     logical_and: Callable[[TensorType, TensorType], TensorType] = None
@@ -185,282 +207,306 @@ class ComputationLibrary:
     divide: Callable[[TensorType, TensorType], TensorType] = None
 
 class NumpyLibrary(ComputationLibrary):
-    lib = 'Numpy'
-    set_device = lambda device_name: set_device_general(device_name, 'numpy')
-    reshape = lambda x, shape: np.reshape(x, shape)
-    permute = np.transpose
-    newaxis = np.newaxis
-    shape = np.shape
-    to_numpy = lambda x: np.array(x)
-    to_variable = lambda x, dtype: np.array(x, dtype=dtype)
-    to_tensor = lambda x, dtype: np.array(x, dtype=dtype)
-    constant = lambda x, t: np.array(x, dtype=t)
-    unstack = lambda x, num, axis: list(np.moveaxis(x, axis, 0))
-    ndim = np.ndim
-    clip = np.clip
-    sin = np.sin
-    asin = np.arcsin
-    cos = np.cos
-    tan = np.tan
-    tanh = np.tanh
-    exp = np.exp
-    reciprocal = np.reciprocal
-    squeeze = np.squeeze
-    unsqueeze = np.expand_dims
-    stack = np.stack
-    cast = lambda x, t: x.astype(t)
-    floormod = np.mod
-    floor = np.floor
-    ceil = np.ceil
-    rint = np.rint
-    float32 = np.float32
-    float64 = np.float64
-    int32 = np.int32
-    int64 = np.int64
-    bool = np.bool_
-    tile = np.tile
-    repeat = lambda x, k, a: np.repeat(x, repeats=k, axis=a)
-    gather = lambda x, i, a: np.take(x, i, axis=a)
-    gather_last = lambda x, i: np.take(x, i, axis=-1)
-    arange = np.arange
-    zeros = np.zeros
-    zeros_like = np.zeros_like
-    ones = np.ones
-    ones_like = np.ones_like
-    sign = np.sign
-    create_rng = lambda seed: Generator(SFC64(seed))
-    standard_normal = lambda generator, shape: generator.standard_normal(size=shape)
-    uniform = lambda generator, shape, low, high, dtype: generator.uniform(
-        low=low, high=high, size=shape
-    ).astype(dtype)
-    sum = lambda x, a: np.sum(x, axis=a, keepdims=False)
-    mean = lambda x, a: np.mean(x, axis=a, keepdims=False)
-    cumsum = lambda x, a: np.cumsum(x, axis=a)
-    cumprod = lambda x, a: np.cumprod(x, axis=a)
-    set_shape = lambda x, shape: x
-    concat = lambda x, axis: np.concatenate(x, axis=axis)
-    pi = np.array(np.pi).astype(np.float32)
-    any = np.any
-    all = np.all
-    reduce_any = lambda a, axis: np.any(a, axis=axis)
-    reduce_all = lambda a, axis: np.all(a, axis=axis)
-    reduce_max = lambda a, axis: np.max(a, axis=axis)
-    reduce_min = lambda a, axis: np.min(a, axis=axis)
-    equal = lambda x, y: np.equal(x, y)
-    less = lambda x, y: np.less(x, y)
-    less_equal = lambda x, y: np.less_equal(x, y)
-    greater = lambda x, y: np.greater(x, y)
-    greater_equal = lambda x, y: np.greater_equal(x, y)
-    logical_not = lambda x: np.logical_not(x)
-    min = np.minimum
-    max = np.maximum
-    atan = np.arctan
-    atan2 = np.arctan2
-    abs = np.abs
-    sqrt = np.sqrt
-    argpartition = lambda x, k: np.argpartition(x, k)[..., :k]
-    argmax = lambda x, a: np.argmax(x, axis=a)
-    norm = lambda x, axis: np.linalg.norm(x, axis=axis)
-    matmul = np.matmul
-    cross = np.cross
-    dot = np.dot
-    stop_gradient = lambda x: x
-    assign = LibraryHelperFunctions.set_to_value
-    where = np.where
-    cond = LibraryHelperFunctions.cond
-    logical_and = np.logical_and
-    logical_or  = np.logical_or
-    print = print
-    square = np.square
-    divide = np.divide
-
-
+    
+    def __init__(self):
+        import numpy as np  # Lazy import here
+        self.lib = 'Numpy'
+        self.float32 = np.float32
+        self.float64 = np.float64
+        self.int32 = np.int32
+        self.int64 = np.int64
+        
+        self.lib = 'Numpy'
+        self.set_device = lambda device_name: set_device_general(device_name, 'numpy')
+        self.reshape = lambda x, shape: np.reshape(x, shape)
+        self.permute = np.transpose
+        self.newaxis = np.newaxis
+        self.shape = np.shape
+        self.to_numpy = lambda x: np.array(x)
+        self.to_variable = lambda x, dtype: np.array(x, dtype=dtype)
+        self.to_tensor = lambda x, dtype: np.array(x, dtype=dtype)
+        self.constant = lambda x, t: np.array(x, dtype=t)
+        self.unstack = lambda x, num, axis: list(np.moveaxis(x, axis, 0))
+        self.ndim = np.ndim
+        self.clip = np.clip
+        self.sin = np.sin
+        self.asin = np.arcsin
+        self.cos = np.cos
+        self.tan = np.tan
+        self.tanh = np.tanh
+        self.exp = np.exp
+        self.reciprocal = np.reciprocal
+        self.squeeze = np.squeeze
+        self.unsqueeze = np.expand_dims
+        self.stack = np.stack
+        self.cast = lambda x, t: x.astype(t)
+        self.floormod = np.mod
+        self.floor = np.floor
+        self.ceil = np.ceil
+        self.rint = np.rint
+        self.float32 = np.float32
+        self.float64 = np.float64
+        self.int32 = np.int32
+        self.int64 = np.int64
+        self.bool = np.bool_
+        self.tile = np.tile
+        self.repeat = lambda x, k, a: np.repeat(x, repeats=k, axis=a)
+        self.gather = lambda x, i, a: np.take(x, i, axis=a)
+        self.gather_last = lambda x, i: np.take(x, i, axis=-1)
+        self.arange = np.arange
+        self.zeros = np.zeros
+        self.zeros_like = np.zeros_like
+        self.ones = np.ones
+        self.ones_like = np.ones_like
+        self.sign = np.sign
+        self.create_rng = lambda seed: Generator(SFC64(seed))
+        self.standard_normal = lambda generator, shape: generator.standard_normal(size=shape)
+        self.uniform = lambda generator, shape, low, high, dtype: generator.uniform(
+            low=low, high=high, size=shape
+        ).astype(dtype)
+        self.sum = lambda x, a: np.sum(x, axis=a, keepdims=False)
+        self.mean = lambda x, a: np.mean(x, axis=a, keepdims=False)
+        self.cumsum = lambda x, a: np.cumsum(x, axis=a)
+        self.cumprod = lambda x, a: np.cumprod(x, axis=a)
+        self.set_shape = lambda x, shape: x
+        self.concat = lambda x, axis: np.concatenate(x, axis=axis)
+        self.pi = np.array(np.pi).astype(np.float32)
+        self.any = np.any
+        self.all = np.all
+        self.reduce_any = lambda a, axis: np.any(a, axis=axis)
+        self.reduce_all = lambda a, axis: np.all(a, axis=axis)
+        self.reduce_max = lambda a, axis: np.max(a, axis=axis)
+        self.reduce_min = lambda a, axis: np.min(a, axis=axis)
+        self.equal = lambda x, y: np.equal(x, y)
+        self.less = lambda x, y: np.less(x, y)
+        self.less_equal = lambda x, y: np.less_equal(x, y)
+        self.greater = lambda x, y: np.greater(x, y)
+        self.greater_equal = lambda x, y: np.greater_equal(x, y)
+        self.logical_not = lambda x: np.logical_not(x)
+        self.min = np.minimum
+        self.max = np.maximum
+        self.atan = np.arctan
+        self.atan2 = np.arctan2
+        self.abs = np.abs
+        self.sqrt = np.sqrt
+        self.argpartition = lambda x, k: np.argpartition(x, k)[..., :k]
+        self.argmax = lambda x, a: np.argmax(x, axis=a)
+        self.norm = lambda x, axis: np.linalg.norm(x, axis=axis)
+        self.matmul = np.matmul
+        self.cross = np.cross
+        self.dot = np.dot
+        self.stop_gradient = lambda x: x
+        self.assign = LibraryHelperFunctions.set_to_value
+        self.where = np.where
+        self.cond = LibraryHelperFunctions.cond
+        self.logical_and = np.logical_and
+        self.logical_or  = np.logical_or
+        self.print = print
+        self.square = np.square
+        self.divide = np.divide
 
 class TensorFlowLibrary(ComputationLibrary):
-    lib = 'TF'
-    set_device = lambda device_name: set_device_general(device_name, 'tf')
-    reshape = tf.reshape
-    permute = tf.transpose
-    newaxis = tf.newaxis
-    shape = tf.shape
-    to_numpy = lambda x: x.numpy()
-    to_variable = lambda x, dtype: tf.Variable(x, dtype=dtype)
-    to_tensor = lambda x, dtype: tf.convert_to_tensor(x, dtype=dtype)
-    constant = lambda x, t: tf.constant(x, dtype=t)
-    unstack = lambda x, num, axis: tf.unstack(x, num=num, axis=axis)
-    ndim = tf.rank
-    clip = tf.clip_by_value
-    sin = tf.sin
-    asin = tf.asin
-    cos = tf.cos
-    tan = tf.tan
-    tanh = tf.tanh
-    exp = tf.exp
-    reciprocal = tf.math.reciprocal
-    squeeze = tf.squeeze
-    unsqueeze = tf.expand_dims
-    stack = tf.stack
-    cast = lambda x, t: tf.cast(x, dtype=t)
-    floormod = tf.math.floormod
-    floor = tf.math.floor
-    ceil = tf.math.ceil
-    rint = tf.math.rint
-    float32 = tf.float32
-    float64 = tf.float64
-    int32 = tf.int32
-    int64 = tf.int64
-    bool = tf.bool
-    tile = tf.tile
-    repeat = lambda x, k, a: tf.repeat(x, repeats=k, axis=a)
-    gather = lambda x, i, a: tf.gather(x, i, axis=a)
-    gather_last = lambda x, i: tf.gather(x, i, axis=-1)
-    arange = tf.range
-    zeros = tf.zeros
-    zeros_like = tf.zeros_like
-    ones = tf.ones
-    ones_like = tf.ones_like
-    sign = tf.sign
-    create_rng = lambda seed: tf.random.Generator.from_seed(seed)
-    standard_normal = lambda generator, shape: generator.normal(shape)
-    uniform = lambda generator, shape, low, high, dtype: generator.uniform(
-        shape, minval=low, maxval=high, dtype=dtype
-    )
-    sum = lambda x, a: tf.reduce_sum(x, axis=a, keepdims=False)
-    mean = lambda x, a: tf.reduce_mean(x, axis=a, keepdims=False)
-    cumsum = lambda x, a: tf.math.cumsum(x, axis=a)
-    cumprod = lambda x, a: tf.math.cumprod(x, axis=a)
-    set_shape = lambda x, shape: x.set_shape(shape)
-    concat = lambda x, axis: tf.concat(x, axis)
-    pi = tf.convert_to_tensor(np.array(np.pi), dtype=tf.float32)
-    any = tf.reduce_any
-    all = tf.reduce_all
-    reduce_any = lambda a, axis: tf.reduce_any(a, axis=axis)
-    reduce_all = lambda a, axis: tf.reduce_all(a, axis=axis)
-    reduce_max = lambda a, axis: tf.reduce_max(a, axis=axis)
-    reduce_min = lambda a, axis: tf.reduce_min(a, axis=axis)
-    equal = lambda x, y: tf.math.equal(x, y)
-    less = lambda x, y: tf.math.less(x, y)
-    less_equal = lambda x, y: tf.math.less_equal(x, y)
-    greater = lambda x, y: tf.math.greater(x, y)
-    greater_equal = lambda x, y: tf.math.greater_equal(x, y)
-    logical_not = lambda x: tf.math.logical_not(x)
-    min = tf.minimum
-    max = tf.maximum
-    atan = tf.math.atan
-    atan2 = tf.atan2
-    abs = tf.abs
-    sqrt = tf.sqrt
-    argpartition = lambda x, k: tf.math.top_k(-x, k, sorted=False)[1]
-    argmax = lambda x, a: tf.math.argmax(x, axis=a)
-    norm = lambda x, axis: tf.norm(x, axis=axis)
-    matmul = tf.linalg.matmul
-    cross = tf.linalg.cross
-    dot = lambda a, b: tf.tensordot(a, b, 1)
-    stop_gradient = tf.stop_gradient
-    assign = LibraryHelperFunctions.set_to_variable
-    where = tf.where
-    cond = tf.cond
-    logical_and = tf.math.logical_and
-    logical_or  = tf.math.logical_or
-    print = tf.print
-    square = tf.square
-    divide = tf.math.divide
+    def __init__(self):
+        import tensorflow as tf  # Lazy import
+        self.lib = 'TF'
+        self.float32 = tf.float32
+        self.float64 = tf.float64
+
+    
+        self.set_device = lambda device_name: set_device_general(device_name, 'tf')
+        self.reshape = tf.reshape
+        self.permute = tf.transpose
+        self.newaxis = tf.newaxis
+        self.shape = tf.shape
+        self.to_numpy = lambda x: x.numpy()
+        self.to_variable = lambda x, dtype: tf.Variable(x, dtype=dtype)
+        self.to_tensor = lambda x, dtype: tf.convert_to_tensor(x, dtype=dtype)
+        self.constant = lambda x, t: tf.constant(x, dtype=t)
+        self.unstack = lambda x, num, axis: tf.unstack(x, num=num, axis=axis)
+        self.ndim = tf.rank
+        self.clip = tf.clip_by_value
+        self.sin = tf.sin
+        self.asin = tf.asin
+        self.cos = tf.cos
+        self.tan = tf.tan
+        self.tanh = tf.tanh
+        self.exp = tf.exp
+        self.reciprocal = tf.math.reciprocal
+        self.squeeze = tf.squeeze
+        self.unsqueeze = tf.expand_dims
+        self.stack = tf.stack
+        self.cast = lambda x, t: tf.cast(x, dtype=t)
+        self.floormod = tf.math.floormod
+        self.floor = tf.math.floor
+        self.ceil = tf.math.ceil
+        self.rint = tf.math.rint
+        self.float32 = tf.float32
+        self.float64 = tf.float64
+        self.int32 = tf.int32
+        self.int64 = tf.int64
+        self.bool = tf.bool
+        self.tile = tf.tile
+        self.repeat = lambda x, k, a: tf.repeat(x, repeats=k, axis=a)
+        self.gather = lambda x, i, a: tf.gather(x, i, axis=a)
+        self.gather_last = lambda x, i: tf.gather(x, i, axis=-1)
+        self.arange = tf.range
+        self.zeros = tf.zeros
+        self.zeros_like = tf.zeros_like
+        self.ones = tf.ones
+        self.ones_like = tf.ones_like
+        self.sign = tf.sign
+        self.create_rng = lambda seed: tf.random.Generator.from_seed(seed)
+        self.standard_normal = lambda generator, shape: generator.normal(shape)
+        self.uniform = lambda generator, shape, low, high, dtype: generator.uniform(
+            shape, minval=low, maxval=high, dtype=dtype)
+        self.sum = lambda x, a: tf.reduce_sum(x, axis=a, keepdims=False)
+        self.mean = lambda x, a: tf.reduce_mean(x, axis=a, keepdims=False)
+        self.cumsum = lambda x, a: tf.math.cumsum(x, axis=a)
+        self.cumprod = lambda x, a: tf.math.cumprod(x, axis=a)
+        self.set_shape = lambda x, shape: x.set_shape(shape)
+        self.concat = lambda x, axis: tf.concat(x, axis)
+        self.pi = tf.convert_to_tensor(np.array(np.pi), dtype=tf.float32)
+        self.any = tf.reduce_any
+        self.all = tf.reduce_all
+        self.reduce_any = lambda a, axis: tf.reduce_any(a, axis=axis)
+        self.reduce_all = lambda a, axis: tf.reduce_all(a, axis=axis)
+        self.reduce_max = lambda a, axis: tf.reduce_max(a, axis=axis)
+        self.reduce_min = lambda a, axis: tf.reduce_min(a, axis=axis)
+        self.equal = lambda x, y: tf.math.equal(x, y)
+        self.less = lambda x, y: tf.math.less(x, y)
+        self.less_equal = lambda x, y: tf.math.less_equal(x, y)
+        self.greater = lambda x, y: tf.math.greater(x, y)
+        self.greater_equal = lambda x, y: tf.math.greater_equal(x, y)
+        self.logical_not = lambda x: tf.math.logical_not(x)
+        self.min = tf.minimum
+        self.max = tf.maximum
+        self.atan = tf.math.atan
+        self.atan2 = tf.atan2
+        self.abs = tf.abs
+        self.sqrt = tf.sqrt
+        self.argpartition = lambda x, k: tf.math.top_k(-x, k, sorted=False)[1]
+        self.argmax = lambda x, a: tf.math.argmax(x, axis=a)
+        self.norm = lambda x, axis: tf.norm(x, axis=axis)
+        self.matmul = tf.linalg.matmul
+        self.cross = tf.linalg.cross
+        self.dot = lambda a, b: tf.tensordot(a, b, 1)
+        self.stop_gradient = tf.stop_gradient
+        self.assign = LibraryHelperFunctions.set_to_variable
+        self.where = tf.where
+        self.cond = tf.cond
+        self.logical_and = tf.math.logical_and
+        self.logical_or  = tf.math.logical_or
+        self.print = tf.print
+        self.square = tf.square
+        self.divide = tf.math.divide
 
 class PyTorchLibrary(ComputationLibrary):
+    
+    def __init__(self):
+        import torch  # Lazy import here
+        self.lib = 'Pytorch'
+        self.float32 = torch.float32
+        self.float64 = torch.float64
+        
+        
+        self.lib = 'Pytorch'
+        self.set_device = lambda device_name: set_device_general(device_name, 'pytorch')
+        self.reshape = torch.reshape
+        self.permute = torch.permute
+        self.newaxis = None
+        self.shape = lambda x: list(x.size())
+        self.to_numpy = lambda x: x.cpu().detach().numpy()
+        self.to_variable = lambda x, dtype: torch.as_tensor(x, dtype=dtype)
+        self.to_tensor = lambda x, dtype: torch.as_tensor(x, dtype=dtype)
+        self.constant = lambda x, t: torch.as_tensor(x, dtype=t)
+        self.unstack = lambda x, num, dim: torch.unbind(x, dim=dim)
+        self.ndim = lambda x: x.ndim
+        self.clip = torch.clamp
+        self.sin = torch.sin
+        self.asin = torch.asin
+        self.cos = torch.cos
+        self.tan = torch.tan
+        self.tanh = torch.tanh
+        self.exp = torch.exp
+        self.reciprocal = torch.reciprocal
+        self.squeeze = torch.squeeze
+        self.unsqueeze = torch.unsqueeze
+        self.stack = torch.stack
+        self.cast = lambda x, t: x.type(t)
+        self.floormod = torch.remainder
+        self.floor = lambda x: torch.floor(torch.as_tensor(x))
+        self.ceil = lambda x: torch.ceil(torch.as_tensor(x))
+        self.rint = lambda x: torch.round(torch.as_tensor(x), decimals=0)
+        self.float32 = torch.float32
+        self.float64 = torch.float64
+        self.int32 = torch.int32
+        self.int64 = torch.int64
+        self.bool = torch.bool
+        self.tile = torch.tile
+        self.repeat = lambda x, k, a: torch.repeat_interleave(x, repeats=k, dim=a)
+        self.gather = lambda x, i, a: torch.gather(x, dim=a, index=i)  # FIXME: It works very differently to TF!!!
+        self.gather_last = gather_last_pytorch
+        self.arange = torch.arange
+        self.zeros = torch.zeros
+        self.zeros_like = torch.zeros_like
+        self.ones = torch.ones
+        self.ones_like = torch.ones_like
+        self.sign = torch.sign
+        self.create_rng = lambda seed: torch.Generator().manual_seed(seed)
+        self.standard_normal = lambda generator, shape: torch.normal(
+            torch.zeros(shape), 1.0, generator=generator
+        )
+        self.uniform = (
+            lambda generator, shape, low, high, dtype: (high - low)
+            * torch.rand(*shape, generator=generator, dtype=dtype)
+            + low
+        )
+        self.sum = lambda x, a: torch.sum(x, a, keepdim=False)
+        self.mean = lambda x, a: torch.mean(x, a, keepdim=False)
+        self.cumsum = lambda x, a: torch.cumsum(x, dim=a)
+        self.cumprod = lambda x, a: torch.cumprod(x, dim=a)
+        self.set_shape = lambda x, shape: x
+        self.concat = lambda x, axis: torch.concat(x, dim=axis)
+        self.pi = torch.from_numpy(np.array(np.pi)).float()
+        self.any = torch.any
+        self.all = torch.all
+        self.reduce_any = lambda a, axis: torch.any(a, dim=axis)
+        self.reduce_all = lambda a, axis: torch.all(a, dim=axis)
+        self.reduce_max = lambda a, axis: torch.max(a, dim=axis)
+        self.reduce_min = lambda a, axis: torch.min(a, dim=axis)[0]
+        self.equal = lambda x, y: torch.eq(x, y)
+        self.less = lambda x, y: torch.less(x, y)
+        self.less_equal = lambda x, y: torch.less_equal(x, y)
+        self.greater = lambda x, y: torch.greater(x, y)
+        self.greater_equal = lambda x, y: torch.greater_equal(x, y)
+        self.logical_not = lambda x: torch.logical_not(x)
+        self.min = torch.minimum
+        self.max = torch.maximum
+        self.atan = torch.atan
+        self.atan2 = torch.atan2
+        self.abs = torch.abs
+        self.sqrt = torch.sqrt
+        self.argpartition = torch.topk
+        self.argmax = lambda x, a: torch.argmax(x, dim=a)
+        self.norm = lambda x, axis: torch.linalg.norm(x, dim=axis)
+        self.matmul = torch.matmul
+        self.cross = torch.linalg.cross
+        self.dot = torch.dot
+        # stop_gradient = tf.stop_gradient # FIXME: How to imlement this in torch?
+        self.assign = LibraryHelperFunctions.set_to_value
+        self.where = torch.where
+        self.cond = LibraryHelperFunctions.cond
+        self.logical_and = torch.logical_and
+        self.logical_or  = torch.logical_or
+        self.print = print
+        self.square = torch.square
+        self.divide = torch.div
+
+        
+        
 
     @staticmethod
     def gather_last_pytorch(a, index_vector):
         return a[..., index_vector]
 
-    lib = 'Pytorch'
-    set_device = lambda device_name: set_device_general(device_name, 'pytorch')
-    reshape = torch.reshape
-    permute = torch.permute
-    newaxis = None
-    shape = lambda x: list(x.size())
-    to_numpy = lambda x: x.cpu().detach().numpy()
-    to_variable = lambda x, dtype: torch.as_tensor(x, dtype=dtype)
-    to_tensor = lambda x, dtype: torch.as_tensor(x, dtype=dtype)
-    constant = lambda x, t: torch.as_tensor(x, dtype=t)
-    unstack = lambda x, num, dim: torch.unbind(x, dim=dim)
-    ndim = lambda x: x.ndim
-    clip = torch.clamp
-    sin = torch.sin
-    asin = torch.asin
-    cos = torch.cos
-    tan = torch.tan
-    tanh = torch.tanh
-    exp = torch.exp
-    reciprocal = torch.reciprocal
-    squeeze = torch.squeeze
-    unsqueeze = torch.unsqueeze
-    stack = torch.stack
-    cast = lambda x, t: x.type(t)
-    floormod = torch.remainder
-    floor = lambda x: torch.floor(torch.as_tensor(x))
-    ceil = lambda x: torch.ceil(torch.as_tensor(x))
-    rint = lambda x: torch.round(torch.as_tensor(x), decimals=0)
-    float32 = torch.float32
-    float64 = torch.float64
-    int32 = torch.int32
-    int64 = torch.int64
-    bool = torch.bool
-    tile = torch.tile
-    repeat = lambda x, k, a: torch.repeat_interleave(x, repeats=k, dim=a)
-    gather = lambda x, i, a: torch.gather(x, dim=a, index=i)  # FIXME: It works very differently to TF!!!
-    gather_last = gather_last_pytorch
-    arange = torch.arange
-    zeros = torch.zeros
-    zeros_like = torch.zeros_like
-    ones = torch.ones
-    ones_like = torch.ones_like
-    sign = torch.sign
-    create_rng = lambda seed: torch.Generator().manual_seed(seed)
-    standard_normal = lambda generator, shape: torch.normal(
-        torch.zeros(shape), 1.0, generator=generator
-    )
-    uniform = (
-        lambda generator, shape, low, high, dtype: (high - low)
-        * torch.rand(*shape, generator=generator, dtype=dtype)
-        + low
-    )
-    sum = lambda x, a: torch.sum(x, a, keepdim=False)
-    mean = lambda x, a: torch.mean(x, a, keepdim=False)
-    cumsum = lambda x, a: torch.cumsum(x, dim=a)
-    cumprod = lambda x, a: torch.cumprod(x, dim=a)
-    set_shape = lambda x, shape: x
-    concat = lambda x, axis: torch.concat(x, dim=axis)
-    pi = torch.from_numpy(np.array(np.pi)).float()
-    any = torch.any
-    all = torch.all
-    reduce_any = lambda a, axis: torch.any(a, dim=axis)
-    reduce_all = lambda a, axis: torch.all(a, dim=axis)
-    reduce_max = lambda a, axis: torch.max(a, dim=axis)
-    reduce_min = lambda a, axis: torch.min(a, dim=axis)[0]
-    equal = lambda x, y: torch.eq(x, y)
-    less = lambda x, y: torch.less(x, y)
-    less_equal = lambda x, y: torch.less_equal(x, y)
-    greater = lambda x, y: torch.greater(x, y)
-    greater_equal = lambda x, y: torch.greater_equal(x, y)
-    logical_not = lambda x: torch.logical_not(x)
-    min = torch.minimum
-    max = torch.maximum
-    atan = torch.atan
-    atan2 = torch.atan2
-    abs = torch.abs
-    sqrt = torch.sqrt
-    argpartition = torch.topk
-    argmax = lambda x, a: torch.argmax(x, dim=a)
-    norm = lambda x, axis: torch.linalg.norm(x, dim=axis)
-    matmul = torch.matmul
-    cross = torch.linalg.cross
-    dot = torch.dot
-    stop_gradient = tf.stop_gradient # FIXME: How to imlement this in torch?
-    assign = LibraryHelperFunctions.set_to_value
-    where = torch.where
-    cond = LibraryHelperFunctions.cond
-    logical_and = torch.logical_and
-    logical_or  = torch.logical_or
-    print = print
-    square = torch.square
-    divide = torch.div
+    

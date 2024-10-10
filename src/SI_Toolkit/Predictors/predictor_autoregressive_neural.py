@@ -37,7 +37,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
 
 class predictor_autoregressive_neural(template_predictor):
-    supported_computation_libraries = {TensorFlowLibrary, PyTorchLibrary, NumpyLibrary}  # Overwrites default from parent
+    supported_computation_libraries = (TensorFlowLibrary, PyTorchLibrary, NumpyLibrary)  # Overwrites default from parent
     # Numpy library is supported only when it comes to evaluation of hls4ml models
 
     def __init__(

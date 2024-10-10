@@ -3,7 +3,6 @@ import platform
 import os
 
 import tensorflow as tf
-import torch
 
 from SI_Toolkit.computation_library import ComputationLibrary
 

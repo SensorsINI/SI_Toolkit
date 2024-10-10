@@ -21,12 +21,12 @@ class model_interface:
 
 
 class predictor_ODE(template_predictor):
-    supported_computation_libraries = {TensorFlowLibrary, PyTorchLibrary, NumpyLibrary}  # Overwrites default from parent
+    supported_computation_libraries = (TensorFlowLibrary, PyTorchLibrary, NumpyLibrary)  # Overwrites default from parent
     
     def __init__(self,
                  horizon: int,
                  dt: float,
-                 computation_library=TensorFlowLibrary,
+                 computation_library=TensorFlowLibrary(),
                  intermediate_steps=10,
                  disable_individual_compilation=False,
                  batch_size=1,

@@ -15,7 +15,7 @@ import os
 def get_normalization_function(
         normalization_info,
         variables_names,
-        lib=NumpyLibrary,
+        lib=NumpyLibrary(),
         normalization_type='minmax_sym',
         return_coeffs=False,
 ):
