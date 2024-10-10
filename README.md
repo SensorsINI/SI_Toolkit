@@ -76,11 +76,11 @@ If you create a new project:
   - In SI_Toolkit_ASF, we provide an example dataset xxx with data from a cartpole.
     You can use this for the first tests.
 
-For all next steps - The launch scripts are located in `./SI_Toolkit_ASF/Run/`.
+For all next steps - The launch scripts are located in `./SI_Toolkit_ASF/run/`.
 They all assume that working directory is the root of the project, and that the SI_Toolkit_ASF folder is in the root of the project.
 To do it either run the scripts from terminal from root e.g.
-`python SI_Toolkit_ASF/Run/A1_Create_Normalization_File.py`
-or `python -m SI_Toolkit_ASF.Run.A1_Create_Normalization_File`
+`python SI_Toolkit_ASF/run/A1_Create_Normalization_File.py`
+or `python -m SI_Toolkit_ASF.run.A1_Create_Normalization_File`
 
 or set the working directory in your IDE to the root of the project.
 In Pycharm it can be done in run configurations window.
@@ -92,7 +92,7 @@ to be able to run the scripts from where they are located.
   - This step in necessary for each new dataset, as the data statistics file calculated offline is used while training neural networks to normalize the data.
   - Set paths to experiment folders in `./SI_Toolkit_ASF/config_training.yml`
     - In our example: Set to `./Experiment_Recordings/Dataset-1/`
-  - Then run `python -m SI_Toolkit_ASF.Run.Create_normalization_file`
+  - Then run `python -m SI_Toolkit_ASF.run.Create_normalization_file`
   - This creates a new normalization file in `[path_to_experiment_folder]/NormalizationInfo/`
 3. Train Network
   - Type `python -m SI_Toolkit_ASF.run.Train_Network -h` to view all arguments that can be passed to training script
@@ -112,6 +112,21 @@ to be able to run the scripts from where they are located.
 5. Run simulator with trained network model
   - Specify `NET_NAME` in config -> this is the network used in `predictor_autoregressive_neural.py`
   - When using the CartPoleSimulator repo as system: In the CartPoleSimulator config, specify `"predictor_autoregressive_neural"` as predictor type
+
+## HLS4ML
+
+SI_Toolkit integrates hls4ml and allows for conversion of trained neural networks to FPGA deployable code.
+To make the conversion:
+1. Install Vivado 2020.1 - at the time of writing, this is the latest version supported by hls4ml.
+We recommend you install Vivado together with Vitis - unless you know you need only Vivado,
+but our programs need Vitis too.
+2. Open config_hls.yml and set the path to Vivado installation.
+3. Set the parameters for the network conversion.
+4. Optional: Testing the networks quantization effect with Brunton GUI - check the section on Brunton GUI for details.
+5. Run the launch script `python -m SI_Toolkit_ASF.Run.Convert_Network_With_hls4ml`
+
+
+
 
 ## Gallery
 Testing with Brunton GUI predicted vs actual car trajectories

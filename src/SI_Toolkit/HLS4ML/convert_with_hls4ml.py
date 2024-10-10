@@ -1,5 +1,6 @@
 import yaml
 import os
+import shutil
 import hls4ml
 
 from types import SimpleNamespace
@@ -25,6 +26,10 @@ def convert_with_hls4ml():
         net, net_info = \
             get_net(a, time_series_length=1,
                     batch_size=batch_size, stateful=True, remove_redundant_dimensions=True)
+
+        path_to_network = os.path.join(a.path_to_models, a.net_name)
+        path_to_hls_network = os.path.join(config_hls['output_dir'], a.net_name)
+        shutil.copytree(path_to_network, path_to_hls_network)
 
 
         hls_model, hls_model_config = convert_model_with_hls4ml(net)
