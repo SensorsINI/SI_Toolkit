@@ -104,7 +104,7 @@ class ComputationLibrary:
     to_numpy: Callable[[TensorType], np.ndarray] = None
     to_variable: Callable[[TensorType, type], np.ndarray] = None
     to_tensor: Callable[[TensorType, type], TensorType] = None
-    constant: Callable[[TensorType, type], TensorType] = None
+    constant: Callable[[Union[float, TensorType], type], Union[float, TensorType]] = None
     unstack: Callable[[TensorType, int, int], "list[TensorType]"] = None
     ndim: Callable[[TensorType], int] = None
     clip: Callable[[TensorType, float, float], TensorType] = None
@@ -164,6 +164,7 @@ class ComputationLibrary:
     logical_not: Callable[[TensorType], TensorType] = None
     min: Callable[[TensorType, TensorType], TensorType] = None
     max: Callable[[TensorType, TensorType], TensorType] = None
+    atan: Callable[[TensorType], TensorType] = None
     atan2: Callable[[TensorType], TensorType] = None
     abs: Callable[[TensorType], TensorType] = None
     sqrt: Callable[[TensorType], TensorType] = None
@@ -253,6 +254,7 @@ class NumpyLibrary(ComputationLibrary):
     logical_not = lambda x: np.logical_not(x)
     min = np.minimum
     max = np.maximum
+    atan = np.arctan
     atan2 = np.arctan2
     abs = np.abs
     sqrt = np.sqrt
@@ -344,6 +346,7 @@ class TensorFlowLibrary(ComputationLibrary):
     logical_not = lambda x: tf.math.logical_not(x)
     min = tf.minimum
     max = tf.maximum
+    atan = tf.math.atan
     atan2 = tf.atan2
     abs = tf.abs
     sqrt = tf.sqrt
@@ -442,6 +445,7 @@ class PyTorchLibrary(ComputationLibrary):
     logical_not = lambda x: torch.logical_not(x)
     min = torch.minimum
     max = torch.maximum
+    atan = torch.atan
     atan2 = torch.atan2
     abs = torch.abs
     sqrt = torch.sqrt

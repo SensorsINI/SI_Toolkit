@@ -403,7 +403,7 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     csv_filepath = os.path.join(path_to_norm_info, normalization_info_name + '.csv')
 
     with open(csv_filepath, "a", newline='') as outfile:
-        writer = csv.writer(outfile)
+        writer = csv.writer(outfile, quoting=csv.QUOTE_NONE, escapechar='\\')
 
         writer.writerow(['# ' + 'This is normalization information calculated {} at time {}'
                         .format(date_now, time_now)])
