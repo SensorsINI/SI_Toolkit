@@ -163,8 +163,12 @@ def args():
     if args.control_inputs is not None:
         args.control_inputs = sorted(args.control_inputs)
 
+    args.control_inputs = generate_column_names(args.control_inputs)
+
     if args.state_inputs is not None:
         args.state_inputs = sorted(args.state_inputs)
+
+    args.state_inputs = generate_column_names(args.state_inputs)
 
     if args.setpoint_inputs is not None:
         args.setpoint_inputs = sorted(args.setpoint_inputs)
@@ -190,3 +194,41 @@ def args():
 
     return args
 
+
+
+
+def generate_column_names(inputs):
+    """
+    Generate a list of column names based on input patterns with zero-padded indices.
+
+    Parameters:
+    - inputs (list of str): List containing column names or patterns like 'prefix(n)'.
+
+    Returns:
+    - selected_columns (list of str): List of generated column names.
+    """
+    selected_columns = []
+
+    for item in inputs:
+        if '(' in item and ')' in item:
+            try:
+                # Extract prefix and number
+                prefix, num_str = item.split('(')
+                num = int(num_str.rstrip(')'))
+                prefix = prefix.strip()
+
+                # Determine the padding width based on the number of digits in 'num'
+                padding_width = len(str(num-1))
+
+                # Generate zero-padded column names from 1 to 'num'
+                for i in range(num):
+                    padded_index = str(i).zfill(padding_width)
+                    column_name = f"{prefix}_{padded_index}"
+                    selected_columns.append(column_name)
+            except ValueError:
+                print(f"Warning: Invalid format for input '{item}'. Skipping.")
+        else:
+            # Direct column name
+            selected_columns.append(item)
+
+    return selected_columns

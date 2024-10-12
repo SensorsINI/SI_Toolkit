@@ -7,6 +7,7 @@ import os
 import collections
 from types import SimpleNamespace
 from copy import deepcopy as dcp
+from SI_Toolkit.Functions.General.Initialization import calculate_inputs_length
 
 
 dict_translate = {'rnn.weight_ih_l0': 'network_head.weight_ih_l0',
@@ -71,6 +72,9 @@ def compose_net_from_net_name(net_info,
     net = Sequence(net_name=net_name, inputs_list=inputs_list, outputs_list=outputs_list,
                    batch_size=batch_size, construct_network=construct_network)
 
+    inputs_len = calculate_inputs_length(net_info.inputs)
+    net_info.inputs_len = inputs_len
+
     print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
           .format(net.net_type, len(net.h_size), ', '.join(map(str, net.h_size))))
 
@@ -91,6 +95,7 @@ class Sequence(nn.Module):
         We assume that inputs may be both commands and state variables, whereas outputs are always state variables
         """
 
+        inputs_len = calculate_inputs_length(inputs_list)
         inputs_len = len(inputs_list)
         # Check if GPU is available. If yes device='cuda:0' if not device='cpu'
         self.device = get_device()

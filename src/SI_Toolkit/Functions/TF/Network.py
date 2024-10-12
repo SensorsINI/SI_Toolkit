@@ -6,6 +6,7 @@ import tensorflow as tf
 import numpy as np
 
 from SI_Toolkit.Functions.TF.Compile import CompileTF
+from SI_Toolkit.Functions.General.Initialization import calculate_inputs_length
 
 try:
     import qkeras
@@ -67,8 +68,8 @@ def compose_net_from_net_name(net_info,
                               ):
 
     net_name = net_info.net_name
-    inputs_list = net_info.inputs
-    inputs_len = len(net_info.inputs)
+    inputs_len = calculate_inputs_length(net_info.inputs)
+    net_info.inputs_len = inputs_len
     outputs_list = net_info.outputs
 
     # Get the information about network architecture from the network name
