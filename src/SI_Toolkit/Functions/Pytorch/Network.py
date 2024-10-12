@@ -91,6 +91,7 @@ class Sequence(nn.Module):
         We assume that inputs may be both commands and state variables, whereas outputs are always state variables
         """
 
+        inputs_len = len(inputs_list)
         # Check if GPU is available. If yes device='cuda:0' if not device='cpu'
         self.device = get_device()
 
@@ -133,21 +134,21 @@ class Sequence(nn.Module):
         # Construct network
         if self.construct_network == 'with cells':
             if self.net_type == 'Dense':
-                self.net_cell = [nn.Linear(len(inputs_list), self.h_size[0]).to(self.device)]
+                self.net_cell = [nn.Linear(inputs_len, self.h_size[0]).to(self.device)]
                 for i in range(len(self.h_size) - 1):
                     self.net_cell.append(nn.Linear(self.h_size[i], self.h_size[i + 1]).to(self.device))
             elif self.net_type == 'GRU':
-                self.net_cell = [nn.GRUCell(len(inputs_list), self.h_size[0]).to(self.device)]
+                self.net_cell = [nn.GRUCell(inputs_len, self.h_size[0]).to(self.device)]
                 for i in range(len(self.h_size) - 1):
                     self.net_cell.append(nn.GRUCell(self.h_size[i], self.h_size[i + 1]).to(self.device))
             elif self.net_type == 'DeltaGRU':
                 raise ValueError("DeltaGRU can only be created with construct_network == 'with modules'")
             elif self.net_type == 'LSTM':
-                self.net_cell = [nn.LSTMCell(len(inputs_list), self.h_size[0]).to(self.device)]
+                self.net_cell = [nn.LSTMCell(inputs_len, self.h_size[0]).to(self.device)]
                 for i in range(len(self.h_size) - 1):
                     self.net_cell.append(nn.LSTMCell(self.h_size[i], self.h_size[i + 1]).to(self.device))
             elif self.net_type == 'RNN-Basic':
-                self.net_cell = [nn.RNNCell(len(inputs_list), self.h_size[0]).to(self.device)]
+                self.net_cell = [nn.RNNCell(inputs_len, self.h_size[0]).to(self.device)]
                 for i in range(len(self.h_size) - 1):
                     self.net_cell.append(nn.RNNCell(self.h_size[i], self.h_size[i + 1]).to(self.device))
         elif self.construct_network == 'with modules':
@@ -157,7 +158,7 @@ class Sequence(nn.Module):
                 raise ValueError("In the mode construct_network == 'with modules' all hidden layers must have the same size. It is not the case.")
 
             if self.net_type == 'GRU':
-                self.network_head = nn.GRU(input_size=len(inputs_list), hidden_size=self.h_size[0],
+                self.network_head = nn.GRU(input_size=inputs_len, hidden_size=self.h_size[0],
                                            num_layers=len(self.h_size))
             elif self.net_type == 'DeltaGRU':
                 import yaml
@@ -169,7 +170,7 @@ class Sequence(nn.Module):
 
                 delta_gru_dict = yaml.load(open(os.path.join("SI_Toolkit_ASF", "config_DeltaGRU.yml"), "r"),
                                    Loader=yaml.FullLoader)
-                delta_gru_dict['inp_size'] = len(inputs_list)
+                delta_gru_dict['inp_size'] = inputs_len
                 delta_gru_dict['rnn_size'] = self.h_size[0]
                 delta_gru_dict['rnn_layers'] = len(self.h_size)
                 delta_gru_dict['num_classes'] = len(outputs_list)
@@ -193,10 +194,10 @@ class Sequence(nn.Module):
                     debug=delta_gru_dict['debug'],
                 )
             elif self.net_type == 'LSTM':
-                self.network_head = nn.LSTM(input_size=len(inputs_list), hidden_size=self.h_size[0],
+                self.network_head = nn.LSTM(input_size=inputs_len, hidden_size=self.h_size[0],
                                             num_layers=len(self.h_size))
             elif self.net_type == 'RNN-Basic':
-                self.network_head = nn.RNN(input_size=len(inputs_list), hidden_size=self.h_size[0],
+                self.network_head = nn.RNN(input_size=inputs_len, hidden_size=self.h_size[0],
                                            num_layers=len(self.h_size))
 
 

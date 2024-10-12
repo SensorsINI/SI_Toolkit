@@ -68,6 +68,7 @@ def compose_net_from_net_name(net_info,
 
     net_name = net_info.net_name
     inputs_list = net_info.inputs
+    inputs_len = len(net_info.inputs)
     outputs_list = net_info.outputs
 
     # Get the information about network architecture from the network name
@@ -149,10 +150,10 @@ def compose_net_from_net_name(net_info,
     if net_type == 'Dense':
 
         if remove_redundant_dimensions and time_series_length==1:
-            shape_input = (len(inputs_list),)
+            shape_input = (inputs_len,)
             batch_size = None
         else:
-            shape_input = (time_series_length, len(inputs_list))
+            shape_input = (time_series_length, inputs_len)
 
         net.add(tf.keras.Input(batch_size=batch_size, shape=shape_input))
 
@@ -176,7 +177,7 @@ def compose_net_from_net_name(net_info,
                 ))
                 net.add(tf.keras.layers.Activation(tf.keras.activations.tanh))
     elif net_type == 'TCN':
-        net.add(TCN(input_shape=(time_series_length, len(inputs_list)),
+        net.add(TCN(input_shape=(time_series_length, inputs_len),
                     nb_filters=h_size[0],
                     kernel_size=2,
                     nb_stacks=1,
@@ -188,7 +189,7 @@ def compose_net_from_net_name(net_info,
                     ))
 
         for i in range(1, len(h_size)):
-            net.add(TCN(input_shape=(time_series_length, len(inputs_list)),
+            net.add(TCN(input_shape=(time_series_length, inputs_len),
                         nb_filters=h_size[i],
                         kernel_size=2,
                         nb_stacks=1,
@@ -201,9 +202,9 @@ def compose_net_from_net_name(net_info,
     else:
 
         if remove_redundant_dimensions and batch_size==1:
-            shape_input = (time_series_length, len(inputs_list))
+            shape_input = (time_series_length, inputs_len)
         else:
-            shape_input = (batch_size, time_series_length, len(inputs_list))
+            shape_input = (batch_size, time_series_length, inputs_len)
 
         # Or RNN...
         net.add(layer_type(
