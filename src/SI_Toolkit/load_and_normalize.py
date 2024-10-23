@@ -1,9 +1,12 @@
 import pandas as pd
 import numpy as np
+from collections.abc import Iterable
+
 from tqdm import trange
 from time import sleep
 
 import glob
+import json
 
 import matplotlib.pyplot as plt
 
@@ -218,11 +221,32 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
         # Change to float32 wherever numeric column
         cols = df.columns
 
-        for col in cols:
-            try:
+        # Helper function to detect if a value can be numeric
+        def is_numeric_vectorized(series):
+            # Convert the series to numeric, returning NaN where conversion fails
+            return pd.to_numeric(series, errors='coerce').notna()
+
+        # Helper function to detect JSON-like lists (assuming lists are stored as strings like '[...]')
+        def is_json_list_vectorized(series):
+            # Check if the column is of object (string-like) type before applying .str methods
+            if series.dtype == 'object':
+                return series.str.startswith('[') & series.str.endswith(']')
+            else:
+                # Return a boolean series of False if the column is not string-like
+                return pd.Series([False] * len(series), index=series.index)
+
+        # Loop through each column
+        for col in df.columns:
+            # First, check if the column can be fully converted to numeric values
+            if is_numeric_vectorized(df[col]).all():
                 df[col] = pd.to_numeric(df[col], downcast='float')
-            except ValueError:
-                pass
+            # Then check if the column contains JSON-like lists
+            elif is_json_list_vectorized(df[col]).any():
+                # Apply json.loads to the entire column for valid JSON strings
+                df[col] = df[col].apply(json.loads)
+
+        list_columns = find_list_columns(df)
+        df = expand_list_columns(df, list_columns)
 
         all_dfs.append(df)
 
@@ -465,6 +489,74 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
     # endregion
 
     return df_norm_info, csv_filepath
+
+
+def find_list_columns(df, sample_size=5):
+    """
+    Identify columns in the DataFrame where each cell contains a list-like object.
+
+    Parameters:
+    - df (pd.DataFrame): The DataFrame to inspect.
+    - sample_size (int): Number of rows to sample for checking list-like elements.
+
+    Returns:
+    - list: Column names that contain list-like objects.
+    """
+    list_columns = []
+
+    for col in df.columns:
+        # Sample the first 'sample_size' non-null entries
+        sample = df[col].dropna().head(sample_size)
+
+        if sample.empty:
+            continue  # Skip columns with all NaN
+
+        # Check if all sampled entries are list-like (but not strings)
+        is_list_like = all(
+            isinstance(item, Iterable) and not isinstance(item, (str, bytes))
+            for item in sample
+        )
+
+        if is_list_like:
+            list_columns.append(col)
+
+    return list_columns
+
+
+def expand_list_columns(df, list_columns):
+    """
+    Expand specified list-like columns into separate columns.
+
+    Parameters:
+    - df (pd.DataFrame): The DataFrame containing list-like columns.
+    - list_columns (list): List of column names to expand.
+
+    Returns:
+    - pd.DataFrame: DataFrame with expanded columns.
+    """
+    for col in list_columns:
+        # Expand the list into separate columns
+        expanded_cols = pd.DataFrame(df[col].tolist(), index=df.index)
+
+        # Determine the maximum number of elements in the lists
+        max_len = expanded_cols.shape[1]
+
+        # Determine padding width based on the maximum index
+        pad_width = len(str(max_len - 1))
+
+        # Generate column names with zero-padded indices
+        prefix, _ = col.split('(')
+        prefix = prefix.strip()
+        new_column_names = [f"{prefix}_{i:0{pad_width}d}" for i in range(max_len)]
+        expanded_cols.columns = new_column_names
+
+        # Concatenate with the original DataFrame
+        df = pd.concat([df, expanded_cols], axis=1)
+
+        # Drop the original list column
+        df = df.drop(col, axis=1)
+
+    return df
 
 
 def load_normalization_info(path_to_normalization_info):

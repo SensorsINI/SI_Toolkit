@@ -353,7 +353,7 @@ def create_full_name(net_info, path_to_models):
         idx_end_prefix = net_info.net_name.find('-')  # finds first occurrence
 
         net_full_name = net_info.net_name[:idx_end_prefix + 1] \
-                        + str(len(net_info.inputs)) + 'IN-' \
+                        + str(net_info.inputs_len) + 'IN-' \
                         + net_info.net_name[idx_end_prefix + 1:] \
                         + '-' + str(len(net_info.outputs)) + 'OUT'
     else:
@@ -480,4 +480,18 @@ def create_log_file(net_info, a, dfs):
         file = open(yaml_path, "w")
         yaml.dump(net_info.delta_gru_dict, file)
         file.close()
+
+
+def calculate_inputs_length(inputs_list):
+    total_length = 0
+    for item in inputs_list:
+        # Check if the item contains size information
+        if '(' in item and ')' in item:
+            name, size_str = item.split('(')
+            size = int(size_str.strip(')'))
+            total_length += size
+        else:
+            # Assume it's a scalar
+            total_length += 1
+    return total_length
 
