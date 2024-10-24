@@ -11,7 +11,7 @@ import numpy as np
 
 
 class DataManager:
-    def __init__(self, create_csv_file):
+    def __init__(self, create_csv_file, rounding_decimals=np.inf):
 
         self.create_csv_file = create_csv_file
 
@@ -23,7 +23,7 @@ class DataManager:
         self.csv_file = None
         self.csv_writer = None
 
-        self.rounding_decimals = np.inf
+        self.rounding_decimals = rounding_decimals
 
         self.start_csv_recording_thread = None
         self.finish_experiment_thread = None
