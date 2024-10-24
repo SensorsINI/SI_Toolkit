@@ -118,7 +118,7 @@ class DataManager:
         self.starting_recording = True
         self.start_csv_recording_thread.start()
         if wait_till_complete:
-            self.finish_experiment_thread.join()
+            self.start_csv_recording_thread.join()
 
     def save_csv_online(self):
         self.csv_writer.writerow(self.history.values())
@@ -129,7 +129,7 @@ class DataManager:
                 with open(self.csv_filepath, "a", newline='') as outfile:
                     writer = csv.writer(outfile)
                     if self.rounding_decimals == np.inf:
-                        pass
+                        dict_history = self.history
                     else:
                         dict_history = {key: np.around(value, self.rounding_decimals)
                                         for key, value in self.history.items()}
