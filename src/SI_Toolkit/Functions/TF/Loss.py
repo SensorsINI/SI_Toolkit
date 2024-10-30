@@ -37,7 +37,7 @@ class LossMSRSequence(tf.keras.losses.Loss):
         # Get discounted some of losses for a time series
         # Axis (2,1) results in the natural operation of losses * discount_vector
         # loss = keras.layers.Dot(axes=(1, 0))([losses, discount_vector])
-        loss = tf.linalg.matvec(losses, self.discount_vector)
+        loss = tf.linalg.matvec(losses, self.discount_vector)/self.post_wash_out_len
 
         return tf.reduce_mean(loss)
 
