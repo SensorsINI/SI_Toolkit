@@ -71,7 +71,7 @@ PLOT_WEIGHTS_DISTRIBUTION = config['training_default']['PLOT_WEIGHTS_DISTRIBUTIO
 
 FILTERS = config['FILTERS']
 
-AUGMENT_DATA = config['training_default']['AUGMENT_DATA']
+CONFIG_SERIES_MODIFICATION = config['CONFIG_SERIES_MODIFICATION']
 
 # For l2race
 # control_inputs = ['u1', 'u2']
@@ -190,7 +190,7 @@ def args():
 
     args.filters = FILTERS
 
-    args.augment_data = AUGMENT_DATA
+    args.config_series_modification = CONFIG_SERIES_MODIFICATION
 
     return args
 
