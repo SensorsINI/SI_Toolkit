@@ -27,6 +27,9 @@ def get_normalization_function(
 
         return normalize
 
+    for variable in set(variables_names)-set(normalization_info.columns):
+        normalization_info[variable] = [np.nan, np.nan, np.nan, np.nan]
+
     normalizing_array = lib.to_tensor(
         normalization_info[variables_names].values, dtype=lib.float32)
 
@@ -71,6 +74,9 @@ def get_denormalization_function(
             return normalized_array
 
         return denormalize
+
+    for variable in set(variables_names)-set(normalization_info.columns):
+        normalization_info[variable] = [np.nan, np.nan, np.nan, np.nan]
 
     denormalizing_array = lib.to_tensor(
         normalization_info[variables_names].values, dtype=lib.float32)
