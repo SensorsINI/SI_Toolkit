@@ -25,6 +25,13 @@ class LossMSRSequence(tf.keras.losses.Loss):
 
     def call(self, y_true, y_predicted):
 
+        # V1
+        # y_predicted = tf.clip_by_value(y_predicted, -1.0, 1.0)
+
+        # V2
+        # condition = tf.abs(y_true) >= 1.0
+        # y_predicted = tf.where(condition, tf.clip_by_value(y_predicted, -1.0, 1.0), y_predicted)
+
         losses = tf.cond(
             tf.equal(tf.shape(y_predicted)[1], tf.shape(y_true)[1] + 1),
             lambda: keras.losses.MSE(y_true, y_predicted[:, 1:, :]),  # A case where we train a predictor which output includes the input
