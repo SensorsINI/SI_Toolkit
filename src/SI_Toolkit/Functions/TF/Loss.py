@@ -81,7 +81,7 @@ class LossMSRSequenceCustomizableRelative(tf.keras.losses.Loss):
         losses = losses[:, self.wash_out_len:]
 
         # Get discounted sum of losses for a time series
-        loss = tf.linalg.matvec(losses, self.discount_vector)
+        loss = tf.linalg.matvec(losses, self.discount_vector)#/self.post_wash_out_len
 
         return tf.reduce_mean(loss)
 
