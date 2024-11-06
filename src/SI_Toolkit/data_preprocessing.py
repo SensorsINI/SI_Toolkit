@@ -25,12 +25,13 @@ try:
 except ImportError:
     pass
 
+
 def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
 
     if os.path.exists(get_files_from):
         # If the path is a file
         if os.path.isfile(get_files_from):
-            paths_to_recordings  = [get_files_from]
+            paths_to_recordings = [get_files_from]
             get_files_from = os.path.dirname(get_files_from)
         # If the path is a directory
         elif os.path.isdir(get_files_from):
@@ -42,10 +43,8 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
         # Path does not exist
         raise FileNotFoundError(f"Path {get_files_from} does not exist")
 
-
-
     if not paths_to_recordings:
-        Exception('No files found')
+        raise Exception('No files found')
 
     try:
         os.makedirs(save_files_to)
@@ -59,11 +58,14 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
 
         df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
 
-        # Available transformations: add_control_along_trajectories, append_derivatives, apply_sensors_quantization, add_shifted_columns
-        # Plus the application specific transformations
-        if transformation == 'append_derivatives':
-            df_processed = append_derivatives(df, df_name=processed_file_name, **kwargs)
+        # Apply transformation
+        if callable(transformation):
+            # If `transformation` is a function, call it directly
+            df_processed = transformation(df, **kwargs)
         else:
+            # If `transformation` is a string, retrieve the function and call it
+            # Available transformations: add_control_along_trajectories, append_derivatives, apply_sensors_quantization, add_shifted_columns
+            # Plus the application specific transformations
             try:
                 # Retrieve the function by name and call it with the appropriate arguments
                 transformation_function = globals()[transformation]
@@ -72,7 +74,7 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
             df_processed = transformation_function(df, **kwargs)
 
         if df_processed is None:
-            print('Dropping {}, transformation not successful. '.format(current_path))
+            print('Dropping {}, transformation not successful.'.format(current_path))
             if transformation == 'append_derivatives':
                 print('Probably too short to calculate derivatives.')
             continue
