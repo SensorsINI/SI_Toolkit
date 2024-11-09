@@ -46,10 +46,11 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
     if not paths_to_recordings:
         raise Exception('No files found')
 
-    try:
-        os.makedirs(save_files_to)
-    except FileExistsError:
-        pass
+    if save_files_to is not None:
+        try:
+            os.makedirs(save_files_to)
+        except FileExistsError:
+            pass
 
     for i in trange(len(paths_to_recordings), leave=True, position=0, desc='Processed datafiles'):
         current_path = paths_to_recordings[i]
@@ -79,21 +80,22 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
                 print('Probably too short to calculate derivatives.')
             continue
 
-        processed_file_path = os.path.join(save_files_to, relative_path_to_search_root)
-        # Ensure the target directory exists
-        os.makedirs(os.path.dirname(processed_file_path), exist_ok=True)
+        if save_files_to:
+            processed_file_path = os.path.join(save_files_to, relative_path_to_search_root)
+            # Ensure the target directory exists
+            os.makedirs(os.path.dirname(processed_file_path), exist_ok=True)
 
-        with open(processed_file_path, 'w', newline=''):  # Overwrites if existed
-            pass
-        with open(current_path, "r", newline='') as f_input, \
-                open(processed_file_path, "a", newline='') as f_output:
-            for line in f_input:
-                if line[0:len('#')] == '#':
-                    csv.writer(f_output).writerow([line.strip()])
-                else:
-                    break
+            with open(processed_file_path, 'w', newline=''):  # Overwrites if existed
+                pass
+            with open(current_path, "r", newline='') as f_input, \
+                    open(processed_file_path, "a", newline='') as f_output:
+                for line in f_input:
+                    if line[0:len('#')] == '#':
+                        csv.writer(f_output).writerow([line.strip()])
+                    else:
+                        break
 
-        df_processed.to_csv(processed_file_path, index=False, mode='a')
+            df_processed.to_csv(processed_file_path, index=False, mode='a')
 
 
 def decimate_datasets(df, keep_every_nth_row, **kwargs):
