@@ -19,6 +19,7 @@ except:
     print("Data augmentation function not found. Data will not be transformed no matter the value of AUGMENT_DATA in config_training.")
     DataAugmentation = DataAugmentationPlaceholder
 
+from SI_Toolkit.Functions.General.Dataset_Filters import filter_datasets
 
 class DatasetTemplate:
     def __init__(self,
@@ -70,6 +71,8 @@ class DatasetTemplate:
         dfs = dfs_split
 
         data_filter = DataFilter(args)
+        dfs = filter_datasets(dfs, args)
+
 
         self.DA = DataAugmentation(self.inputs, self.outputs, args.config_series_modification)
         needed_columns = list(set(self.inputs) | set(self.outputs))
@@ -84,7 +87,6 @@ class DatasetTemplate:
 
 
         for df in tqdm(dfs, desc="Processing data files"):
-            df = data_filter.apply_filters(df)
             if len(df) == 0:
                 continue
             df = df[needed_columns]
@@ -286,40 +288,4 @@ class DatasetTemplate:
         self.shuffle_dataset()
 
 
-class DataFilter:
-    def __init__(self, args):
-        # Check if 'filters' field exists in the configuration
-        if hasattr(args, 'filters') and isinstance(args.filters, list):
-            self.filter_funcs = []
-            for data_filter in args.filters:
-                column = data_filter['column']
-                condition = data_filter['condition']
-                operator, value_str = condition.split(" ", 1)
-                value = float(value_str)
-                use_absolute = data_filter.get('absolute', False)
 
-                # Function to apply or bypass abs()
-                def apply_abs_if_needed(dataset_values, use_abs):
-                    return abs(dataset_values) if use_abs else dataset_values
-
-                # Creating lambda functions based on the operator
-                if operator == '<':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) < v])
-                elif operator == '<=':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) <= v])
-                elif operator == '>':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) > v])
-                elif operator == '>=':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) >= v])
-                elif operator == '==':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) == v])
-                elif operator == '!=':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) != v])
-        else:
-            # If 'filters' field is not in config, setup to bypass filtering
-            self.filter_funcs = [lambda df: df]
-
-    def apply_filters(self, df):
-        for func in self.filter_funcs:
-            df = func(df)
-        return df
