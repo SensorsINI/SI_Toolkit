@@ -48,7 +48,7 @@ def convert_units_inplace(ground_truth, predictions_list):
         elif feature == 'positionD':
             ground_truth_dataset[:, feature_idx] *= 100.0
         elif feature == 'L':
-            ground_truth_dataset[:, feature_idx] *= 200.0  # Recalculating from pole half length to full length and from m to cm
+            ground_truth_dataset[:, feature_idx] *= 100.0  # Recalculating from pole length to full length and from m to cm
         else:
             pass
 
@@ -71,7 +71,7 @@ def convert_units_inplace(ground_truth, predictions_list):
             elif feature == 'positionD':
                 predictions_array[:, :, feature_idx] *= 100.0
             elif feature == 'L':
-                predictions_array[:, :, feature_idx] *= 200.0
+                predictions_array[:, :, feature_idx] *= 100.0
             else:
                 pass
 
