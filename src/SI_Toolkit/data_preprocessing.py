@@ -90,8 +90,8 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
             with open(current_path, "r", newline='') as f_input, \
                     open(processed_file_path, "a", newline='') as f_output:
                 for line in f_input:
-                    if line[0:len('#')] == '#':
-                        csv.writer(f_output).writerow([line.strip()])
+                    if line.lstrip().startswith('#'):
+                        f_output.write(line)
                     else:
                         break
 
