@@ -5,11 +5,8 @@ Various functions to preprocess data:
 - adding derivatives to the selected features of dataset
 """
 
-import csv
 import os
 
-import numpy as np
-import pandas as pd
 from derivative import dxdt
 from tqdm import trange
 
@@ -24,6 +21,8 @@ try:
     from SI_Toolkit_ASF.ToolkitCustomization.preprocess_data import *
 except ImportError:
     pass
+
+from SI_Toolkit.General.preprocess_data_add_control_along_trajectories import add_control_along_trajectories
 
 
 def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
@@ -227,69 +226,5 @@ def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwa
 def apply_sensors_quantization(df, variables_quantization_dict):
     for variable, precision in variables_quantization_dict.items():
         df[variable] = (df[variable] / precision).round() * precision
-
-    return df
-
-
-from Control_Toolkit.others.globals_and_utils import get_controller_name, get_optimizer_name, import_controller_by_name
-from Control_Toolkit.Controllers import template_controller
-
-
-def add_control_along_trajectories(df, controller, controller_output_variable_name='Q_calculated', **kwargs):
-    """
-    Adds controller to the trajectory data.
-    :param df: trajectory data
-    :param controller: controller to evaluate on data
-    :param controller_output_variable_name: name of the column with controller output
-    :return: trajectory data with controller
-    """
-
-    controller_name = controller['controller_name']
-    optimizer_name = controller.get('optimizer_name', None)
-
-    environment_name = controller['environment_name']
-    action_space = controller['action_space']
-    state_components = controller['state_components']
-    environment_attributes_dict = controller['environment_attributes_dict']
-
-    initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
-
-    controller_name, _ = get_controller_name(
-        controller_name=controller_name
-    )
-
-    Controller: "type[template_controller]" = import_controller_by_name(controller_name)
-    controller = Controller(
-        environment_name=environment_name,
-        initial_environment_attributes=initial_environment_attributes,
-        control_limits=(action_space.low, action_space.high),
-    )
-    # Final configuration of controller
-    if controller.has_optimizer:
-        controller.configure(optimizer_name)
-        optimizer_name, _ = get_optimizer_name(
-            optimizer_name=controller.optimizer.optimizer_name
-        )
-
-    else:
-        controller.configure()
-
-    Q_calculated_list = []
-
-    s = np.array(df[state_components])
-    time = np.array(df['time'])
-    environment_attributes_array = np.array(df[environment_attributes_dict.values()])
-
-
-    for i in trange(len(df), leave=False, position=1, desc='Processing current datafile'):
-        environment_attributes = {key: environment_attributes_array[i, idx] for idx, key in enumerate(environment_attributes_dict.keys())}
-        Q_calculated = float(controller.step(
-            s=s[i],
-            time=time[i],
-            updated_attributes=environment_attributes,
-        ))
-        Q_calculated_list.append(Q_calculated)
-
-    df[controller_output_variable_name] = Q_calculated_list
 
     return df
