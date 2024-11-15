@@ -55,6 +55,9 @@ def add_control_along_trajectories(
     else:
         num_workers = 1  # Single worker for sequential processing
 
+    if num_samples is None:
+        num_samples = num_workers if parallel else 1
+
     controller_name, _ = get_controller_name(
         controller_name=controller_name
     )
@@ -87,7 +90,7 @@ def add_control_along_trajectories(
     if parallel:
         # Initialize Manager for shared progress counters
         manager = Manager()
-        progress_counters = manager.list([0] * num_workers)
+        progress_counters = [manager.Value('i', 0) for _ in range(num_workers)]
 
         num_time_steps = len(df)  # Number of time steps per sequence
 
@@ -115,7 +118,7 @@ def add_control_along_trajectories(
             # Update progress bars
             while any(not r.ready() for r in async_results):
                 for worker_idx, bar in enumerate(progress_bars):
-                    current = progress_counters[worker_idx]
+                    current = progress_counters[worker_idx].value
                     if current > bar.n:
                         bar.update(current - bar.n)
                 sleep(0.1)  # Adjust sleep time as needed
@@ -192,7 +195,9 @@ def worker_process_sequences(task, progress_counters, bar=None):
         integration_features,
         feature_ranges,
         state_components,
-        controller_output_variable_name
+        controller_output_variable_name,
+        integration_method,
+        intergration_num_evals,
     )
     :param progress_counters: Shared list to track progress per worker (used in parallel mode).
     :param bar: Optional tqdm progress bar (used in sequential mode).
@@ -256,8 +261,8 @@ def worker_process_sequences(task, progress_counters, bar=None):
                         environment_attributes=environment_attributes,
                         features=integration_features,
                         feature_ranges=feature_ranges,
-                        method = integration_method,
-                        num_evals = intergration_num_evals,
+                        method=integration_method,
+                        num_evals=intergration_num_evals,
                     )
                 else:
                     Q = float(controller_instance.step(
@@ -269,7 +274,7 @@ def worker_process_sequences(task, progress_counters, bar=None):
 
                 # Update progress
                 if progress_counters is not None:
-                    progress_counters[worker_idx] += 1
+                    progress_counters[worker_idx].value += 1
                 if bar is not None:
                     bar.update(1)
 
