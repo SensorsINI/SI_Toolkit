@@ -1,5 +1,6 @@
 import re
 from multiprocessing import cpu_count, Pool, Manager
+import concurrent.futures
 
 import numpy as np
 from scipy import stats
@@ -10,6 +11,7 @@ from Control_Toolkit.others.globals_and_utils import get_controller_name, import
 from scipy.integrate import nquad
 from scipy.stats import qmc
 from math import ceil
+import time
 
 def add_control_along_trajectories(
         df,
@@ -49,14 +51,14 @@ def add_control_along_trajectories(
     initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
 
     # Determine the number of workers
+    if num_samples is None:
+        num_samples = 1
+
     if parallel:
-        num_workers = cpu_count()
+        num_workers = min(cpu_count(), num_samples)
         print(f"Number of workers: {num_workers}")
     else:
         num_workers = 1  # Single worker for sequential processing
-
-    if num_samples is None:
-        num_samples = num_workers if parallel else 1
 
     controller_name, _ = get_controller_name(
         controller_name=controller_name
@@ -91,17 +93,20 @@ def add_control_along_trajectories(
         # Initialize Manager for shared progress counters
         manager = Manager()
         progress_counters = [manager.Value('i', 0) for _ in range(num_workers)]
+        worker_completion_times = manager.list([None] * num_workers)
 
         num_time_steps = len(df)  # Number of time steps per sequence
 
-        with Pool(processes=num_workers) as pool:
-            # Start worker processes
-            async_results = []
-            for task in tasks:
-                async_result = pool.apply_async(worker_process_sequences, args=(task, progress_counters))
-                async_results.append(async_result)
+        results = []
+        futures = []
 
-            # Initialize tqdm progress bars for each worker with custom bar format
+        with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
+            # Start worker processes
+            for task in tasks:
+                future = executor.submit(worker_process_sequences, task, progress_counters)
+                futures.append(future)
+
+            # Initialize tqdm progress bars for each worker
             progress_bars = []
             for worker_idx, seq_count in enumerate(sequences_per_worker):
                 total_steps = seq_count * num_time_steps
@@ -115,21 +120,58 @@ def add_control_along_trajectories(
                 )
                 progress_bars.append(bar)
 
-            # Update progress bars
-            while any(not r.ready() for r in async_results):
-                for worker_idx, bar in enumerate(progress_bars):
+            # Monitor progress and handle stuck workers
+            completed_workers = set()
+            start_time = time.time()
+            timer_started = False
+            timer_start_time = None
+            timeout_seconds = 3600  # 1 hour
+
+            while True:
+                done_count = 0
+                for worker_idx, future in enumerate(futures):
+                    # Update progress bars
                     current = progress_counters[worker_idx].value
-                    if current > bar.n:
-                        bar.update(current - bar.n)
+                    if current > progress_bars[worker_idx].n:
+                        progress_bars[worker_idx].update(current - progress_bars[worker_idx].n)
+
+                    # Check if worker has completed
+                    if future.done() and worker_idx not in completed_workers:
+                        completed_workers.add(worker_idx)
+                        worker_completion_times[worker_idx] = time.time() - start_time
+
+                done_count = len(completed_workers)
+
+                # Start timer after 80% of workers have finished
+                if not timer_started and done_count >= int(0.8 * num_workers):
+                    timer_started = True
+                    timer_start_time = time.time()
+                    print("80% of workers have finished. Starting timeout timer.")
+
+                # Check for timeout
+                if timer_started and (time.time() - timer_start_time) > timeout_seconds:
+                    print("Timeout reached. Cancelling remaining workers.")
+                    for worker_idx, future in enumerate(futures):
+                        if not future.done():
+                            future.cancel()
+                    break
+
+                # Break the loop if all workers are done
+                if all(future.done() for future in futures):
+                    break
+
                 sleep(0.1)  # Adjust sleep time as needed
 
-            # Final update after all workers are done
+            # Final update and close progress bars
             for worker_idx, bar in enumerate(progress_bars):
                 bar.update(sequences_per_worker[worker_idx] * num_time_steps - bar.n)
                 bar.close()
 
             # Collect results
-            results = [r.get() for r in async_results]
+            for future in futures:
+                if future.done() and not future.cancelled():
+                    result = future.result()
+                    results.append(result)
     else:
         results = []
         # Initialize a single tqdm progress bar for the single worker with custom bar format
