@@ -1,54 +1,19 @@
+import os
 import re
-import os
-from multiprocessing import cpu_count, Pool, Manager
-import concurrent.futures
-
-import numpy as np
-from scipy import stats
-from tqdm import tqdm
-from time import sleep
-from Control_Toolkit.others.globals_and_utils import get_controller_name, import_controller_by_name
-
-from scipy.integrate import nquad
-from scipy.stats import qmc
+import logging
 from math import ceil
-import time
-import logging
-
-import concurrent.futures
-import logging
-import os
-import time
 from multiprocessing import cpu_count
-from statistics import mean, stdev
 
-import numpy as np
-from scipy import stats
-from tqdm import tqdm
-
-
-import concurrent.futures
-import logging
-import os
-import time
-from multiprocessing import cpu_count
-from statistics import mean, stdev
-
-import numpy as np
-from scipy import stats
-from tqdm import tqdm
-
-# Ensure that necessary imports for your specific implementation are present
-# e.g., import your_controller_module
-import os
-import logging
-import time
 import numpy as np
 import pandas as pd
-import concurrent.futures
-from tqdm import tqdm
-from multiprocessing import cpu_count
 from scipy import stats
+from scipy.integrate import nquad
+from scipy.stats import qmc
+from tqdm import tqdm
+
+from Control_Toolkit.others.globals_and_utils import get_controller_name, import_controller_by_name
+import concurrent.futures
+
 
 # Adjust the paths as needed
 MAIN_LOG_FILE = 'progress_main.log'
@@ -65,6 +30,23 @@ logging.basicConfig(
     level=logging.INFO
 )
 main_logger = logging.getLogger('Main')
+
+
+class TqdmToLogger(object):
+    """
+    Output stream for TQDM which will write to the logger.
+    """
+    def __init__(self, logger, level=logging.INFO):
+        self.logger = logger
+        self.level = level
+
+    def write(self, buf):
+        buf = buf.strip('\r\n')
+        if buf:
+            self.logger.log(self.level, buf)
+
+    def flush(self):
+        pass
 
 
 def add_control_along_trajectories(
@@ -155,49 +137,12 @@ def add_control_along_trajectories(
     if parallel:
         main_logger.info("Starting parallel processing.")
 
-        # Initialize tqdm progress bars for each worker
-        progress_bars = []
-        for worker_idx, seq_count in enumerate(sequences_per_worker):
-            total_steps = seq_count * len(df)
-            bar = tqdm(
-                total=total_steps,
-                desc=f'Worker {worker_idx + 1}',
-                position=worker_idx,
-                leave=True,
-                bar_format='{desc}: {n}/{total} [{elapsed}<{remaining}, {rate_fmt}]',
-                dynamic_ncols=True
-            )
-            progress_bars.append(bar)
-
         with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
             # Submit all tasks
             futures = {
                 executor.submit(worker_process_sequences, task): task[0] for task in tasks
             }
             main_logger.info(f"Submitted {len(futures)} tasks to the executor.")
-
-            # Initialize progress tracking
-            worker_progress = [0] * num_workers
-            total_steps_per_worker = [sequences_per_worker[worker_idx] * len(df) for worker_idx in range(num_workers)]
-
-            # Start monitoring progress
-            while True:
-                # Update progress bars
-                for worker_idx in range(num_workers):
-                    progress_file = os.path.join(WORKER_LOG_DIR, f'worker_{worker_idx + 1}_progress.txt')
-                    if os.path.exists(progress_file):
-                        with open(progress_file, 'r') as f:
-                            progress = int(f.read())
-                        delta = progress - worker_progress[worker_idx]
-                        if delta > 0:
-                            progress_bars[worker_idx].update(delta)
-                            worker_progress[worker_idx] = progress
-
-                # Check if all futures are done
-                if all(future.done() for future in futures):
-                    break
-
-                time.sleep(0.1)  # Adjust as needed
 
             # Collect results
             for future in concurrent.futures.as_completed(futures):
@@ -206,13 +151,8 @@ def add_control_along_trajectories(
                     worker_result = future.result()
                     results.append(worker_result)
                     main_logger.info(f"Worker {worker_idx + 1} completed successfully.")
-                    # Ensure progress bar is fully updated
-                    progress_bars[worker_idx].update(total_steps_per_worker[worker_idx] - progress_bars[worker_idx].n)
-                    progress_bars[worker_idx].close()
                 except Exception as e:
                     main_logger.error(f"Worker {worker_idx + 1} generated an exception: {e}")
-                    # Close the progress bar even if there's an error
-                    progress_bars[worker_idx].close()
 
     else:
         main_logger.info("Starting sequential processing.")
@@ -318,13 +258,6 @@ def worker_process_sequences(task, progress_bar=None):
         worker_log_file = os.path.join(WORKER_LOG_DIR, f'progress_worker_{worker_idx + 1}.log')
         worker_logger = setup_worker_logger(worker_idx, worker_log_file)
 
-        # Set up progress file (only in parallel mode)
-        if progress_bar is None:
-            progress_file = os.path.join(WORKER_LOG_DIR, f'worker_{worker_idx + 1}_progress.txt')
-            # Ensure the file exists
-            with open(progress_file, 'w') as f:
-                f.write('0')
-
         worker_logger.info(f"Worker {worker_idx + 1} starting. Processing {num_sequences} sequences.")
 
         controller_name = controller_config['controller_name']
@@ -355,6 +288,17 @@ def worker_process_sequences(task, progress_bar=None):
 
         steps_completed = 0
         total_steps = num_sequences * len(df)
+
+        if progress_bar is None:
+            # Use TqdmToLogger to redirect tqdm output to the logger
+            tqdm_logger = TqdmToLogger(worker_logger, level=logging.INFO)
+            progress_bar = tqdm(
+                total=total_steps,
+                desc=f'Worker {worker_idx + 1}',
+                file=tqdm_logger,
+                mininterval=1,
+                ascii=True
+            )
 
         for seq_idx in range(num_sequences):
             Q_sequence = []
@@ -391,13 +335,7 @@ def worker_process_sequences(task, progress_bar=None):
 
                 # Update progress
                 steps_completed += 1
-
-                if progress_bar:
-                    progress_bar.update(1)
-                else:
-                    # Write progress to file
-                    with open(progress_file, 'w') as f:
-                        f.write(str(steps_completed))
+                progress_bar.update(1)
 
                 # Log progress every 10 steps to reduce log verbosity
                 if idx % 10 == 0 or idx == len(df) - 1:
@@ -406,11 +344,8 @@ def worker_process_sequences(task, progress_bar=None):
             Q_sequences.append(Q_sequence)
             worker_logger.info(f"Worker {worker_idx + 1}, Sequence {seq_idx + 1}/{num_sequences} completed.")
 
+        progress_bar.close()
         worker_logger.info(f"Worker {worker_idx + 1} finished processing {num_sequences} sequences.")
-
-        if progress_bar is None:
-            # Clean up progress file
-            os.remove(progress_file)
 
         return Q_sequences
 
@@ -421,12 +356,6 @@ def worker_process_sequences(task, progress_bar=None):
             worker_logger.error(f"Error in worker {worker_idx + 1} processing {num_sequences} sequences: {e}")
         except Exception as log_exception:
             main_logger.error(f"Failed to log error for worker {worker_idx + 1}: {log_exception}")
-        if progress_bar is None:
-            # Clean up progress file
-            try:
-                os.remove(progress_file)
-            except:
-                pass
         return []
 
 
@@ -449,6 +378,7 @@ def setup_worker_logger(worker_idx, log_file):
         logger.addHandler(handler)
 
     return logger
+
 
 def process_random_sampling(df, environment_attributes_dict):
     """
