@@ -1,53 +1,15 @@
-import os
 import re
-import logging
-from math import ceil
-from multiprocessing import cpu_count
+from multiprocessing import cpu_count, Pool, Manager
 
 import numpy as np
-import pandas as pd
 from scipy import stats
+from tqdm import tqdm
+from time import sleep
+from Control_Toolkit.others.globals_and_utils import get_controller_name, import_controller_by_name
+
 from scipy.integrate import nquad
 from scipy.stats import qmc
-from tqdm import tqdm
-
-from Control_Toolkit.others.globals_and_utils import get_controller_name, import_controller_by_name
-import concurrent.futures
-
-
-# Adjust the paths as needed
-MAIN_LOG_FILE = 'progress_main.log'
-WORKER_LOG_DIR = 'worker_logs'
-
-# Create worker log directory if it doesn't exist
-os.makedirs(WORKER_LOG_DIR, exist_ok=True)
-
-# Configure the main logger
-logging.basicConfig(
-    filename=MAIN_LOG_FILE,
-    filemode='a',
-    format='%(asctime)s - MAIN - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
-main_logger = logging.getLogger('Main')
-
-
-class TqdmToLogger(object):
-    """
-    Output stream for TQDM which will write to the logger.
-    """
-    def __init__(self, logger, level=logging.INFO):
-        self.logger = logger
-        self.level = level
-
-    def write(self, buf):
-        buf = buf.strip('\r\n')
-        if buf:
-            self.logger.log(self.level, buf)
-
-    def flush(self):
-        pass
-
+from math import ceil
 
 def add_control_along_trajectories(
         df,
@@ -70,8 +32,6 @@ def add_control_along_trajectories(
     :return: DataFrame with added controller outputs and uncertainty measures.
     """
 
-    main_logger.info("Starting add_control_along_trajectories function.")
-
     controller_name = controller_config['controller_name']
     optimizer_name = controller_config.get('optimizer_name', None)
 
@@ -82,24 +42,18 @@ def add_control_along_trajectories(
 
     # Process random sampling features
     df, environment_attributes_dict = process_random_sampling(df, environment_attributes_dict)
-    main_logger.info("Processed random sampling features.")
 
     # Get integration features and their ranges
     integration_features, feature_ranges, environment_attributes_dict = get_integration_features(df, environment_attributes_dict)
-    main_logger.info("Retrieved integration features and their ranges.")
 
     initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
 
     # Determine the number of workers
-    if num_samples is None:
-        num_samples = 1
-
     if parallel:
-        num_workers = min(cpu_count(), num_samples)
-        main_logger.info(f"Number of workers: {num_workers}")
+        num_workers = cpu_count()
+        print(f"Number of workers: {num_workers}")
     else:
         num_workers = 1  # Single worker for sequential processing
-        main_logger.info("Running in sequential mode with a single worker.")
 
     controller_name, _ = get_controller_name(
         controller_name=controller_name
@@ -111,8 +65,6 @@ def add_control_along_trajectories(
     sequences_per_worker = [base_sequences_per_worker] * num_workers
     for i in range(remainder):
         sequences_per_worker[i] += 1  # Distribute the remainder
-
-    main_logger.info(f"Sequences per worker: {sequences_per_worker}")
 
     # Prepare worker tasks
     tasks = []
@@ -132,50 +84,68 @@ def add_control_along_trajectories(
         )
         tasks.append(task)
 
-    results = []
-
     if parallel:
-        main_logger.info("Starting parallel processing.")
+        # Initialize Manager for shared progress counters
+        manager = Manager()
+        progress_counters = manager.list([0] * num_workers)
 
-        with concurrent.futures.ProcessPoolExecutor(max_workers=num_workers) as executor:
-            # Submit all tasks
-            futures = {
-                executor.submit(worker_process_sequences, task): task[0] for task in tasks
-            }
-            main_logger.info(f"Submitted {len(futures)} tasks to the executor.")
+        num_time_steps = len(df)  # Number of time steps per sequence
+
+        with Pool(processes=num_workers) as pool:
+            # Start worker processes
+            async_results = []
+            for task in tasks:
+                async_result = pool.apply_async(worker_process_sequences, args=(task, progress_counters))
+                async_results.append(async_result)
+
+            # Initialize tqdm progress bars for each worker with custom bar format
+            progress_bars = []
+            for worker_idx, seq_count in enumerate(sequences_per_worker):
+                total_steps = seq_count * num_time_steps
+                bar = tqdm(
+                    total=total_steps,
+                    desc=f'Worker {worker_idx+1}',
+                    position=worker_idx,
+                    leave=True,
+                    bar_format='{desc}: {n}/{total} [{elapsed}<{remaining}, {rate_fmt}]',
+                    dynamic_ncols=True
+                )
+                progress_bars.append(bar)
+
+            # Update progress bars
+            while any(not r.ready() for r in async_results):
+                for worker_idx, bar in enumerate(progress_bars):
+                    current = progress_counters[worker_idx]
+                    if current > bar.n:
+                        bar.update(current - bar.n)
+                sleep(0.1)  # Adjust sleep time as needed
+
+            # Final update after all workers are done
+            for worker_idx, bar in enumerate(progress_bars):
+                bar.update(sequences_per_worker[worker_idx] * num_time_steps - bar.n)
+                bar.close()
 
             # Collect results
-            for future in concurrent.futures.as_completed(futures):
-                worker_idx = futures[future]
-                try:
-                    worker_result = future.result()
-                    results.append(worker_result)
-                    main_logger.info(f"Worker {worker_idx + 1} completed successfully.")
-                except Exception as e:
-                    main_logger.error(f"Worker {worker_idx + 1} generated an exception: {e}")
-
+            results = [r.get() for r in async_results]
     else:
-        main_logger.info("Starting sequential processing.")
+        results = []
         # Initialize a single tqdm progress bar for the single worker with custom bar format
-        worker_idx = 0
+        total_steps = sequences_per_worker[0] * len(df)  # Number of sequences * time steps
         bar = tqdm(
-            total=sequences_per_worker[0] * len(df),  # Number of sequences * time steps
+            total=total_steps,
             desc='Worker 1',
             position=0,
             leave=True,
             bar_format='{desc}: {n}/{total} [{elapsed}<{remaining}, {rate_fmt}]',
             dynamic_ncols=True
         )
-
         try:
-            worker_result = worker_process_sequences(tasks[0], bar)
-            results.append(worker_result)
-            main_logger.info(f"Worker {worker_idx + 1} completed successfully.")
+            for task in tasks:
+                q_sequences = worker_process_sequences(task, progress_counters=None, bar=bar)
+                results.append(q_sequences)
         except Exception as e:
-            main_logger.error(f"Worker {worker_idx + 1} generated an exception: {e}")
+            print(f"Error in sequential processing: {e}")
         finally:
-            # Update and close the progress bar
-            bar.update(sequences_per_worker[0] * len(df) - bar.n)
             bar.close()
 
     # Aggregate all Q sequences
@@ -184,10 +154,7 @@ def add_control_along_trajectories(
         all_Q_sequences.extend(worker_Q_sequences)  # Each worker returns a list of Q sequences
 
     if len(all_Q_sequences) == 0:
-        main_logger.error("No Q sequences were generated. Check for errors in worker processing.")
         raise ValueError("No Q sequences were generated. Check for errors in worker processing.")
-
-    main_logger.info("Aggregated all Q sequences.")
 
     # Convert to numpy array for efficient computation
     # Shape: (num_samples, num_time_steps)
@@ -198,12 +165,10 @@ def add_control_along_trajectories(
     std_Q = np.std(Q_array, axis=0)
     conf_low, conf_high = stats.t.interval(
         0.95,
-        len(all_Q_sequences) - 1,
+        len(all_Q_sequences)-1,
         loc=mean_Q,
         scale=stats.sem(Q_array, axis=0)
     )
-
-    main_logger.info("Computed statistics across Q sequences.")
 
     # Add the statistics to the DataFrame
     df[f'{controller_output_variable_name}_mean'] = mean_Q
@@ -211,16 +176,12 @@ def add_control_along_trajectories(
     df[f'{controller_output_variable_name}_conf_low'] = conf_low
     df[f'{controller_output_variable_name}_conf_high'] = conf_high
 
-    main_logger.info("Added statistics to the DataFrame.")
-
-    main_logger.info("Completed add_control_along_trajectories function.")
-
     return df
 
 
-def worker_process_sequences(task, progress_bar=None):
+def worker_process_sequences(task, progress_counters, bar=None):
     """
-    Worker function to process multiple full sequences with progress updates and logging.
+    Worker function to process multiple full sequences with progress updates.
 
     :param task: Tuple containing (
         worker_idx,
@@ -231,14 +192,12 @@ def worker_process_sequences(task, progress_bar=None):
         integration_features,
         feature_ranges,
         state_components,
-        controller_output_variable_name,
-        integration_method,
-        intergration_num_evals,
+        controller_output_variable_name
     )
-    :param progress_bar: tqdm progress bar instance (only used in sequential mode).
+    :param progress_counters: Shared list to track progress per worker (used in parallel mode).
+    :param bar: Optional tqdm progress bar (used in sequential mode).
     :return: List of Q sequences (each sequence is a list of Q values per time step)
     """
-    worker_idx = task[0]
     try:
         (
             worker_idx,
@@ -253,12 +212,6 @@ def worker_process_sequences(task, progress_bar=None):
             integration_method,
             intergration_num_evals,
         ) = task
-
-        # Set up worker logger
-        worker_log_file = os.path.join(WORKER_LOG_DIR, f'progress_worker_{worker_idx + 1}.log')
-        worker_logger = setup_worker_logger(worker_idx, worker_log_file)
-
-        worker_logger.info(f"Worker {worker_idx + 1} starting. Processing {num_sequences} sequences.")
 
         controller_name = controller_config['controller_name']
         optimizer_name = controller_config.get('optimizer_name', None)
@@ -279,35 +232,16 @@ def worker_process_sequences(task, progress_bar=None):
         # Configure the controller
         if hasattr(controller_instance, 'has_optimizer') and controller_instance.has_optimizer:
             controller_instance.configure(optimizer_name)
-            worker_logger.info(f"Controller {controller_name} configured with optimizer {optimizer_name}.")
         else:
             controller_instance.configure()
-            worker_logger.info(f"Controller {controller_name} configured without optimizer.")
 
         Q_sequences = []
-
-        steps_completed = 0
-        total_steps = num_sequences * len(df)
-
-        if progress_bar is None:
-            # Use TqdmToLogger to redirect tqdm output to the logger
-            tqdm_logger = TqdmToLogger(worker_logger, level=logging.INFO)
-            progress_bar = tqdm(
-                total=total_steps,
-                desc=f'Worker {worker_idx + 1}',
-                file=tqdm_logger,
-                mininterval=1,
-                ascii=True
-            )
 
         for seq_idx in range(num_sequences):
             Q_sequence = []
             # Reset or reinitialize the controller if necessary
             if hasattr(controller_instance, 'reset'):
                 controller_instance.reset()
-                worker_logger.debug(f"Controller reset for sequence {seq_idx + 1}/{num_sequences}.")
-
-            worker_logger.info(f"Worker {worker_idx + 1}, Sequence {seq_idx + 1}/{num_sequences} started.")
 
             for idx, row in df.iterrows():
                 s = row[state_components].values
@@ -322,8 +256,8 @@ def worker_process_sequences(task, progress_bar=None):
                         environment_attributes=environment_attributes,
                         features=integration_features,
                         feature_ranges=feature_ranges,
-                        method=integration_method,
-                        num_evals=intergration_num_evals,
+                        method = integration_method,
+                        num_evals = intergration_num_evals,
                     )
                 else:
                     Q = float(controller_instance.step(
@@ -334,50 +268,19 @@ def worker_process_sequences(task, progress_bar=None):
                 Q_sequence.append(Q)
 
                 # Update progress
-                steps_completed += 1
-                progress_bar.update(1)
-
-                # Log progress every 10 steps to reduce log verbosity
-                if idx % 10 == 0 or idx == len(df) - 1:
-                    worker_logger.debug(f"Worker {worker_idx + 1}, Sequence {seq_idx + 1}/{num_sequences}, Step {idx + 1}/{len(df)} completed.")
+                if progress_counters is not None:
+                    progress_counters[worker_idx] += 1
+                if bar is not None:
+                    bar.update(1)
 
             Q_sequences.append(Q_sequence)
-            worker_logger.info(f"Worker {worker_idx + 1}, Sequence {seq_idx + 1}/{num_sequences} completed.")
-
-        progress_bar.close()
-        worker_logger.info(f"Worker {worker_idx + 1} finished processing {num_sequences} sequences.")
 
         return Q_sequences
 
     except Exception as e:
         # Log the error and return an empty list for this worker
-        try:
-            worker_logger = setup_worker_logger(worker_idx, os.path.join(WORKER_LOG_DIR, f'progress_worker_{worker_idx + 1}.log'))
-            worker_logger.error(f"Error in worker {worker_idx + 1} processing {num_sequences} sequences: {e}")
-        except Exception as log_exception:
-            main_logger.error(f"Failed to log error for worker {worker_idx + 1}: {log_exception}")
+        print(f"Error in worker {worker_idx} processing {num_sequences} sequences: {e}")
         return []
-
-
-def setup_worker_logger(worker_idx, log_file):
-    """
-    Sets up a logger for a worker.
-
-    :param worker_idx: Index of the worker.
-    :param log_file: Path to the log file for the worker.
-    :return: Configured logger instance.
-    """
-    logger = logging.getLogger(f'Worker_{worker_idx + 1}')
-    logger.setLevel(logging.INFO)
-
-    # Avoid adding multiple handlers to the logger if it's already set up
-    if not logger.handlers:
-        handler = logging.FileHandler(log_file)
-        formatter = logging.Formatter('%(asctime)s - WORKER - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-    return logger
 
 
 def process_random_sampling(df, environment_attributes_dict):
