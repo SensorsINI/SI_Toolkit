@@ -86,6 +86,14 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
 
         callbacks_for_training.append(reduce_lr)
 
+    # Add EarlyStopping callback
+    early_stopping = keras.callbacks.EarlyStopping(
+        monitor='val_loss',
+        patience=5,  # You can adjust the patience as needed
+        restore_best_weights=True
+    )
+    callbacks_for_training.append(early_stopping)
+
     if a.pruning_activated:
         callbacks_for_training.append(pruning_callbacks.UpdatePruningStep())
 
