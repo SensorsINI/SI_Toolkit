@@ -1,10 +1,8 @@
 import re
-from multiprocessing import cpu_count, Pool, Manager
 
 import numpy as np
-from scipy import stats
+import pandas as pd
 from tqdm import tqdm
-from time import sleep
 from Control_Toolkit.others.globals_and_utils import get_controller_name, import_controller_by_name
 
 from scipy.integrate import nquad
@@ -15,21 +13,20 @@ def add_control_along_trajectories(
         df,
         controller_config,
         controller_output_variable_name='Q_calculated',
-        num_samples=10,
-        parallel=False,
         integration_method='monte_carlo',
-        intergration_num_evals=64,
+        integration_num_evals=64,
+        save_output_only=False,
         **kwargs
 ):
     """
-    Adds controller output and its uncertainty to the trajectory data with per-worker progress bars.
+    Calculates controller output for a single sequence and returns the Q sequence.
 
     :param df: DataFrame containing trajectory data.
     :param controller_config: Controller configuration dictionary.
     :param controller_output_variable_name: Base name for controller output columns.
-    :param num_samples: Number of stochastic evaluations per trajectory step.
-    :param parallel: Whether to use parallel processing.
-    :return: DataFrame with added controller outputs and uncertainty measures.
+    :param integration_method: Method for integration.
+    :param integration_num_evals: Number of evaluations for integration.
+    :return: List of Q values for the sequence.
     """
 
     controller_name = controller_config['controller_name']
@@ -48,281 +45,159 @@ def add_control_along_trajectories(
 
     initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
 
-    # Determine the number of workers
-    if parallel:
-        num_workers = cpu_count()
-        print(f"Number of workers: {num_workers}")
-    else:
-        num_workers = 1  # Single worker for sequential processing
-
     controller_name, _ = get_controller_name(
         controller_name=controller_name
     )
 
-    # Calculate number of sequences per worker
-    base_sequences_per_worker = num_samples // num_workers
-    remainder = num_samples % num_workers
-    sequences_per_worker = [base_sequences_per_worker] * num_workers
-    for i in range(remainder):
-        sequences_per_worker[i] += 1  # Distribute the remainder
+    controller_class = import_controller_by_name(controller_name)
 
-    # Prepare worker tasks
-    tasks = []
-    for worker_idx in range(num_workers):
-        task = (
-            worker_idx,  # Pass worker index
-            sequences_per_worker[worker_idx],
-            df.copy(),  # Ensure each worker has its own copy
-            controller_config,
-            environment_attributes_dict.copy(),
-            integration_features,
-            feature_ranges,
-            state_components,
-            controller_output_variable_name,
-            integration_method,
-            intergration_num_evals,
-        )
-        tasks.append(task)
+    # Initialize a controller instance
+    controller_instance = controller_class(
+        environment_name=environment_name,
+        initial_environment_attributes=initial_environment_attributes,
+        control_limits=(action_space.low, action_space.high),
+    )
 
-    if parallel:
-        # Initialize Manager for shared progress counters
-        manager = Manager()
-        progress_counters = manager.list([0] * num_workers)
-
-        num_time_steps = len(df)  # Number of time steps per sequence
-
-        with Pool(processes=num_workers) as pool:
-            # Start worker processes
-            async_results = []
-            for task in tasks:
-                async_result = pool.apply_async(worker_process_sequences, args=(task, progress_counters))
-                async_results.append(async_result)
-
-            # Initialize tqdm progress bars for each worker with custom bar format
-            progress_bars = []
-            for worker_idx, seq_count in enumerate(sequences_per_worker):
-                total_steps = seq_count * num_time_steps
-                bar = tqdm(
-                    total=total_steps,
-                    desc=f'Worker {worker_idx+1}',
-                    position=worker_idx,
-                    leave=True,
-                    bar_format='{desc}: {n}/{total} [{elapsed}<{remaining}, {rate_fmt}]',
-                    dynamic_ncols=True
-                )
-                progress_bars.append(bar)
-
-            # Update progress bars
-            while any(not r.ready() for r in async_results):
-                for worker_idx, bar in enumerate(progress_bars):
-                    current = progress_counters[worker_idx]
-                    if current > bar.n:
-                        bar.update(current - bar.n)
-                sleep(0.1)  # Adjust sleep time as needed
-
-            # Final update after all workers are done
-            for worker_idx, bar in enumerate(progress_bars):
-                bar.update(sequences_per_worker[worker_idx] * num_time_steps - bar.n)
-                bar.close()
-
-            # Collect results
-            results = [r.get() for r in async_results]
+    # Configure the controller
+    if hasattr(controller_instance, 'has_optimizer') and controller_instance.has_optimizer:
+        controller_instance.configure(optimizer_name)
     else:
-        results = []
-        # Initialize a single tqdm progress bar for the single worker with custom bar format
-        total_steps = sequences_per_worker[0] * len(df)  # Number of sequences * time steps
-        bar = tqdm(
-            total=total_steps,
-            desc='Worker 1',
-            position=0,
-            leave=True,
-            bar_format='{desc}: {n}/{total} [{elapsed}<{remaining}, {rate_fmt}]',
-            dynamic_ncols=True
-        )
-        try:
-            for task in tasks:
-                q_sequences = worker_process_sequences(task, progress_counters=None, bar=bar)
-                results.append(q_sequences)
-        except Exception as e:
-            print(f"Error in sequential processing: {e}")
-        finally:
-            bar.close()
+        controller_instance.configure()
 
-    # Aggregate all Q sequences
-    all_Q_sequences = []
-    for worker_Q_sequences in results:
-        all_Q_sequences.extend(worker_Q_sequences)  # Each worker returns a list of Q sequences
-
-    if len(all_Q_sequences) == 0:
-        raise ValueError("No Q sequences were generated. Check for errors in worker processing.")
-
-    # Convert to numpy array for efficient computation
-    # Shape: (num_samples, num_time_steps)
-    Q_array = np.array(all_Q_sequences)
-
-    # Compute statistics across the samples for each time step
-    mean_Q = np.mean(Q_array, axis=0)
-    std_Q = np.std(Q_array, axis=0)
-    conf_low, conf_high = stats.t.interval(
-        0.95,
-        len(all_Q_sequences)-1,
-        loc=mean_Q,
-        scale=stats.sem(Q_array, axis=0)
+    Q_sequence = []
+    bar = tqdm(
+        total=len(df),
+        desc='Processing Sequence',
+        leave=True,
+        bar_format='{desc}: {n}/{total} [{elapsed}<{remaining}, {rate_fmt}]',
+        dynamic_ncols=True
     )
 
-    # Add the statistics to the DataFrame
-    df[f'{controller_output_variable_name}_mean'] = mean_Q
-    df[f'{controller_output_variable_name}_std'] = std_Q
-    df[f'{controller_output_variable_name}_conf_low'] = conf_low
-    df[f'{controller_output_variable_name}_conf_high'] = conf_high
-
-    return df
-
-
-def worker_process_sequences(task, progress_counters, bar=None):
-    """
-    Worker function to process multiple full sequences with progress updates.
-
-    :param task: Tuple containing (
-        worker_idx,
-        num_sequences,
-        df,
-        controller_config,
-        environment_attributes_dict,
-        integration_features,
-        feature_ranges,
-        state_components,
-        controller_output_variable_name
-    )
-    :param progress_counters: Shared list to track progress per worker (used in parallel mode).
-    :param bar: Optional tqdm progress bar (used in sequential mode).
-    :return: List of Q sequences (each sequence is a list of Q values per time step)
-    """
     try:
-        (
-            worker_idx,
-            num_sequences,
-            df,
-            controller_config,
-            environment_attributes_dict,
-            integration_features,
-            feature_ranges,
-            state_components,
-            controller_output_variable_name,
-            integration_method,
-            intergration_num_evals,
-        ) = task
+        # Reset or reinitialize the controller if necessary
+        if hasattr(controller_instance, 'reset'):
+            controller_instance.reset()
 
-        controller_name = controller_config['controller_name']
-        optimizer_name = controller_config.get('optimizer_name', None)
-        environment_name = controller_config['environment_name']
-        action_space = controller_config['action_space']
+        for idx, row in df.iterrows():
+            s = row[state_components].values
+            time_step = row['time']
+            environment_attributes = {key: row[key] for key in environment_attributes_dict.keys()}
 
-        initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
+            if integration_features:
+                Q = integration(
+                    controller=controller_instance,
+                    s=s,
+                    time=time_step,
+                    environment_attributes=environment_attributes,
+                    features=integration_features,
+                    feature_ranges=feature_ranges,
+                    method=integration_method,
+                    num_evals=integration_num_evals,
+                )
+            else:
+                Q = float(controller_instance.step(
+                    s=s,
+                    time=time_step,
+                    updated_attributes=environment_attributes,
+                ))
+            Q_sequence.append(Q)
 
-        controller_class = import_controller_by_name(controller_name)
-
-        # Initialize a controller instance for this worker
-        controller_instance = controller_class(
-            environment_name=environment_name,
-            initial_environment_attributes=initial_environment_attributes,
-            control_limits=(action_space.low, action_space.high),
-        )
-
-        # Configure the controller
-        if hasattr(controller_instance, 'has_optimizer') and controller_instance.has_optimizer:
-            controller_instance.configure(optimizer_name)
-        else:
-            controller_instance.configure()
-
-        Q_sequences = []
-
-        for seq_idx in range(num_sequences):
-            Q_sequence = []
-            # Reset or reinitialize the controller if necessary
-            if hasattr(controller_instance, 'reset'):
-                controller_instance.reset()
-
-            for idx, row in df.iterrows():
-                s = row[state_components].values
-                time_step = row['time']
-                environment_attributes = {key: row[key] for key in environment_attributes_dict.keys()}
-
-                if integration_features:
-                    Q = integration(
-                        controller=controller_instance,
-                        s=s,
-                        time=time_step,
-                        environment_attributes=environment_attributes,
-                        features=integration_features,
-                        feature_ranges=feature_ranges,
-                        method = integration_method,
-                        num_evals = intergration_num_evals,
-                    )
-                else:
-                    Q = float(controller_instance.step(
-                        s=s,
-                        time=time_step,
-                        updated_attributes=environment_attributes,
-                    ))
-                Q_sequence.append(Q)
-
-                # Update progress
-                if progress_counters is not None:
-                    progress_counters[worker_idx] += 1
-                if bar is not None:
-                    bar.update(1)
-
-            Q_sequences.append(Q_sequence)
-
-        return Q_sequences
+            # Update progress bar
+            bar.update(1)
 
     except Exception as e:
-        # Log the error and return an empty list for this worker
-        print(f"Error in worker {worker_idx} processing {num_sequences} sequences: {e}")
-        return []
+        print(f"Error in processing sequence: {e}")
+    finally:
+        bar.close()
+
+    if save_output_only:
+        return pd.DataFrame({controller_output_variable_name: Q_sequence})
+    else:
+        df[controller_output_variable_name] = Q_sequence
+
+    return df
 
 
 def process_random_sampling(df, environment_attributes_dict):
     """
     Process random sampling for features specified in environment_attributes_dict.
+    Allows specifying custom ranges within the feature names.
+
     :param df: DataFrame containing the data
     :param environment_attributes_dict: dictionary of environment attributes
     :return: Updated df and environment_attributes_dict
     """
-    pattern = re.compile(r'(.+)_random_uniform_$')
+    # Regex pattern to capture feature name and optional min and max values
+    pattern = re.compile(r'^(.+)_random_uniform_([-+]?\d*\.?\d+)_([-+]?\d*\.?\d+)_?$')
     num_rows = len(df)
+
     for key, value in environment_attributes_dict.items():
         match = pattern.match(value)
         if match:
             feature = match.group(1)
-            feature_min = df[feature].min()
-            feature_max = df[feature].max()
-            df[feature + '_random_uniform'] = np.random.uniform(feature_min, feature_max, num_rows)
-            environment_attributes_dict[key] = feature + '_random_uniform'
+            # Check if min and max are provided in the name
+            if len(match.groups()) == 3:
+                try:
+                    feature_min = float(match.group(2))
+                    feature_max = float(match.group(3))
+                except ValueError:
+                    raise ValueError(f"Invalid range values in feature name: {value}")
+            else:
+                # If no range is provided, use the min and max from the DataFrame
+                feature_min = df[feature].min()
+                feature_max = df[feature].max()
+
+            # Generate random uniform samples within the specified range
+            new_feature_name = f"{feature}_random_uniform"
+            df[new_feature_name] = np.random.uniform(feature_min, feature_max, num_rows)
+
+            # Update the environment_attributes_dict with the new feature name
+            environment_attributes_dict[key] = new_feature_name
+
     return df, environment_attributes_dict
 
+
+
+import re
 
 def get_integration_features(df, environment_attributes_dict):
     """
     Identify features to integrate over from environment_attributes_dict.
+    Allows specifying custom ranges within the feature names.
+
     :param df: DataFrame containing the data
     :param environment_attributes_dict: dictionary of environment attributes
     :return: integration_features, feature_ranges, updated environment_attributes_dict
     """
-    pattern = re.compile(r'(.+)_integrate_$')
+    # Regex pattern to capture feature name and optional min and max values
+    pattern = re.compile(r'^(.+)_integrate_([-+]?\d*\.?\d+)_([-+]?\d*\.?\d+)_?$')
     integration_features = []
     feature_ranges = {}
+
     for key, value in environment_attributes_dict.items():
         match = pattern.match(value)
         if match:
             feature = match.group(1)
+            # Check if min and max are provided in the name
+            if len(match.groups()) == 3:
+                try:
+                    feature_min = float(match.group(2))
+                    feature_max = float(match.group(3))
+                except ValueError:
+                    raise ValueError(f"Invalid range values in feature name: {value}")
+            else:
+                # If no range is provided, use the min and max from the DataFrame
+                feature_min = df[feature].min()
+                feature_max = df[feature].max()
+
             integration_features.append(feature)
-            feature_min = df[feature].min()
-            feature_max = df[feature].max()
             feature_ranges[feature] = (feature_min, feature_max)
-            environment_attributes_dict[key] = feature  # Update to use the feature name
+
+            # Update the environment_attributes_dict to use the feature name
+            environment_attributes_dict[key] = feature
+
     return integration_features, feature_ranges, environment_attributes_dict
+
 
 
 def integration(controller, s, time, environment_attributes, features, feature_ranges, method='nquad', num_evals=100):
@@ -408,6 +283,7 @@ def integration(controller, s, time, environment_attributes, features, feature_r
         # Compute the integral as the average value times the volume
         integral = np.mean(evaluations) * volume
         average_control = integral / volume
+        print(f"Monte Carlo Integration: Estimated average control = {average_control}, integral = {integral}, volume = {volume}")
 
     else:
         raise ValueError("Invalid integration method. Choose 'nquad' or 'monte_carlo'.")
