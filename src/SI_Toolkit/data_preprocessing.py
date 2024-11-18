@@ -84,16 +84,19 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
             # Ensure the target directory exists
             os.makedirs(os.path.dirname(processed_file_path), exist_ok=True)
 
-            with open(processed_file_path, 'w', newline=''):  # Overwrites if existed
-                pass
-            with open(current_path, "r", newline='') as f_input, \
-                    open(processed_file_path, "a", newline='') as f_output:
+            # Read and store comments first
+            comments = []
+            with open(current_path, "r", newline='') as f_input:
                 for line in f_input:
                     if line.lstrip().startswith('#'):
-                        f_output.write(line)
+                        comments.append(line)
                     else:
                         break
 
+            # Open the file for writing and write comments
+            with open(processed_file_path, 'w', newline='') as f_output:
+                f_output.write(f'# Original file transformed with "{transformation}" transformation\n#\n')
+                f_output.writelines(comments)
             df_processed.to_csv(processed_file_path, index=False, mode='a')
 
 
