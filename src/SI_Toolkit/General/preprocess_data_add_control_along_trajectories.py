@@ -81,7 +81,7 @@ def add_control_along_trajectories(
         for idx, row in df.iterrows():
             s = row[state_components].values
             time_step = row['time']
-            environment_attributes = {key: row[key] for key in environment_attributes_dict.keys()}
+            environment_attributes = {key: row[value] for key, value in environment_attributes_dict.items()}
 
             if integration_features:
                 Q = integration(
