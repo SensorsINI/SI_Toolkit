@@ -115,19 +115,19 @@ class predictor_autoregressive_neural(template_predictor):
 
         if self.net_info.library == 'TF':
             from SI_Toolkit.computation_library import TensorFlowLibrary
-            self.lib = TensorFlowLibrary
+            self.lib = TensorFlowLibrary()
             from SI_Toolkit.Functions.TF.Network import (
                 _copy_internal_states_from_ref, _copy_internal_states_to_ref)
         elif self.net_info.library == 'Pytorch':
             from SI_Toolkit.computation_library import PyTorchLibrary
-            self.lib = PyTorchLibrary
+            self.lib = PyTorchLibrary()
             from SI_Toolkit.Functions.Pytorch.Network import (
                 _copy_internal_states_from_ref, _copy_internal_states_to_ref)
         else:
             raise NotImplementedError('predictor_autoregressive_neural defined only for TF and Pytorch')
 
         if hls:
-            self.lib = NumpyLibrary
+            self.lib = NumpyLibrary()
 
         self.copy_internal_states_from_ref = _copy_internal_states_from_ref
         self.copy_internal_states_to_ref = _copy_internal_states_to_ref

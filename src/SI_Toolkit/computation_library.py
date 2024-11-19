@@ -389,7 +389,7 @@ class TensorFlowLibrary(ComputationLibrary):
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
         import tensorflow as tf  # Lazy import
-        if isinstance(v, tf.Tensor):
+        if isinstance(v, tf.Variable):
             v.assign(x)
         else:
             raise TypeError("Unsupported tensor type")
@@ -516,4 +516,5 @@ class PyTorchLibrary(ComputationLibrary):
     def gather_last_pytorch(a, index_vector):
         return a[..., index_vector]
 
-    
+
+ComputationClasses = (NumpyLibrary, TensorFlowLibrary, PyTorchLibrary)

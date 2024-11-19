@@ -2,7 +2,7 @@
 from SI_Toolkit.computation_library import NumpyLibrary
 
 
-def float_to_ap_fixed(value, total_bits=20, integer_bits=6, rounding=True, lib=NumpyLibrary):
+def float_to_ap_fixed(value, total_bits=20, integer_bits=6, rounding=True, lib=NumpyLibrary()):
     # Calculate the scale for the fractional part
     scale = 2 ** (total_bits - integer_bits)
 
@@ -28,7 +28,7 @@ def float_to_ap_fixed(value, total_bits=20, integer_bits=6, rounding=True, lib=N
 
 
 
-def set_value_precision(value, precision, lib=NumpyLibrary):
+def set_value_precision(value, precision, lib=NumpyLibrary()):
     if precision == 'float':
         pass
     elif precision[:len('ap_fixed')] == 'ap_fixed':

@@ -63,7 +63,7 @@ def get_normalization_function(
 def get_denormalization_function(
                                  normalization_info,
                                  variables_names,
-                                 lib=NumpyLibrary,
+                                 lib=NumpyLibrary(),
                                  normalization_type='minmax_sym',
                                  return_coeffs=False,
 ):
@@ -112,7 +112,7 @@ def get_scaling_function_for_output_of_differential_network(
                                  normalization_info,
                                  network_outputs,
                                  dt,
-                                 lib=NumpyLibrary,
+                                 lib=NumpyLibrary(),
                                  normalization_type='minmax_sym',
                                  return_coeffs=False,
 ):
