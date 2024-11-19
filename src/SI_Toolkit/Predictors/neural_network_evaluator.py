@@ -38,10 +38,10 @@ class neural_network_evaluator:
             self.net.compile()
         elif self.net_info.library == 'Pytorch':
             from SI_Toolkit.computation_library import PyTorchLibrary
-            self._computation_library = PyTorchLibrary
+            self._computation_library = PyTorchLibrary()
         elif self.net_info.library == 'TF':
             from SI_Toolkit.computation_library import TensorFlowLibrary
-            self._computation_library = TensorFlowLibrary
+            self._computation_library = TensorFlowLibrary()
 
         if self.lib.lib == 'Pytorch':
             from SI_Toolkit.Functions.Pytorch.Network import get_device

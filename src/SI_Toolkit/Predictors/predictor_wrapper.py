@@ -77,7 +77,7 @@ class PredictorWrapper:
         elif self.predictor_type == 'ODE':
             from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
             if computation_library is None:  # TODO: Remove it after making sure that the predictor gets the right library everywhere it is used.
-                computation_library = TensorFlowLibrary
+                computation_library = TensorFlowLibrary()
             self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         else:
@@ -87,9 +87,8 @@ class PredictorWrapper:
         self.num_control_inputs = self.predictor.num_control_inputs
         
         # computation_library defaults to None. In that case, do not check for conformity.
-        if computation_library is not None and computation_library not in self.predictor.supported_computation_libraries:
-            raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__name__}")
-
+        if not isinstance(computation_library, self.predictor.supported_computation_libraries):
+            raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__class__}")
     def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None, mode=None, hls=False):
         """
         To get max performance
