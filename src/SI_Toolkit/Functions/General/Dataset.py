@@ -202,11 +202,8 @@ class DatasetTemplate:
             self.scaling_tiv = self.scaling_tiv_epoch_factor * np.random.uniform(-2, 2, size=len(self.tiv))
             features[:, self.tiv_in_inputs_idx] +=  self.scaling_tiv[self.tiv_for_inputs_idx]
             targets[:, self.tiv_in_outputs_idx] += self.scaling_tiv[self.tiv_for_outputs_idx]
-        
-        # Add noise only to the last two columns of each row in features
-        noise_length = features.shape[1] - 45 # 45 is the number of columns that are waypoints without noise
-        features[:, -noise_length:] += np.random.normal(0, 0.005, features[:, -noise_length:].shape)
-            
+
+
         # If get_time_axis try to obtain a vector of time data for the chosen sample
         if get_time_axis:
             try:

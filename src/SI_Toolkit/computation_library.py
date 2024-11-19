@@ -1,53 +1,14 @@
 from typing import Callable, Optional, Union, Sequence, Any
 
 import functools
-import numpy as np
 
-from numpy.random import Generator, SFC64
+from math import pi
 
 
 # TensorType = Union[np.ndarray, tf.Tensor, torch.Tensor]
 TensorType = Union["np.ndarray", "tf.Tensor", "torch.Tensor"]
-RandomGeneratorType = Union["Generator", "tf.random.Generator", "torch.Generator"]
+RandomGeneratorType = Union["np.random.Generator", "tf.random.Generator", "torch.Generator"]
 NumericType = Union[float, int]
-
-class LibraryHelperFunctions:
-    @staticmethod
-    def set_to_value(v: "TensorType", x: "TensorType"):
-        # Handle NumPy
-        if isinstance(v, np.ndarray):
-            v[...] = x
-        # Handle TensorFlow
-        elif isinstance(v, tf.Tensor):
-            import tensorflow as tf  # Lazy import
-            v.assign(x)
-        # Handle PyTorch
-        elif isinstance(v, torch.Tensor):
-            import torch  # Lazy import
-            v.copy_(x)
-        else:
-            raise TypeError("Unsupported tensor type")
-
-    @staticmethod
-    def set_to_variable(v: "tf.Variable", x: "tf.Tensor"):
-        v.assign(x)
-
-    @staticmethod
-    def cond(condition: "TensorType", true_fn: Callable[[], Any], false_fn: Callable[[], Any]) -> Any:
-        # Handle NumPy
-        if isinstance(condition, np.ndarray):
-            return true_fn() if condition else false_fn()
-        # Handle TensorFlow
-        elif isinstance(condition, tf.Tensor):
-            import tensorflow as tf  # Lazy import
-            return tf.cond(condition, true_fn, false_fn)
-        # Handle PyTorch
-        elif isinstance(condition, torch.Tensor):
-            return true_fn() if condition.item() else false_fn()
-        else:
-            raise TypeError("Unsupported tensor type")
-
-
 
 
 def set_device_general(device_name: str, library: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -63,6 +24,9 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
     library = library.lower()  # Normalize the library name for case-insensitive comparison
 
     if library == 'numpy':
+
+        import numpy as np
+
         # Numpy does not require device management, so this is a no-op
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             @functools.wraps(func)
@@ -71,10 +35,13 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
             return wrapper
 
     elif library == 'tf':
+
         import tensorflow as tf
+
         devices = tf.config.list_physical_devices()
         if device_name not in [d.name for d in devices] and '/physical_'+device_name[1:] not in [d.name for d in devices]:
             raise ValueError(f"Requested device {device_name} not found in the list of physical devices: {devices}")
+
         # TensorFlow device management
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             @functools.wraps(func)
@@ -84,6 +51,9 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
             return wrapper
 
     elif library == 'pytorch':
+
+        import torch
+
         devices = [torch.device(f'cuda:{i}') for i in
                    range(torch.cuda.device_count())] if torch.cuda.is_available() else [torch.device('cpu')]
         target_device = torch.device(device_name)  # Create a torch.device object for comparison
@@ -123,8 +93,8 @@ class ComputationLibrary:
     permute: Callable[[TensorType, "tuple[int]"], TensorType] = None
     newaxis = None
     shape: Callable[[TensorType], "list[int]"] = None
-    to_numpy: Callable[[TensorType], np.ndarray] = None
-    to_variable: Callable[[TensorType, type], np.ndarray] = None
+    to_numpy: Callable[[TensorType], "numpy.ndarray"] = None
+    to_variable: Callable[[TensorType, type], "numpy.ndarray"] = None
     to_tensor: Callable[[TensorType, type], TensorType] = None
     constant: Callable[[Union[float, TensorType], type], Union[float, TensorType]] = None
     unstack: Callable[[TensorType, int, int], "list[TensorType]"] = None
@@ -197,7 +167,7 @@ class ComputationLibrary:
     cross: Callable[[TensorType, TensorType], TensorType] = None
     dot: Callable[[TensorType, TensorType], TensorType] = None
     stop_gradient: Callable[[TensorType], TensorType] = None
-    assign: Callable[[Union[TensorType, "tf.Variable"], TensorType], Union[TensorType, "tf.Variable"]] = None
+    assign: Callable[[Union[TensorType, "tensorflow.Variable"], TensorType], Union[TensorType, "tensorflow.Variable"]] = None
     where: Callable[[TensorType, TensorType, TensorType], TensorType] = None
     cond: Callable[[TensorType, Callable[[], Any], Callable[[], Any]], TensorType] = None
     logical_and: Callable[[TensorType, TensorType], TensorType] = None
@@ -206,10 +176,12 @@ class ComputationLibrary:
     square: Callable[[TensorType], TensorType] = None
     divide: Callable[[TensorType, TensorType], TensorType] = None
 
+
 class NumpyLibrary(ComputationLibrary):
-    
+
     def __init__(self):
         import numpy as np  # Lazy import here
+
         self.lib = 'Numpy'
         self.float32 = np.float32
         self.float64 = np.float64
@@ -259,7 +231,7 @@ class NumpyLibrary(ComputationLibrary):
         self.ones = np.ones
         self.ones_like = np.ones_like
         self.sign = np.sign
-        self.create_rng = lambda seed: Generator(SFC64(seed))
+        self.create_rng = lambda seed: np.random.Generator(np.random.SFC64(seed))
         self.standard_normal = lambda generator, shape: generator.standard_normal(size=shape)
         self.uniform = lambda generator, shape, low, high, dtype: generator.uniform(
             low=low, high=high, size=shape
@@ -296,14 +268,29 @@ class NumpyLibrary(ComputationLibrary):
         self.cross = np.cross
         self.dot = np.dot
         self.stop_gradient = lambda x: x
-        self.assign = LibraryHelperFunctions.set_to_value
         self.where = np.where
-        self.cond = LibraryHelperFunctions.cond
         self.logical_and = np.logical_and
         self.logical_or  = np.logical_or
         self.print = print
         self.square = np.square
         self.divide = np.divide
+
+    @staticmethod
+    def assign(v: "TensorType", x: "TensorType"):
+        import numpy as np
+        if isinstance(v, np.ndarray):
+            v[...] = x
+        else:
+            raise TypeError("Unsupported tensor type")
+
+    @staticmethod
+    def cond(condition: "TensorType", true_fn: Callable[[], Any], false_fn: Callable[[], Any]) -> Any:
+        import numpy as np
+        if isinstance(condition, np.ndarray):
+            return true_fn() if condition else false_fn()
+        else:
+            raise TypeError("Unsupported tensor type")
+
 
 class TensorFlowLibrary(ComputationLibrary):
     def __init__(self):
@@ -365,7 +352,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.cumprod = lambda x, a: tf.math.cumprod(x, axis=a)
         self.set_shape = lambda x, shape: x.set_shape(shape)
         self.concat = lambda x, axis: tf.concat(x, axis)
-        self.pi = tf.convert_to_tensor(np.array(np.pi), dtype=tf.float32)
+        self.pi = tf.convert_to_tensor(pi, dtype=tf.float32)
         self.any = tf.reduce_any
         self.all = tf.reduce_all
         self.reduce_any = lambda a, axis: tf.reduce_any(a, axis=axis)
@@ -391,7 +378,6 @@ class TensorFlowLibrary(ComputationLibrary):
         self.cross = tf.linalg.cross
         self.dot = lambda a, b: tf.tensordot(a, b, 1)
         self.stop_gradient = tf.stop_gradient
-        self.assign = LibraryHelperFunctions.set_to_variable
         self.where = tf.where
         self.cond = tf.cond
         self.logical_and = tf.math.logical_and
@@ -399,6 +385,15 @@ class TensorFlowLibrary(ComputationLibrary):
         self.print = tf.print
         self.square = tf.square
         self.divide = tf.math.divide
+
+    @staticmethod
+    def assign(v: "TensorType", x: "TensorType"):
+        import tensorflow as tf  # Lazy import
+        if isinstance(v, tf.Tensor):
+            v.assign(x)
+        else:
+            raise TypeError("Unsupported tensor type")
+
 
 class PyTorchLibrary(ComputationLibrary):
     
@@ -445,7 +440,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.tile = torch.tile
         self.repeat = lambda x, k, a: torch.repeat_interleave(x, repeats=k, dim=a)
         self.gather = lambda x, i, a: torch.gather(x, dim=a, index=i)  # FIXME: It works very differently to TF!!!
-        self.gather_last = gather_last_pytorch
+        self.gather_last = self.gather_last_pytorch
         self.arange = torch.arange
         self.zeros = torch.zeros
         self.zeros_like = torch.zeros_like
@@ -467,7 +462,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.cumprod = lambda x, a: torch.cumprod(x, dim=a)
         self.set_shape = lambda x, shape: x
         self.concat = lambda x, axis: torch.concat(x, dim=axis)
-        self.pi = torch.from_numpy(np.array(np.pi)).float()
+        self.pi = torch.as_tensor(pi, dtype=torch.float32)
         self.any = torch.any
         self.all = torch.all
         self.reduce_any = lambda a, axis: torch.any(a, dim=axis)
@@ -493,17 +488,29 @@ class PyTorchLibrary(ComputationLibrary):
         self.cross = torch.linalg.cross
         self.dot = torch.dot
         # stop_gradient = tf.stop_gradient # FIXME: How to imlement this in torch?
-        self.assign = LibraryHelperFunctions.set_to_value
         self.where = torch.where
-        self.cond = LibraryHelperFunctions.cond
         self.logical_and = torch.logical_and
         self.logical_or  = torch.logical_or
         self.print = print
         self.square = torch.square
         self.divide = torch.div
 
-        
-        
+    @staticmethod
+    def assign(v: "TensorType", x: "TensorType"):
+        import torch
+        if isinstance(v, torch.Tensor):
+            v.copy_(x)
+        else:
+            raise TypeError("Unsupported tensor type")
+
+    @staticmethod
+    def cond(condition: "TensorType", true_fn: Callable[[], Any], false_fn: Callable[[], Any]) -> Any:
+        import torch
+        if isinstance(condition, torch.Tensor):
+            return true_fn() if condition.item() else false_fn()
+        else:
+            raise TypeError("Unsupported tensor type")
+
 
     @staticmethod
     def gather_last_pytorch(a, index_vector):

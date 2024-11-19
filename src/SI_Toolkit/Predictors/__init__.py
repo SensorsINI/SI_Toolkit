@@ -1,5 +1,4 @@
 from SI_Toolkit.computation_library import NumpyLibrary, PyTorchLibrary, TensorFlowLibrary
-# import tensorflow as tf
 import numpy as np
 
 from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import CONTROL_INPUTS, STATE_VARIABLES
