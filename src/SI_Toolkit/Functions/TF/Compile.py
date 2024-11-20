@@ -2,10 +2,7 @@ import logging
 import platform
 import os
 
-import tensorflow as tf
-import torch
-
-from SI_Toolkit.computation_library import ComputationLibrary
+from SI_Toolkit.computation_library import ComputationLibrary, ComputationClasses
 
 from SI_Toolkit.load_and_normalize import load_yaml
 config_compilation = load_yaml(os.path.join('SI_Toolkit_ASF', 'CONFIG_COMPILATION.yml'))
@@ -13,10 +10,12 @@ GLOBALLY_DISABLE_COMPILATION = config_compilation['GLOBALLY_DISABLE_COMPILATION'
 USE_JIT_COMPILATION = config_compilation['USE_JIT_COMPILATION']
 
 def tf_function_jit(func):
+    import tensorflow as tf
     return tf.function(func=func, jit_compile=True)
 
 
 def tf_function_experimental(func):
+    import tensorflow as tf
     return tf.function(func=func, experimental_compile=True)
 
 
@@ -28,8 +27,10 @@ if GLOBALLY_DISABLE_COMPILATION:
     CompileTF = identity
 else:
     if platform.machine() == 'arm64' and platform.system() == 'Darwin':  # For M1 Apple processor
+        import tensorflow as tf
         CompileTF = tf.function
     elif not USE_JIT_COMPILATION:
+        import tensorflow as tf
         CompileTF = tf.function
     else:
         CompileTF = tf_function_jit
@@ -37,7 +38,7 @@ else:
 
 
 def CompileAdaptive(arg=None):
-    if isinstance(arg, type) and issubclass(arg, ComputationLibrary):
+    if isinstance(arg, ComputationClasses):
 
         computation_library = arg
 

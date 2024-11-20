@@ -16,7 +16,7 @@ from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization_v0 import next
 
 
 class predictor_ODE_v0(template_predictor):
-    supported_computation_libraries = {NumpyLibrary}  # Overwrites default from parent
+    supported_computation_libraries = (NumpyLibrary,)  # Overwrites default from parent
     
     def __init__(
         self,

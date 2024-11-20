@@ -22,7 +22,7 @@ os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
 
 class predictor_autoregressive_GP(template_predictor):
-    supported_computation_libraries = {TensorFlowLibrary}  # Overwrites default from parent
+    supported_computation_libraries = (TensorFlowLibrary,)  # Overwrites default from parent
     
     def __init__(self,
                  model_name=None,
@@ -52,7 +52,7 @@ class predictor_autoregressive_GP(template_predictor):
             a.model_name = model_name
 
         super().__init__(horizon=horizon, batch_size=batch_size)
-        self.lib = TensorFlowLibrary
+        self.lib = TensorFlowLibrary()
         self.batch_size = self.batch_size
         self.model = load_model(a.path_to_models + a.model_name)
         self.inputs = self.model.state_inputs + self.model.control_inputs

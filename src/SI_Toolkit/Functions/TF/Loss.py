@@ -25,6 +25,13 @@ class LossMSRSequence(tf.keras.losses.Loss):
 
     def call(self, y_true, y_predicted):
 
+        # V1
+        # y_predicted = tf.clip_by_value(y_predicted, -1.0, 1.0)
+
+        # V2
+        # condition = tf.abs(y_true) >= 1.0
+        # y_predicted = tf.where(condition, tf.clip_by_value(y_predicted, -1.0, 1.0), y_predicted)
+
         losses = tf.cond(
             tf.equal(tf.shape(y_predicted)[1], tf.shape(y_true)[1] + 1),
             lambda: keras.losses.MSE(y_true, y_predicted[:, 1:, :]),  # A case where we train a predictor which output includes the input
@@ -37,7 +44,7 @@ class LossMSRSequence(tf.keras.losses.Loss):
         # Get discounted some of losses for a time series
         # Axis (2,1) results in the natural operation of losses * discount_vector
         # loss = keras.layers.Dot(axes=(1, 0))([losses, discount_vector])
-        loss = tf.linalg.matvec(losses, self.discount_vector)
+        loss = tf.linalg.matvec(losses, self.discount_vector)/self.post_wash_out_len
 
         return tf.reduce_mean(loss)
 
@@ -74,7 +81,7 @@ class LossMSRSequenceCustomizableRelative(tf.keras.losses.Loss):
         losses = losses[:, self.wash_out_len:]
 
         # Get discounted sum of losses for a time series
-        loss = tf.linalg.matvec(losses, self.discount_vector)
+        loss = tf.linalg.matvec(losses, self.discount_vector)#/self.post_wash_out_len
 
         return tf.reduce_mean(loss)
 

@@ -39,16 +39,18 @@ history_class.update_history(current_values)
 """
 
 class FunctionalDict:
-    def __init__(self, dict):
-        self._values = dict
+    def __init__(self, initial_dict=None):
+        if initial_dict is None:
+            initial_dict = {}
+        self._values = initial_dict
 
     def __getitem__(self, key):
         if key in self._values:
             return self._values[key]()
-        raise KeyError(f"Key {key} not found in CurrentValues.")
+        raise KeyError(f"Key {key} not found in FunctionalDict.")
 
     def __setitem__(self, key, value):
-        if key in self._values and callable(value):
+        if callable(value):
             self._values[key] = value
         else:
             raise ValueError("Value must be a callable returning the value for the key.")
@@ -57,7 +59,7 @@ class FunctionalDict:
         if key in self._values:
             del self._values[key]
         else:
-            raise KeyError(f"Key {key} not found in CurrentValues.")
+            raise KeyError(f"Key {key} not found in FunctionalDict.")
 
     def __iter__(self):
         return iter(self._values)
@@ -73,6 +75,29 @@ class FunctionalDict:
 
     def items(self):
         return [(key, func()) for key, func in self._values.items()]
+
+    def update(self, other=(), **kwargs):
+        """
+        Update the FunctionalDict with key-value pairs from another
+        FunctionalDict or from a standard dictionary or iterable of key-value pairs.
+        """
+        if isinstance(other, FunctionalDict):
+            other = other._values  # Access the internal dict
+        elif isinstance(other, dict):
+            pass  # Already a dict
+        else:
+            # Assume it's an iterable of key-value pairs
+            other = dict(other)
+
+        for key, value in other.items():
+            if not callable(value):
+                raise ValueError("All values must be callable.")
+            self._values[key] = value  # Add or update the key
+
+        for key, value in kwargs.items():
+            if not callable(value):
+                raise ValueError("All values must be callable.")
+            self._values[key] = value  # Add or update the key
 
     def __repr__(self):
         return f"{self.__class__.__name__}({{ {', '.join(f'{k}: {v()}' for k, v in self._values.items())} }})"

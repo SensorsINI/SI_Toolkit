@@ -10,7 +10,7 @@ from SI_Toolkit.computation_library import NumpyLibrary, ComputationLibrary
 
 
 class neural_network_evaluator:
-    _computation_library = NumpyLibrary
+    _computation_library = NumpyLibrary()
 
     def __init__(self, net_name, path_to_models, batch_size, input_precision='float', hls4ml=False):
 
@@ -31,17 +31,17 @@ class neural_network_evaluator:
                     batch_size=self.batch_size, stateful=True)
 
         if self.hls4ml:
-            self._computation_library = NumpyLibrary
+            self._computation_library = NumpyLibrary()
             # Convert network to HLS form
             from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
             self.net, _ = convert_model_with_hls4ml(self.net)
             self.net.compile()
         elif self.net_info.library == 'Pytorch':
             from SI_Toolkit.computation_library import PyTorchLibrary
-            self._computation_library = PyTorchLibrary
+            self._computation_library = PyTorchLibrary()
         elif self.net_info.library == 'TF':
             from SI_Toolkit.computation_library import TensorFlowLibrary
-            self._computation_library = TensorFlowLibrary
+            self._computation_library = TensorFlowLibrary()
 
         if self.lib.lib == 'Pytorch':
             from SI_Toolkit.Functions.Pytorch.Network import get_device
@@ -95,7 +95,7 @@ class neural_network_evaluator:
 
     @property
     def computation_library(self) -> "type[ComputationLibrary]":
-        if self._computation_library == None:
+        if self._computation_library is None:
             raise NotImplementedError("Controller class needs to specify its computation library")
         return self._computation_library
 

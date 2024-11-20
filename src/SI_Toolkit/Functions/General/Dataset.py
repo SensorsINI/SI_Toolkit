@@ -3,16 +3,23 @@ from copy import deepcopy
 from SI_Toolkit.Functions.General.value_precision import set_value_precision
 from tqdm import tqdm
 
-def augment_data_placeholder(data, labels):
-    return data, labels
+
+class DataAugmentationPlaceholder:
+    def __init__(self, inputs, outputs, config_series_modification) -> None:
+        self.columns_created = []
+
+    @staticmethod
+    def series_modification(features, targets):
+        return features, targets
 
 
 try:
-    from SI_Toolkit_ASF.ToolkitCustomization.data_augmentation import augment_data
+    from SI_Toolkit_ASF.ToolkitCustomization.data_augmentation import DataAugmentation
 except:
     print("Data augmentation function not found. Data will not be transformed no matter the value of AUGMENT_DATA in config_training.")
-    augment_data = augment_data_placeholder
+    DataAugmentation = DataAugmentationPlaceholder
 
+from SI_Toolkit.Functions.General.Dataset_Filters import filter_datasets
 
 class DatasetTemplate:
     def __init__(self,
@@ -63,15 +70,24 @@ class DatasetTemplate:
 
         dfs = dfs_split
 
-        data_filter = DataFilter(args)
+        dfs = filter_datasets(dfs, args)
+
+        self.DA = DataAugmentation(self.inputs, self.outputs, args.config_series_modification)
+        needed_columns = list(set(self.inputs) | set(self.outputs))
+        missing_columns = set(needed_columns) - set(dfs[0].columns)  # Assuming all dfs have same columns
+        missing_and_not_in_augmented = missing_columns - set(self.DA.columns_created)
+        if missing_and_not_in_augmented != set():
+            raise ValueError(f"Columns {missing_and_not_in_augmented} are needed for inputs and/or outputs of the networks but missing in the data files.")
+
+        for df in dfs:
+            for col in missing_columns:
+                df[col] = np.nan
+
 
         for df in tqdm(dfs, desc="Processing data files"):
-            df = data_filter.apply_filters(df)
             if len(df) == 0:
                 continue
-            needed_columns = list(set(self.inputs) | set(self.outputs))
             df = df[needed_columns]
-            df = df.dropna(axis=0)
             if hasattr(args, 'quantization') and args.quantization['ACTIVATED'] and args.quantization['QUANTIZATION_DATASET'] != 'float':
                 df = df.map(lambda x: set_value_precision(x, args.quantization['QUANTIZATION_DATASET']))
             if 'time' in df.columns:
@@ -81,9 +97,6 @@ class DatasetTemplate:
 
         self.data_original = deepcopy(self.data)
         self.labels_original = deepcopy(self.labels)
-
-        if args.augment_data:
-            self.data, self.labels = augment_data(self.data_original, self.labels_original)
 
         self.args = args
 
@@ -179,6 +192,9 @@ class DatasetTemplate:
         # Every point in features has its target value corresponding to the next time step:
         targets = self.labels[idx_data_set].iloc[idx + self.shift_labels:idx + self.exp_len + self.shift_labels, :].to_numpy()
 
+        if hasattr(self.args, 'config_series_modification'):
+            features, targets = self.DA.series_modification(features, targets)
+
         # Perturb the translation invariant inputs
         if self.tiv:
             self.scaling_tiv = self.scaling_tiv_epoch_factor * np.random.uniform(-2, 2, size=len(self.tiv))
@@ -264,52 +280,10 @@ class DatasetTemplate:
         self.number_of_batches_to_use = self.number_of_batches
 
     def on_epoch_end(self):
-        if self.args.augment_data:
-            self.data, self.labels = augment_data(self.data_original, self.labels_original)
-            self.reset_exp_len(self.exp_len)
-            self.reset_number_of_samples()
-            # Batch is of relevance only for TF, Pytorch does not use Dataset to form batches.
-            self.reset_batch_size(self.batch_size)
         if self.tiv:
             self.scaling_tiv_epoch_factor += 1.0
             print('scaling_tiv_epoch_factor is now {}'.format(self.scaling_tiv_epoch_factor))
         self.shuffle_dataset()
 
 
-class DataFilter:
-    def __init__(self, args):
-        # Check if 'filters' field exists in the configuration
-        if hasattr(args, 'filters') and isinstance(args.filters, list):
-            self.filter_funcs = []
-            for data_filter in args.filters:
-                column = data_filter['column']
-                condition = data_filter['condition']
-                operator, value_str = condition.split(" ", 1)
-                value = float(value_str)
-                use_absolute = data_filter.get('absolute', False)
 
-                # Function to apply or bypass abs()
-                def apply_abs_if_needed(dataset_values, use_abs):
-                    return abs(dataset_values) if use_abs else dataset_values
-
-                # Creating lambda functions based on the operator
-                if operator == '<':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) < v])
-                elif operator == '<=':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) <= v])
-                elif operator == '>':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) > v])
-                elif operator == '>=':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) >= v])
-                elif operator == '==':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) == v])
-                elif operator == '!=':
-                    self.filter_funcs.append(lambda df, c=column, v=value: df[apply_abs_if_needed(df[c], use_absolute) != v])
-        else:
-            # If 'filters' field is not in config, setup to bypass filtering
-            self.filter_funcs = [lambda df: df]
-
-    def apply_filters(self, df):
-        for func in self.filter_funcs:
-            df = func(df)
-        return df
