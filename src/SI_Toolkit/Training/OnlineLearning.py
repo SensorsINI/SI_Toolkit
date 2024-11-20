@@ -135,7 +135,7 @@ class OnlineLearning:
 
 
         self.normalization_info = self.predictor.predictor.normalization_info
-        self.lib = TensorFlowLibrary
+        self.lib = TensorFlowLibrary()
 
         self.batch_size = config['batch_size']
 

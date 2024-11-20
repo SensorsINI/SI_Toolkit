@@ -585,6 +585,9 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
     feature_idx, = np.where(features == feature_to_display)
     ground_truth_feature_idx, = np.where(ground_truth[1] == feature_to_display)
 
+    if ground_truth_feature_idx.size == 0:
+        raise ValueError(f'Feature {feature_to_display} which is requested by predictor or network not found in testing data.')
+
     # Brunton Plot
     if axs is None:
         fig, axs = plt.subplots(1, 1, figsize=(18, 10), sharex=True)

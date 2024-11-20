@@ -5,11 +5,8 @@ Various functions to preprocess data:
 - adding derivatives to the selected features of dataset
 """
 
-import csv
 import os
 
-import numpy as np
-import pandas as pd
 from derivative import dxdt
 from tqdm import trange
 
@@ -25,12 +22,15 @@ try:
 except ImportError:
     pass
 
+from SI_Toolkit.General.preprocess_data_add_control_along_trajectories import add_control_along_trajectories
+
+
 def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
 
     if os.path.exists(get_files_from):
         # If the path is a file
         if os.path.isfile(get_files_from):
-            paths_to_recordings  = [get_files_from]
+            paths_to_recordings = [get_files_from]
             get_files_from = os.path.dirname(get_files_from)
         # If the path is a directory
         elif os.path.isdir(get_files_from):
@@ -42,15 +42,14 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
         # Path does not exist
         raise FileNotFoundError(f"Path {get_files_from} does not exist")
 
-
-
     if not paths_to_recordings:
-        Exception('No files found')
+        raise Exception('No files found')
 
-    try:
-        os.makedirs(save_files_to)
-    except FileExistsError:
-        pass
+    if save_files_to is not None:
+        try:
+            os.makedirs(save_files_to)
+        except FileExistsError:
+            pass
 
     for i in trange(len(paths_to_recordings), leave=True, position=0, desc='Processed datafiles'):
         current_path = paths_to_recordings[i]
@@ -59,11 +58,14 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
 
         df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
 
-        # Available transformations: add_control_along_trajectories, append_derivatives, apply_sensors_quantization, add_shifted_columns
-        # Plus the application specific transformations
-        if transformation == 'append_derivatives':
-            df_processed = append_derivatives(df, df_name=processed_file_name, **kwargs)
+        # Apply transformation
+        if callable(transformation):
+            # If `transformation` is a function, call it directly
+            df_processed = transformation(df, **kwargs)
         else:
+            # If `transformation` is a string, retrieve the function and call it
+            # Available transformations: add_control_along_trajectories, append_derivatives, apply_sensors_quantization, add_shifted_columns
+            # Plus the application specific transformations
             try:
                 # Retrieve the function by name and call it with the appropriate arguments
                 transformation_function = globals()[transformation]
@@ -72,26 +74,30 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
             df_processed = transformation_function(df, **kwargs)
 
         if df_processed is None:
-            print('Dropping {}, transformation not successful. '.format(current_path))
+            print('Dropping {}, transformation not successful.'.format(current_path))
             if transformation == 'append_derivatives':
                 print('Probably too short to calculate derivatives.')
             continue
 
-        processed_file_path = os.path.join(save_files_to, relative_path_to_search_root)
-        # Ensure the target directory exists
-        os.makedirs(os.path.dirname(processed_file_path), exist_ok=True)
+        if save_files_to:
+            processed_file_path = os.path.join(save_files_to, relative_path_to_search_root)
+            # Ensure the target directory exists
+            os.makedirs(os.path.dirname(processed_file_path), exist_ok=True)
 
-        with open(processed_file_path, 'w', newline=''):  # Overwrites if existed
-            pass
-        with open(current_path, "r", newline='') as f_input, \
-                open(processed_file_path, "a", newline='') as f_output:
-            for line in f_input:
-                if line[0:len('#')] == '#':
-                    csv.writer(f_output).writerow([line.strip()])
-                else:
-                    break
+            # Read and store comments first
+            comments = []
+            with open(current_path, "r", newline='') as f_input:
+                for line in f_input:
+                    if line.lstrip().startswith('#'):
+                        comments.append(line)
+                    else:
+                        break
 
-        df_processed.to_csv(processed_file_path, index=False, mode='a')
+            # Open the file for writing and write comments
+            with open(processed_file_path, 'w', newline='') as f_output:
+                f_output.write(f'# Original file transformed with "{transformation}" transformation\n#\n')
+                f_output.writelines(comments)
+            df_processed.to_csv(processed_file_path, index=False, mode='a')
 
 
 def decimate_datasets(df, keep_every_nth_row, **kwargs):
@@ -223,69 +229,5 @@ def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwa
 def apply_sensors_quantization(df, variables_quantization_dict):
     for variable, precision in variables_quantization_dict.items():
         df[variable] = (df[variable] / precision).round() * precision
-
-    return df
-
-
-from Control_Toolkit.others.globals_and_utils import get_controller_name, get_optimizer_name, import_controller_by_name
-from Control_Toolkit.Controllers import template_controller
-
-
-def add_control_along_trajectories(df, controller, controller_output_variable_name='Q_calculated', **kwargs):
-    """
-    Adds controller to the trajectory data.
-    :param df: trajectory data
-    :param controller: controller to evaluate on data
-    :param controller_output_variable_name: name of the column with controller output
-    :return: trajectory data with controller
-    """
-
-    controller_name = controller['controller_name']
-    optimizer_name = controller.get('optimizer_name', None)
-
-    environment_name = controller['environment_name']
-    action_space = controller['action_space']
-    state_components = controller['state_components']
-    environment_attributes_dict = controller['environment_attributes_dict']
-
-    initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
-
-    controller_name, _ = get_controller_name(
-        controller_name=controller_name
-    )
-
-    Controller: "type[template_controller]" = import_controller_by_name(controller_name)
-    controller = Controller(
-        environment_name=environment_name,
-        initial_environment_attributes=initial_environment_attributes,
-        control_limits=(action_space.low, action_space.high),
-    )
-    # Final configuration of controller
-    if controller.has_optimizer:
-        controller.configure(optimizer_name)
-        optimizer_name, _ = get_optimizer_name(
-            optimizer_name=controller.optimizer.optimizer_name
-        )
-
-    else:
-        controller.configure()
-
-    Q_calculated_list = []
-
-    s = np.array(df[state_components])
-    time = np.array(df['time'])
-    environment_attributes_array = np.array(df[environment_attributes_dict.values()])
-
-
-    for i in trange(len(df), leave=False, position=1, desc='Processing current datafile'):
-        environment_attributes = {key: environment_attributes_array[i, idx] for idx, key in enumerate(environment_attributes_dict.keys())}
-        Q_calculated = float(controller.step(
-            s=s[i],
-            time=time[i],
-            updated_attributes=environment_attributes,
-        ))
-        Q_calculated_list.append(Q_calculated)
-
-    df[controller_output_variable_name] = Q_calculated_list
 
     return df
