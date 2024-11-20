@@ -37,11 +37,21 @@ def add_control_along_trajectories(
     state_components = controller_config['state_components']
     environment_attributes_dict = controller_config['environment_attributes_dict']
 
+    if not isinstance(controller_output_variable_name, list):
+        names_of_variables_to_save = [controller_output_variable_name]
+    else:
+        names_of_variables_to_save = controller_output_variable_name
+
     # Process random sampling features
     df, environment_attributes_dict = process_random_sampling(df, environment_attributes_dict)
 
     # Get integration features and their ranges
     integration_features, feature_ranges, environment_attributes_dict = get_integration_features(df, environment_attributes_dict)
+
+    # Get derivative features
+    differentiation_features, environment_attributes_dict, names_of_variables_to_save = get_differentiation_features(
+                                                                                         environment_attributes_dict,
+                                                                                         names_of_variables_to_save)
 
     initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
 
@@ -83,6 +93,9 @@ def add_control_along_trajectories(
             time_step = row['time']
             environment_attributes = {key: row[value] for key, value in environment_attributes_dict.items()}
 
+            if integration_features and differentiation_features:
+                raise ValueError("Cannot integrate and differentiate at the same time.")
+
             if integration_features:
                 Q = integration(
                     controller=controller_instance,
@@ -94,6 +107,18 @@ def add_control_along_trajectories(
                     method=integration_method,
                     num_evals=integration_num_evals,
                 )
+            elif differentiation_features:
+                jacobian = differentiation(
+                        controller=controller_instance,
+                        s=s,
+                        time=time_step,
+                        environment_attributes=environment_attributes,
+                        differentiation_feature=differentiation_features,
+                    )
+                jacobian_flat = jacobian.flatten()
+                Q = jacobian_flat
+
+
             else:
                 Q = float(controller_instance.step(
                     s=s,
@@ -111,9 +136,9 @@ def add_control_along_trajectories(
         bar.close()
 
     if save_output_only:
-        return pd.DataFrame({controller_output_variable_name: Q_sequence})
+        return pd.DataFrame({names_of_variables_to_save: Q_sequence})
     else:
-        df[controller_output_variable_name] = Q_sequence
+        df[names_of_variables_to_save] = Q_sequence
 
     return df
 
@@ -157,9 +182,6 @@ def process_random_sampling(df, environment_attributes_dict):
     return df, environment_attributes_dict
 
 
-
-import re
-
 def get_integration_features(df, environment_attributes_dict):
     """
     Identify features to integrate over from environment_attributes_dict.
@@ -200,6 +222,42 @@ def get_integration_features(df, environment_attributes_dict):
 
 
 
+def get_differentiation_features(environment_attributes_dict, output_variable_names):
+    """
+    Identify features to differentiate over from environment_attributes_dict.
+
+    :param df: DataFrame containing the data
+    :param environment_attributes_dict: dictionary of environment attributes
+    :return: differentiation_features, updated environment_attributes_dict
+    """
+    # Regex pattern to capture feature name and optional min and max values
+    pattern = re.compile(r'^(.+)_differentiate_$')
+    differentiation_features = []
+
+    for key, value in environment_attributes_dict.items():
+        match = pattern.match(value)
+        if match:
+            feature = match.group(1)
+
+            differentiation_features.append(feature)
+
+            # Update the environment_attributes_dict to use the feature name
+            environment_attributes_dict[key] = feature
+
+    if differentiation_features:
+        # Construct the column names
+        names_of_variables_to_save = [
+            f"d{output_name}_d{diff_feature}"
+            for output_name in output_variable_names
+            for diff_feature in differentiation_features
+        ]
+    else:
+        names_of_variables_to_save = output_variable_names
+
+    return differentiation_features, environment_attributes_dict, names_of_variables_to_save
+
+
+
 def integration(controller, s, time, environment_attributes, features, feature_ranges, method='nquad', num_evals=100):
     """
     Integrate the controller output over multiple feature ranges to obtain the average control
@@ -215,18 +273,15 @@ def integration(controller, s, time, environment_attributes, features, feature_r
     :param num_evals: Total number of function evaluations.
     :return: Average control value.
     """
-    # Define the integration order based on features
-    integration_order = features
-    d = len(integration_order)  # Dimensionality
-
+    d = len(features)  # Dimensionality
     def integrand(*args):
         updated_attributes = environment_attributes.copy()
-        for feature, value in zip(integration_order, args):
+        for feature, value in zip(features, args):
             updated_attributes[feature] = value
         return controller.step(s=s, time=time, updated_attributes=updated_attributes)
 
     # Define the limits for each feature
-    limits = [feature_ranges[feature] for feature in integration_order]
+    limits = [feature_ranges[feature] for feature in features]
     lower_bounds = np.array([limit[0] for limit in limits])
     upper_bounds = np.array([limit[1] for limit in limits])
     ranges = upper_bounds - lower_bounds
@@ -289,3 +344,31 @@ def integration(controller, s, time, environment_attributes, features, feature_r
         raise ValueError("Invalid integration method. Choose 'nquad' or 'monte_carlo'.")
 
     return average_control
+
+
+def differentiation(controller, s, time, environment_attributes, differentiation_feature):
+    """
+    Differentiate controller output with respect to a single feature using numerical differentiation.
+
+    :param controller: The controller instance.
+    :param s: State vector.
+    :param time: Current time.
+    :param environment_attributes: Current environment attributes.
+    :param differentiation_feature: Feature to differentiate over.
+    :return: Derivative of the controller output with respect to the differentiation_feature.
+    """
+
+    import numdifftools as nd
+
+    current_feature_value = environment_attributes[differentiation_feature]
+
+    def func(value):
+        updated_attributes = environment_attributes.copy()
+        updated_attributes[differentiation_feature] = value
+        return controller.step(s=s, time=time, updated_attributes=updated_attributes)
+
+    derivative_func = nd.Derivative(func, method='richardson')
+
+    derivative = derivative_func(current_feature_value)
+
+    return derivative
