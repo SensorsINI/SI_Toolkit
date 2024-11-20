@@ -70,9 +70,7 @@ class DatasetTemplate:
 
         dfs = dfs_split
 
-        data_filter = DataFilter(args)
         dfs = filter_datasets(dfs, args)
-
 
         self.DA = DataAugmentation(self.inputs, self.outputs, args.config_series_modification)
         needed_columns = list(set(self.inputs) | set(self.outputs))
