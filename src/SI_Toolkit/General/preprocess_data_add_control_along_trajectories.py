@@ -9,6 +9,10 @@ from scipy.integrate import nquad
 from scipy.stats import qmc
 from math import ceil
 
+import numdifftools as nd
+from typing import Any, Dict, List
+import warnings
+
 def add_control_along_trajectories(
         df,
         controller_config,
@@ -113,14 +117,14 @@ def add_control_along_trajectories(
                         s=s,
                         time=time_step,
                         environment_attributes=environment_attributes,
-                        differentiation_feature=differentiation_features,
+                        differentiation_features=differentiation_features,
                     )
                 jacobian_flat = jacobian.flatten()
                 Q = jacobian_flat
 
 
             else:
-                Q = float(controller_instance.step(
+                Q = np.atleast_1d(controller_instance.step(
                     s=s,
                     time=time_step,
                     updated_attributes=environment_attributes,
@@ -135,8 +139,9 @@ def add_control_along_trajectories(
     finally:
         bar.close()
 
+    Q_sequence = np.atleast_2d(Q_sequence)
     if save_output_only:
-        return pd.DataFrame({names_of_variables_to_save: Q_sequence})
+        return pd.DataFrame(Q_sequence, columns=names_of_variables_to_save)
     else:
         df[names_of_variables_to_save] = Q_sequence
 
@@ -247,7 +252,7 @@ def get_differentiation_features(environment_attributes_dict, output_variable_na
     if differentiation_features:
         # Construct the column names
         names_of_variables_to_save = [
-            f"d{output_name}_d{diff_feature}"
+            f"{output_name}_d{diff_feature}"
             for output_name in output_variable_names
             for diff_feature in differentiation_features
         ]
@@ -343,32 +348,57 @@ def integration(controller, s, time, environment_attributes, features, feature_r
     else:
         raise ValueError("Invalid integration method. Choose 'nquad' or 'monte_carlo'.")
 
-    return average_control
+    return np.atleast_1d(average_control)
 
 
-def differentiation(controller, s, time, environment_attributes, differentiation_feature):
+def differentiation(
+        controller: Any,
+        s: Any,
+        time: float,
+        environment_attributes: Dict[str, Any],
+        differentiation_features: List[str],
+) -> np.ndarray:
     """
-    Differentiate controller output with respect to a single feature using numerical differentiation.
+    Differentiate controller output with respect to multiple features using numerical differentiation.
+    Always returns a 2D NumPy array (Jacobian matrix).
 
     :param controller: The controller instance.
     :param s: State vector.
     :param time: Current time.
     :param environment_attributes: Current environment attributes.
-    :param differentiation_feature: Feature to differentiate over.
-    :return: Derivative of the controller output with respect to the differentiation_feature.
+    :param differentiation_features: List of features to differentiate over.
+    :return:
+        - If controller.step returns a scalar, returns a (1, num_features) array.
+        - If controller.step returns a vector of length m, returns a (m, num_features) array.
     """
 
-    import numdifftools as nd
-
-    current_feature_value = environment_attributes[differentiation_feature]
-
-    def func(value):
+    def func(x: np.ndarray) -> np.ndarray:
         updated_attributes = environment_attributes.copy()
-        updated_attributes[differentiation_feature] = value
-        return controller.step(s=s, time=time, updated_attributes=updated_attributes)
+        for feature, value in zip(differentiation_features, x):
+            updated_attributes[feature] = value
+        output = controller.step(s=s, time=time, updated_attributes=updated_attributes)
+        return np.atleast_1d(output).astype(float)
 
-    derivative_func = nd.Derivative(func, method='richardson')
+    # Retrieve current values, set to np.nan if feature is missing, and issue a warning
+    current_values = []
+    for feature in differentiation_features:
+        if feature in environment_attributes:
+            current_values.append(environment_attributes[feature])
+        else:
+            warnings.warn(
+                f"Feature '{feature}' not found in environment_attributes. Setting its value to np.nan.",
+                UserWarning
+            )
+            current_values.append(np.nan)
 
-    derivative = derivative_func(current_feature_value)
+    current_values = np.array(current_values, dtype=float)
 
-    return derivative
+    # Compute the Jacobian matrix
+    jacobian_func = nd.Jacobian(func)
+    jacobian = jacobian_func(current_values)
+
+    # Ensure the Jacobian is 2D
+    if jacobian.ndim == 1:
+        jacobian = jacobian.reshape(1, -1)
+
+    return jacobian
