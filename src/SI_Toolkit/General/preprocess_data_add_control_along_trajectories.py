@@ -8,6 +8,7 @@ from Control_Toolkit.others.globals_and_utils import get_controller_name, import
 from scipy.integrate import nquad
 from scipy.stats import qmc
 from math import ceil
+from copy import deepcopy
 
 import numdifftools as nd
 from typing import Any, Dict, List
@@ -351,12 +352,21 @@ def integration(controller, s, time, environment_attributes, features, feature_r
     return np.atleast_1d(average_control)
 
 
+
+import numpy as np
+import warnings
+from typing import Any, Dict, List
+import numdifftools as nd
+from joblib import Parallel, delayed
+from time import sleep
+
 def differentiation(
         controller: Any,
         s: Any,
         time: float,
         environment_attributes: Dict[str, Any],
         differentiation_features: List[str],
+        step_size: float = 1e-3,
 ) -> np.ndarray:
     """
     Differentiate controller output with respect to multiple features using numerical differentiation.
@@ -367,17 +377,11 @@ def differentiation(
     :param time: Current time.
     :param environment_attributes: Current environment attributes.
     :param differentiation_features: List of features to differentiate over.
+    :param step_size: Step size for numerical differentiation.
     :return:
         - If controller.step returns a scalar, returns a (1, num_features) array.
         - If controller.step returns a vector of length m, returns a (m, num_features) array.
     """
-
-    def func(x: np.ndarray) -> np.ndarray:
-        updated_attributes = environment_attributes.copy()
-        for feature, value in zip(differentiation_features, x):
-            updated_attributes[feature] = value
-        output = controller.step(s=s, time=time, updated_attributes=updated_attributes)
-        return np.atleast_1d(output).astype(float)
 
     # Retrieve current values, set to np.nan if feature is missing, and issue a warning
     current_values = []
@@ -391,12 +395,38 @@ def differentiation(
             )
             current_values.append(np.nan)
 
+    # Convert to NumPy array for consistency
     current_values = np.array(current_values, dtype=float)
 
-    # Compute the Jacobian matrix
-    jacobian_func = nd.Jacobian(func)
-    jacobian = jacobian_func(current_values)
+    # Initialize a list to store partial derivatives
+    partial_derivatives = []
 
+    # Compute partial derivatives sequentially
+    for feature, value in zip(differentiation_features, current_values):
+        print('*********')
+        print('*********')
+        print('*********')
+        def func(x: float) -> np.ndarray:
+            updated_attributes = {key: val if not isinstance(val, (list, dict)) else deepcopy(val)
+                                  for key, val in environment_attributes.items()}
+
+            updated_attributes[feature] = x
+            output = controller.step(s=s, time=time, updated_attributes=updated_attributes)
+            return np.atleast_1d(output).astype(float)
+
+        for test_value in [value - step_size, value, value + step_size]:
+            print(f"Feature: {feature}, Test Value: {test_value}, Output: {func(test_value)}")
+
+        derivative_func = nd.Derivative(func, method='central')
+        derivative = derivative_func(value)
+        print(f"Feature: {feature}, Value: {value}, Derivative: {derivative}")
+        partial_derivatives.append(derivative)
+        print('*********')
+        print('*********')
+        print('*********')
+        sleep(0.001)
+    # Stack the partial derivatives to form the Jacobian matrix
+    jacobian = np.column_stack(partial_derivatives)  # Shape: (output_dim, num_features)
     # Ensure the Jacobian is 2D
     if jacobian.ndim == 1:
         jacobian = jacobian.reshape(1, -1)
