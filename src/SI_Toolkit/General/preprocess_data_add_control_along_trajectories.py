@@ -113,7 +113,7 @@ def add_control_along_trajectories(
                     num_evals=integration_num_evals,
                 )
             elif differentiation_features:
-                jacobian = differentiation(
+                jacobian, control = differentiation(
                         controller=controller_instance,
                         s=s,
                         time=time_step,
@@ -121,7 +121,8 @@ def add_control_along_trajectories(
                         differentiation_features=differentiation_features,
                     )
                 jacobian_flat = jacobian.flatten()
-                Q = jacobian_flat
+                control_flat = control.flatten()
+                Q = np.concatenate((jacobian_flat, control_flat))
 
 
             else:
@@ -252,11 +253,17 @@ def get_differentiation_features(environment_attributes_dict, output_variable_na
 
     if differentiation_features:
         # Construct the column names
-        names_of_variables_to_save = [
+        names_of_derivatives_to_save = [
             f"{output_name}_d{diff_feature}"
             for output_name in output_variable_names
             for diff_feature in differentiation_features
         ]
+        names_of_controls_to_save = [
+            f"{output_name[1:]}_d{diff_feature}"
+            for output_name in output_variable_names
+            for diff_feature in differentiation_features
+        ]
+        names_of_variables_to_save = names_of_derivatives_to_save + names_of_controls_to_save
     else:
         names_of_variables_to_save = output_variable_names
 
@@ -368,7 +375,7 @@ def differentiation(
         step_size: float = 0.5e-3,
         window_length: int = 21,
         polyorder: int = 1,
-) -> np.ndarray:
+):
     """
     Differentiate controller output with respect to multiple features using the Savitzky–Golay filter.
     Always returns a 2D NumPy array (Jacobian matrix).
@@ -416,12 +423,10 @@ def differentiation(
 
     # Initialize a list to store partial derivatives
     partial_derivatives = []
+    central_outputs = []
 
     # Compute partial derivatives sequentially
     for idx, (feature, value) in enumerate(zip(differentiation_features, current_values)):
-        print('*********')
-        print('*********')
-        print('*********')
         if np.isnan(value):
             # If the feature value is nan, set derivative to nan for all output dimensions
             # We'll determine the output dimensions later, so append None for now
@@ -443,9 +448,8 @@ def differentiation(
 
         outputs = [func(test_value) for test_value in test_values]
         outputs = np.vstack(outputs)
-        output_dim = outputs.shape[1]
 
-        [print(f"Feature: {feature}, Test Value: {test_value}, Output: {output}") for test_value, output in zip(test_values, outputs)]
+        # [print(f"Feature: {feature}, Test Value: {test_value}, Output: {output}") for test_value, output in zip(test_values, outputs)]
 
         # Compute the derivative using Savitzky–Golay filter for each output dimension
         derivatives = savgol_filter(
@@ -460,15 +464,13 @@ def differentiation(
 
         # Extract the central derivative
         central_derivatives = derivatives[half_window, :]  # Shape: (output_dim,)
-        print(f"Feature: {feature}, Derivative: {central_derivatives}")
+        centrol_control_output = outputs[half_window, :]  # Shape: (output_dim,)
+        # print(f"Feature: {feature}, Derivative: {central_derivatives}")
         partial_derivatives.append(central_derivatives)
-
-        print('*********')
-        print('*********')
-        print('*********')
-        sleep(0.001)
+        central_outputs.append(centrol_control_output)
 
     # Stack the partial derivatives to form the Jacobian matrix
     jacobian = np.column_stack(partial_derivatives)  # Shape: (output_dim, num_features)
+    central_outputs = np.column_stack(central_outputs)
 
-    return jacobian
+    return jacobian, central_outputs
