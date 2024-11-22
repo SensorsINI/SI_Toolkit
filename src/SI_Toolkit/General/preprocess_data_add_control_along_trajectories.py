@@ -400,6 +400,8 @@ def differentiation(
             raise ValueError("window_length must be an odd integer.")
         if window_length < polyorder + 2:
             raise ValueError("window_length must be at least polyorder + 2.")
+    elif method == 'nd':
+        pass
     else:
         raise ValueError(f"Unknown method '{method}'. Supported methods are 'savgol' and 'nd'.")
 
