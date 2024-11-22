@@ -254,11 +254,17 @@ def get_differentiation_features(environment_attributes_dict, output_variable_na
 
     if differentiation_features:
         # Construct the column names
-        names_of_variables_to_save = [
+        names_of_derivatives_to_save = [
             f"{output_name}_d{diff_feature}"
             for output_name in output_variable_names
             for diff_feature in differentiation_features
         ]
+        names_of_controls_to_save = [
+            f"{output_name[1:]}_d{diff_feature}"
+            for output_name in output_variable_names
+            for diff_feature in differentiation_features
+        ]
+        names_of_variables_to_save = names_of_derivatives_to_save + names_of_controls_to_save
     else:
         names_of_variables_to_save = output_variable_names
 
