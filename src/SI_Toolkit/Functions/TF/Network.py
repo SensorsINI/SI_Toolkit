@@ -75,6 +75,12 @@ def compose_net_from_net_name(net_info,
     # Get the information about network architecture from the network name
     # Split the names into "LSTM/GRU", "128H1", "64H2" etc.
     names = net_name.split('-')
+    bayesian = 'Bayes' in names  # Check if Bayesian Neural Network is requested
+    if bayesian:
+        import tensorflow_probability as tfp
+        tfd = tfp.distributions
+        names.remove('Bayes')  # Remove 'Bayes' to prevent interference with layer size parsing
+
     layers = ['H1', 'H2', 'H3', 'H4', 'H5']
     h_size = []  # Hidden layers sizes
     for name in names:
@@ -112,14 +118,26 @@ def compose_net_from_net_name(net_info,
         else:
             layer_type = qkeras.QSimpleRNN
     else:
-        if 'GRU' in names:
-            layer_type = tf.keras.layers.GRU
-        elif 'LSTM' in names:
-            layer_type = tf.keras.layers.LSTM
-        elif 'Dense' in names:
-            layer_type = tf.keras.layers.Dense
+        if net_type == 'GRU':
+            if bayesian:
+                raise NotImplementedError('Bayesian GRU not implemented.')
+            else:
+                layer_type = tf.keras.layers.GRU
+        elif net_type == 'LSTM':
+            if bayesian:
+                raise NotImplementedError('Bayesian LSTM not implemented.')
+            else:
+                layer_type = tf.keras.layers.LSTM
+        elif net_type == 'Dense':
+            if bayesian:
+                layer_type = tfp.layers.DenseVariational
+            else:
+                layer_type = tf.keras.layers.Dense
         else:
-            layer_type = tf.keras.layers.SimpleRNN
+            if bayesian:
+                raise NotImplementedError('Bayesian SimpleRNN not implemented.')
+            else:
+                layer_type = tf.keras.layers.SimpleRNN
 
     activation = 'tanh'
     activation_last_layer = 'linear'
@@ -146,6 +164,31 @@ def compose_net_from_net_name(net_info,
 
     net = tf.keras.Sequential()
 
+    # Define prior and posterior functions for Bayesian layers
+    if bayesian:
+        def prior_fn(dtype, shape, name, trainable, add_variable_fn):
+            del name, trainable  # unused
+            return tfd.Independent(tfd.Normal(loc=tf.zeros(shape, dtype=dtype), scale=1),
+                                   reinterpreted_batch_ndims=len(shape))
+
+        def posterior_fn(dtype, shape, name, trainable, add_variable_fn):
+            loc = add_variable_fn(
+                name=name + '_loc',
+                shape=shape,
+                initializer=tf.keras.initializers.TruncatedNormal(mean=0., stddev=0.1),
+                dtype=dtype,
+                trainable=True)
+            scale = add_variable_fn(
+                name=name + '_scale',
+                shape=shape,
+                initializer=tf.keras.initializers.TruncatedNormal(mean=-3., stddev=0.1),
+                dtype=dtype,
+                trainable=True)
+            scale = tf.nn.softplus(scale) + 1e-5
+            return tfd.Independent(tfd.Normal(loc=loc, scale=scale),
+                                   reinterpreted_batch_ndims=len(shape))
+
+
     # Construct network
     # Either dense...
     if net_type == 'Dense':
@@ -159,7 +202,15 @@ def compose_net_from_net_name(net_info,
         net.add(tf.keras.Input(batch_size=batch_size, shape=shape_input))
 
         for i in range(h_number):
-            if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
+            if bayesian:
+                net.add(layer_type(
+                    units=h_size[i],
+                    activation=activation,
+                    make_posterior_fn=posterior_fn,
+                    make_prior_fn=prior_fn,
+                    name='layers_{}'.format(i),
+                ))
+            elif hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
                 net.add(layer_type(
                     units=h_size[i], batch_size=batch_size, name='layers_{}'.format(i),
                     kernel_regularizer=regularization_kernel,
@@ -176,7 +227,7 @@ def compose_net_from_net_name(net_info,
                     activity_regularizer=regularization_activity,
                     **quantization_args,
                 ))
-                net.add(tf.keras.layers.Activation(tf.keras.activations.tanh))
+                net.add(tf.keras.layers.Activation(activation))
     elif net_type == 'TCN':
         net.add(TCN(input_shape=(time_series_length, inputs_len),
                     nb_filters=h_size[0],
@@ -208,6 +259,8 @@ def compose_net_from_net_name(net_info,
             shape_input = (batch_size, time_series_length, inputs_len)
 
         # Or RNN...
+        if bayesian:
+            raise NotImplementedError('Bayesian RNN layers are not implemented yet.')
         net.add(layer_type(
             units=h_size[0],
             activation=activation,
@@ -232,22 +285,39 @@ def compose_net_from_net_name(net_info,
                 **quantization_args,
             ))
 
-    if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
+    if bayesian and net_type == 'Dense':
+        # Output layer predicts mean and log variance
+        net.add(layer_type(
+            units=2 * len(outputs_list),
+            activation=None,
+            make_posterior_fn=posterior_fn,
+            make_prior_fn=prior_fn,
+            name='layers_{}'.format(h_number),
+        ))
+        # Convert outputs to a distribution
+        net.add(tfp.layers.DistributionLambda(
+            make_distribution_fn=lambda t: tfd.Normal(loc=t[..., :len(outputs_list)],
+                                                      scale=1e-3 + tf.nn.softplus(t[..., len(outputs_list):]))
+        ))
+    elif hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
         net.add(qkeras.QDense(units=len(outputs_list), name='layers_{}'.format(h_number),
-                                      kernel_regularizer=regularization_kernel,
-                                      bias_regularizer=regularization_bias,
-                                      **quantization_last_layer_args,
-                                      ))
+                              kernel_regularizer=regularization_kernel,
+                              bias_regularizer=regularization_bias,
+                              **quantization_last_layer_args,
+                              ))
     else:
-        net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers_{}'.format(h_number), activation=activation_last_layer,
+        net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers_{}'.format(h_number),
+                                      activation=activation_last_layer,
                                       kernel_regularizer=regularization_kernel,
                                       bias_regularizer=regularization_bias,
                                       ))
 
-    print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
-          .format(net_type, len(h_size), ', '.join(map(str, h_size))))
+    print('Constructed a {} neural network of type {}, with {} hidden layers with sizes {} respectively.'
+          .format('Bayesian' if bayesian else 'standard', net_type, len(h_size), ', '.join(map(str, h_size))))
 
     net_info.net_type = net_type
+
+    net_info.bayesian = bayesian
 
     return net, net_info
 
