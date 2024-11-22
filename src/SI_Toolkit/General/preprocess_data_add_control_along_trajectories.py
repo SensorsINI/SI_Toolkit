@@ -9,9 +9,11 @@ from scipy.integrate import nquad
 from scipy.stats import qmc
 from math import ceil
 
+from scipy.signal import savgol_filter
 import numdifftools as nd
 from typing import Any, Dict, List
 import warnings
+from copy import deepcopy
 
 def add_control_along_trajectories(
         df,
@@ -112,7 +114,7 @@ def add_control_along_trajectories(
                     num_evals=integration_num_evals,
                 )
             elif differentiation_features:
-                jacobian = differentiation(
+                jacobian, control = differentiation(
                         controller=controller_instance,
                         s=s,
                         time=time_step,
@@ -120,7 +122,8 @@ def add_control_along_trajectories(
                         differentiation_features=differentiation_features,
                     )
                 jacobian_flat = jacobian.flatten()
-                Q = jacobian_flat
+                control_flat = control.flatten()
+                Q = np.concatenate((jacobian_flat, control_flat))
 
 
             else:
@@ -351,36 +354,53 @@ def integration(controller, s, time, environment_attributes, features, feature_r
     return np.atleast_1d(average_control)
 
 
-
-import numpy as np
-import warnings
-from typing import Any, Dict, List
-import numdifftools as nd
-from joblib import Parallel, delayed
-
-
 def differentiation(
         controller: Any,
         s: Any,
         time: float,
         environment_attributes: Dict[str, Any],
         differentiation_features: List[str],
-        step_size: float = 1e-5,
-) -> np.ndarray:
+        method: str = 'nd',
+        step_size: float = None,
+        window_length: int = None,
+        polyorder: int = None,
+):
     """
-    Differentiate controller output with respect to multiple features using numerical differentiation.
-    Always returns a 2D NumPy array (Jacobian matrix).
+    Differentiate controller output with respect to multiple features using the specified method.
+    Always returns a 2D NumPy array (Jacobian matrix) and central controller outputs.
 
     :param controller: The controller instance.
     :param s: State vector.
     :param time: Current time.
     :param environment_attributes: Current environment attributes.
     :param differentiation_features: List of features to differentiate over.
-    :param step_size: Step size for numerical differentiation.
+    :param method: Differentiation method to use ('savgol' or 'nd').
+    :param step_size: Step size for generating points or numerical differentiation.
+    :param window_length: (For 'savgol' method) The length of the filter window (must be odd and >= polyorder + 2).
+    :param polyorder: (For 'savgol' method) The order of the polynomial used to fit the samples.
     :return:
-        - If controller.step returns a scalar, returns a (1, num_features) array.
-        - If controller.step returns a vector of length m, returns a (m, num_features) array.
+        - jacobian: A (output_dim, num_features) array of derivatives.
+        - central_outputs: A (output_dim, num_features) array of controller outputs at the central points.
     """
+
+    # Set default parameters based on method
+    if method == 'savgol':
+        if step_size is None:
+            step_size = 0.5e-3
+        if window_length is None:
+            window_length = 21
+        if polyorder is None:
+            polyorder = 1
+        # Validate window_length and polyorder
+        if window_length % 2 == 0:
+            raise ValueError("window_length must be an odd integer.")
+        if window_length < polyorder + 2:
+            raise ValueError("window_length must be at least polyorder + 2.")
+    elif method == 'nd':
+        if step_size is None:
+            step_size = 1e-3
+    else:
+        raise ValueError(f"Unknown method '{method}'. Supported methods are 'savgol' and 'nd'.")
 
     # Retrieve current values, set to np.nan if feature is missing, and issue a warning
     current_values = []
@@ -397,26 +417,83 @@ def differentiation(
     # Convert to NumPy array for consistency
     current_values = np.array(current_values, dtype=float)
 
-    # Initialize a list to store partial derivatives
+    # Initialize a list to store partial derivatives and central outputs
     partial_derivatives = []
+    central_outputs = []
+
+    output_dim = None
 
     # Compute partial derivatives sequentially
-    for feature, value in zip(differentiation_features, current_values):
+    for idx, (feature, value) in enumerate(zip(differentiation_features, current_values)):
+        if np.isnan(value):
+            # If the feature value is nan, set derivative to nan for all output dimensions
+            if output_dim is None:
+                # Need to determine output_dim by evaluating controller at current environment_attributes
+                sample_output = controller.step(s=s, time=time, updated_attributes=environment_attributes)
+                sample_output = np.atleast_1d(sample_output).astype(float)
+                output_dim = sample_output.shape[0]
+            nan_array = np.full((output_dim,), np.nan)
+            partial_derivatives.append(nan_array)
+            central_outputs.append(nan_array)
+            continue
+
+        # Define function to evaluate controller output at a given feature value
         def func(x: float) -> np.ndarray:
-            updated_attributes = environment_attributes.copy()
+            updated_attributes = deepcopy(environment_attributes)
             updated_attributes[feature] = x
             output = controller.step(s=s, time=time, updated_attributes=updated_attributes)
             return np.atleast_1d(output).astype(float)
 
-        derivative_func = nd.Derivative(func, step = 1.0e-3, method='central')
-        derivative = derivative_func(value)
-        partial_derivatives.append(derivative)
+        if method == 'savgol':
+            # Number of points on each side of the target value
+            half_window = (window_length - 1) // 2
+
+            # Precompute the relative offsets
+            offsets = np.arange(-half_window, half_window + 1) * step_size
+
+            # Generate test values around the current value
+            test_values = value + offsets
+
+            # Evaluate controller outputs at test values
+            outputs = [func(test_value) for test_value in test_values]
+            outputs = np.vstack(outputs)  # Shape: (window_length, output_dim)
+
+            if output_dim is None:
+                output_dim = outputs.shape[1]
+
+            # Compute the derivative using Savitzky–Golay filter for each output dimension
+            derivatives = savgol_filter(
+                outputs,
+                window_length=window_length,
+                polyorder=polyorder,
+                deriv=1,
+                delta=step_size,
+                axis=0,  # Compute derivative along the window axis
+                mode='constant',
+            )
+
+            # Extract the central derivative
+            central_derivatives = derivatives[half_window, :]  # Shape: (output_dim,)
+            central_output = outputs[half_window, :]  # Shape: (output_dim,)
+
+            partial_derivatives.append(central_derivatives)
+            central_outputs.append(central_output)
+        elif method == 'nd':
+            derivative_func = nd.Derivative(func, step=step_size, method='central')
+            derivative = derivative_func(value)  # Shape: (output_dim,)
+            output_at_value = func(value)  # Evaluate function at current value
+            if output_dim is None:
+                output_dim = derivative.shape[0]
+            partial_derivatives.append(derivative)
+            central_outputs.append(output_at_value)
+        else:
+            raise ValueError(f"Unknown method '{method}'. Supported methods are 'savgol' and 'nd'.")
 
     # Stack the partial derivatives to form the Jacobian matrix
     jacobian = np.column_stack(partial_derivatives)  # Shape: (output_dim, num_features)
+    central_outputs = np.column_stack(central_outputs)  # Shape: (output_dim, num_features)
 
     # Ensure the Jacobian is 2D
-    if jacobian.ndim == 1:
-        jacobian = jacobian.reshape(1, -1)
+    jacobian = np.atleast_1d(jacobian)
 
-    return jacobian
+    return jacobian, central_outputs
