@@ -367,7 +367,7 @@ def differentiation(
         environment_attributes: Dict[str, Any],
         differentiation_features: List[str],
         method: str = 'nd',
-        step_size: float = None,
+        step_size: float = 1.0e-3,
         window_length: int = None,
         polyorder: int = None,
 ):
@@ -391,8 +391,6 @@ def differentiation(
 
     # Set default parameters based on method
     if method == 'savgol':
-        if step_size is None:
-            step_size = 0.5e-3
         if window_length is None:
             window_length = 21
         if polyorder is None:
@@ -402,9 +400,6 @@ def differentiation(
             raise ValueError("window_length must be an odd integer.")
         if window_length < polyorder + 2:
             raise ValueError("window_length must be at least polyorder + 2.")
-    elif method == 'nd':
-        if step_size is None:
-            step_size = 1e-3
     else:
         raise ValueError(f"Unknown method '{method}'. Supported methods are 'savgol' and 'nd'.")
 
@@ -485,7 +480,7 @@ def differentiation(
             partial_derivatives.append(central_derivatives)
             central_outputs.append(central_output)
         elif method == 'nd':
-            derivative_func = nd.Derivative(func, step=step_size, method='central')
+            derivative_func = nd.Derivative(func, step=step_size, method='central', order=2)
             derivative = derivative_func(value)  # Shape: (output_dim,)
             output_at_value = func(value)  # Evaluate function at current value
             if output_dim is None:
