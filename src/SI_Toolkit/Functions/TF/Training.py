@@ -47,19 +47,26 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     optimizer = keras.optimizers.Adam(a.lr_initial)
 
     if hasattr(net_info, "bayesian") and net_info.bayesian:
+        import tensorflow_probability as tfp
         # Define negative log-likelihood loss
         def negative_log_likelihood(y_true, y_pred):
-            return -y_pred.log_prob(y_true)
+            # Reconstruct distribution from raw outputs
+            loc = y_pred[..., 0]  # Mean
+            scale = tf.exp(y_pred[..., 1])  # Standard deviation (assume log-stddev is output)
+            dist = tfp.distributions.Normal(loc=loc, scale=scale)
+            return -tf.reduce_mean(dist.log_prob(y_true))
 
         # Define custom MAE metric for Bayesian networks
         def metric_mae(y_true, y_pred):
-            y_pred_mean = y_pred.mean()
-            return tf.reduce_mean(tf.abs(y_true - y_pred_mean))
+            # Use mean of the predicted distribution
+            mean = y_pred[..., 0]  # Assuming the mean is at index 0
+            return tf.reduce_mean(tf.abs(y_true - mean))
 
         # Optionally, define more metrics
         def metric_std(y_true, y_pred):
-            y_pred_std = y_pred.stddev()
-            return tf.reduce_mean(y_pred_std)
+            # Use standard deviation of the predicted distribution
+            stddev = tf.exp(y_pred[..., 1])  # Assuming log-stddev is at index 1
+            return tf.reduce_mean(stddev)
 
         loss = negative_log_likelihood
         metrics = [metric_mae, metric_std]
