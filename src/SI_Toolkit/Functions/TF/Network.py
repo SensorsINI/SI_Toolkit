@@ -22,6 +22,10 @@ try:
     from tensorflow_model_optimization.sparsity.keras import strip_pruning
 except ModuleNotFoundError:
     print('tensorflow_model_optimization not found. Pruning will not be available.')
+except AttributeError as error:
+    print(f'Got an error: \n')
+    print(f'{error}. \n')
+    print('tensorflow_model_optimization not working. Pruning will not be available.')
 
 def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     """
