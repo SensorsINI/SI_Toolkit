@@ -16,8 +16,6 @@ from SI_Toolkit.Functions.TF.Dataset import Dataset
 
 from SI_Toolkit.Functions.TF.Loss import LossMSRSequence, LossMSRSequenceCustomizableRelative
 
-import tensorflow as tf
-
 
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
 # Warning! It may affect performance. I would discourage you to use it for long training tasks
@@ -44,46 +42,24 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
     if a.pruning_activated:
         net = make_prunable(net, a, training_dataset.number_of_batches)
 
+    # Might be not the same as Pytorch - MSE, not checked
+    # net.compile(
+    #     loss="mse",
+    #     optimizer=keras.optimizers.Adam(a.lr_initial)
+    # )
+
     optimizer = keras.optimizers.Adam(a.lr_initial)
 
-    if hasattr(net_info, "bayesian") and net_info.bayesian:
-        # Define negative log-likelihood loss
-        def negative_log_likelihood(y_true, y_pred):
-            return -y_pred.log_prob(y_true)
-
-        # Define custom MAE metric for Bayesian networks
-        def metric_mae(y_true, y_pred):
-            y_pred_mean = y_pred.mean()
-            return tf.reduce_mean(tf.abs(y_true - y_pred_mean))
-
-        # Optionally, define more metrics
-        def metric_std(y_true, y_pred):
-            y_pred_std = y_pred.stddev()
-            return tf.reduce_mean(y_pred_std)
-
-        loss = negative_log_likelihood
-        metrics = [metric_mae, metric_std]
-
-    else:
-        # Use existing loss function for non-Bayesian networks
-        # loss = "mse"  # Might be not the same as Pytorch - MSE, not checked
-        # loss = LossMSRSequenceCustomizableRelative(
-        loss = LossMSRSequence(
-            wash_out_len=a.wash_out_len,
-            post_wash_out_len=a.post_wash_out_len,
-            discount_factor=1.0
-        )
-
-        # metrics = ['mae']
-        metrics = None
-
+    # loss = LossMSRSequenceCustomizableRelative(
+    loss = LossMSRSequence(
+        wash_out_len=a.wash_out_len,
+        post_wash_out_len=a.post_wash_out_len,
+        discount_factor=1.0)
 
     net.compile(
         loss=loss,
         optimizer=optimizer,
-        metrics=metrics
     )
-
     net.optimizer = optimizer  # When loading a pretrained network, setting optimizer in compile does nothing.
     # region Define callbacks to be used in training
 
