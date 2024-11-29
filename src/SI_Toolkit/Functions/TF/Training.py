@@ -122,14 +122,15 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
         callbacks_for_training.append(pruning_callbacks.UpdatePruningStep())
 
     post_epoch_training_loss = []
-    class AdditionalValidation(keras.callbacks.Callback):
-        def __init__(self, dataset):
-            super().__init__()
-            self.dataset = dataset
-        def on_epoch_end(self, epoch, logs=None):
-            post_epoch_training_loss.append(self.model.evaluate(self.dataset))
+    if a.validate_also_on_training_set:
+        class AdditionalValidation(keras.callbacks.Callback):
+            def __init__(self, dataset):
+                super().__init__()
+                self.dataset = dataset
+            def on_epoch_end(self, epoch, logs=None):
+                post_epoch_training_loss.append(self.model.evaluate(self.dataset))
 
-    callbacks_for_training.append(AdditionalValidation(dataset=training_dataset))
+        callbacks_for_training.append(AdditionalValidation(dataset=training_dataset))
 
 
     class saving_Callback(keras.callbacks.Callback):
