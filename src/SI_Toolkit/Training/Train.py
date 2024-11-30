@@ -74,7 +74,7 @@ def train_network():
     write_out_normalization_vectors(normalization_info, net_info)
 
     # Copy training config
-    src = os.path.join('SI_Toolkit_ASF', 'config_training.yml')
+    src = a.config_path
     dst = os.path.join(a.path_to_models, net_info.net_full_name)
     shutil.copy2(src, dst)
     try:
