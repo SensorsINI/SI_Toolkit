@@ -11,8 +11,10 @@ class Dataset(DatasetTemplate, keras.utils.Sequence):
                  exp_len=None,
                  shuffle=True,
                  batch_size=None,
+                 normalization_info=None,
                  ):
-        super(Dataset, self).__init__(dfs, args, inputs, outputs, exp_len, shuffle, batch_size)
+        super(Dataset, self).__init__(dfs, args, inputs, outputs, exp_len, shuffle, batch_size,
+                                      normalization_info=normalization_info)
 
     def __len__(self):
         return self.number_of_batches_to_use

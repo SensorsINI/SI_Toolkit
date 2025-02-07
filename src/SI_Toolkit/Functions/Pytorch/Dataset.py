@@ -10,8 +10,10 @@ class Dataset(DatasetTemplate, data.Dataset):
                  outputs=None,
                  exp_len=None,
                  shuffle=True,
+                 normalization_info=None,
                  ):
-        super(Dataset, self).__init__(dfs, args, inputs, outputs, exp_len, shuffle)
+        super(Dataset, self).__init__(dfs, args, inputs, outputs, exp_len, shuffle,
+                                      normalization_info=normalization_info)
 
         if self.tiv:
             # FIXME: tiv not working here for Pytorch as it requires change at each epoch end
