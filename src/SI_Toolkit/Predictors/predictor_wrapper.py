@@ -130,6 +130,7 @@ class PredictorWrapper:
             for predefined_predictor in self.predictors_config.keys():
                 if predictor_specification_components[0] == predefined_predictor:
                     predictor_name = predictor_specification_components[0]
+                    break
 
         # Search if the specification gives a network name from which you can construct predictor
         if predictor_name is None:

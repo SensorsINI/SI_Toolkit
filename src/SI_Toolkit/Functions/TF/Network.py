@@ -8,6 +8,8 @@ import numpy as np
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 from SI_Toolkit.Functions.General.Initialization import calculate_inputs_length
 
+from SI_Toolkit.Functions.TF.Network_Compose import create_bayesian_network
+
 try:
     import qkeras
 except (ModuleNotFoundError, ImportError, AttributeError) as error:
@@ -22,6 +24,10 @@ try:
     from tensorflow_model_optimization.sparsity.keras import strip_pruning
 except ModuleNotFoundError:
     print('tensorflow_model_optimization not found. Pruning will not be available.')
+except AttributeError as error:
+    print(f'Got an error: \n')
+    print(f'{error}. \n')
+    print('tensorflow_model_optimization not working. Pruning will not be available.')
 
 def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     """
@@ -67,14 +73,20 @@ def compose_net_from_net_name(net_info,
                               **kwargs,
                               ):
 
+    activation = 'tanh'
+    activation_last_layer = 'linear'
+
     net_name = net_info.net_name
     inputs_len = calculate_inputs_length(net_info.inputs)
     net_info.inputs_len = inputs_len
-    outputs_list = net_info.outputs
 
     # Get the information about network architecture from the network name
     # Split the names into "LSTM/GRU", "128H1", "64H2" etc.
     names = net_name.split('-')
+    bayesian = 'Bayes' in names  # Check if Bayesian Neural Network is requested
+    if bayesian:
+        names.remove('Bayes')  # Remove 'Bayes' to prevent interference with layer size parsing
+
     layers = ['H1', 'H2', 'H3', 'H4', 'H5']
     h_size = []  # Hidden layers sizes
     for name in names:
@@ -86,43 +98,89 @@ def compose_net_from_net_name(net_info,
     if not h_size:
         raise ValueError('You have to provide the size of at least one hidden layer in rnn name')
 
-    h_number = len(h_size)
-
     if 'GRU' in names:
         net_type = 'GRU'
     elif 'LSTM' in names:
         net_type = 'LSTM'
     elif 'TCN' in names:
-        from tcn import TCN
         net_type = "TCN"
     elif 'Dense' in names:
         net_type = 'Dense'
     else:
         net_type = 'RNN-Basic'
 
+    if not bayesian:
+        net, net_info = compose_net_from_net_name_standard(net_info,
+                                                   net_type,
+                                                   h_size,
+                                                   time_series_length,
+                                                   batch_size=batch_size,
+                                                   stateful=stateful,
+                                                   remove_redundant_dimensions=remove_redundant_dimensions,
+                                                   activation=activation,
+                                                   activation_last_layer=activation_last_layer,
+                                                   )
+
+    else:
+        net, net_info = create_bayesian_network(net_info,
+                                                 net_type,
+                                                 h_size,
+                                                 time_series_length,
+                                                 batch_size=batch_size,
+                                                 stateful=stateful,
+                                                 remove_redundant_dimensions=remove_redundant_dimensions,
+                                                 activation=activation,
+                                                 activation_last_layer=activation_last_layer,
+                                                 )
+
+
+    print('Constructed a {} neural network of type {}, with {} hidden layers with sizes {} respectively.'
+          .format('Bayesian' if bayesian else 'standard', net_type, len(h_size), ', '.join(map(str, h_size))))
+
+    net_info.net_type = net_type
+
+    net_info.bayesian = bayesian
+
+    return net, net_info
+
+
+def compose_net_from_net_name_standard(net_info,
+                                        net_type,
+                                       h_size,
+                                        time_series_length,
+                                        batch_size=None,
+                                        stateful=False,
+                                        remove_redundant_dimensions=False,
+                                        activation='tanh',
+                                        activation_last_layer = 'linear',
+                                        **kwargs,
+                                      ):
+
+    outputs_list = net_info.outputs
+    inputs_len = net_info.inputs_len
+    h_number = len(h_size)
+
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
         if 'qkeras' not in sys.modules:
             raise ModuleNotFoundError('QKeras not found. Quantization-aware training will not be available. Change config_training or install the module')
-        if 'GRU' in names:
+        if net_type == 'GRU':
             layer_type = qkeras.QGRU
-        elif 'LSTM' in names:
+        elif net_type == 'LSTM':
             layer_type = qkeras.QLSTM
-        elif 'Dense' in names:
+        elif net_type == 'Dense':
             layer_type = qkeras.QDense
         else:
             layer_type = qkeras.QSimpleRNN
     else:
-        if 'GRU' in names:
+        if net_type == 'GRU':
             layer_type = tf.keras.layers.GRU
-        elif 'LSTM' in names:
+        elif net_type == 'LSTM':
             layer_type = tf.keras.layers.LSTM
-        elif 'Dense' in names:
+        elif net_type == 'Dense':
             layer_type = tf.keras.layers.Dense
         else:
             layer_type = tf.keras.layers.SimpleRNN
 
-    activation = 'tanh'
-    activation_last_layer = 'linear'
     quantization_last_layer_args = {}
     quantization_args = {}
 
@@ -176,8 +234,9 @@ def compose_net_from_net_name(net_info,
                     activity_regularizer=regularization_activity,
                     **quantization_args,
                 ))
-                net.add(tf.keras.layers.Activation(tf.keras.activations.tanh))
+                net.add(tf.keras.layers.Activation(activation))
     elif net_type == 'TCN':
+        from tcn import TCN
         net.add(TCN(input_shape=(time_series_length, inputs_len),
                     nb_filters=h_size[0],
                     kernel_size=2,
@@ -232,22 +291,19 @@ def compose_net_from_net_name(net_info,
                 **quantization_args,
             ))
 
+
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
         net.add(qkeras.QDense(units=len(outputs_list), name='layers_{}'.format(h_number),
-                                      kernel_regularizer=regularization_kernel,
-                                      bias_regularizer=regularization_bias,
-                                      **quantization_last_layer_args,
-                                      ))
+                              kernel_regularizer=regularization_kernel,
+                              bias_regularizer=regularization_bias,
+                              **quantization_last_layer_args,
+                              ))
     else:
-        net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers_{}'.format(h_number), activation=activation_last_layer,
+        net.add(tf.keras.layers.Dense(units=len(outputs_list), name='layers_{}'.format(h_number),
+                                      activation=activation_last_layer,
                                       kernel_regularizer=regularization_kernel,
                                       bias_regularizer=regularization_bias,
                                       ))
-
-    print('Constructed a neural network of type {}, with {} hidden layers with sizes {} respectively.'
-          .format(net_type, len(h_size), ', '.join(map(str, h_size))))
-
-    net_info.net_type = net_type
 
     return net, net_info
 

@@ -50,6 +50,7 @@ class predictor_ODE(template_predictor):
             self.batch_size,
             variable_parameters=variable_parameters,
             disable_individual_compilation=True,
+            **kwargs,
         )
         self.params = self.next_step_predictor.params
         self.model = model_interface(self.next_step_predictor)

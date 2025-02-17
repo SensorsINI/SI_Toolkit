@@ -7,81 +7,103 @@ import argparse
 import glob
 import yaml, os
 
-config = yaml.load(open(os.path.join('SI_Toolkit_ASF', 'config_training.yml'), 'r'), Loader=yaml.FullLoader)
-
-library = config['library']
-
-net_name = config['modeling']['NET_NAME']
-
-# Path to trained models and their logs
-PATH_TO_MODELS = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], "Models")
-
-PATH_TO_NORMALIZATION_INFO = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], "NormalizationInfo")
-
-# Get path to normalisation info as to a newest csv file in indicated folder
-paths = sorted([os.path.join(PATH_TO_NORMALIZATION_INFO, d) for d in os.listdir(PATH_TO_NORMALIZATION_INFO)], key=os.path.getctime)
-for path in paths:
-    if path[-4:] == '.csv':
-        PATH_TO_NORMALIZATION_INFO = path
-
-# The following paths to dictionaries may be replaced by the list of paths to data files.
-TRAINING_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Train")
-VALIDATION_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Validate")
-TEST_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Test")
-
-
-# region Set inputs and outputs
-
-control_inputs = config['training_default']['control_inputs']
-state_inputs = config['training_default']['state_inputs']
-setpoint_inputs = config['training_default']['setpoint_inputs']
-outputs = config['training_default']['outputs']
-translation_invariant_variables = config['training_default']['translation_invariant_variables']
-
-EPOCHS = config['training_default']['EPOCHS']
-BATCH_SIZE = config['training_default']['BATCH_SIZE']
-SEED = config['training_default']['SEED']
-SHIFT_LABELS = config['training_default']['SHIFT_LABELS']
-
-LR_INITIAL = config['training_default']['LR']['INITIAL']
-REDUCE_LR_ACTIVATED = config['training_default']['LR']['REDUCE_LR_ON_PLATEAU']
-MIN_DELTA = config['training_default']['LR']['MIN_DELTA']
-LR_MINIMAL = config['training_default']['LR']['MINIMAL']
-LR_PATIENCE = config['training_default']['LR']['PATIENCE']
-LR_DECREASE_FACTOR = config['training_default']['LR']['DECREASE_FACTOR']
-
-WASH_OUT_LEN = config['training_default']['WASH_OUT_LEN']
-POST_WASH_OUT_LEN = config['training_default']['POST_WASH_OUT_LEN']
-ON_FLY_DATA_GENERATION = config['training_default']['ON_FLY_DATA_GENERATION']
-NORMALIZE = config['training_default']['NORMALIZE']
-USE_NNI = config['training_default']['USE_NNI']
-CONSTRUCT_NETWORK = config['training_default']['CONSTRUCT_NETWORK']
-
-VALIDATE_ALSO_ON_TRAINING_SET = config['training_default']['VALIDATE_ALSO_ON_TRAINING_SET']
-
-REGULARIZATION = config['REGULARIZATION']
-
-QUANTIZATION = config['QUANTIZATION']
-
-PRUNING_ACTIVATED = config['PRUNING']['ACTIVATED']
-PRUNING_SCHEDULE = config['PRUNING']['PRUNING_PARAMS']['PRUNING_SCHEDULE']
-PRUNING_SCHEDULES = config['PRUNING']['PRUNING_SCHEDULES']
-
-PLOT_WEIGHTS_DISTRIBUTION = config['training_default']['PLOT_WEIGHTS_DISTRIBUTION']
-
-FILTERS = config['FILTERS']
-
-CONFIG_SERIES_MODIFICATION = config['CONFIG_SERIES_MODIFICATION']
-
-# For l2race
-# control_inputs = ['u1', 'u2']
-# state_inputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
-# outputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
-
-# endregion
-
 def args():
+    parser = argparse.ArgumentParser(description='Train a GRU network.', formatter_class=argparse.ArgumentDefaultsHelpFormatter, add_help=False)
+
+    parser.add_argument('-i', '--config_index', default=0, type=int,
+                        help='Index of the config file to use (default: 0, which maps to config_training.yml)')
+
+    # Parse known arguments to get config_index
+    args, remaining_argv = parser.parse_known_args()
+
+    # Dynamically construct the config file name
+    if args.config_index == 0:
+        config_file = 'config_training.yml'
+    else:
+        config_file = f'config_training_{args.config_index}.yml'
+
+    # Load the selected config file
+    config_path = os.path.join('SI_Toolkit_ASF', config_file)
+    if not os.path.exists(config_path):
+        raise FileNotFoundError(f"The specified config file '{config_path}' does not exist.")
+
+    config = yaml.load(open(config_path, 'r'), Loader=yaml.FullLoader)
+
+    # Now set variables from config
+    library = config['library']
+    net_name = config['modeling']['NET_NAME']
+
+    # Path to trained models and their logs
+    PATH_TO_MODELS = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], "Models")
+
+    PATH_TO_NORMALIZATION_INFO = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], "NormalizationInfo")
+
+    # Get path to normalisation info as to a newest csv file in indicated folder
+    paths = sorted([os.path.join(PATH_TO_NORMALIZATION_INFO, d) for d in os.listdir(PATH_TO_NORMALIZATION_INFO)], key=os.path.getctime)
+    for path in paths:
+        if path[-4:] == '.csv':
+            PATH_TO_NORMALIZATION_INFO = path
+
+    # The following paths to dictionaries may be replaced by the list of paths to data files.
+    TRAINING_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Train")
+    VALIDATION_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Validate")
+    TEST_FILES = os.path.join(config["paths"]["PATH_TO_EXPERIMENT_FOLDERS"], config['paths']['path_to_experiment'], config['paths']['DATA_FOLDER'], "Test")
+
+    # region Set inputs and outputs
+
+    control_inputs = config['training_default']['control_inputs']
+    state_inputs = config['training_default']['state_inputs']
+    setpoint_inputs = config['training_default']['setpoint_inputs']
+    outputs = config['training_default']['outputs']
+    translation_invariant_variables = config['training_default']['translation_invariant_variables']
+
+    EPOCHS = config['training_default']['EPOCHS']
+    BATCH_SIZE = config['training_default']['BATCH_SIZE']
+    SEED = config['training_default']['SEED']
+    SHIFT_LABELS = config['training_default']['SHIFT_LABELS']
+
+    LR_INITIAL = config['training_default']['LR']['INITIAL']
+    REDUCE_LR_ACTIVATED = config['training_default']['LR']['REDUCE_LR_ON_PLATEAU']
+    MIN_DELTA = config['training_default']['LR']['MIN_DELTA']
+    LR_MINIMAL = config['training_default']['LR']['MINIMAL']
+    LR_PATIENCE = config['training_default']['LR']['PATIENCE']
+    LR_DECREASE_FACTOR = config['training_default']['LR']['DECREASE_FACTOR']
+
+    WASH_OUT_LEN = config['training_default']['WASH_OUT_LEN']
+    POST_WASH_OUT_LEN = config['training_default']['POST_WASH_OUT_LEN']
+    ON_FLY_DATA_GENERATION = config['training_default']['ON_FLY_DATA_GENERATION']
+    NORMALIZE = config['training_default']['NORMALIZE']
+    USE_NNI = config['training_default']['USE_NNI']
+    CONSTRUCT_NETWORK = config['training_default']['CONSTRUCT_NETWORK']
+
+    VALIDATE_ALSO_ON_TRAINING_SET = config['training_default']['VALIDATE_ALSO_ON_TRAINING_SET']
+
+    REGULARIZATION = config['REGULARIZATION']
+
+    QUANTIZATION = config['QUANTIZATION']
+
+    PRUNING_ACTIVATED = config['PRUNING']['ACTIVATED']
+    PRUNING_SCHEDULE = config['PRUNING']['PRUNING_PARAMS']['PRUNING_SCHEDULE']
+    PRUNING_SCHEDULES = config['PRUNING']['PRUNING_SCHEDULES']
+
+    PLOT_WEIGHTS_DISTRIBUTION = config['training_default']['PLOT_WEIGHTS_DISTRIBUTION']
+
+    FILTERS = config['FILTERS']
+
+    CONFIG_SERIES_MODIFICATION = config['CONFIG_SERIES_MODIFICATION']
+
+    # For l2race
+    # control_inputs = ['u1', 'u2']
+    # state_inputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
+    # outputs = ['x1', 'x2', 'x3', 'x4', 'x5', 'x6', 'x7']
+
+    # endregion
+
+    # Now create a new parser with the rest of the arguments, using defaults from config
     parser = argparse.ArgumentParser(description='Train a GRU network.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+    parser.add_argument('-i', '--config_index', default=0, type=int,
+                        help='Index of the config file to use (default: 0, which maps to config_training.yml)')
 
     parser.add_argument('--library', default=library, type=str,
                         help='Decide if you want to use TF or Pytorch for training.')
@@ -155,6 +177,8 @@ def args():
 
     args = parser.parse_args()
 
+    args.config_path = config_path
+
     # Make sure that the provided lists of inputs and outputs are in alphabetical order
 
     if args.post_wash_out_len < 1:
@@ -220,7 +244,7 @@ def generate_column_names(inputs):
                 # Determine the padding width based on the number of digits in 'num'
                 padding_width = len(str(num-1))
 
-                # Generate zero-padded column names from 1 to 'num'
+                # Generate zero-padded column names from 0 to 'num-1'
                 for i in range(num):
                     padded_index = str(i).zfill(padding_width)
                     column_name = f"{prefix}_{padded_index}"
