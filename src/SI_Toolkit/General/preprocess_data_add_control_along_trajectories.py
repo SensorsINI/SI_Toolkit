@@ -15,51 +15,14 @@ from typing import Any, Dict, List, Tuple
 import warnings
 from copy import deepcopy
 
-def add_control_along_trajectories(
-        df,
-        controller_config,
-        controller_output_variable_name='Q_calculated',
-        integration_method='monte_carlo',
-        integration_num_evals=64,
-        save_output_only=False,
-        **kwargs
-):
-    """
-    Calculates controller output for a single sequence and returns the Q sequence.
 
-    :param df: DataFrame containing trajectory data.
-    :param controller_config: Controller configuration dictionary.
-    :param controller_output_variable_name: Base name for controller output columns.
-    :param integration_method: Method for integration.
-    :param integration_num_evals: Number of evaluations for integration.
-    :return: List of Q values for the sequence.
-    """
-
+def controller_creator(controller_config, initial_environment_attributes):
     controller_name = controller_config['controller_name']
     optimizer_name = controller_config.get('optimizer_name', None)
 
     environment_name = controller_config['environment_name']
     action_space = controller_config['action_space']
-    state_components = controller_config['state_components']
-    environment_attributes_dict = controller_config['environment_attributes_dict']
 
-    if not isinstance(controller_output_variable_name, list):
-        names_of_variables_to_save = [controller_output_variable_name]
-    else:
-        names_of_variables_to_save = controller_output_variable_name
-
-    # Process random sampling features
-    df, environment_attributes_dict = process_random_sampling(df, environment_attributes_dict)
-
-    # Get integration features and their ranges
-    integration_features, feature_ranges, environment_attributes_dict = get_integration_features(df, environment_attributes_dict)
-
-    # Get derivative features
-    differentiation_features, environment_attributes_dict, names_of_variables_to_save = get_differentiation_features(
-                                                                                         environment_attributes_dict,
-                                                                                         names_of_variables_to_save)
-
-    initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
 
     controller_name, _ = get_controller_name(
         controller_name=controller_name
@@ -80,6 +43,58 @@ def add_control_along_trajectories(
     else:
         controller_instance.configure()
 
+    return controller_instance
+
+
+def df_modifier(df):
+    return df
+
+
+def add_control_along_trajectories(
+        df,
+        controller_config,
+        controller_creator=controller_creator,
+        df_modifier=df_modifier,
+        controller_output_variable_name='Q_calculated',
+        integration_method='monte_carlo',
+        integration_num_evals=64,
+        save_output_only=False,
+        **kwargs
+):
+    """
+    Calculates controller output for a single sequence and returns the Q sequence.
+
+    :param df: DataFrame containing trajectory data.
+    :param controller_config: Controller configuration dictionary.
+    :param controller_output_variable_name: Base name for controller output columns.
+    :param integration_method: Method for integration.
+    :param integration_num_evals: Number of evaluations for integration.
+    :return: List of Q values for the sequence.
+    """
+
+    environment_attributes_dict = controller_config['environment_attributes_dict']
+
+    if not isinstance(controller_output_variable_name, list):
+        names_of_variables_to_save = [controller_output_variable_name]
+    else:
+        names_of_variables_to_save = controller_output_variable_name
+
+    df = df_modifier(df)
+
+    # Process random sampling features
+    df, environment_attributes_dict = process_random_sampling(df, environment_attributes_dict)
+
+    # Get integration features and their ranges
+    integration_features, feature_ranges, environment_attributes_dict = get_integration_features(df, environment_attributes_dict)
+
+    # Get derivative features
+    differentiation_features, environment_attributes_dict, names_of_variables_to_save = get_differentiation_features(
+                                                                                         environment_attributes_dict,
+                                                                                         names_of_variables_to_save)
+
+    initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
+    controller_instance = controller_creator(controller_config, initial_environment_attributes)
+
     Q_sequence = []
     bar = tqdm(
         total=len(df),
@@ -88,7 +103,7 @@ def add_control_along_trajectories(
         bar_format='{desc}: {n}/{total} [{elapsed}<{remaining}, {rate_fmt}]',
         dynamic_ncols=True
     )
-
+    state_components = controller_config['state_components']
     try:
         # Reset or reinitialize the controller if necessary
         if hasattr(controller_instance, 'reset'):
