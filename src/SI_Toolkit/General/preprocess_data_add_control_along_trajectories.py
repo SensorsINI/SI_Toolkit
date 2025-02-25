@@ -110,7 +110,7 @@ def add_control_along_trajectories(
             controller_instance.reset()
 
         for idx, row in df.iterrows():
-            s = row[state_components].values
+            s = row[state_components]
             time_step = row['time']
             environment_attributes = {key: row[value] for key, value in environment_attributes_dict.items()}
 
