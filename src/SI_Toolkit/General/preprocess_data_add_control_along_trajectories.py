@@ -79,11 +79,12 @@ def add_control_along_trajectories(
     else:
         names_of_variables_to_save = controller_output_variable_name
 
-    df_original = df.copy()
-    df = df_modifier(df)
 
     # Process random sampling features
     df, environment_attributes_dict = process_random_sampling(df, environment_attributes_dict)
+
+    df_original = df.copy()
+    df = df_modifier(df)
 
     # Get integration features and their ranges
     integration_features, feature_ranges, environment_attributes_dict = get_integration_features(df, environment_attributes_dict)
@@ -170,14 +171,23 @@ def add_control_along_trajectories(
 def process_random_sampling(df, environment_attributes_dict):
     """
     Process random sampling for features specified in environment_attributes_dict.
-    Allows specifying custom ranges within the feature names.
+    Allows specifying custom ranges and an optional step for discrete sampling within the feature names.
 
     :param df: DataFrame containing the data
     :param environment_attributes_dict: dictionary of environment attributes
     :return: Updated df and environment_attributes_dict
     """
-    # Regex pattern to capture feature name and optional min and max values
-    pattern = re.compile(r'^(.+)_random_uniform_([-+]?\d*\.?\d+)_([-+]?\d*\.?\d+)_?$')
+    # Updated regex pattern explanation:
+    #   (.+)                     : Captures the feature name (any characters)
+    #   _random_uniform_         : Literal string to denote random uniform sampling
+    #   ([-+]?\d*\.?\d+)         : Captures the lower bound (supports optional sign and decimals)
+    #   _                       : Separator between lower and upper bound
+    #   ([-+]?\d*\.?\d+)         : Captures the upper bound
+    #   (?:_([-+]?\d*\.?\d+))?    : Optionally captures the step value for discrete sampling
+    #   _?                      : Optional trailing underscore for flexibility in naming
+    pattern = re.compile(
+        r'^(.+)_random_uniform_([-+]?\d*\.?\d+)_([-+]?\d*\.?\d+)(?:_([-+]?\d*\.?\d+))?_?$'
+    )
     num_rows = len(df)
 
     for key, value in environment_attributes_dict.items():
@@ -185,7 +195,7 @@ def process_random_sampling(df, environment_attributes_dict):
         if match:
             feature = match.group(1)
             # Check if min and max are provided in the name
-            if len(match.groups()) == 3:
+            if len(match.groups()) >= 3:
                 try:
                     feature_min = float(match.group(2))
                     feature_max = float(match.group(3))
@@ -198,7 +208,23 @@ def process_random_sampling(df, environment_attributes_dict):
 
             # Generate random uniform samples within the specified range
             new_feature_name = f"{feature}_random_uniform"
-            df[new_feature_name] = np.random.uniform(feature_min, feature_max, num_rows)
+
+            # Check for an optional step value for discrete sampling
+            if match.group(4) is not None:
+                try:
+                    step = float(match.group(4))
+                except ValueError:
+                    raise ValueError(f"Invalid step value in feature name: {value}")
+                if step <= 0:
+                    raise ValueError(f"Step value must be positive in feature name: {value}")
+                # np.arange is used to generate evenly spaced discrete values.
+                # Adding a small epsilon (step/10) ensures inclusion of the upper bound despite floating point precision issues.
+                discrete_values = np.arange(feature_min, feature_max + step / 10, step)
+                # Randomly assign each row a value from the discrete set (sampling with replacement)
+                df[new_feature_name] = np.random.choice(discrete_values, num_rows, replace=True)
+            else:
+                # Generate continuous random samples when no step is provided
+                df[new_feature_name] = np.random.uniform(feature_min, feature_max, num_rows)
 
             # Update the environment_attributes_dict with the new feature name
             environment_attributes_dict[key] = new_feature_name
