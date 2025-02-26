@@ -79,6 +79,7 @@ def add_control_along_trajectories(
     else:
         names_of_variables_to_save = controller_output_variable_name
 
+    df_original = df.copy()
     df = df_modifier(df)
 
     # Process random sampling features
@@ -161,9 +162,9 @@ def add_control_along_trajectories(
     if save_output_only:
         return pd.DataFrame(Q_sequence, columns=names_of_variables_to_save)
     else:
-        df[names_of_variables_to_save] = Q_sequence
+        df_original[names_of_variables_to_save] = Q_sequence
 
-    return df
+    return df_original
 
 
 def process_random_sampling(df, environment_attributes_dict):
