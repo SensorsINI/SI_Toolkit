@@ -15,51 +15,14 @@ from typing import Any, Dict, List, Tuple
 import warnings
 from copy import deepcopy
 
-def add_control_along_trajectories(
-        df,
-        controller_config,
-        controller_output_variable_name='Q_calculated',
-        integration_method='monte_carlo',
-        integration_num_evals=64,
-        save_output_only=False,
-        **kwargs
-):
-    """
-    Calculates controller output for a single sequence and returns the Q sequence.
 
-    :param df: DataFrame containing trajectory data.
-    :param controller_config: Controller configuration dictionary.
-    :param controller_output_variable_name: Base name for controller output columns.
-    :param integration_method: Method for integration.
-    :param integration_num_evals: Number of evaluations for integration.
-    :return: List of Q values for the sequence.
-    """
-
+def controller_creator(controller_config, initial_environment_attributes):
     controller_name = controller_config['controller_name']
     optimizer_name = controller_config.get('optimizer_name', None)
 
     environment_name = controller_config['environment_name']
     action_space = controller_config['action_space']
-    state_components = controller_config['state_components']
-    environment_attributes_dict = controller_config['environment_attributes_dict']
 
-    if not isinstance(controller_output_variable_name, list):
-        names_of_variables_to_save = [controller_output_variable_name]
-    else:
-        names_of_variables_to_save = controller_output_variable_name
-
-    # Process random sampling features
-    df, environment_attributes_dict = process_random_sampling(df, environment_attributes_dict)
-
-    # Get integration features and their ranges
-    integration_features, feature_ranges, environment_attributes_dict = get_integration_features(df, environment_attributes_dict)
-
-    # Get derivative features
-    differentiation_features, environment_attributes_dict, names_of_variables_to_save = get_differentiation_features(
-                                                                                         environment_attributes_dict,
-                                                                                         names_of_variables_to_save)
-
-    initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
 
     controller_name, _ = get_controller_name(
         controller_name=controller_name
@@ -80,6 +43,60 @@ def add_control_along_trajectories(
     else:
         controller_instance.configure()
 
+    return controller_instance
+
+
+def df_modifier(df):
+    return df
+
+
+def add_control_along_trajectories(
+        df,
+        controller_config,
+        controller_creator=controller_creator,
+        df_modifier=df_modifier,
+        controller_output_variable_name='Q_calculated',
+        integration_method='monte_carlo',
+        integration_num_evals=64,
+        save_output_only=False,
+        **kwargs
+):
+    """
+    Calculates controller output for a single sequence and returns the Q sequence.
+
+    :param df: DataFrame containing trajectory data.
+    :param controller_config: Controller configuration dictionary.
+    :param controller_output_variable_name: Base name for controller output columns.
+    :param integration_method: Method for integration.
+    :param integration_num_evals: Number of evaluations for integration.
+    :return: List of Q values for the sequence.
+    """
+
+    environment_attributes_dict = controller_config['environment_attributes_dict']
+
+    if not isinstance(controller_output_variable_name, list):
+        names_of_variables_to_save = [controller_output_variable_name]
+    else:
+        names_of_variables_to_save = controller_output_variable_name
+
+
+    # Process random sampling features
+    df, environment_attributes_dict = process_random_sampling(df, environment_attributes_dict)
+
+    df_original = df.copy()
+    df = df_modifier(df)
+
+    # Get integration features and their ranges
+    integration_features, feature_ranges, environment_attributes_dict = get_integration_features(df, environment_attributes_dict)
+
+    # Get derivative features
+    differentiation_features, environment_attributes_dict, names_of_variables_to_save = get_differentiation_features(
+                                                                                         environment_attributes_dict,
+                                                                                         names_of_variables_to_save)
+
+    initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
+    controller_instance = controller_creator(controller_config, initial_environment_attributes)
+
     Q_sequence = []
     bar = tqdm(
         total=len(df),
@@ -88,14 +105,14 @@ def add_control_along_trajectories(
         bar_format='{desc}: {n}/{total} [{elapsed}<{remaining}, {rate_fmt}]',
         dynamic_ncols=True
     )
-
+    state_components = controller_config['state_components']
     try:
         # Reset or reinitialize the controller if necessary
         if hasattr(controller_instance, 'reset'):
             controller_instance.reset()
 
         for idx, row in df.iterrows():
-            s = row[state_components].values
+            s = row[state_components]
             time_step = row['time']
             environment_attributes = {key: row[value] for key, value in environment_attributes_dict.items()}
 
@@ -146,22 +163,31 @@ def add_control_along_trajectories(
     if save_output_only:
         return pd.DataFrame(Q_sequence, columns=names_of_variables_to_save)
     else:
-        df[names_of_variables_to_save] = Q_sequence
+        df_original[names_of_variables_to_save] = Q_sequence
 
-    return df
+    return df_original
 
 
 def process_random_sampling(df, environment_attributes_dict):
     """
     Process random sampling for features specified in environment_attributes_dict.
-    Allows specifying custom ranges within the feature names.
+    Allows specifying custom ranges and an optional step for discrete sampling within the feature names.
 
     :param df: DataFrame containing the data
     :param environment_attributes_dict: dictionary of environment attributes
     :return: Updated df and environment_attributes_dict
     """
-    # Regex pattern to capture feature name and optional min and max values
-    pattern = re.compile(r'^(.+)_random_uniform_([-+]?\d*\.?\d+)_([-+]?\d*\.?\d+)_?$')
+    # Updated regex pattern explanation:
+    #   (.+)                     : Captures the feature name (any characters)
+    #   _random_uniform_         : Literal string to denote random uniform sampling
+    #   ([-+]?\d*\.?\d+)         : Captures the lower bound (supports optional sign and decimals)
+    #   _                       : Separator between lower and upper bound
+    #   ([-+]?\d*\.?\d+)         : Captures the upper bound
+    #   (?:_([-+]?\d*\.?\d+))?    : Optionally captures the step value for discrete sampling
+    #   _?                      : Optional trailing underscore for flexibility in naming
+    pattern = re.compile(
+        r'^(.+)_random_uniform_([-+]?\d*\.?\d+)_([-+]?\d*\.?\d+)(?:_([-+]?\d*\.?\d+))?_?$'
+    )
     num_rows = len(df)
 
     for key, value in environment_attributes_dict.items():
@@ -169,7 +195,7 @@ def process_random_sampling(df, environment_attributes_dict):
         if match:
             feature = match.group(1)
             # Check if min and max are provided in the name
-            if len(match.groups()) == 3:
+            if len(match.groups()) >= 3:
                 try:
                     feature_min = float(match.group(2))
                     feature_max = float(match.group(3))
@@ -182,7 +208,23 @@ def process_random_sampling(df, environment_attributes_dict):
 
             # Generate random uniform samples within the specified range
             new_feature_name = f"{feature}_random_uniform"
-            df[new_feature_name] = np.random.uniform(feature_min, feature_max, num_rows)
+
+            # Check for an optional step value for discrete sampling
+            if match.group(4) is not None:
+                try:
+                    step = float(match.group(4))
+                except ValueError:
+                    raise ValueError(f"Invalid step value in feature name: {value}")
+                if step <= 0:
+                    raise ValueError(f"Step value must be positive in feature name: {value}")
+                # np.arange is used to generate evenly spaced discrete values.
+                # Adding a small epsilon (step/10) ensures inclusion of the upper bound despite floating point precision issues.
+                discrete_values = np.arange(feature_min, feature_max + step / 10, step)
+                # Randomly assign each row a value from the discrete set (sampling with replacement)
+                df[new_feature_name] = np.random.choice(discrete_values, num_rows, replace=True)
+            else:
+                # Generate continuous random samples when no step is provided
+                df[new_feature_name] = np.random.uniform(feature_min, feature_max, num_rows)
 
             # Update the environment_attributes_dict with the new feature name
             environment_attributes_dict[key] = new_feature_name
