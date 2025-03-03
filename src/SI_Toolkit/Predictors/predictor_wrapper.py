@@ -1,6 +1,6 @@
 import os
 from typing import Optional
-from SI_Toolkit.computation_library import ComputationLibrary, TensorFlowLibrary
+from SI_Toolkit.computation_library import ComputationLibrary
 from SI_Toolkit.load_and_normalize import load_yaml
 from copy import deepcopy as dcp
 from types import MappingProxyType, SimpleNamespace
@@ -77,6 +77,7 @@ class PredictorWrapper:
         elif self.predictor_type == 'ODE':
             from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
             if computation_library is None:  # TODO: Remove it after making sure that the predictor gets the right library everywhere it is used.
+                from SI_Toolkit.computation_library import TensorFlowLibrary
                 computation_library = TensorFlowLibrary()
             self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
