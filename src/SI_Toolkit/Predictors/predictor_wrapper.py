@@ -88,6 +88,8 @@ class PredictorWrapper:
         self.num_control_inputs = self.predictor.num_control_inputs
         
         # computation_library defaults to None. In that case, do not check for conformity.
+        if computation_library is None and hasattr(self.predictor, 'lib') and self.predictor.lib is not None:
+            computation_library = self.predictor.lib
         if not isinstance(computation_library, self.predictor.supported_computation_libraries):
             raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__class__}")
     def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None, mode=None, hls=False):
