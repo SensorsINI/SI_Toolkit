@@ -11,6 +11,17 @@ RandomGeneratorType = Union["np.random.Generator", "tf.random.Generator", "torch
 NumericType = Union[float, int]
 
 
+def select_library(lib_name):
+    if lib_name == 'Numpy':
+        return NumpyLibrary()
+    elif lib_name == 'TF':
+        return TensorFlowLibrary()
+    elif lib_name == 'Pytorch':
+        return PyTorchLibrary()
+    else:
+        raise ValueError(f"{lib_name} is not a valid library name.")
+
+
 def set_device_general(device_name: str, library: str) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """
     A decorator to set the computation device for the decorated function.
