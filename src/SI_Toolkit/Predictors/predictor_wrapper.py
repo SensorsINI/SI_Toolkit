@@ -1,6 +1,6 @@
 import os
 from typing import Optional
-from SI_Toolkit.computation_library import ComputationLibrary, TensorFlowLibrary
+from SI_Toolkit.computation_library import ComputationLibrary
 from SI_Toolkit.load_and_normalize import load_yaml
 from copy import deepcopy as dcp
 from types import MappingProxyType, SimpleNamespace
@@ -77,6 +77,7 @@ class PredictorWrapper:
         elif self.predictor_type == 'ODE':
             from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
             if computation_library is None:  # TODO: Remove it after making sure that the predictor gets the right library everywhere it is used.
+                from SI_Toolkit.computation_library import TensorFlowLibrary
                 computation_library = TensorFlowLibrary()
             self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
@@ -87,6 +88,8 @@ class PredictorWrapper:
         self.num_control_inputs = self.predictor.num_control_inputs
         
         # computation_library defaults to None. In that case, do not check for conformity.
+        if computation_library is None and hasattr(self.predictor, 'lib') and self.predictor.lib is not None:
+            computation_library = self.predictor.lib
         if not isinstance(computation_library, self.predictor.supported_computation_libraries):
             raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__class__}")
     def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None, mode=None, hls=False):
@@ -130,6 +133,7 @@ class PredictorWrapper:
             for predefined_predictor in self.predictors_config.keys():
                 if predictor_specification_components[0] == predefined_predictor:
                     predictor_name = predictor_specification_components[0]
+                    break
 
         # Search if the specification gives a network name from which you can construct predictor
         if predictor_name is None:
