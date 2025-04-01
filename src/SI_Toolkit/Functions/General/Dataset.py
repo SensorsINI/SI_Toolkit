@@ -20,6 +20,7 @@ except:
     DataAugmentation = DataAugmentationPlaceholder
 
 from SI_Toolkit.Functions.General.Dataset_Filters import filter_datasets
+from SI_Toolkit.load_and_normalize import normalize_df
 
 class DatasetTemplate:
     def __init__(self,
@@ -31,6 +32,7 @@ class DatasetTemplate:
                  shuffle=True,
                  batch_size=None,
                  use_only_full_batches=True,
+                 normalization_info=None,
                  ):
         'Initialization - divide data in features and labels'
 
@@ -71,6 +73,8 @@ class DatasetTemplate:
         dfs = dfs_split
 
         dfs = filter_datasets(dfs, args)
+        if normalization_info is not None:
+            dfs = normalize_df(dfs, normalization_info)
 
         self.DA = DataAugmentation(self.inputs, self.outputs, args.config_series_modification)
         needed_columns = list(set(self.inputs) | set(self.outputs))

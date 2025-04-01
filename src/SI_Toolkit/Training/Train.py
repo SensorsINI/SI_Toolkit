@@ -97,10 +97,8 @@ def train_network():
     validation_dfs = load_data(paths_to_datafiles_validation)
     test_dfs = load_data(paths_to_datafiles_test)
 
-    if net_info.normalize:
-        training_dfs = normalize_df(training_dfs, normalization_info)
-        validation_dfs = normalize_df(validation_dfs, normalization_info)
-        test_dfs = normalize_df(test_dfs, normalization_info)
+    if not net_info.normalize:
+        normalization_info = None
 
     create_log_file(net_info, a, training_dfs)
 
@@ -109,7 +107,7 @@ def train_network():
     with TerminalContentManager(os.path.join(dst, 'terminal_output.txt')):
 
         # Run the training function
-        loss, validation_loss, post_epoch_training_loss = Training.train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a)
+        loss, validation_loss, post_epoch_training_loss = Training.train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, normalization_info, a)
 
         # region Plot loss change during training
         plt.figure()

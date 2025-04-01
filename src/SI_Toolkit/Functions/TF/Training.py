@@ -22,12 +22,13 @@ import tensorflow as tf
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
 # Warning! It may affect performance. I would discourage you to use it for long training tasks
 # @profile(precision=4)
-def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, a):
+def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, normalization_info, a):
 
-    training_dataset = Dataset(training_dfs, a, shuffle=True, inputs=net_info.inputs, outputs=net_info.outputs)
+    training_dataset = Dataset(training_dfs, a, shuffle=True, inputs=net_info.inputs,
+                               outputs=net_info.outputs, normalization_info=normalization_info)
 
     validation_dataset = Dataset(validation_dfs, a, shuffle=False, inputs=net_info.inputs,
-                                 outputs=net_info.outputs)
+                                 outputs=net_info.outputs, normalization_info=normalization_info)
 
     del training_dfs, validation_dfs, test_dfs
 
