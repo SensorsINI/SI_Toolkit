@@ -1,21 +1,49 @@
+// network.h
 #ifndef NETWORK_H
 #define NETWORK_H
 
-// Just a template, the values are adjusted with python script
-#define INPUT_SIZE      // Input size (as seen from your debugger, you can adjust as needed)
-#define LAYER1_SIZE     // First Dense layer size
-#define LAYER2_SIZE     // Second Dense layer size
-#define LAYER3_SIZE     // Third Dense layer size (new for the third Dense layer)
+// We will have our Python script insert either
+//     #define IS_GRU 0
+// or  #define IS_GRU 1
+// above these lines:
 
-// Declare the function and global variables
+#define INPUT_SIZE      // Overwritten by python
+#define LAYER1_SIZE     // Overwritten by python (used in Dense mode)
+#define LAYER2_SIZE     // Overwritten by python (used in Dense mode)
+#define LAYER3_SIZE     // Overwritten by python (used in Dense mode)
+
+// For GRU mode, Python overwrites them as well:
+// #define GRU1_UNITS
+// #define GRU2_UNITS
+// (and sets LAYER3_SIZE to the final output dimension)
+
+//----------------------------------------------------
+// Declarations
+//----------------------------------------------------
 void C_Network_Evaluate(float* inputs, float* outputs);
 
-// Other necessary declarations if required
+#if IS_GRU
+void InitializeGRUStates(void);
+#endif
+
+// These exist for Dense networks
 extern const float weights1[];
 extern const float bias1[];
 extern const float weights2[];
 extern const float bias2[];
 extern const float weights3[];
 extern const float bias3[];
+
+// These exist only for GRU networks (two GRU layers + final Dense).
+// They will be empty if IS_GRU=0, but we declare them anyway:
+extern const float gru1_kernel[];
+extern const float gru1_recurrent_kernel[];
+extern const float gru1_bias[];
+
+extern const float gru2_kernel[];
+extern const float gru2_recurrent_kernel[];
+extern const float gru2_bias[];
+
+// The final Dense layer after the second GRU reuses weights3, bias3.
 
 #endif

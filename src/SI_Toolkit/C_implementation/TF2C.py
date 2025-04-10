@@ -1,4 +1,3 @@
-# TF2C.py
 import os
 import shutil
 import subprocess
@@ -7,6 +6,7 @@ from types import SimpleNamespace
 from SI_Toolkit.Functions.General.Initialization import get_net
 from SI_Toolkit.Functions.General.TerminalContentManager import TerminalContentManager
 
+from SI_Toolkit.Functions.General.NumpyNetworks import NumpyGRUNetwork
 
 # Set a seed for reproducibility
 seed_value = 1
@@ -25,17 +25,68 @@ def tf2C(path_to_models, net_name, batch_size):
             a, time_series_length=1, batch_size=batch_size, stateful=True, remove_redundant_dimensions=True
         )
 
+        # ------------------------------------------------
+        # Detect whether this model is GRU-based or Dense-based
+        # ------------------------------------------------
+        from tensorflow.keras.layers import GRU, Dense
+
+        first_layer_type = type(net.layers[0]).__name__
+        is_gru_model = ('GRU' in first_layer_type)
+
         # Define input
         input_length = len(net_info.inputs)
-        input_data = np.random.rand(1, input_length).astype(np.float32)
+
+        if is_gru_model:
+            input_data = np.random.rand(1, 1, input_length).astype(np.float32)
+        else:
+            input_data = np.random.rand(1, input_length).astype(np.float32)
         inputs_string = ", ".join(map(str, input_data.flatten()))
         print(f"\nInput data: {inputs_string} \n")
+
+        # +++ If GRU, also initialize the hidden states to random values +++
+        if is_gru_model:
+            # Two-layer GRU => net.layers = [GRU1, GRU2, Dense_output]
+            # The reset_states() method expects shape = (batch_size, units)
+            gru1_units = net.layers[0].output_shape[-1]
+            gru2_units = net.layers[1].output_shape[-1]
+
+            # Create random initial states (just once, shape=(1, units))
+            h1_init = np.random.rand(1, gru1_units).astype(np.float32)
+            h2_init = np.random.rand(1, gru2_units).astype(np.float32)
+
+            # Force the TF GRUs to start from these states
+            net.layers[0].reset_states(h1_init)
+            net.layers[1].reset_states(h2_init)
 
         # Now, check Python output to compare with C output
         output_tf = net(input_data).numpy().flatten()
         print("Python (TensorFlow) output:")
         print(output_tf)
         print("\n")
+
+        # ------------------------------------------------
+        # Compare with NumPy-based GRU if it's a GRU model
+        # ------------------------------------------------
+        if is_gru_model:
+            print("Testing NumPy-based GRU implementation...")
+
+            # 1) Build the NumPy-based network replica
+            numpy_net = NumpyGRUNetwork(net)
+
+            # 2) Evaluate with same initial states and same input
+            np_output = numpy_net.forward(
+                input_data,
+                h_inits=[h1_init, h2_init]  # match the states we set in TF
+            ).flatten()
+
+            # 3) Compare
+            difference = np.max(np.abs(output_tf - np_output))
+            print(f"NumPy-based GRU output: {np_output}")
+            print(f"Max absolute difference (TF vs NumPy) = {difference:.6g}")
+            if difference < 1e-6:
+                print("SUCCESS: Outputs match closely!\n")
+            else:
+                print("WARNING: Outputs differ. Check gate order/biases.\n")
 
         # Define the target directory
         target_directory = os.path.join(path_to_models, net_name, 'C_implementation')
@@ -53,50 +104,155 @@ def tf2C(path_to_models, net_name, batch_size):
         shutil.copy(source_main_c, target_directory)
         shutil.copy(source_network_c, target_directory)
 
-        # Modify network.c to update the layer sizes dynamically based on the TensorFlow model
-        input_size = net.input_shape[1]  # Input size from the model
-        layer1_size = net.layers[0].output_shape[1]  # First Dense layer size
-        layer2_size = net.layers[2].output_shape[1]  # Second Dense layer size
-        layer3_size = net.layers[4].output_shape[1]  # Third Dense layer size
-
+        # Read network.h so we can update the macros
         with open(header_network_h, 'r') as f:
             network_h_content = f.read()
 
-        # Update the #define values for input and layer sizes
-        network_h_content = network_h_content.replace("#define INPUT_SIZE", f"#define INPUT_SIZE {input_size}")
-        network_h_content = network_h_content.replace("#define LAYER1_SIZE", f"#define LAYER1_SIZE {layer1_size}")
-        network_h_content = network_h_content.replace("#define LAYER2_SIZE", f"#define LAYER2_SIZE {layer2_size}")
-        network_h_content = network_h_content.replace("#define LAYER3_SIZE", f"#define LAYER3_SIZE {layer3_size}")
+        # ------------------------------------------------
+        # If it is a GRU model (two GRU layers + linear output)
+        # ------------------------------------------------
+        if is_gru_model:
+            print("Detected GRU-based model. Preparing code accordingly...\n")
 
-        # Write the modified network.c to the target directory
-        with open(os.path.join(target_directory, 'network.h'), 'w') as f:
-            f.write(network_h_content)
+            # Set macro indicating a GRU model
+            network_h_content = network_h_content.replace(
+                "#define INPUT_SIZE      // Overwritten by python",
+                f"#define IS_GRU 1\n#define INPUT_SIZE {net.input_shape[-1]}      // Overwritten by python"
+            )
 
-        # Convert the Keras model to C (weights and biases)
-        weights1, bias1 = net.layers[0].get_weights()  # First Dense layer
-        weights2, bias2 = net.layers[2].get_weights()  # Second Dense layer
-        weights3, bias3 = net.layers[4].get_weights()  # Third Dense layer (if applicable)
+            # For a 2-layer GRU, net.layers = [GRU1, GRU2, Dense_output]
+            #   net.layers[0]: GRU1
+            #   net.layers[1]: GRU2
+            #   net.layers[2]: final Dense
+            # Each GRU has weights: [kernel, recurrent_kernel, bias].
+            # The final Dense has [weights, bias].
 
-        # Combine all weights and biases into one .c file
-        def save_as_cc_combined(array, varname, transpose=False):
-            if transpose:
-                array = array.T  # Transpose the array for compatibility with C matrix multiplication
-            with open(os.path.join(target_directory, "network_parameters.c"), "a") as f:
-                f.write(f"const float {varname}[] = {{\n")
-                f.write(", ".join(map(str, array.flatten())))
-                f.write("\n};\n")
+            # Extract shapes
+            gru1_units = net.layers[0].output_shape[-1]
+            gru2_units = net.layers[1].output_shape[-1]
+            output_size = net.layers[2].output_shape[-1]
 
-        # Remove existing network_parameters.c file if it exists
-        if os.path.exists(os.path.join(target_directory, "network_parameters.c")):
-            os.remove(os.path.join(target_directory, "network_parameters.c"))
+            # Update #define placeholders in network.h
+            network_h_content = network_h_content.replace(
+                "#define LAYER1_SIZE     // Overwritten by python (used in Dense mode)",
+                f"#define GRU1_UNITS {gru1_units}     // Overwritten by python (used in Dense mode)"
+            )
+            network_h_content = network_h_content.replace(
+                "#define LAYER2_SIZE     // Overwritten by python (used in Dense mode)",
+                f"#define GRU2_UNITS {gru2_units}     // Overwritten by python (used in Dense mode)"
+            )
+            network_h_content = network_h_content.replace(
+                "#define LAYER3_SIZE     // Overwritten by python (used in Dense mode)",
+                f"#define LAYER3_SIZE {output_size}     // Overwritten by python (used in Dense mode)"
+            )
 
-        # Save all weights and biases to the same .c file
-        save_as_cc_combined(weights1, "weights1", transpose=True)
-        save_as_cc_combined(bias1, "bias1")
-        save_as_cc_combined(weights2, "weights2", transpose=True)
-        save_as_cc_combined(bias2, "bias2")
-        save_as_cc_combined(weights3, "weights3", transpose=True)
-        save_as_cc_combined(bias3, "bias3")
+            # Write the updated network.h
+            with open(os.path.join(target_directory, 'network.h'), 'w') as f:
+                f.write(network_h_content)
+
+            # Retrieve GRU1 weights
+            gru1_kernel, gru1_recurrent_kernel, gru1_bias = net.layers[0].get_weights()
+            # Retrieve GRU2 weights
+            gru2_kernel, gru2_recurrent_kernel, gru2_bias = net.layers[1].get_weights()
+            # Retrieve final Dense
+            dense_weights, dense_bias = net.layers[2].get_weights()
+
+            # +++ IMPORTANT +++
+            # Do NOT sum the biases anymore. For reset_after=True, we need both halves.
+            # Merge bias subarrays if Keras stored them as shape (2, 3*units)
+            if len(gru1_bias.shape) == 2:
+                gru1_bias = gru1_bias.reshape(-1)
+            if len(gru2_bias.shape) == 2:
+                gru2_bias = gru2_bias.reshape(-1)
+
+            # Save into network_parameters.c
+            def save_as_cc_combined(array, varname):
+                with open(os.path.join(target_directory, "network_parameters.c"), "a") as f:
+                    f.write(f"const float {varname}[] = {{\n")
+                    f.write(", ".join(map(str, array.flatten())))
+                    f.write("\n};\n")
+
+            param_c_path = os.path.join(target_directory, "network_parameters.c")
+            if os.path.exists(param_c_path):
+                os.remove(param_c_path)
+
+            # +++ Save initial states so that C code can see them +++
+            save_as_cc_combined(h1_init.flatten(), "initial_h1")
+            save_as_cc_combined(h2_init.flatten(), "initial_h2")
+
+            # Save GRU1
+            save_as_cc_combined(gru1_kernel,              "gru1_kernel")
+            save_as_cc_combined(gru1_recurrent_kernel,    "gru1_recurrent_kernel")
+            save_as_cc_combined(gru1_bias,                "gru1_bias")
+            # Save GRU2
+            save_as_cc_combined(gru2_kernel,              "gru2_kernel")
+            save_as_cc_combined(gru2_recurrent_kernel,    "gru2_recurrent_kernel")
+            save_as_cc_combined(gru2_bias,                "gru2_bias")
+
+            # Save final Dense (linear) layer.  Transpose for matMul convenience.
+            save_as_cc_combined(dense_weights.T, "weights3")
+            save_as_cc_combined(dense_bias,      "bias3")
+
+        # ------------------------------------------------
+        # Otherwise, the original Dense-based approach
+        # ------------------------------------------------
+        else:
+            print("Detected Dense-based model. Using existing Dense conversion...\n")
+
+            # Insert #define IS_GRU 0 on top
+            network_h_content = network_h_content.replace(
+                "#define INPUT_SIZE      // Overwritten by python",
+                f"#define IS_GRU 0\n#define INPUT_SIZE {net.input_shape[1]}      // Overwritten by python"
+            )
+
+            # The rest is the original code which sets LAYER1_SIZE, LAYER2_SIZE, LAYER3_SIZE
+            layer1_size = net.layers[0].output_shape[1]
+            layer2_size = net.layers[2].output_shape[1]
+            layer3_size = net.layers[4].output_shape[1]
+
+            network_h_content = network_h_content.replace(
+                "#define LAYER1_SIZE     // Overwritten by python (used in Dense mode)",
+                f"#define LAYER1_SIZE {layer1_size}     // Overwritten by python (used in Dense mode)"
+            )
+            network_h_content = network_h_content.replace(
+                "#define LAYER2_SIZE     // Overwritten by python (used in Dense mode)",
+                f"#define LAYER2_SIZE {layer2_size}     // Overwritten by python (used in Dense mode)"
+            )
+            network_h_content = network_h_content.replace(
+                "#define LAYER3_SIZE     // Overwritten by python (used in Dense mode)",
+                f"#define LAYER3_SIZE {layer3_size}     // Overwritten by python (used in Dense mode)"
+            )
+
+            # Write the modified network.h to the target directory
+            with open(os.path.join(target_directory, 'network.h'), 'w') as f:
+                f.write(network_h_content)
+
+            # Convert the Keras model to C (weights and biases)
+            weights1, bias1 = net.layers[0].get_weights()  # First Dense layer
+            weights2, bias2 = net.layers[2].get_weights()  # Second Dense layer
+            weights3, bias3 = net.layers[4].get_weights()  # Third Dense layer (if applicable)
+
+            # Combine all weights and biases into one .c file
+            def save_as_cc_combined(array, varname, transpose=False):
+                if transpose:
+                    array = array.T  # Transpose the array for compatibility with C matrix multiplication
+                with open(os.path.join(target_directory, "network_parameters.c"), "a") as f:
+                    f.write(f"const float {varname}[] = {{\n")
+                    f.write(", ".join(map(str, array.flatten())))
+                    f.write("\n};\n")
+
+            # Remove existing network_parameters.c file if it exists
+            param_c_path = os.path.join(target_directory, "network_parameters.c")
+            if os.path.exists(param_c_path):
+                os.remove(param_c_path)
+
+            # Save all weights and biases to the same .c file
+            save_as_cc_combined(weights1, "weights1", transpose=True)
+            save_as_cc_combined(bias1,    "bias1")
+            save_as_cc_combined(weights2, "weights2", transpose=True)
+            save_as_cc_combined(bias2,    "bias2")
+            save_as_cc_combined(weights3, "weights3", transpose=True)
+            save_as_cc_combined(bias3,    "bias3")
 
         # Prepare input data and pass it as arguments to the C program
         input_str = " ".join(map(str, input_data.flatten()))
@@ -109,9 +265,6 @@ def tf2C(path_to_models, net_name, batch_size):
             if result.returncode != 0:
                 print("Compilation failed!")
                 print(result.stderr)
-            else:
-                pass
-                # print("Compilation successful! \n\n")
 
         compile_c_code()
 
@@ -129,7 +282,6 @@ def tf2C(path_to_models, net_name, batch_size):
                 print(result.stdout)
 
         run_c_code()
-
 
         print(f"\n{bold_start}Timing of Python (TensorFlow) network for comparison:{bold_end} \n")
 
@@ -157,10 +309,8 @@ def tf2C(path_to_models, net_name, batch_size):
         print(f"Total time for {nr_runs_with_compilation} runs with TF compilation: {time_with_compilation:.3f} seconds")
         print(f"Average time per call: {time_with_compilation*1.0e6/nr_runs_with_compilation:.2f} us")
 
-
         # Clean up: Delete the copied C files after compilation and execution
         os.remove(os.path.join(target_directory, 'main.c'))
         os.remove(os.path.join(target_directory, 'network_test'))
 
         print("Temporary C files have been deleted.")
-
