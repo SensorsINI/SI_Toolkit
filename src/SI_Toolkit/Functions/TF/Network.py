@@ -261,10 +261,7 @@ def compose_net_from_net_name_standard(net_info,
                         ))
     else:
 
-        if remove_redundant_dimensions and batch_size==1:
-            shape_input = (time_series_length, inputs_len)
-        else:
-            shape_input = (batch_size, time_series_length, inputs_len)
+        shape_input = (batch_size, time_series_length, inputs_len)
 
         # Or RNN...
         net.add(layer_type(
