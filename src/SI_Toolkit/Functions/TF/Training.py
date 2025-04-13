@@ -93,6 +93,8 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
     )
 
     net.optimizer = optimizer  # When loading a pretrained network, setting optimizer in compile does nothing.
+    tf.keras.backend.set_value(net.optimizer.lr, a.lr_initial)
+
     # region Define callbacks to be used in training
 
     callbacks_for_training = []
