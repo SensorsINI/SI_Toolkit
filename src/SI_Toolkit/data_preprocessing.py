@@ -72,7 +72,7 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
                 transformation_function = globals()[transformation]
             except KeyError:
                 raise NotImplementedError(f'Transformation {transformation} is not implemented')
-            df_processed = transformation_function(df, **kwargs)
+            df_processed = transformation_function(df, df_name=processed_file_name, **kwargs)
 
         if df_processed is None:
             print('Dropping {}, transformation not successful.'.format(current_path))
