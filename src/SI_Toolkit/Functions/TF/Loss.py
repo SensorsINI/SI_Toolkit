@@ -10,9 +10,11 @@ from tensorflow.python.framework import ops
 
 
 @tf.keras.utils.register_keras_serializable()
-class LossMSRSequence(tf.keras.losses.Loss):
-    def __init__(self, wash_out_len, post_wash_out_len, discount_factor=0.9, **kwargs):
+class LossMeanResidual(tf.keras.losses.Loss):
+    def __init__(self, loss_mode, wash_out_len, post_wash_out_len, discount_factor=0.9, **kwargs):
         super().__init__(**kwargs)
+
+        self.loss_mode = loss_mode
         self.wash_out_len = wash_out_len
         self.post_wash_out_len = post_wash_out_len
         self.discount_factor = discount_factor
@@ -25,18 +27,29 @@ class LossMSRSequence(tf.keras.losses.Loss):
 
     def call(self, y_true, y_predicted):
 
-        # V1
-        # y_predicted = tf.clip_by_value(y_predicted, -1.0, 1.0)
-
-        # V2
-        # condition = tf.abs(y_true) >= 1.0
-        # y_predicted = tf.where(condition, tf.clip_by_value(y_predicted, -1.0, 1.0), y_predicted)
+        if 'clipped_prediction' in self.loss_mode:
+            # Not for model learning!
+            condition = tf.abs(y_true) >= 1.0
+            y_predicted = tf.where(condition, tf.clip_by_value(y_predicted, -1.0, 1.0), y_predicted)
 
         losses = tf.cond(
             tf.equal(tf.shape(y_predicted)[1], tf.shape(y_true)[1] + 1),
             lambda: keras.losses.MSE(y_true, y_predicted[:, 1:, :]),  # A case where we train a predictor which output includes the input
             lambda: keras.losses.MSE(y_true, y_predicted)  # If condition is False, normal training of a network
         )
+
+        _y_predicted = tf.cond(
+            tf.equal(tf.shape(y_predicted)[1], tf.shape(y_true)[1] + 1),
+            lambda: y_predicted[:, 1:, :],  # A case where we train a predictor which output includes the input
+            lambda: y_predicted  # If condition is False, normal training of a network
+        )
+
+        if 'squared' in self.loss_mode:
+            keras.losses.MSE(y_true, _y_predicted)
+        elif 'absolute' in self.loss_mode:
+            losses = tf.abs(y_true - _y_predicted)
+        else:
+            raise ValueError(f"Unknown loss mode: {self.loss_mode}")
 
         # losses has shape [batch_size, time steps] -> this is the loss for every time step
         losses = losses[:, self.wash_out_len:] # This discards losses for timesteps ≤ wash_out_len

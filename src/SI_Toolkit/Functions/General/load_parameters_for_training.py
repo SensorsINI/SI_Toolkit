@@ -204,6 +204,8 @@ def args():
 
     args.plot_weights_distribution = PLOT_WEIGHTS_DISTRIBUTION
 
+    args.loss_mode = config['training_default']['loss_mode']
+
     args.regularization = REGULARIZATION
 
     args.quantization = QUANTIZATION

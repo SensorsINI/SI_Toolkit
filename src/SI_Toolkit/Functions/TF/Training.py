@@ -69,7 +69,11 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
             stddev = tf.exp(y_pred[..., 1])  # Assuming log-stddev is at index 1
             return tf.reduce_mean(stddev)
 
-        loss = negative_log_likelihood
+        if a.loss_mode == 'negative_log_likelihood':
+            loss = negative_log_likelihood
+        else:
+            raise ValueError("Unsupported loss mode for Bayesian networks: {}".format(a.loss_mode))
+
         metrics = [metric_mae, metric_std]
 
     else:
@@ -77,6 +81,7 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
         # loss = "mse"  # Might be not the same as Pytorch - MSE, not checked
         # loss = LossMSRSequenceCustomizableRelative(
         loss = LossMSRSequence(
+            loss_mode=a.loss_mode,
             wash_out_len=a.wash_out_len,
             post_wash_out_len=a.post_wash_out_len,
             discount_factor=1.0
