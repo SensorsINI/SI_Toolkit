@@ -57,6 +57,8 @@ class neural_network_evaluator:
         self.net_input_normed = self.lib.to_variable(
             np.zeros([len(self.net_info.inputs), ], dtype=np.float32), self.lib.float32)
 
+        self.net_output_dict = {}
+
         self.step_compilable = CompileAdaptive(self._step_compilable)
 
 
@@ -73,9 +75,13 @@ class neural_network_evaluator:
             net_output = net_output.detach().numpy()
 
         if self.lib.ndim(net_output) == 1:
-            return net_output[self.lib.newaxis, self.lib.newaxis, :]
+            net_output = net_output[self.lib.newaxis, self.lib.newaxis, :]
         else:
-            return net_output
+            net_output =  net_output
+
+        self.create_net_output_dict(net_output)
+
+        return net_output
 
     def _step_compilable(self, net_input):
 
@@ -103,3 +109,22 @@ class neural_network_evaluator:
     def lib(self) -> "type[ComputationLibrary]":
         """Shortcut to make easy using functions from computation library, this is also used by CompileAdaptive to recognize library"""
         return self.computation_library
+
+    def compose_input(self, inputs_dict):
+        net_input = []
+        for key in self.net_info.inputs:
+            net_input.append(inputs_dict[key])
+
+        net_input = self.lib.to_tensor(net_input, self.lib.float32)
+
+        return net_input
+
+    def create_net_output_dict(self, net_output):
+        net_output_dict = {}
+        net_output_numpy = self.lib.to_numpy(net_output)
+        for i, key in enumerate(self.net_info.outputs):
+            net_output_dict[key] = net_output_numpy[..., i]
+
+        self.net_output_dict = net_output_dict
+
+
