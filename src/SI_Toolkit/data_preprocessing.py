@@ -72,7 +72,7 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
                 transformation_function = globals()[transformation]
             except KeyError:
                 raise NotImplementedError(f'Transformation {transformation} is not implemented')
-            df_processed = transformation_function(df, df_name=processed_file_name, **kwargs)
+            df_processed = transformation_function(df, df_name=processed_file_name, current_path=current_path, **kwargs)
 
         if df_processed is None:
             print('Dropping {}, transformation not successful.'.format(current_path))
@@ -223,6 +223,32 @@ def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwa
 
     max_shift = max(abs(shift) for shift in indices_by_which_to_shift)
     df_processed = df.iloc[max_shift:-max_shift]
+
+    return df_processed
+
+
+def subtract_columns(df, variables_to_subtract, **kwargs):
+    """
+    Appends new columns to the dataframe by subtracting two existing columns.
+
+    Parameters:
+        df (pd.DataFrame): Input dataframe.
+        variables_to_subtract (list of lists): Each sublist has three elements [column_a, column_b, column_c],
+            where column_c will be calculated as column_a - column_b and appended to df.
+        kwargs: Additional parameters for future extensions.
+
+    Returns:
+        pd.DataFrame: Processed dataframe with new columns added.
+    """
+    df_processed = df.copy()
+
+    for var_a, var_b, var_c in variables_to_subtract:
+        # Verify columns exist in DataFrame to avoid errors
+        if var_a not in df_processed.columns or var_b not in df_processed.columns:
+            raise ValueError(f"One or both columns '{var_a}' or '{var_b}' do not exist in dataframe.")
+
+        # Perform the subtraction and create the new column
+        df_processed[var_c] = df_processed[var_a] - df_processed[var_b]
 
     return df_processed
 
