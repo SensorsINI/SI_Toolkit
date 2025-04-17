@@ -1,18 +1,4 @@
-"""
-This is a CLASS of predictor.
-The idea is to decouple the estimation of system future state from the controller design.
-While designing the controller you just chose the predictor you want,
- initialize it while initializing the controller and while stepping the controller you just give it current state
-    and it returns the future states
-
-"""
-
-"""
-Control inputs should be first (regarding vector indices) inputs of the vector.
-all other net inputs in the same order as net outputs
-"""
-
-# TODO: Make horizon updatable in runtime
+# predictor_autoregressive_neural.py
 
 import os
 from types import SimpleNamespace
