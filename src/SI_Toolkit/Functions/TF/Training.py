@@ -14,7 +14,7 @@ except ModuleNotFoundError:
 
 from SI_Toolkit.Functions.TF.Dataset import Dataset
 
-from SI_Toolkit.Functions.TF.Loss import LossMSRSequence, LossMSRSequenceCustomizableRelative
+from SI_Toolkit.Functions.TF.Loss import LossMeanResidual
 
 import tensorflow as tf
 
@@ -80,7 +80,7 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
         # Use existing loss function for non-Bayesian networks
         # loss = "mse"  # Might be not the same as Pytorch - MSE, not checked
         # loss = LossMSRSequenceCustomizableRelative(
-        loss = LossMSRSequence(
+        loss = LossMeanResidual(
             loss_mode=a.loss_mode,
             wash_out_len=a.wash_out_len,
             post_wash_out_len=a.post_wash_out_len,

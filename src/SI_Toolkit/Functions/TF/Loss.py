@@ -32,12 +32,6 @@ class LossMeanResidual(tf.keras.losses.Loss):
             condition = tf.abs(y_true) >= 1.0
             y_predicted = tf.where(condition, tf.clip_by_value(y_predicted, -1.0, 1.0), y_predicted)
 
-        losses = tf.cond(
-            tf.equal(tf.shape(y_predicted)[1], tf.shape(y_true)[1] + 1),
-            lambda: keras.losses.MSE(y_true, y_predicted[:, 1:, :]),  # A case where we train a predictor which output includes the input
-            lambda: keras.losses.MSE(y_true, y_predicted)  # If condition is False, normal training of a network
-        )
-
         _y_predicted = tf.cond(
             tf.equal(tf.shape(y_predicted)[1], tf.shape(y_true)[1] + 1),
             lambda: y_predicted[:, 1:, :],  # A case where we train a predictor which output includes the input
@@ -45,9 +39,9 @@ class LossMeanResidual(tf.keras.losses.Loss):
         )
 
         if 'squared' in self.loss_mode:
-            keras.losses.MSE(y_true, _y_predicted)
+            losses = keras.losses.MSE(y_true, _y_predicted)  # MSE returns per-sample loss values
         elif 'absolute' in self.loss_mode:
-            losses = tf.abs(y_true - _y_predicted)
+            losses = tf.reduce_mean(tf.abs(y_true - _y_predicted), axis=-1)  # Reduce to match MSE shape
         else:
             raise ValueError(f"Unknown loss mode: {self.loss_mode}")
 
