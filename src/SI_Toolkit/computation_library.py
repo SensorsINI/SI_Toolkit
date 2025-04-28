@@ -101,7 +101,7 @@ class ComputationLibrary:
     lib = None
     set_device: Callable[[str], Callable[[Callable[..., Any]], Callable[..., Any]]] = None
     reshape: Callable[[TensorType, "tuple[int, ...]"], TensorType] = None
-    permute: Callable[[TensorType, "tuple[int]"], TensorType] = None
+    permute: Callable[[TensorType, "tuple[int, ...]"], TensorType] = None
     newaxis = None
     shape: Callable[[TensorType], "list[int]"] = None
     to_numpy: Callable[[TensorType], "numpy.ndarray"] = None
