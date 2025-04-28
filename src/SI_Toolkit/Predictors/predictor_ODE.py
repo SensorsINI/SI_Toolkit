@@ -108,7 +108,7 @@ if __name__ == '__main__':
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-predictor = predictor_ODE(horizon, 0.02, 10)
+predictor = predictor_ODE(horizon, 0.02, intermediate_steps=10)
 '''
 
     timer_predictor(initialisation)
