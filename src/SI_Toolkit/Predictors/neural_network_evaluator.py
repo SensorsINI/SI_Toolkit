@@ -54,10 +54,12 @@ class neural_network_evaluator:
         self.denormalize_outputs = get_denormalization_function(self.normalization_info, self.net_info.outputs,
                                                                 self.lib)
 
-        self.net_input_normed = self.lib.to_variable(
-            np.zeros([len(self.net_info.inputs), ], dtype=np.float32), self.lib.float32)
-
-        self.net_output_dict = {}
+        if batch_size is not None and batch_size > 1:
+            self.net_input_normed = self.lib.to_variable(
+                np.zeros([batch_size, len(self.net_info.inputs)], dtype=np.float32), self.lib.float32)
+        else:
+            self.net_input_normed = self.lib.to_variable(
+                np.zeros([len(self.net_info.inputs), ], dtype=np.float32), self.lib.float32)
 
         self.step_compilable = CompileAdaptive(self._step_compilable)
 
@@ -78,8 +80,6 @@ class neural_network_evaluator:
             net_output = net_output[self.lib.newaxis, self.lib.newaxis, :]
         else:
             net_output =  net_output
-
-        self.create_net_output_dict(net_output)
 
         return net_output
 
@@ -111,20 +111,11 @@ class neural_network_evaluator:
         return self.computation_library
 
     def compose_input(self, inputs_dict):
-        net_input = []
-        for key in self.net_info.inputs:
-            net_input.append(inputs_dict[key])
 
-        net_input = self.lib.to_tensor(net_input, self.lib.float32)
+        net_input = [inputs_dict[key] for key in self.net_info.inputs]
+        net_input = [self.lib.to_tensor(inp, self.lib.float32) for inp in net_input]
+        net_input = self.lib.stack(net_input, axis=-1)
 
         return net_input
-
-    def create_net_output_dict(self, net_output):
-        net_output_dict = {}
-        net_output_numpy = self.lib.to_numpy(net_output)
-        for i, key in enumerate(self.net_info.outputs):
-            net_output_dict[key] = net_output_numpy[..., i]
-
-        self.net_output_dict = net_output_dict
 
 

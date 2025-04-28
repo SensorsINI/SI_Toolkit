@@ -157,8 +157,11 @@ class PredictorWrapper:
         self.predictor_name = predictor_name
         self.predictor_config = dcp(predictors_config['predictors'][self.predictor_name])
         self.predictor_type = self.predictor_config['predictor_type']
+
         if model_name is not None:
             self.predictor_config['model_name'] = model_name
+        else:
+            self.predictor_config['model_name'] = self.predictor_config.get('model_name', None)
         self.model_name = self.predictor_config['model_name']
 
         if model_name_contains_path_to_model is True:  # We want to delete the default path to model if model_name contains one
