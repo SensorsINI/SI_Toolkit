@@ -56,11 +56,12 @@ def compose_net_from_module(net_info,
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    net = getattr(module, class_name)(time_series_length, batch_size, net_info)
+    net = getattr(module, class_name)(time_series_length, net_info.batch_size, net_info)
 
     print(f'Loaded the model {class_name} from {path}.')
 
     net_info.net_type = net_type
+    net_info.inputs_len = len(net_info.inputs)
 
     return net, net_info
 
