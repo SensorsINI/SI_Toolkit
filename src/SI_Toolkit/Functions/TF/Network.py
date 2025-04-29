@@ -407,7 +407,11 @@ def get_activation_statistics(model, datasets, path_to_save=None):
     print('Calculating activations statistics...')
     print('For each - except for last - layer the calculation is done twice: with and without the activation function')
     # Creating a list of intermediate models for each layer's output
-    intermediate_models = [tf.keras.Model(inputs=model.input, outputs=layer.output) for layer in model.layers]
+    try:
+        intermediate_models = [tf.keras.Model(inputs=model.input, outputs=layer.output) for layer in model.layers]
+    except AttributeError:
+        print('The model is not a standard model. No activation statistics will be calculated.')
+        return
     for i in range(len(intermediate_models)):
         layer_model = intermediate_models[i]
         layer_name = layer_model.layers[-1].name

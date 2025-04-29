@@ -216,7 +216,11 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
         filepath = list_of_paths_to_datafiles[file_number]
         # print(filepath)
         # Read column names from file
-        df = pd.read_csv(filepath, comment='#')
+        try:
+            df = pd.read_csv(filepath, comment='#', quotechar='"')
+        except Exception as e:
+            print('Cannot load: Caught {} trying to read CSV file {}'.format(e, filepath))
+            continue
 
         # Change to float32 wherever numeric column
         cols = df.columns
