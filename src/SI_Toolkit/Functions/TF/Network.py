@@ -200,10 +200,12 @@ def compose_net_from_net_name_standard(net_info,
         regularization_kernel = tf.keras.regularizers.l1_l2(**net_info.regularization['KERNEL'])
         regularization_bias = tf.keras.regularizers.l1_l2(**net_info.regularization['BIAS'])
         regularization_activity = tf.keras.regularizers.l1_l2(**net_info.regularization['ACTIVITY'])
+        regularization_activity_last = tf.keras.regularizers.l1_l2(**net_info.regularization['ACTIVITY_LAST'])
     else:
         regularization_kernel = None
         regularization_bias = None
         regularization_activity = None
+        regularization_activity_last = None
 
     net = tf.keras.Sequential()
 
@@ -296,6 +298,7 @@ def compose_net_from_net_name_standard(net_info,
         net.add(qkeras.QDense(units=len(outputs_list), name='layers_{}'.format(h_number),
                               kernel_regularizer=regularization_kernel,
                               bias_regularizer=regularization_bias,
+                              activity_regularizer=regularization_activity_last,
                               **quantization_last_layer_args,
                               ))
     else:
@@ -303,6 +306,7 @@ def compose_net_from_net_name_standard(net_info,
                                       activation=activation_last_layer,
                                       kernel_regularizer=regularization_kernel,
                                       bias_regularizer=regularization_bias,
+                                      activity_regularizer=regularization_activity_last,
                                       ))
 
     return net, net_info
