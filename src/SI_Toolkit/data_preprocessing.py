@@ -110,6 +110,74 @@ def decimate_datasets(df, keep_every_nth_row, **kwargs):
     return df_processed
 
 
+def keep_section(df, section_to_keep, mode='percent', **kwargs):
+    """
+    Extract a section of the DataFrame.
+
+    Parameters:
+    - df: input DataFrame
+    - section_to_keep: tuple of (start, end)
+        * If mode='percent': values must be between 0 and 1
+        * If mode='lines': start and end are row indices; use -1 as end to indicate "until end"
+    - mode: 'percent' or 'lines'
+    """
+    n = len(df)
+
+    if mode == 'percent':
+        if not (0 <= section_to_keep[0] < section_to_keep[1] <= 1):
+            raise ValueError("For 'percent' mode, section_to_keep must be within [0, 1] and in increasing order")
+        start_idx = int(n * section_to_keep[0])
+        end_idx = int(n * section_to_keep[1])
+
+    elif mode == 'lines':
+        start_idx, end_idx = section_to_keep
+        if end_idx == -1:
+            end_idx = n
+        if not (0 <= start_idx < end_idx <= n):
+            raise ValueError(f"For 'lines' mode, indices must be within [0, {n}] and in increasing order (use -1 for end)")
+    else:
+        raise ValueError("mode must be either 'percent' or 'lines'")
+
+    return df.iloc[start_idx:end_idx].reset_index(drop=True)
+
+
+def minimum_filter(df, window, features, thresholds, **kwargs):
+    """
+    Replace values whose absolute value exceeds the threshold with the value
+    (from a centered rolling window) that has the smallest absolute value.
+
+    Uses built-in rolling + apply for efficiency.
+
+    Parameters:
+        df (pd.DataFrame): Input DataFrame.
+        window (int): Size of the centered rolling window.
+        features (list): List of feature names to filter.
+        thresholds (list): List of corresponding thresholds.
+
+    Returns:
+        pd.DataFrame: Filtered DataFrame.
+    """
+    df_processed = df.copy()
+
+    def min_abs_value(x):
+        return x[np.argmin(np.abs(x))]
+
+    for feature, threshold in zip(features, thresholds):
+        if feature not in df.columns:
+            raise ValueError(f"Feature '{feature}' not found in DataFrame.")
+
+        # Apply custom rolling function
+        rolling_min_abs = df[feature].rolling(window=window, center=True, min_periods=1).apply(min_abs_value, raw=True)
+
+        # Replace only where |value| > threshold
+        condition = df[feature].abs() > threshold
+        df_processed[feature] = np.where(condition, rolling_min_abs, df[feature])
+
+    return df_processed
+
+
+
+
 def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut=1):
 
     df = df.reset_index(drop=True)
