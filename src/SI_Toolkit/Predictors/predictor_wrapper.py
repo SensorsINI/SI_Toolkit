@@ -173,6 +173,9 @@ class PredictorWrapper:
     def predict_core(self, s, Q):  # TODO: This function should disappear: predict() should manage the right library
         return self.predictor.predict_core(s, Q)
 
+    def predict_next_step(self, s, Q):
+        return self.predictor.next_step_predictor.step(s, Q)
+
     def update(self, Q0, s):
         if self.predictor_type == 'neural':
             s = self.predictor.lib.to_tensor(s, self.predictor.lib.float32)
