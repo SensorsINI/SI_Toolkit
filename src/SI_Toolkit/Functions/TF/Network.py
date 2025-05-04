@@ -49,16 +49,16 @@ def compose_net_from_module(model_info,
                             stateful=False,
                             **kwargs,
                             ):
-    net_type, module_name, class_name = model_info.net_name.split('-')
+    net_type, module_name, *_ = model_info.net_name.split('-')
     path = './SI_Toolkit_ASF/ToolkitCustomization/Modules/'
 
-    spec = importlib.util.spec_from_file_location(class_name, f"{path}/{module_name}.py")
+    spec = importlib.util.spec_from_file_location(module_name, f"{path}/{module_name}.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    model = getattr(module, class_name)(time_series_length, model_info.batch_size, model_info)
+    model = getattr(module, module_name)(time_series_length, model_info.batch_size, model_info)
 
-    print(f'Loaded the model {class_name} from {path}.')
+    print(f'Loaded the model {module_name} from {path}.')
 
     model_info.net_type = net_type
     model_info.inputs_len = calculate_inputs_length(model_info.inputs)
