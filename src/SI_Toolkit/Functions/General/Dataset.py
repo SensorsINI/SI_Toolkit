@@ -193,9 +193,6 @@ class DatasetTemplate:
         features = self.data[idx_data_set][idx:idx + self.exp_len, :]
         targets = self.labels[idx_data_set][idx + self.shift_labels:idx + self.exp_len + self.shift_labels, :]
 
-        if hasattr(self.args, 'config_series_modification'):
-            features, targets = self.DA.series_modification(features, targets)
-
         # Perturb the translation invariant inputs
         if self.tiv:
             self.scaling_tiv = self.scaling_tiv_epoch_factor * np.random.uniform(-2, 2, size=len(self.tiv))

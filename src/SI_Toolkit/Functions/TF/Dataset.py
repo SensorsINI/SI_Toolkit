@@ -25,28 +25,25 @@ class Dataset(DatasetTemplate, keras.utils.Sequence):
 
     def to_tf_data(self):
         """
-        Expose this DatasetTemplate as a tf.data.Dataset.
-        Batches, prefetches, and leverages AUTOTUNE for parallelism.
+        Expose as tf.data.Dataset: cache raw, then augment with pure TF ops, then prefetch.
+        NOTE: .repeat() is essential – it recreates the effect of a Keras Sequence
+        by making the dataset appear inexhaustible across epochs.
         """
-        # generator yielding (features, targets) numpy batches
+
         def gen():
             for i in range(len(self)):
                 yield self.get_batch(i)
 
-        # signature matches what __getitem__ spits out
         output_signature = (
-            tf.TensorSpec(
-                shape=(self.batch_size, self.exp_len, len(self.inputs)),
-                dtype=tf.float32
-            ),
-            tf.TensorSpec(
-                shape=(self.batch_size, self.exp_len, len(self.outputs)),
-                dtype=tf.float32
-            )
+            tf.TensorSpec((self.batch_size, self.exp_len, len(self.inputs)), tf.float32),
+            tf.TensorSpec((self.batch_size, self.exp_len, len(self.outputs)), tf.float32)
         )
 
-        ds = tf.data.Dataset.from_generator(
-            gen,
-            output_signature=output_signature
+        ds = tf.data.Dataset.from_generator(gen, output_signature=output_signature)
+        ds = ds.cache()  # keep batches in memory/disk
+        ds = ds.repeat()  # ←––––––––––––––––––––––––– key addition
+        ds = ds.map(
+            lambda x, y: self.DA.series_modification(x, y),
+            num_parallel_calls=tf.data.AUTOTUNE
         )
         return ds.prefetch(tf.data.AUTOTUNE)

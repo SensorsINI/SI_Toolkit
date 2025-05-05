@@ -182,8 +182,8 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
         verbose=True,
         shuffle=False,
         validation_data=tf_validation_dataset,
-        steps_per_epoch=len(training_dataset),
-        validation_steps=len(validation_dataset),
+        steps_per_epoch=training_dataset.number_of_batches,
+        validation_steps=validation_dataset.number_of_batches,
         callbacks=callbacks_for_training,
     )
 
