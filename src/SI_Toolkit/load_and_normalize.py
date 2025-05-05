@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from collections.abc import Iterable
 
-from tqdm import trange
+from tqdm import trange, tqdm
 from time import sleep
 
 import glob
@@ -605,7 +605,7 @@ def normalize_feature(feature, normalization_info, normalization_type='minmax_sy
 
 def normalize_df(dfs, normalization_info, normalization_type='minmax_sym'):
     if type(dfs) is list:
-        for i in range(len(dfs)):
+        for i in tqdm(range(len(dfs)), desc="Normalizing data"):
             dfs[i] = dfs[i].apply(normalize_feature, axis=0,
                                   normalization_info=normalization_info,
                                   normalization_type=normalization_type)
