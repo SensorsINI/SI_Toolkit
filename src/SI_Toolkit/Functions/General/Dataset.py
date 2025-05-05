@@ -96,8 +96,8 @@ class DatasetTemplate:
                 df = df.map(lambda x: set_value_precision(x, args.quantization['QUANTIZATION_DATASET']))
             if 'time' in df.columns:
                 self.time_axes.append(df['time'])
-            self.data.append(df[self.inputs])
-            self.labels.append(df[self.outputs])
+            self.data.append(df[self.inputs].to_numpy(copy=False))
+            self.labels.append(df[self.outputs].to_numpy(copy=False))
 
         self.data_original = deepcopy(self.data)
         self.labels_original = deepcopy(self.labels)
@@ -187,14 +187,11 @@ class DatasetTemplate:
         """
         # Find index of the dataset in self.data and index of the starting point in this dataset
         idx_data_set = next(i for i, v in enumerate(self.df_lengths_cs) if v > idx)
-        if idx_data_set == 0:
-            pass
-        else:
+        if idx_data_set != 0:
             idx -= self.df_lengths_cs[idx_data_set - 1]
 
-        features = self.data[idx_data_set].iloc[idx:idx + self.exp_len, :].to_numpy()
-        # Every point in features has its target value corresponding to the next time step:
-        targets = self.labels[idx_data_set].iloc[idx + self.shift_labels:idx + self.exp_len + self.shift_labels, :].to_numpy()
+        features = self.data[idx_data_set][idx:idx + self.exp_len, :]
+        targets = self.labels[idx_data_set][idx + self.shift_labels:idx + self.exp_len + self.shift_labels, :]
 
         if hasattr(self.args, 'config_series_modification'):
             features, targets = self.DA.series_modification(features, targets)
