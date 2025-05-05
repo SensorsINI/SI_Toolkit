@@ -173,6 +173,8 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
     net.summary()
     # endregion
 
+    training_dataset.cache_tag = 'train'
+    validation_dataset.cache_tag = 'val'
     tf_training_dataset = training_dataset.to_tf_data()
     tf_validation_dataset = validation_dataset.to_tf_data()
     # region Training loop
