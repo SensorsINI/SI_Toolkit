@@ -173,13 +173,17 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
     net.summary()
     # endregion
 
+    tf_training_dataset = training_dataset.to_tf_data()
+    tf_validation_dataset = validation_dataset.to_tf_data()
     # region Training loop
     history = net.fit(
-        training_dataset,
+        tf_training_dataset,
         epochs=a.num_epochs,
         verbose=True,
         shuffle=False,
-        validation_data=validation_dataset,
+        validation_data=tf_validation_dataset,
+        steps_per_epoch=len(training_dataset),
+        validation_steps=len(validation_dataset),
         callbacks=callbacks_for_training,
     )
 
