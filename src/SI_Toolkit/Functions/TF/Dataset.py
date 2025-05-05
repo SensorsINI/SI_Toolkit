@@ -26,8 +26,6 @@ class Dataset(DatasetTemplate, keras.utils.Sequence):
     def to_tf_data(self):
         """
         Expose as tf.data.Dataset: cache raw, then augment with pure TF ops, then prefetch.
-        NOTE: .repeat() is essential – it recreates the effect of a Keras Sequence
-        by making the dataset appear inexhaustible across epochs.
         """
 
         def gen():
