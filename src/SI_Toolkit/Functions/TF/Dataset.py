@@ -10,6 +10,9 @@ from __future__ import annotations  # Python ≥3.11 – allows list | None typ
 import hashlib
 import json
 import os
+import tempfile
+import shutil
+import atexit
 
 import tensorflow as tf
 from typing import List, Tuple
@@ -58,6 +61,11 @@ class Dataset(DatasetTemplate):
             batch_size,
             normalization_info=normalization_info,
         )
+
+        # Setup temporary cache directory to store tf.data cache and ensure cleanup
+        self._cache_dir_manager = tempfile.TemporaryDirectory()
+        self._cache_dir = self._cache_dir_manager.name
+        atexit.register(lambda: shutil.rmtree(self._cache_dir, ignore_errors=True))
 
         # One‑off NumPy→TF conversion (keeps original dtype precision)
         self._tf_data   = [tf.constant(a, dtype=tf.as_dtype(a.dtype)) for a in self.data]
@@ -148,7 +156,7 @@ class Dataset(DatasetTemplate):
             num_parallel_calls=tf.data.AUTOTUNE,
         )  # At this point each element == single (feats, tars) *window*
 
-        cache_prefix = self._get_cache_prefix()
+        cache_prefix = self._get_cache_prefix(cache_dir=self._cache_dir)
         ds = ds.cache(cache_prefix).repeat()
 
         # 4) Fresh shuffle **every epoch** – mirrors on_epoch_end
@@ -181,39 +189,3 @@ class Dataset(DatasetTemplate):
         """Py‑native iterator so that `for x, y in Dataset(...): ... works."""
         return iter(self.to_tf_data())
 
-    def _get_cache_prefix(self, cache_dir: str = './tf_dataset_cache') -> str:
-        """
-        Build a deterministic cache prefix based on dataset parameters.
-        """
-
-        # 1) Gather everything that affects the generator
-        key_dict = {
-            'inputs': self.inputs,
-            'outputs': self.outputs,
-            'exp_len': self.exp_len,
-            'batch_size': self.batch_size,
-            'normalization_info': self.args.path_to_normalization_info,
-            # include any args fields starting with 'filter_'
-            **{k: v for k, v in vars(self.args).items() if k.startswith('filter_')},
-        }
-
-        # 2) Deterministic serialization and hashing
-        key_str = json.dumps(key_dict, sort_keys=True, default=str)
-        key_hash = hashlib.sha1(key_str.encode()).hexdigest()
-
-        # 3) Optional tag (e.g. 'train' or 'val')
-        tag_eff = getattr(self, 'cache_tag', '')
-        fname = f"cache_{tag_eff}_{key_hash}"  # **no extension**
-
-        # 4) Ensure cache directory exists
-        os.makedirs(cache_dir, exist_ok=True)
-        prefix_path = os.path.abspath(os.path.join(cache_dir, fname))
-
-        # 5) Check for the materialized TF cache file (the “.index” suffix)
-        index_file = prefix_path + '.index'
-        if os.path.exists(index_file):
-            print(f"[Cache] Reusing cache prefix: {prefix_path}")
-        else:
-            print(f"[Cache] Generating new cache at prefix: {prefix_path}")
-
-        return prefix_path
