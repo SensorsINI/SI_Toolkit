@@ -47,7 +47,6 @@ class DatasetTemplate:
 
         self.data = []
         self.labels = []
-        self.time_axes = []
 
         dfs_split = []
         for df in dfs:
@@ -82,8 +81,6 @@ class DatasetTemplate:
             df = df[needed_columns]
             if hasattr(args, 'quantization') and args.quantization['ACTIVATED'] and args.quantization['QUANTIZATION_DATASET'] != 'float':
                 df = df.map(lambda x: set_value_precision(x, args.quantization['QUANTIZATION_DATASET']))
-            if 'time' in df.columns:
-                self.time_axes.append(df['time'])
             self.data.append(df[self.inputs].to_numpy(copy=False))
             self.labels.append(df[self.outputs].to_numpy(copy=False))
 
@@ -165,7 +162,7 @@ class DatasetTemplate:
         if self.shuffle:
             np.random.shuffle(self.indices)
 
-    def get_series(self, idx, get_time_axis=False):
+    def get_series(self, idx):
         """
         Requires the self.data to be a list of pandas dataframes
         """
@@ -177,19 +174,7 @@ class DatasetTemplate:
         features = self.data[idx_data_set][idx:idx + self.exp_len, :]
         targets = self.labels[idx_data_set][idx + self.shift_labels:idx + self.exp_len + self.shift_labels, :]
 
-        # If get_time_axis try to obtain a vector of time data for the chosen sample
-        if get_time_axis:
-            try:
-                # As targets and features are shifted by one timestep we have to make time_axis accordingly longer to cover both
-                time_axis = self.time_axes[idx_data_set].to_numpy()[idx:idx + self.exp_len + self.shift_labels]
-            except IndexError:
-                time_axis = []
-
-        # Return results
-        if get_time_axis:
-            return features, targets, time_axis
-        else:
-            return features, targets
+        return features, targets
 
     def __len__(self):
         raise NotImplementedError('You need to implement __len__ method for Dataset class.')
