@@ -107,10 +107,6 @@ class DatasetTemplate:
         self.number_of_samples_to_use = 0
         self.number_of_batches_to_use = 0
 
-        self.indices_subset = []
-        self.number_of_samples_in_subset = 0
-        self.number_of_batches_in_subset = 0
-
         self.shuffle = shuffle
 
         self.use_only_full_batches = use_only_full_batches
@@ -233,30 +229,6 @@ class DatasetTemplate:
             return int(np.ceil(number_of_samples / float(batch_size)))
 
     # endregion
-
-    def create_subset(self, number_of_samples_in_subset=None, shuffle=True):
-        if number_of_samples_in_subset is None:
-            number_of_samples_in_subset = self.number_of_samples
-        if number_of_samples_in_subset > self.number_of_samples:
-            raise ValueError('Requested subset bigger than whole dataset')
-
-        self.number_of_samples_in_subset = number_of_samples_in_subset
-        if shuffle:
-            self.indices_subset = np.random.choice(self.number_of_samples, number_of_samples_in_subset, replace=False)
-        else:
-            self.indices_subset = self.indices[:number_of_samples_in_subset]
-
-        self.number_of_batches_in_subset = self.calculate_number_of_batches(number_of_samples_in_subset, self.batch_size, self.use_only_full_batches)
-
-    def use_subset(self):
-        self.indices_to_use = self.indices_subset
-        self.number_of_samples_to_use = self.number_of_samples_in_subset
-        self.number_of_batches_to_use = self.number_of_batches_in_subset
-
-    def use_full_set(self):
-        self.indices_to_use = self.indices
-        self.number_of_samples_to_use = self.number_of_samples
-        self.number_of_batches_to_use = self.number_of_batches
 
     def on_epoch_end(self):
         self.shuffle_dataset()
