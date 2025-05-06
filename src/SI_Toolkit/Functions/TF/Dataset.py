@@ -145,19 +145,22 @@ class Dataset(DatasetTemplate):
     def to_tf_data(self) -> tf.data.Dataset:
         """Builds a ready‑to‑consume `tf.data.Dataset pipeline."""
 
-        # 1) *Per‑experiment* dataset
-        ds = self._experiments_ds()
+        # 1) Build a dataset of full experiments:
+        ds = self._experiments_ds()  # yields (full_series_feats, full_series_tars)
 
-        # 2) Vectorised window extraction & flat interleave across experiments
-        #    ────────────────────────────────────────────────────────────────
+        # 2) Cache each full series:
+        cache_prefix = self._get_cache_prefix(cache_dir=self._cache_dir)
+        ds = ds.cache(cache_prefix)
+
+        # 3) Repeat indefinitely so each epoch re-reads the cache:
+        ds = ds.repeat()
+
+        # 4) Extract sliding windows & interleave:
         ds = ds.interleave(
             lambda x, y: tf.data.Dataset.from_tensor_slices(self._tf_slide_windows(x, y)),
             cycle_length=tf.data.AUTOTUNE,
             num_parallel_calls=tf.data.AUTOTUNE,
-        )  # At this point each element == single (feats, tars) *window*
-
-        cache_prefix = self._get_cache_prefix(cache_dir=self._cache_dir)
-        ds = ds.cache(cache_prefix).repeat()
+        )
 
         # 4) Fresh shuffle **every epoch** – mirrors on_epoch_end
         if self.shuffle:
