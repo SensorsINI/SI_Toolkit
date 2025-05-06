@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 from collections.abc import Iterable
+from joblib import Parallel, delayed
 
 from tqdm import trange, tqdm
 from time import sleep
@@ -203,6 +204,22 @@ def load_csv_recording(file_path):
 
     return data
 
+
+# Helper function to detect if a value can be numeric
+def is_numeric_vectorized(series):
+    # Convert the series to numeric, returning NaN where conversion fails
+    return pd.to_numeric(series, errors='coerce').notna()
+
+
+# Helper function to detect JSON-like lists (assuming lists are stored as strings like '[...]')
+def is_json_list_vectorized(series):
+    # Check if the column is of object (string-like) type before applying .str methods
+    if series.dtype == 'object':
+        return series.str.startswith('[') & series.str.endswith(']')
+    else:
+        # Return a boolean series of False if the column is not string-like
+        return pd.Series([False] * len(series), index=series.index)
+
 def load_data(list_of_paths_to_datafiles=None, verbose=True):
 
     all_dfs = []  # saved separately to get normalization
@@ -211,7 +228,7 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
         range_function = trange
     else:
         range_function = range
-    sleep(0.1)
+
     for file_number in range_function(len(list_of_paths_to_datafiles)):
         filepath = list_of_paths_to_datafiles[file_number]
         # print(filepath)
@@ -224,20 +241,6 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
 
         # Change to float32 wherever numeric column
         cols = df.columns
-
-        # Helper function to detect if a value can be numeric
-        def is_numeric_vectorized(series):
-            # Convert the series to numeric, returning NaN where conversion fails
-            return pd.to_numeric(series, errors='coerce').notna()
-
-        # Helper function to detect JSON-like lists (assuming lists are stored as strings like '[...]')
-        def is_json_list_vectorized(series):
-            # Check if the column is of object (string-like) type before applying .str methods
-            if series.dtype == 'object':
-                return series.str.startswith('[') & series.str.endswith(']')
-            else:
-                # Return a boolean series of False if the column is not string-like
-                return pd.Series([False] * len(series), index=series.index)
 
         # Loop through each column
         for col in df.columns:
@@ -603,16 +606,28 @@ def normalize_feature(feature, normalization_info, normalization_type='minmax_sy
             return -1.0 + 2.0 * (feature - col_min) / (col_max - col_min)
 
 
-def normalize_df(dfs, normalization_info, normalization_type='minmax_sym'):
+def normalize_df(
+    dfs,
+    normalization_info,
+    normalization_type='minmax_sym',
+    n_jobs=-1,  # how many workers you want
+):
+    # helper that exactly mirrors your old in‐place apply
+    def _apply_norm(df):
+        return df.apply(
+            normalize_feature,
+            axis=0,
+            normalization_info=normalization_info,
+            normalization_type=normalization_type,
+        )
+
     if type(dfs) is list:
-        for i in tqdm(range(len(dfs)), desc="Normalizing data"):
-            dfs[i] = dfs[i].apply(normalize_feature, axis=0,
-                                  normalization_info=normalization_info,
-                                  normalization_type=normalization_type)
+        print('Normalizing data...')
+        dfs = Parallel(n_jobs=n_jobs)(
+            delayed(_apply_norm)(df) for df in dfs
+        )
     else:
-        dfs = dfs.apply(normalize_feature, axis=0,
-                        normalization_info=normalization_info,
-                        normalization_type=normalization_type)
+        dfs = _apply_norm(dfs)
 
     return dfs
 
