@@ -30,6 +30,9 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
     validation_dataset = Dataset(validation_dfs, a, shuffle=False, inputs=net_info.inputs,
                                  outputs=net_info.outputs, normalization_info=normalization_info)
 
+    tf_training_dataset = training_dataset.to_tf_data()
+    tf_validation_dataset = validation_dataset.to_tf_data()
+
     del training_dfs, validation_dfs, test_dfs
 
     print('')
@@ -166,26 +169,22 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
     # endregion
 
 
-    loss_eval = net.evaluate(validation_dataset)
+    loss_eval = net.evaluate(tf_validation_dataset, steps=len(validation_dataset))
     print('Validation loss before starting training is {}'.format(loss_eval))
 
     # region Print information about the network
     net.summary()
     # endregion
 
-    training_dataset.cache_tag = 'train'
-    validation_dataset.cache_tag = 'val'
-    tf_training_dataset = training_dataset.to_tf_data()
-    tf_validation_dataset = validation_dataset.to_tf_data()
     # region Training loop
     history = net.fit(
         tf_training_dataset,
         epochs=a.num_epochs,
         verbose=True,
-        shuffle=False,
+        shuffle=False,  # Keras must not reshuffle again
         validation_data=tf_validation_dataset,
-        steps_per_epoch=training_dataset.number_of_batches,
-        validation_steps=validation_dataset.number_of_batches,
+        steps_per_epoch=len(training_dataset),
+        validation_steps=len(validation_dataset),
         callbacks=callbacks_for_training,
     )
 

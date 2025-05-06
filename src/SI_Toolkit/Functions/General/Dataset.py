@@ -174,6 +174,8 @@ class DatasetTemplate:
         features = self.data[idx_data_set][idx:idx + self.exp_len, :]
         targets = self.labels[idx_data_set][idx + self.shift_labels:idx + self.exp_len + self.shift_labels, :]
 
+        features, targets = self.data_augmentation(features, targets)
+
         return features, targets
 
     def __len__(self):
@@ -212,6 +214,13 @@ class DatasetTemplate:
             return int(np.floor(number_of_samples / float(batch_size)))
         else:
             return int(np.ceil(number_of_samples / float(batch_size)))
+
+
+    def data_augmentation(self, features, targets):
+        """
+        Apply data augmentation to the features and targets.
+        """
+        return self.DA.series_modification(features, targets)
 
     # endregion
 
