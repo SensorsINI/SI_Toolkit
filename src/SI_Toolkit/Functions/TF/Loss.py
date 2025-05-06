@@ -27,7 +27,7 @@ class LossMeanResidual(tf.keras.losses.Loss):
 
     def call(self, y_true, y_predicted):
 
-        if 'clipped_prediction' in self.loss_mode:
+        if 'clipped' in self.loss_mode:
             # Not for model learning!
             condition = tf.abs(y_true) >= 1.0
             y_predicted = tf.where(condition, tf.clip_by_value(y_predicted, -1.0, 1.0), y_predicted)
