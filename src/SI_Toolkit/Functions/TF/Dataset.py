@@ -150,7 +150,7 @@ class Dataset(DatasetTemplate):
         # 4) Fresh shuffle **every epoch** – mirrors on_epoch_end
         if self.shuffle:
             ds = ds.shuffle(
-                buffer_size=self.number_of_samples,
+                buffer_size=min(self.number_of_samples, 10_000),
                 seed=getattr(self.args, "random_seed", None),
                 reshuffle_each_iteration=True,  # ◀ crucial for epoch‑wise shuffle
             )
