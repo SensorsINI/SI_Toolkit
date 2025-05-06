@@ -42,10 +42,10 @@ def get_normalization_function(
         b = - normalizing_array[3, :] / (normalizing_array[2, :] - normalizing_array[3, :])
 
     elif normalization_type == 'minmax_sym':
-        # a = 2.0 / (normalizing_array[2, :] - normalizing_array[3, :])
-        # b = -1.0 + 2.0 * (-normalizing_array[3, :] / (normalizing_array[2, :] - normalizing_array[3, :]))
-        a = 1.0/lib.max(abs(normalizing_array[2, :]), abs(normalizing_array[3, :]))
-        b = lib.zeros_like(a)
+        a = 2.0 / (normalizing_array[2, :] - normalizing_array[3, :])
+        b = -1.0 + 2.0 * (-normalizing_array[3, :] / (normalizing_array[2, :] - normalizing_array[3, :]))
+        # a = 1.0/lib.max(abs(normalizing_array[2, :]), abs(normalizing_array[3, :]))
+        # b = lib.zeros_like(a)
     else:
         raise NameError('{} is not recognized as a normalization type'.format(normalization_type))
 
@@ -92,10 +92,10 @@ def get_denormalization_function(
         B = denormalizing_array[3, :]
 
     elif normalization_type == 'minmax_sym':
-        # A = ((denormalizing_array[2, :] - denormalizing_array[3, :]) / 2.0)
-        # B = ((denormalizing_array[2, :] - denormalizing_array[3, :]) / 2.0) + denormalizing_array[3, :]
-        A = lib.max(abs(denormalizing_array[2, :]), abs(denormalizing_array[3, :]))
-        B = lib.zeros_like(A)
+        A = ((denormalizing_array[2, :] - denormalizing_array[3, :]) / 2.0)
+        B = ((denormalizing_array[2, :] - denormalizing_array[3, :]) / 2.0) + denormalizing_array[3, :]
+        # A = lib.max(abs(denormalizing_array[2, :]), abs(denormalizing_array[3, :]))
+        # B = lib.zeros_like(A)
     else:
         raise NameError('{} is not recognized as a normalization type'.format(normalization_type))
 
@@ -150,11 +150,11 @@ def get_scaling_function_for_output_of_differential_network(
         b = - normalizing_variables[3, :] / (normalizing_variables[2, :] - normalizing_variables[3, :])
 
     elif normalization_type == 'minmax_sym':
-        # a = 2.0 / (normalizing_variables[2, :] - normalizing_variables[3, :])
-        # b = -1.0 + 2.0 * (-normalizing_variables[3, :] / (normalizing_variables[2, :] - normalizing_variables[3, :]))
+        a = 2.0 / (normalizing_variables[2, :] - normalizing_variables[3, :])
+        b = -1.0 + 2.0 * (-normalizing_variables[3, :] / (normalizing_variables[2, :] - normalizing_variables[3, :]))
         #
-        a = 1.0/lib.max(abs(normalizing_variables[2, :]), abs(normalizing_variables[3, :]))
-        b = lib.zeros_like(a)
+        # a = 1.0/lib.max(abs(normalizing_variables[2, :]), abs(normalizing_variables[3, :]))
+        # b = lib.zeros_like(a)
     else:
         raise NameError('{} is not recognized as a normalization type'.format(normalization_type))
 
@@ -168,10 +168,10 @@ def get_scaling_function_for_output_of_differential_network(
         D = denormalizing_derivatives[3, :]
 
     elif normalization_type == 'minmax_sym':
-        # C = ((denormalizing_derivatives[2, :] - denormalizing_derivatives[3, :]) / 2.0)
-        # D = ((denormalizing_derivatives[2, :] - denormalizing_derivatives[3, :]) / 2.0) + denormalizing_derivatives[3, :]
-        C = lib.max(abs(denormalizing_derivatives[2, :]), abs(denormalizing_derivatives[3, :]))
-        D = lib.zeros_like(C)
+        C = ((denormalizing_derivatives[2, :] - denormalizing_derivatives[3, :]) / 2.0)
+        D = ((denormalizing_derivatives[2, :] - denormalizing_derivatives[3, :]) / 2.0) + denormalizing_derivatives[3, :]
+        # C = lib.max(abs(denormalizing_derivatives[2, :]), abs(denormalizing_derivatives[3, :]))
+        # D = lib.zeros_like(C)
     else:
         raise NameError('{} is not recognized as a normalization type'.format(normalization_type))
 
