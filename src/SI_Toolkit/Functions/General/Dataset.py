@@ -45,18 +45,6 @@ class DatasetTemplate:
         else:
             self.outputs = outputs
 
-        if hasattr(args, 'translation_invariant_variables'):
-            self.tiv = args.translation_invariant_variables
-        else:
-            self.tiv = []
-        self.tiv_in_inputs_idx = [i for i, e in enumerate(self.inputs) if e in self.tiv]
-        self.tiv_in_outputs_idx = [i for i, e in enumerate(self.outputs) if e in self.tiv]
-        self.tiv_for_inputs_idx = [i for i, e in enumerate(self.tiv) if e in self.inputs]
-        self.tiv_for_outputs_idx = [i for i, e in enumerate(self.tiv) if e in self.outputs]
-
-        self.scaling_tiv_epoch_factor = 0.0
-        self.scaling_tiv = None
-
         self.data = []
         self.labels = []
         self.time_axes = []
@@ -193,13 +181,6 @@ class DatasetTemplate:
         features = self.data[idx_data_set][idx:idx + self.exp_len, :]
         targets = self.labels[idx_data_set][idx + self.shift_labels:idx + self.exp_len + self.shift_labels, :]
 
-        # Perturb the translation invariant inputs
-        if self.tiv:
-            self.scaling_tiv = self.scaling_tiv_epoch_factor * np.random.uniform(-2, 2, size=len(self.tiv))
-            features[:, self.tiv_in_inputs_idx] +=  self.scaling_tiv[self.tiv_for_inputs_idx]
-            targets[:, self.tiv_in_outputs_idx] += self.scaling_tiv[self.tiv_for_outputs_idx]
-
-
         # If get_time_axis try to obtain a vector of time data for the chosen sample
         if get_time_axis:
             try:
@@ -278,9 +259,6 @@ class DatasetTemplate:
         self.number_of_batches_to_use = self.number_of_batches
 
     def on_epoch_end(self):
-        if self.tiv:
-            self.scaling_tiv_epoch_factor += 1.0
-            print('scaling_tiv_epoch_factor is now {}'.format(self.scaling_tiv_epoch_factor))
         self.shuffle_dataset()
 
 

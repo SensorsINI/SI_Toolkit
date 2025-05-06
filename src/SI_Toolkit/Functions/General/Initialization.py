@@ -63,11 +63,6 @@ def load_net_info_from_txt_file(txt_path, parent_net_name=None, convert_to_delta
         if lines[i] == 'OUTPUTS:':
             net_info.outputs = lines[i + 1].rstrip("\n").split(sep=', ')
             continue
-        if lines[i] == 'TRANSLATION INVARIANT VARIABLES:':
-            net_info.translation_invariant_variables = lines[i + 1].rstrip("\n").split(sep=', ')
-            if len(net_info.translation_invariant_variables) == 1 and net_info.translation_invariant_variables[0] == '':
-                net_info.translation_invariant_variables = []
-            continue
         if lines[i] == 'TYPE:':
             net_info.net_type = lines[i + 1].rstrip("\n").split(sep=', ')
             continue
@@ -402,8 +397,6 @@ def create_log_file(net_info, a, dfs):
     f.write(', '.join(map(str, net_info.inputs)))
     f.write('\n\nOUTPUTS:\n')
     f.write(', '.join(map(str, net_info.outputs)))
-    f.write('\n\nTRANSLATION INVARIANT VARIABLES:\n')
-    f.write(', '.join(map(str, net_info.translation_invariant_variables)))
     f.write('\n\nTYPE:\n')
     f.write(net_info.net_type)
     f.write('\n\nNORMALIZATION:\n')
