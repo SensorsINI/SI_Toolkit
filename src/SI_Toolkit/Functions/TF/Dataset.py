@@ -5,11 +5,11 @@
 # legacy Keras Sequence‑based loader found in DatasetTemplate.
 # -----------------------------------------------------------------------------
 
+from __future__ import annotations  # Python ≥3.11 – allows list | None type‑hints
+
 import hashlib
 import json
 import os
-
-from __future__ import annotations  # Python ≥3.11 – allows list | None type‑hints
 
 import tensorflow as tf
 from typing import List, Tuple
