@@ -164,14 +164,14 @@ class Dataset(DatasetTemplate):
             ds = ds.shuffle(
                 buffer_size=min(self.number_of_samples, 10_000),
                 seed=getattr(self.args, "random_seed", None),
-                reshuffle_each_iteration=True,  # ◀ crucial for epoch‑wise shuffle
+                reshuffle_each_iteration=True,
             )
 
-        # 5) *Per‑sample* augmentation (identical call signature to legacy)
-        ds = ds.map(self._wrap_data_augmentation, num_parallel_calls=tf.data.AUTOTUNE)
-
-        # 6) Batch formation (optionally drop last incomplete batch)
+        # ———— 5) Batch *before* augmentation so `map` sees a real [B, T, …] tensor ————
         ds = ds.batch(self.batch_size, drop_remainder=self.use_only_full_batches)
+
+        # 6) *Per-sample* augmentation inside graph (now truly per-sequence in batch)
+        ds = ds.map(self._wrap_data_augmentation, num_parallel_calls=tf.data.AUTOTUNE)
 
         # 7) Pipeline overlap (CPU prepare ↔ GPU consume)
         ds = ds.prefetch(tf.data.AUTOTUNE)
