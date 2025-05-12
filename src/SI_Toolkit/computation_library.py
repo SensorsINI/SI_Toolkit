@@ -97,6 +97,16 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
     return decorator
 
 
+def clip_by_norm_factory(lib):
+
+    def clip_by_norm(x, clip_norm, axis=(-1,), eps=1e-9):
+        norm   = lib.norm(x, axis=axis, keepdims=True)
+        factor = lib.min(1.0, clip_norm / (norm + eps))
+        return x * factor
+
+    return clip_by_norm
+
+
 class ComputationLibrary:
     lib = None
     set_device: Callable[[str], Callable[[Callable[..., Any]], Callable[..., Any]]] = None
@@ -111,6 +121,7 @@ class ComputationLibrary:
     unstack: Callable[[TensorType, int, int], "list[TensorType]"] = None
     ndim: Callable[[TensorType], int] = None
     clip: Callable[[TensorType, float, float], TensorType] = None
+    clip_by_norm: Callable[[TensorType, TensorType, Union[int, Sequence[int]]], TensorType] = None
     sin: Callable[[TensorType], TensorType] = None
     asin: Callable[[TensorType], TensorType] = None
     cos: Callable[[TensorType], TensorType] = None
@@ -171,9 +182,10 @@ class ComputationLibrary:
     atan2: Callable[[TensorType], TensorType] = None
     abs: Callable[[TensorType], TensorType] = None
     sqrt: Callable[[TensorType], TensorType] = None
+    argsort: Callable[[TensorType, int], TensorType] = None
     argpartition: Callable[[TensorType, int], TensorType] = None
     argmax: Callable[[TensorType, int], TensorType] = None
-    norm: Callable[[TensorType, int], bool] = None
+    norm: Callable[[TensorType, int, bool], TensorType] = None
     matmul: Callable[[TensorType, TensorType], TensorType] = None
     cross: Callable[[TensorType, TensorType], TensorType] = None
     dot: Callable[[TensorType, TensorType], TensorType] = None
@@ -209,9 +221,10 @@ class NumpyLibrary(ComputationLibrary):
         self.to_variable = lambda x, dtype: np.array(x, dtype=dtype)
         self.to_tensor = lambda x, dtype: np.array(x, dtype=dtype)
         self.constant = lambda x, t: np.array(x, dtype=t)
-        self.unstack = lambda x, num, axis: list(np.moveaxis(x, axis, 0))
+        self.unstack = lambda x, num, axis: [np.take(x, i, axis=axis) for i in range(num)]
         self.ndim = np.ndim
         self.clip = np.clip
+        self.clip_by_norm = clip_by_norm_factory(self)
         self.sin = np.sin
         self.asin = np.arcsin
         self.cos = np.cos
@@ -272,9 +285,10 @@ class NumpyLibrary(ComputationLibrary):
         self.atan2 = np.arctan2
         self.abs = np.abs
         self.sqrt = np.sqrt
+        self.argsort = lambda x, axis=-1: np.argsort(x, axis=axis)
         self.argpartition = lambda x, k: np.argpartition(x, k)[..., :k]
         self.argmax = lambda x, a: np.argmax(x, axis=a)
-        self.norm = lambda x, axis: np.linalg.norm(x, axis=axis)
+        self.norm = lambda x, axis, keepdims=False: np.linalg.norm(x, axis=axis, keepdims=keepdims)
         self.matmul = np.matmul
         self.cross = np.cross
         self.dot = np.dot
@@ -322,6 +336,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.constant = lambda x, t: tf.constant(x, dtype=t)
         self.unstack = lambda x, num, axis: tf.unstack(x, num=num, axis=axis)
         self.ndim = tf.rank
+        self.clip_by_norm = clip_by_norm_factory(self)
         self.clip = tf.clip_by_value
         self.sin = tf.sin
         self.asin = tf.asin
@@ -382,9 +397,10 @@ class TensorFlowLibrary(ComputationLibrary):
         self.atan2 = tf.atan2
         self.abs = tf.abs
         self.sqrt = tf.sqrt
+        self.argsort = lambda x, axis=-1: tf.argsort(x, axis=axis)
         self.argpartition = lambda x, k: tf.math.top_k(-x, k, sorted=False)[1]
         self.argmax = lambda x, a: tf.math.argmax(x, axis=a)
-        self.norm = lambda x, axis: tf.norm(x, axis=axis)
+        self.norm = lambda x, axis, keepdims=False: tf.norm(x, axis=axis, keepdims=keepdims)
         self.matmul = tf.linalg.matmul
         self.cross = tf.linalg.cross
         self.dot = lambda a, b: tf.tensordot(a, b, 1)
@@ -427,6 +443,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.constant = lambda x, t: torch.as_tensor(x, dtype=t)
         self.unstack = lambda x, num, dim: torch.unbind(x, dim=dim)
         self.ndim = lambda x: x.ndim
+        self.clip_by_norm = clip_by_norm_factory(self)
         self.clip = torch.clamp
         self.sin = torch.sin
         self.asin = torch.asin
@@ -450,7 +467,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.bool = torch.bool
         self.tile = torch.tile
         self.repeat = lambda x, k, a: torch.repeat_interleave(x, repeats=k, dim=a)
-        self.gather = lambda x, i, a: torch.gather(x, dim=a, index=i)  # FIXME: It works very differently to TF!!!
+        self.gather = lambda x, idx, axis: torch.index_select(x, axis, idx if torch.is_tensor(idx) else torch.as_tensor(idx, dtype=torch.long))
         self.gather_last = self.gather_last_pytorch
         self.arange = torch.arange
         self.zeros = torch.zeros
@@ -478,7 +495,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.all = torch.all
         self.reduce_any = lambda a, axis: torch.any(a, dim=axis)
         self.reduce_all = lambda a, axis: torch.all(a, dim=axis)
-        self.reduce_max = lambda a, axis: torch.max(a, dim=axis)
+        self.reduce_max = lambda a, axis: torch.max(a, dim=axis)[0]
         self.reduce_min = lambda a, axis: torch.min(a, dim=axis)[0]
         self.equal = lambda x, y: torch.eq(x, y)
         self.less = lambda x, y: torch.less(x, y)
@@ -492,9 +509,10 @@ class PyTorchLibrary(ComputationLibrary):
         self.atan2 = torch.atan2
         self.abs = torch.abs
         self.sqrt = torch.sqrt
-        self.argpartition = torch.topk
+        self.argsort = lambda x, axis=-1: torch.argsort(x, dim=axis)
+        self.argpartition = lambda x, k: torch.topk(x, k, largest=False)[1]
         self.argmax = lambda x, a: torch.argmax(x, dim=a)
-        self.norm = lambda x, axis: torch.linalg.norm(x, dim=axis)
+        self.norm = lambda x, axis, keepdims=False: torch.linalg.norm(x, dim=axis, keepdim=keepdims)
         self.matmul = torch.matmul
         self.cross = torch.linalg.cross
         self.dot = torch.dot
