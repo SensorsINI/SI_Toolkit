@@ -51,8 +51,13 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
         import tensorflow as tf
 
         devices = tf.config.list_physical_devices()
-        if device_name not in [d.name for d in devices] and '/physical_'+device_name[1:] not in [d.name for d in devices]:
-            raise ValueError(f"Requested device {device_name} not found in the list of physical devices: {devices}")
+        # We accept either '/cpu:0' style or '/physical_cpu:0' style names
+        physical_names = [d.name for d in devices]
+        alias = '/physical_' + device_name[1:]
+        if device_name not in physical_names and alias not in physical_names:
+            raise ValueError(
+                f"Requested device {device_name!r} not found among physical devices: {physical_names}"
+            )
 
         # TensorFlow device management
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -66,34 +71,64 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
 
         import torch
 
-        devices = [torch.device(f'cuda:{i}') for i in
-                   range(torch.cuda.device_count())] if torch.cuda.is_available() else [torch.device('cpu')]
-        target_device = torch.device(device_name)  # Create a torch.device object for comparison
+        # ─── Normalize various device-string formats ──────────────────────────────
+        # TensorFlow emits '/device:TYPE:IDX'; shorthand '/gpu:0'; convert both to PyTorch style.
+        dev_str = device_name
 
+        if dev_str.lower().startswith('/device:'):
+            # '/device:GPU:1' → ['device','GPU','1']
+            _, type_str, idx = dev_str.split(':', 2)
+            type_str = type_str.lower()
+            dev_str = 'cpu' if type_str == 'cpu' else f'cuda:{idx}'
+
+        elif dev_str.startswith('/'):
+            # '/gpu:0' → ['gpu','0']
+            type_str, idx = dev_str[1:].split(':', 1)
+            type_str = type_str.lower()
+            dev_str = 'cpu' if type_str == 'cpu' else f'cuda:{idx}'
+        # else assume already 'cpu' or 'cuda:0'
+
+        # ─── Enumerate available devices ─────────────────────────────────────────────
+        devices = [torch.device('cpu')]  # always allow CPU
+        if torch.cuda.is_available():
+            # include every GPU index
+            devices += [torch.device(f'cuda:{i}') for i in range(torch.cuda.device_count())]
+
+        target_device = torch.device(dev_str)
         if target_device not in devices:
-            raise ValueError(f"Requested device {device_name} not found in the list of physical devices: {devices}")
+            raise ValueError(
+                f"Requested device {device_name!r} (normalized to {dev_str!r}) "
+                f"not found among available devices: {devices}"
+            )
 
-        def decorator(func):
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             @functools.wraps(func)
-            def wrapper(*args, **kwargs):
-                # Process the first argument separately if it's a class instance with a .to() method
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                # If first argument is a module/tensor with .to(), migrate it eagerly
                 if args and hasattr(args[0], 'to'):
-                    first_arg = args[0].to(target_device) if getattr(args[0], 'device', None) != target_device else args[0]
-                    args = (first_arg,) + args[1:]
+                    first = args[0]
+                    if getattr(first, 'device', None) != target_device:
+                        first = first.to(target_device)
+                    args = (first,) + args[1:]
 
                 # Then, handle all the args and kwargs
                 new_args = [
-                    arg.to(target_device) if isinstance(arg, torch.Tensor) and arg.device != target_device else arg
+                    arg.to(target_device)
+                    if isinstance(arg, torch.Tensor) and arg.device != target_device
+                    else arg
                     for arg in args
                 ]
                 new_kwargs = {
-                    k: (v.to(target_device) if isinstance(v, torch.Tensor) and v.device != target_device else v) for
-                    k, v in kwargs.items()}
+                    k: (v.to(target_device)
+                        if isinstance(v, torch.Tensor) and v.device != target_device
+                        else v)
+                    for k, v in kwargs.items()
+                }
                 return func(*new_args, **new_kwargs)
 
             return wrapper
     else:
-        raise ValueError('Invalid library name')
+        raise ValueError(f'Invalid library name: {library!r}')
 
     return decorator
 
