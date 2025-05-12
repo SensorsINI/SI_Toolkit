@@ -7,6 +7,7 @@ from math import pi
 
 # TensorType = Union[np.ndarray, tf.Tensor, torch.Tensor]
 TensorType = Union["np.ndarray", "tf.Tensor", "torch.Tensor"]
+VariableType = Union["np.ndarray", "tf.Variable", "torch.Tensor"]
 RandomGeneratorType = Union["np.random.Generator", "tf.random.Generator", "torch.Generator"]
 NumericType = Union[float, int]
 
