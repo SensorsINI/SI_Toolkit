@@ -172,8 +172,11 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
 
         # region Load weights from checkpoint file
         if net_info.library == 'TF':
-            ckpt_filenames = [parent_net_name + '.ckpt',
-                              'ckpt.ckpt']  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
+            import tensorflow as tf
+            from distutils.version import LooseVersion as _LV
+            _CKPT_SUFFIX = ".weights.h5" if _LV(tf.keras.__version__) >= _LV("2.12.0") else ".ckpt"
+            ckpt_filenames = [parent_net_name + _CKPT_SUFFIX,
+                              'ckpt' + _CKPT_SUFFIX]  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
         else:  # Pytorch
             ckpt_filenames = [parent_net_name + '.pt',
                               'ckpt.pt']  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
@@ -187,10 +190,10 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
             if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
                 ckpt_found = True
         if not ckpt_found:
-            ckpt_not_found_str = 'The corresponding .ckpt file is missing' \
-                                 '(information about weights and biases). \n' \
-                                 'it was not found neither at the location {} nor at {}' \
-                .format(os.path.join(net_info.path_to_models, parent_net_name, ckpt_filenames[0], ckpt_path))
+            ckpt_not_found_str = f"The corresponding {_CKPT_SUFFIX} file is missing" \
+                                 "(information about weights and biases). \n" \
+                                 "it was not found neither at the location {} nor at {}" \
+                .format(os.path.join(net_info.path_to_models, parent_net_name, ckpt_filenames[0]), ckpt_path)
 
             if net_info.net_name == 'last':
                 print(ckpt_not_found_str)
