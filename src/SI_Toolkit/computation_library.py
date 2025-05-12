@@ -199,6 +199,7 @@ class ComputationLibrary:
     print: Callable[[Any], None] = None
     square: Callable[[TensorType], TensorType] = None
     divide: Callable[[TensorType, TensorType], TensorType] = None
+    GradientTape = None
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -413,6 +414,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.print = tf.print
         self.square = tf.square
         self.divide = tf.math.divide
+        self.GradientTape = tf.GradientTape
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
