@@ -2,21 +2,20 @@ import os
 from SI_Toolkit.Predictors import template_predictor
 from SI_Toolkit.computation_library import TensorFlowLibrary, PyTorchLibrary, NumpyLibrary
 
-from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES, CONTROL_INPUTS
+from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES, CONTROL_INPUTS_LEN
 from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
 
 from SI_Toolkit.Predictors.autoregression import autoregression_loop, check_dimensions
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
-
 class model_interface:
     def __init__(self, single_step_predictor):
         self.model = single_step_predictor
 
     def __call__(self, model_input):
-        Q = model_input[:, 0, :len(CONTROL_INPUTS)]
-        s = model_input[:, 0, len(CONTROL_INPUTS):]
+        Q = model_input[:, 0, :CONTROL_INPUTS_LEN]
+        s = model_input[:, 0, CONTROL_INPUTS_LEN:]
         return self.model.step(s, Q)
 
 
@@ -56,7 +55,7 @@ class predictor_ODE(template_predictor):
         self.model = model_interface(self.next_step_predictor)
 
         self.AL: autoregression_loop = autoregression_loop(
-            model_inputs_len=len(STATE_VARIABLES)  + len(CONTROL_INPUTS),
+            model_inputs_len=len(STATE_VARIABLES)  + CONTROL_INPUTS_LEN,
             model_outputs_len=len(STATE_VARIABLES),
             batch_size=self.batch_size,
             lib=self.lib,
