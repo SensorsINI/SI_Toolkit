@@ -9,6 +9,13 @@ from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import (CONTRO
 import numpy as np
 
 
+def static_range(lib, start, stop):
+    if lib.lib == 'Pytorch':
+        return range(start, stop)
+    else:
+        return lib.arange(start, stop)
+
+
 class autoregression_loop:
     def __init__(
             self,
@@ -73,9 +80,8 @@ class autoregression_loop:
                 outputs[:, 0, :] = output
 
             ##################### END OF 0th ITERATION ######################
-            arange = self.lib.arange(1, horizon)
-        else:
-            arange = self.lib.arange(0, horizon)
+
+        arange = static_range(self.lib, 1, horizon) if predictor == 'gp' or horizon == 1 else static_range(self.lib, 0, horizon)
 
         if horizon >  1:
             for i in arange:
