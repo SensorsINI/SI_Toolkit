@@ -183,7 +183,7 @@ class ComputationLibrary:
     gather: Callable[[TensorType, TensorType, int], TensorType] = None
     gather_last: Callable[[TensorType, TensorType], TensorType] = None
     arange: Callable[[Optional[NumericType], NumericType, Optional[NumericType]], TensorType] = None
-    zeros: Callable[[Sequence[int]], TensorType] = None
+    zeros: Callable[..., TensorType] = None
     zeros_like: Callable[[TensorType], TensorType] = None
     ones: Callable[["tuple[int]"], TensorType] = None
     ones_like: Callable[[TensorType], TensorType] = None
@@ -508,7 +508,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.gather = lambda x, idx, axis: torch.index_select(x, axis, idx if torch.is_tensor(idx) else torch.as_tensor(idx, dtype=torch.long))
         self.gather_last = self.gather_last_pytorch
         self.arange = torch.arange
-        self.zeros = torch.zeros
+        self.zeros = lambda shape, *args, **kwargs: torch.zeros(*shape, *args, **kwargs)
         self.zeros_like = torch.zeros_like
         self.ones = torch.ones
         self.ones_like = torch.ones_like
