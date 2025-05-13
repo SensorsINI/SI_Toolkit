@@ -137,7 +137,8 @@ def clip_by_norm_factory(lib):
 
     def clip_by_norm(x, clip_norm, axis=(-1,), eps=1e-9):
         norm   = lib.norm(x, axis=axis, keepdims=True)
-        factor = lib.min(1.0, clip_norm / (norm + eps))
+        normed_x = clip_norm / (norm + eps)
+        factor = lib.min(lib.to_tensor(1.0, lib.float32), normed_x)
         return x * factor
 
     return clip_by_norm
@@ -505,7 +506,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.bool = torch.bool
         self.tile = torch.tile
         self.repeat = lambda x, k, a: torch.repeat_interleave(x, repeats=k, dim=a)
-        self.gather = lambda x, idx, axis: torch.index_select(x, axis, idx if torch.is_tensor(idx) else torch.as_tensor(idx, dtype=torch.long))
+        self.gather = lambda x, idx, axis: torch.index_select(torch.as_tensor(x), axis, idx if torch.is_tensor(idx) else torch.as_tensor(idx, dtype=torch.long))
         self.gather_last = self.gather_last_pytorch
         self.arange = torch.arange
         self.zeros = lambda shape, *args, **kwargs: torch.zeros(*shape, *args, **kwargs)
