@@ -1,6 +1,7 @@
-import logging
 import platform
 import os
+import importlib
+import logging
 
 from SI_Toolkit.computation_library import ComputationLibrary, ComputationClasses
 
@@ -35,6 +36,29 @@ else:
     else:
         CompileTF = tf_function_jit
         # CompileTF = tf_function_experimental # Should be same as tf_function_jit, not appropriate for newer version of TF
+
+import torch, functools, inspect
+def _torch_compile(fn, *, top_only=True):
+    """
+    Wrap *fn* for torch.compile while printing a single line when
+    the *top* compiled function is entered / left.
+
+    Set top_only=False if you really want every nested call.
+    """
+    qual = fn.__qualname__
+
+    @functools.wraps(fn)
+    def wrapper(*a, **kw):
+        if top_only and inspect.currentframe().f_back.f_code.co_name != wrapper.__name__:
+            # Nested call inside the same compiled graph: skip
+            return fn(*a, **kw)
+        print(f"[compile ▶] {qual}")
+        out = fn(*a, **kw)
+        print(f"[compile ▲] {qual}")
+        return out
+
+    return torch.compile(wrapper, fullgraph=False, dynamic=False)
+
 
 
 def CompileAdaptive(arg=None):
@@ -75,7 +99,6 @@ def decorator(fun, computation_library=None):
     elif lib_name == 'TF':
         return CompileTF(fun)
     elif lib_name == 'Pytorch':
-        print('Jit compilation for Pytorch not yet implemented.')
-        return identity(fun)
+        return _torch_compile(fun)
     else:
         return identity(fun)
