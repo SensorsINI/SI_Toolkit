@@ -37,27 +37,24 @@ else:
         CompileTF = tf_function_jit
         # CompileTF = tf_function_experimental # Should be same as tf_function_jit, not appropriate for newer version of TF
 
-import torch, functools, inspect
-def _torch_compile(fn, *, top_only=True):
-    """
-    Wrap *fn* for torch.compile while printing a single line when
-    the *top* compiled function is entered / left.
 
-    Set top_only=False if you really want every nested call.
-    """
-    qual = fn.__qualname__
+def _torch_compile(fn):
+    import torch
+    from torch._inductor import config
+    import os  # for retrieving the number of CPU cores available
 
-    @functools.wraps(fn)
-    def wrapper(*a, **kw):
-        if top_only and inspect.currentframe().f_back.f_code.co_name != wrapper.__name__:
-            # Nested call inside the same compiled graph: skip
-            return fn(*a, **kw)
-        print(f"[compile ▶] {qual}")
-        out = fn(*a, **kw)
-        print(f"[compile ▲] {qual}")
-        return out
+    # Set compile threads to the maximum available CPU cores (fallback to 1 if detection fails)
+    config.compile_threads = os.cpu_count() or 1
 
-    return torch.compile(wrapper, fullgraph=False, dynamic=False)
+    compiled_fn = torch.compile(
+        fn,
+        fullgraph=False,
+        dynamic=False,
+        backend="inductor"
+    )
+
+    return compiled_fn
+
 
 
 
