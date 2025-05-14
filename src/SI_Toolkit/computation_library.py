@@ -234,7 +234,9 @@ class ComputationLibrary:
     logical_or: Callable[[TensorType, TensorType], TensorType] = None
     print: Callable[[Any], None] = None
     square: Callable[[TensorType], TensorType] = None
+    multiply: Callable[[TensorType, TensorType], TensorType] = None
     divide: Callable[[TensorType, TensorType], TensorType] = None
+    subtract: Callable[[TensorType, TensorType], TensorType] = None
     GradientTape = None
 
 
@@ -336,7 +338,9 @@ class NumpyLibrary(ComputationLibrary):
         self.logical_or  = np.logical_or
         self.print = print
         self.square = np.square
+        self.multiply = np.multiply
         self.divide = np.divide
+        self.subtract = np.subtract
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
@@ -449,7 +453,9 @@ class TensorFlowLibrary(ComputationLibrary):
         self.logical_or  = tf.math.logical_or
         self.print = tf.print
         self.square = tf.square
+        self.multiply = tf.multiply
         self.divide = tf.math.divide
+        self.subtract = tf.math.subtract
         self.GradientTape = tf.GradientTape
 
     @staticmethod
@@ -561,7 +567,9 @@ class PyTorchLibrary(ComputationLibrary):
         self.logical_or  = torch.logical_or
         self.print = print
         self.square = torch.square
+        self.multiply = torch.mul
         self.divide = torch.div
+        self.subtract = torch.subtract
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
