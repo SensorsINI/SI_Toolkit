@@ -521,7 +521,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.bool = torch.bool
         self.tile = torch.tile
         self.repeat = lambda x, k, a: torch.repeat_interleave(x, repeats=k, dim=a)
-        self.gather = lambda x, idx, axis: torch.index_select(torch.as_tensor(x), axis, idx if torch.is_tensor(idx) else torch.as_tensor(idx, dtype=torch.long))
+        self.gather = tf_gather_for_torch
         self.gather_last = self.gather_last_pytorch
         self.arange = torch.arange
         self.zeros = lambda shape, *args, **kwargs: torch.zeros(*shape, *args, **kwargs)
@@ -604,3 +604,39 @@ class PyTorchLibrary(ComputationLibrary):
 
 
 ComputationClasses = (NumpyLibrary, TensorFlowLibrary, PyTorchLibrary)
+
+
+def tf_gather_for_torch(input, index, axis=0):
+    """
+    PyTorch equivalent of tf.gather(input, index, axis=axis).
+    Accepts lists or NumPy arrays as well as Tensors.
+    """
+    import torch
+    dim = axis
+
+    # ensure our data is a Tensor, without copying if it already is one
+    if not torch.is_tensor(input):
+        input = torch.as_tensor(input)
+    # make sure indices are a LongTensor on the same device as `input`
+    if not torch.is_tensor(index):
+        index = torch.as_tensor(index, dtype=torch.long, device=input.device)
+    else:
+        if index.dtype != torch.long:
+            index = index.to(torch.long)
+        if index.device != input.device:
+            index = index.to(input.device)
+
+    # PyTorch’s index_select only accepts 1-D index tensors.
+    # For N-D `index`, we flatten → select → reshape back.
+    if index.dim() > 1:
+        # flatten all index dimensions into one vector
+        flat_idx = index.reshape(-1)
+        # gather the rows/slices
+        gathered = torch.index_select(input, dim, flat_idx)
+        # compute the output shape: original index shape + remaining dims of input after `dim`
+        out_shape = list(index.shape) + list(input.shape[dim + 1 :])
+        return gathered.reshape(*out_shape)
+    else:
+        # simple 1-D case: direct select
+        return torch.index_select(input, dim, index)
+
