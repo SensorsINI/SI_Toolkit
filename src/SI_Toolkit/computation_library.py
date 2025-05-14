@@ -194,7 +194,7 @@ class ComputationLibrary:
     uniform: Callable[
         [RandomGeneratorType, "tuple[int]", TensorType, TensorType, type], TensorType
     ] = None
-    sum: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
+    sum: Callable[..., TensorType] = None
     mean: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
     cumsum: Callable[[TensorType, int], TensorType] = None
     cumprod: Callable[[TensorType, int], TensorType] = None
@@ -285,7 +285,7 @@ class NumpyLibrary(ComputationLibrary):
         self.bool = np.bool_
         self.tile = np.tile
         self.repeat = lambda x, k, a: np.repeat(x, repeats=k, axis=a)
-        self.gather = lambda x, i, a: np.take(x, i, axis=a)
+        self.gather = lambda x, i, axis: np.take(x, i, axis=axis)
         self.gather_last = lambda x, i: np.take(x, i, axis=-1)
         self.arange = np.arange
         self.zeros = np.zeros
@@ -299,9 +299,9 @@ class NumpyLibrary(ComputationLibrary):
             low=low, high=high, size=shape
         ).astype(dtype)
         self.sum = lambda x, axis: np.sum(x, axis=axis, keepdims=False)
-        self.mean = lambda x, a: np.mean(x, axis=a, keepdims=False)
-        self.cumsum = lambda x, a: np.cumsum(x, axis=a)
-        self.cumprod = lambda x, a: np.cumprod(x, axis=a)
+        self.mean = lambda x, axis: np.mean(x, axis=axis, keepdims=False)
+        self.cumsum = lambda x, axis: np.cumsum(x, axis=axis)
+        self.cumprod = lambda x, axis: np.cumprod(x, axis=axis)
         self.set_shape = lambda x, shape: x
         self.concat = lambda x, axis: np.concatenate(x, axis=axis)
         self.pi = np.array(np.pi).astype(np.float32)
@@ -398,7 +398,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.bool = tf.bool
         self.tile = tf.tile
         self.repeat = lambda x, k, a: tf.repeat(x, repeats=k, axis=a)
-        self.gather = lambda x, i, a: tf.gather(x, i, axis=a)
+        self.gather = lambda x, i, axis: tf.gather(x, i, axis=axis)
         self.gather_last = lambda x, i: tf.gather(x, i, axis=-1)
         self.arange = tf.range
         self.zeros = tf.zeros
@@ -411,9 +411,9 @@ class TensorFlowLibrary(ComputationLibrary):
         self.uniform = lambda generator, shape, low, high, dtype: generator.uniform(
             shape, minval=low, maxval=high, dtype=dtype)
         self.sum = lambda x, axis: tf.reduce_sum(x, axis=axis, keepdims=False)
-        self.mean = lambda x, a: tf.reduce_mean(x, axis=a, keepdims=False)
-        self.cumsum = lambda x, a: tf.math.cumsum(x, axis=a)
-        self.cumprod = lambda x, a: tf.math.cumprod(x, axis=a)
+        self.mean = lambda x, axis: tf.reduce_mean(x, axis=axis, keepdims=False)
+        self.cumsum = lambda x, axis: tf.math.cumsum(x, axis=axis)
+        self.cumprod = lambda x, axis: tf.math.cumprod(x, axis=axis)
         self.set_shape = lambda x, shape: x.set_shape(shape)
         self.concat = lambda x, axis: tf.concat(x, axis)
         self.pi = tf.convert_to_tensor(pi, dtype=tf.float32)
@@ -524,9 +524,9 @@ class PyTorchLibrary(ComputationLibrary):
             + low
         )
         self.sum = lambda x, axis: torch.sum(x, axis, keepdim=False)
-        self.mean = lambda x, a: torch.mean(x, a, keepdim=False)
-        self.cumsum = lambda x, a: torch.cumsum(x, dim=a)
-        self.cumprod = lambda x, a: torch.cumprod(x, dim=a)
+        self.mean = lambda x, axis: torch.mean(x, axis, keepdim=False)
+        self.cumsum = lambda x, axis: torch.cumsum(x, dim=axis)
+        self.cumprod = lambda x, axis: torch.cumprod(x, dim=axis)
         self.set_shape = lambda x, shape: x
         self.concat = lambda x, axis: torch.concat(x, dim=axis)
         self.pi = torch.as_tensor(pi, dtype=torch.float32)
