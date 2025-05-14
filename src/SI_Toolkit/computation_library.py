@@ -298,7 +298,7 @@ class NumpyLibrary(ComputationLibrary):
         self.uniform = lambda generator, shape, low, high, dtype: generator.uniform(
             low=low, high=high, size=shape
         ).astype(dtype)
-        self.sum = lambda x, a: np.sum(x, axis=a, keepdims=False)
+        self.sum = lambda x, axis: np.sum(x, axis=axis, keepdims=False)
         self.mean = lambda x, a: np.mean(x, axis=a, keepdims=False)
         self.cumsum = lambda x, a: np.cumsum(x, axis=a)
         self.cumprod = lambda x, a: np.cumprod(x, axis=a)
@@ -410,7 +410,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.standard_normal = lambda generator, shape: generator.normal(shape)
         self.uniform = lambda generator, shape, low, high, dtype: generator.uniform(
             shape, minval=low, maxval=high, dtype=dtype)
-        self.sum = lambda x, a: tf.reduce_sum(x, axis=a, keepdims=False)
+        self.sum = lambda x, axis: tf.reduce_sum(x, axis=axis, keepdims=False)
         self.mean = lambda x, a: tf.reduce_mean(x, axis=a, keepdims=False)
         self.cumsum = lambda x, a: tf.math.cumsum(x, axis=a)
         self.cumprod = lambda x, a: tf.math.cumprod(x, axis=a)
@@ -523,7 +523,7 @@ class PyTorchLibrary(ComputationLibrary):
             * torch.rand(*shape, generator=generator, dtype=dtype)
             + low
         )
-        self.sum = lambda x, a: torch.sum(x, a, keepdim=False)
+        self.sum = lambda x, axis: torch.sum(x, axis, keepdim=False)
         self.mean = lambda x, a: torch.mean(x, a, keepdim=False)
         self.cumsum = lambda x, a: torch.cumsum(x, dim=a)
         self.cumprod = lambda x, a: torch.cumprod(x, dim=a)
