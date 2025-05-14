@@ -157,6 +157,7 @@ class ComputationLibrary:
     constant: Callable[[Union[float, TensorType], type], Union[float, TensorType]] = None
     unstack: Callable[[TensorType, int, int], "list[TensorType]"] = None
     ndim: Callable[[TensorType], int] = None
+    pad: Callable[[TensorType, Any], TensorType] = None
     clip: Callable[[TensorType, float, float], TensorType] = None
     clip_by_norm: Callable[[TensorType, TensorType, Union[int, Sequence[int]]], TensorType] = None
     sin: Callable[[TensorType], TensorType] = None
@@ -221,6 +222,7 @@ class ComputationLibrary:
     sqrt: Callable[[TensorType], TensorType] = None
     argsort: Callable[[TensorType, int], TensorType] = None
     argpartition: Callable[[TensorType, int], TensorType] = None
+    argmin: Callable[[TensorType, int], TensorType] = None
     argmax: Callable[[TensorType, int], TensorType] = None
     norm: Callable[[TensorType, int, bool], TensorType] = None
     matmul: Callable[[TensorType, TensorType], TensorType] = None
@@ -263,6 +265,7 @@ class NumpyLibrary(ComputationLibrary):
         self.constant = lambda x, t: np.array(x, dtype=t)
         self.unstack = lambda x, num, axis: [np.take(x, i, axis=axis) for i in range(num)]
         self.ndim = np.ndim
+        self.pad = lambda x, paddings: np.pad(x, paddings, mode='constant')
         self.clip = np.clip
         self.clip_by_norm = clip_by_norm_factory(self)
         self.sin = np.sin
@@ -327,6 +330,7 @@ class NumpyLibrary(ComputationLibrary):
         self.sqrt = np.sqrt
         self.argsort = lambda x, axis=-1: np.argsort(x, axis=axis)
         self.argpartition = lambda x, k: np.argpartition(x, k)[..., :k]
+        self.argmin = lambda x, axis: np.argmin(x, axis=axis)
         self.argmax = lambda x, a: np.argmax(x, axis=a)
         self.norm = lambda x, axis, keepdims=False: np.linalg.norm(x, axis=axis, keepdims=keepdims)
         self.matmul = np.matmul
@@ -378,6 +382,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.constant = lambda x, t: tf.constant(x, dtype=t)
         self.unstack = lambda x, num, axis: tf.unstack(x, num=num, axis=axis)
         self.ndim = tf.rank
+        self.pad = tf.pad
         self.clip_by_norm = clip_by_norm_factory(self)
         self.clip = tf.clip_by_value
         self.sin = tf.sin
@@ -441,6 +446,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.sqrt = tf.sqrt
         self.argsort = lambda x, axis=-1: tf.argsort(x, axis=axis)
         self.argpartition = lambda x, k: tf.math.top_k(-x, k, sorted=False)[1]
+        self.argmin = lambda x, axis: tf.math.argmin(x, axis=axis)
         self.argmax = lambda x, a: tf.math.argmax(x, axis=a)
         self.norm = lambda x, axis, keepdims=False: tf.norm(x, axis=axis, keepdims=keepdims)
         self.matmul = tf.linalg.matmul
@@ -471,6 +477,8 @@ class PyTorchLibrary(ComputationLibrary):
     
     def __init__(self):
         import torch  # Lazy import here
+        import torch.nn.functional as F
+
         self.lib = 'Pytorch'
         self.float32 = torch.float32
         self.float64 = torch.float64
@@ -488,6 +496,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.constant = lambda x, t: torch.as_tensor(x, dtype=t)
         self.unstack = lambda x, num, dim: torch.unbind(x, dim=dim)
         self.ndim = lambda x: x.ndim
+        self.pad = lambda x, paddings: F.pad(x, [p for dim in reversed(paddings) for p in reversed(dim)], mode='constant', value=0.0)
         self.clip_by_norm = clip_by_norm_factory(self)
         self.clip = torch.clamp
         self.sin = torch.sin
@@ -556,6 +565,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.sqrt = torch.sqrt
         self.argsort = lambda x, axis=-1: torch.argsort(x, dim=axis)
         self.argpartition = lambda x, k: torch.topk(x, k, largest=False)[1]
+        self.argmin = lambda x, axis: torch.argmin(x, dim=axis)
         self.argmax = lambda x, a: torch.argmax(x, dim=a)
         self.norm = lambda x, axis, keepdims=False: torch.linalg.norm(x, dim=axis, keepdim=keepdims)
         self.matmul = torch.matmul
