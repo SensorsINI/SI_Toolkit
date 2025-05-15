@@ -18,6 +18,9 @@ class model_interface:
         s = model_input[:, 0, CONTROL_INPUTS_LEN:]
         return self.model.step(s, Q)
 
+    def predict(self, model_input):
+        return self(model_input)
+
 
 class predictor_ODE(template_predictor):
     supported_computation_libraries = (TensorFlowLibrary, PyTorchLibrary, NumpyLibrary)  # Overwrites default from parent
@@ -79,7 +82,7 @@ class predictor_ODE(template_predictor):
 
         output = self.predict_core(self.initial_state, Q)
 
-        return output.numpy()
+        return self.lib.to_numpy(output)
 
 
     def _predict_core(self, initial_state, Q):
