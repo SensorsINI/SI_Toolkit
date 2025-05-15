@@ -240,6 +240,7 @@ class ComputationLibrary:
     divide: Callable[[TensorType, TensorType], TensorType] = None
     subtract: Callable[[TensorType, TensorType], TensorType] = None
     GradientTape = None
+    break_compilation_graph = None
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -343,6 +344,7 @@ class NumpyLibrary(ComputationLibrary):
         self.multiply = np.multiply
         self.divide = np.divide
         self.subtract = np.subtract
+        self.break_compilation_graph = lambda: None
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
@@ -461,6 +463,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.divide = tf.math.divide
         self.subtract = tf.math.subtract
         self.GradientTape = tf.GradientTape
+        self.break_compilation_graph = lambda: None
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
@@ -575,6 +578,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.multiply = torch.mul
         self.divide = torch.div
         self.subtract = torch.subtract
+        self.break_compilation_graph = pytorch_break_compilation_graph
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
@@ -638,4 +642,12 @@ def tf_gather_for_torch(input, index, axis=0):
     else:
         # simple 1-D case: direct select
         return torch.index_select(input, dim, index)
+
+
+def pytorch_break_compilation_graph():
+    """
+    Allows splitting the compilation graph in PyTorch. To make compilation faster/feasible.
+    """
+    import torch._dynamo as dynamo
+    dynamo.graph_break()
 
