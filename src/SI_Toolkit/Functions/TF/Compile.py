@@ -50,7 +50,8 @@ def _torch_compile(fn):
         fn,
         fullgraph=False,
         dynamic=False,
-        backend="inductor"
+        backend="inductor",
+        mode="max-autotune-no-cudagraphs",
     )
 
     return compiled_fn
