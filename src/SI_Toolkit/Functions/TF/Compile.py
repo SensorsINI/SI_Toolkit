@@ -44,7 +44,7 @@ def _torch_compile(fn):
     import os  # for retrieving the number of CPU cores available
 
     # Set compile threads to the maximum available CPU cores (fallback to 1 if detection fails)
-    config.compile_threads = os.cpu_count() or 1
+    config.compile_threads = os.cpu_count()//2 or 1
 
     compiled_fn = torch.compile(
         fn,
