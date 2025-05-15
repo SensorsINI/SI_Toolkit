@@ -28,7 +28,7 @@ class predictor_ODE(template_predictor):
     def __init__(self,
                  horizon: int,
                  dt: float,
-                 computation_library=TensorFlowLibrary(),
+                 computation_library=None,
                  intermediate_steps=10,
                  disable_individual_compilation=False,
                  batch_size=1,
@@ -36,6 +36,7 @@ class predictor_ODE(template_predictor):
                  **kwargs):
         super().__init__(horizon=horizon, batch_size=batch_size)
         self.lib = computation_library
+        print(f"Using {self.lib.lib} for ODE predictor")
         self.disable_individual_compilation = disable_individual_compilation
 
         self.initial_state = self.lib.zeros(shape=(1, len(STATE_VARIABLES)))
