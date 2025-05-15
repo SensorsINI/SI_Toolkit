@@ -252,8 +252,6 @@ class NumpyLibrary(ComputationLibrary):
         self.float64 = np.float64
         self.int32 = np.int32
         self.int64 = np.int64
-        
-        self.lib = 'Numpy'
         self.set_device = lambda device_name: set_device_general(device_name, 'numpy')
         self.reshape = lambda x, shape: np.reshape(x, shape)
         self.permute = np.transpose
@@ -482,9 +480,6 @@ class PyTorchLibrary(ComputationLibrary):
         self.lib = 'Pytorch'
         self.float32 = torch.float32
         self.float64 = torch.float64
-        
-        
-        self.lib = 'Pytorch'
         self.set_device = lambda device_name: set_device_general(device_name, 'pytorch')
         self.reshape = torch.reshape
         self.permute = torch.permute
@@ -524,7 +519,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.gather = tf_gather_for_torch
         self.gather_last = self.gather_last_pytorch
         self.arange = torch.arange
-        self.zeros = lambda shape, *args, **kwargs: torch.zeros(*shape, *args, **kwargs)
+        self.zeros = lambda shape, **kw: torch.zeros(size=shape, **kw)
         self.zeros_like = torch.zeros_like
         self.ones = torch.ones
         self.ones_like = torch.ones_like
@@ -571,7 +566,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.matmul = torch.matmul
         self.cross = torch.linalg.cross
         self.dot = torch.dot
-        # stop_gradient = tf.stop_gradient # FIXME: How to imlement this in torch?
+        self.stop_gradient = lambda x: x.detach()
         self.where = torch.where
         self.logical_and = torch.logical_and
         self.logical_or  = torch.logical_or
@@ -600,7 +595,11 @@ class PyTorchLibrary(ComputationLibrary):
 
     @staticmethod
     def gather_last_pytorch(a, index_vector):
-        return a[..., index_vector]
+        import torch
+        # index_vector: (...,) long tensor indexing the last dim of `a`
+        idx = index_vector.unsqueeze(-1)  # now shape (...,1)
+        out = torch.gather(a, dim=-1, index=idx)  # shape (...,1)
+        return out.squeeze(-1)
 
 
 ComputationClasses = (NumpyLibrary, TensorFlowLibrary, PyTorchLibrary)
