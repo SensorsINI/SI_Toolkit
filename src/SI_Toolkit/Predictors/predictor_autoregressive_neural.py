@@ -207,6 +207,7 @@ class predictor_autoregressive_neural(template_predictor):
         self.input_quantization = input_quantization
 
         self.AL: autoregression_loop = autoregression_loop(
+            model=self.net,
             model_inputs_len=len(self.net_info.inputs),
             model_outputs_len=len(self.net_info.outputs),
             batch_size=self.batch_size,
@@ -291,7 +292,6 @@ class predictor_autoregressive_neural(template_predictor):
         self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
         outputs = self.AL.run(
-            model=self.net,
             horizon=self.horizon,
             initial_input=self.model_initial_input_normed,
             external_input_left=model_external_input_normed,

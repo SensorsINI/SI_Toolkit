@@ -59,6 +59,7 @@ class predictor_ODE(template_predictor):
         self.model = model_interface(self.next_step_predictor)
 
         self.AL: autoregression_loop = autoregression_loop(
+            model=self.model,
             model_inputs_len=len(STATE_VARIABLES)  + CONTROL_INPUTS_LEN,
             model_outputs_len=len(STATE_VARIABLES),
             batch_size=self.batch_size,
@@ -89,7 +90,6 @@ class predictor_ODE(template_predictor):
     def _predict_core(self, initial_state, Q):
 
         self.output = self.AL.run(
-            model=self.model,
             horizon=self.horizon,
             initial_input=initial_state,
             external_input_left=Q,

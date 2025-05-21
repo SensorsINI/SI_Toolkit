@@ -76,6 +76,7 @@ class predictor_autoregressive_GP(template_predictor):
 
 
         self.AL: autoregression_loop = autoregression_loop(
+            model=self.model_for_AL,
             model_inputs_len=len(self.inputs),
             model_outputs_len=len(self.model.outputs),
             batch_size=self.batch_size,
@@ -109,7 +110,6 @@ class predictor_autoregressive_GP(template_predictor):
         self.lib.assign(self.model_input_reg_initial_normed, self.lib.gather_last(initial_state_normed, self.indices_inputs_reg))
 
         outputs = self.AL.run(
-            model=self.model_for_AL,
             horizon=self.horizon,
             external_input_right=Q,
             initial_input=self.model_input_reg_initial_normed,

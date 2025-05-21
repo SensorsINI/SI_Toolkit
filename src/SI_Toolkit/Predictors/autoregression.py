@@ -19,6 +19,7 @@ def static_range(lib, start, stop):
 class autoregression_loop:
     def __init__(
             self,
+            model,
             model_inputs_len,
             model_outputs_len,
             batch_size,
@@ -26,20 +27,30 @@ class autoregression_loop:
             differential_model_autoregression_helper_instance=None,
     ):
         self.lib = lib
+        self.model = model
         self.dmah = differential_model_autoregression_helper_instance
 
         self.model_inputs_len = model_inputs_len
         self.model_outputs_len = model_outputs_len
         self.batch_size = batch_size
 
+        self.evaluate_model = self.evaluate_model_factory()
+
 
         if isinstance(self.lib, TensorFlowLibrary):
             from tensorflow import TensorArray
             self.TensorArray = TensorArray
 
+    def evaluate_model_factory(self):
+        if self.lib.lib == 'Numpy':  # Covers just the case for hls4ml, when the model is hls model
+            evaluate_model = self.model.predict
+        else:
+            evaluate_model = self.model
+
+        return evaluate_model
+
     def run(
             self,
-            model,
             horizon,
             initial_input,
             external_input_left=None,
@@ -67,7 +78,7 @@ class autoregression_loop:
 
             model_input = self.lib.reshape(model_input, shape=[-1, 1, self.model_inputs_len])
 
-            model_output = self.evaluate_model(model, model_input)
+            model_output = self.evaluate_model(model_input)
 
             model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
 
@@ -93,7 +104,7 @@ class autoregression_loop:
 
                 model_input = self.lib.reshape(model_input, shape=[-1, 1, self.model_inputs_len])
 
-                model_output = self.evaluate_model(model, model_input)
+                model_output = self.evaluate_model(model_input)
 
                 model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
 
@@ -112,12 +123,6 @@ class autoregression_loop:
             outputs = self.lib.permute(outputs.stack(), [1, 0, 2])
 
         return outputs
-
-    def evaluate_model(self, model, model_input):
-        if self.lib.lib == 'Numpy':  # Covers just the case for hls4ml, when the model is hls model
-            return model.predict(model_input)
-        else:
-            return model(model_input)
 
 
 
