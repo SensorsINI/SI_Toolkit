@@ -49,6 +49,26 @@ class autoregression_loop:
 
         return evaluate_model
 
+    def horizon_step(self, model_input, current_external_input_left, current_external_input_right):
+        if current_external_input_left is not None:
+            model_input = self.lib.concat([current_external_input_left, model_input], axis=1)
+        if current_external_input_right is not None:
+            model_input = self.lib.concat([model_input, current_external_input_right], axis=1)
+
+        model_input = self.lib.reshape(model_input, shape=[-1, 1, self.model_inputs_len])
+
+        model_output = self.evaluate_model(model_input)
+
+        model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
+
+        if self.dmah:
+            output, next_model_input = self.dmah.get_output_and_next_model_input(model_output)
+        else:
+            output = model_output
+            next_model_input = model_output
+
+        return output, next_model_input
+
     def run(
             self,
             horizon,
@@ -92,32 +112,18 @@ class autoregression_loop:
 
             ##################### END OF 0th ITERATION ######################
 
-        arange = static_range(self.lib, 1, horizon) if predictor == 'gp' or horizon == 1 else static_range(self.lib, 0, horizon)
-
-        if horizon >  1:
-            for i in arange:
-
-                if external_input_left is not None:
-                    model_input = self.lib.concat([external_input_left[:, i, :], model_input], axis=1)
-                if external_input_right is not None:
-                    model_input = self.lib.concat([model_input, external_input_right[:, i, :]], axis=1)
-
-                model_input = self.lib.reshape(model_input, shape=[-1, 1, self.model_inputs_len])
-
-                model_output = self.evaluate_model(model_input)
-
-                model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
-
-                if self.dmah:
-                    output, model_input = self.dmah.get_output_and_next_model_input(model_output)
-                else:
-                    output = model_output
-                    model_input = model_output
-
+        if horizon > 1:
+            i = 1 if predictor == 'gp' or horizon == 1 else 0
+            while i < horizon:
+                current_external_input_left = external_input_left[:, i, :] if external_input_left is not None else None
+                current_external_input_right = external_input_right[:, i,:] if external_input_right is not None else None
+                output, next_model_input = self.horizon_step(model_input, current_external_input_left, current_external_input_right)
+                model_input = next_model_input
                 if self.lib.lib == 'TF':
                     outputs = outputs.write(i, output)
                 else:
                     outputs[:, i, :] = output
+                i += 1
 
         if self.lib.lib == 'TF':
             outputs = self.lib.permute(outputs.stack(), [1, 0, 2])
