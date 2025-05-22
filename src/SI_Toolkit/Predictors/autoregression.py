@@ -9,11 +9,6 @@ from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import (CONTRO
 import numpy as np
 
 
-def static_range(lib, start, stop):
-    if lib.lib == 'Pytorch':
-        return range(start, stop)
-    else:
-        return lib.arange(start, stop)
 
 
 class autoregression_loop:
@@ -113,8 +108,24 @@ class autoregression_loop:
             ##################### END OF 0th ITERATION ######################
 
         if horizon > 1:
-            i = 1 if predictor == 'gp' or horizon == 1 else 0
-            while i < horizon:
+            # i = 1 if predictor == 'gp' or int(horizon) == 1 else 0
+            # while i < int(horizon):
+            #     current_external_input_left = external_input_left[:, i, :] if external_input_left is not None else None
+            #     current_external_input_right = external_input_right[:, i,:] if external_input_right is not None else None
+            #     output, next_model_input = self.horizon_step(model_input, current_external_input_left, current_external_input_right)
+            #     model_input = next_model_input
+            #     if self.lib.lib == 'TF':
+            #         outputs = outputs.write(i, output)
+            #     else:
+            #         outputs[:, i, :] = output
+            #     i += 1
+
+            if self.lib.lib == 'Pytorch':
+                static_range = range
+            else:
+                static_range = self.lib.arange
+            arange = static_range(self.lib, 1, horizon) if predictor == 'gp' or horizon == 1 else static_range(self.lib, 0, horizon)
+            for i in arange:
                 current_external_input_left = external_input_left[:, i, :] if external_input_left is not None else None
                 current_external_input_right = external_input_right[:, i,:] if external_input_right is not None else None
                 output, next_model_input = self.horizon_step(model_input, current_external_input_left, current_external_input_right)
@@ -123,7 +134,6 @@ class autoregression_loop:
                     outputs = outputs.write(i, output)
                 else:
                     outputs[:, i, :] = output
-                i += 1
 
         if self.lib.lib == 'TF':
             outputs = self.lib.permute(outputs.stack(), [1, 0, 2])
