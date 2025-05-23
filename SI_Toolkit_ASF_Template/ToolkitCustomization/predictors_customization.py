@@ -12,7 +12,7 @@ E.g. the neural network predicts sin and cos this class can take care of adding 
 
 
 from SI_Toolkit.computation_library import NumpyLibrary
-from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
+from SI_Toolkit.Compile import CompileAdaptive
 
 import numpy as np
 

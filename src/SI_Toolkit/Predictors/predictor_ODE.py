@@ -3,7 +3,7 @@ from SI_Toolkit.Predictors import template_predictor
 from SI_Toolkit.computation_library import TensorFlowLibrary, PyTorchLibrary, NumpyLibrary
 
 from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import next_state_predictor_ODE, STATE_VARIABLES, CONTROL_INPUTS_LEN
-from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
+from SI_Toolkit.Compile import CompileAdaptive
 
 from SI_Toolkit.Predictors.autoregression import autoregression_loop, check_dimensions
 

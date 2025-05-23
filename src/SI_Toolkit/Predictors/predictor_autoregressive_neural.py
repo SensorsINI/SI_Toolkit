@@ -28,7 +28,7 @@ from SI_Toolkit.Functions.General.Normalising import (
     get_denormalization_function, get_normalization_function,
     )
 from SI_Toolkit.Functions.General.value_precision import set_value_precision
-from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
+from SI_Toolkit.Compile import CompileAdaptive
 from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import predictor_output_augmentation
 
 from SI_Toolkit.Predictors.autoregression import autoregression_loop, differential_model_autoregression_helper, check_dimensions
