@@ -639,39 +639,36 @@ class PyTorchLibrary(ComputationLibrary):
         self.subtract = torch.subtract
         self.break_compilation_graph = pytorch_break_compilation_graph
 
-    def loop(self, body_fn, state, steps: int, counter = 0):
+    def loop(self, body_fn, state, steps: int, counter=0):
         """
         Run `body_fn` `steps` times starting from `state` and return the final state.
 
         * `body_fn(*state)` → new_state (same structure)
         * Works for TF, PyTorch, NumPy.
         """
-
         import torch
 
-        # ────❶ normalise counter once, *outside* the traced loop ────────
-        counter = torch.as_tensor(counter, dtype=torch.int64, device=state[0].device)
+        # Define a helper that encloses the for‐loop. Decorating with
+        # disable(recursive=False) means:
+        #   - THIS frame (the loop) is NOT traced.
+        #   - calls *into* body_fn *are* still traced/compiled.
+        @torch.compiler.disable(recursive=False)
+        def loop_control(state_tuple, num_steps):
+            # Iterate in plain eager mode. Dynamo sees a graph-break at the decorator.
+            for _ in range(num_steps):
+                # Each invocation of compiled_body(*state_tuple) runs as a subgraph.
+                state_tuple = body_fn(*state_tuple)
+                # Sanity check: ensure your counter stays a tensor.
+                assert torch.is_tensor(state_tuple[0]), "body_fn must return a tensor counter"
+            return state_tuple
 
-        # ─── flatten the incoming state tuple ───
+        # Turn the Python int counter into a tensor on the right device.
+        counter = torch.as_tensor(counter, dtype=torch.int64, device=state[0].device)
         state = (counter, *state)
 
-        # ─── pure-Python loop; will be unrolled when `steps` is constant ───
-        for _ in range(steps):
-            self.break_compilation_graph()
-            # NOTE: no graph break here; keep the loop in one FX sub-graph
-            state = body_fn(*state)
-
-            # ❷ Enforce invariant: `state[0]` *must* stay a tensor.
-            #    Instead of branching, assume well-behaved `body_fn` and fail
-            #    loudly if it violates the contract.  This avoids dynamic
-            #    recompilation guards.
-            assert torch.is_tensor(state[0]), "body_fn must return a tensor counter"
-
-        # ─── optional: a single break *after* the loop if you need to mix
-        #     non-traceable Python with the result; remove otherwise
-        self.break_compilation_graph()
-
-        return state
+        # This call graph‐breaks into loop_control (eager),
+        # but each compiled_body inside still gets compiled.
+        return loop_control(state, steps)
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
