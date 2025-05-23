@@ -630,9 +630,24 @@ class PyTorchLibrary(ComputationLibrary):
         * Works for TF, PyTorch, NumPy.
         """
 
+        import torch
+
+        # ─── ❶ Normalise the counter to a (1,) LongTensor ─────────────
+        counter, *rest = state
+        if not torch.is_tensor(counter):                         # Python int → Tensor
+            counter = torch.tensor(counter, dtype=torch.int64)
+
+        state = (counter, *rest)
+        dev   = counter.device                                  # reuse device later
+
         for _ in range(steps):
-            self.break_compilation_graph()
-            state = body_fn(*state)
+            self.break_compilation_graph()                      # keeps eager safe
+            state = body_fn(*state)                             # user updates counter
+
+            # ─── ❷ If the user accidentally returned a plain int, fix it here ───
+            if not torch.is_tensor(state[0]):
+                state = (torch.tensor(state[0], dtype=torch.int64, device=dev),) + state[1:]
+
         self.break_compilation_graph()
         return state
 
