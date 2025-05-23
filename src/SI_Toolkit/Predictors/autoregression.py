@@ -112,19 +112,50 @@ class autoregression_loop:
             start_idx = 1 if (predictor == "gp" or horizon == 1) else 0
 
             def loop_body(i, outputs, current_input):
+                # ––– ❶ normalise the step index so that gather/index_copy works everywhere –––––––––
+                #
+                # TF’s while_loop gives you a scalar tf.Tensor; PyTorch’s custom loop keeps a
+                # 0-D LongTensor; NumPy gives a Python int.  We upgrade everything to a **1-D
+                # tensor** when that is the requirement of the backend’s scatter/gather op.
+                #
+                step = i
+                if self.lib.lib == "Pytorch":  # needs 1-D LongTensor
+                    if getattr(step, "ndim", 0) == 0:
+                        step = step.unsqueeze(0)  # (1,)
+                elif self.lib.lib == "TF":  # tf.gather is happy
+                    step = self.lib.reshape(step, (1,))  # make rank-1 for symmetry
+
+                # ––– ❷ slice the exogenous inputs for this horizon ––––––––––––––––––––––––––––––––
+                #
+                # self.lib.gather implements tf.gather / np.take / torch.index_select with
+                # consistent semantics; squeezing axis 1 restores shape (B, E).
+                #
                 def _take_step(x):
-                    step = i if i.ndim else i.unsqueeze(0)  # (1,) index
-                    return x.index_select(1, step).squeeze(1)  # (B, E)
+                    if x is None:
+                        return None
+                    slice_ = self.lib.gather(x, step, axis=1)  # (B,1,E)
+                    return self.lib.squeeze(slice_, 1)  # → (B,E)
 
-                left = _take_step(external_input_left) if external_input_left is not None else None
-                right = _take_step(external_input_right) if external_input_right is not None else None
+                left = _take_step(external_input_left)
+                right = _take_step(external_input_right)
 
+                # ––– ❸ user-supplied transition ––––––––––––––––––––––––––––––––––––––––––––––––––––
                 output, next_input = self.horizon_step(current_input, left, right)
 
-                # ─── write the result back WITHOUT .item(), matching ranks ─────────
-                step = i if i.ndim else i.unsqueeze(0)  # 1-D index again
-                outputs = outputs.index_copy(1, step, output.unsqueeze(1))  # (B,1,E)
+                # ––– ❹ write the new output back –––––––––––––––––––––––––––––––––––––––––––––––––––
+                #
+                # - TF:   TensorArray.write(i, …) returns a **new** TensorArray.
+                # - NP:   plain assignment is fastest.
+                # - PT:   index_copy keeps everything differentiable without .item().
+                #
+                if self.lib.lib == "TF":
+                    outputs = outputs.write(i, output)
+                elif self.lib.lib == "Pytorch":
+                    outputs = outputs.index_copy(1, step, output.unsqueeze(1))  # (B,1,E)
+                else:  # NumPy
+                    outputs[:, int(step), :] = output  # in-place
 
+                # ––– ❺ advance the loop counter ––––––––––––––––––––––––––––––––––––––––––––––––––––
                 return (i + 1, outputs, next_input)
 
             # backend-aware loop
