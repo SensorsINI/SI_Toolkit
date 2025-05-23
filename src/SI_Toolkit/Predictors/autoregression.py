@@ -120,20 +120,45 @@ class autoregression_loop:
             #         outputs[:, i, :] = output
             #     i += 1
 
-            if self.lib.lib == 'Pytorch':
-                static_range = range
-            else:
-                static_range = self.lib.arange
-            arange = static_range(self.lib, 1, horizon) if predictor == 'gp' or horizon == 1 else static_range(self.lib, 0, horizon)
-            for i in arange:
-                current_external_input_left = external_input_left[:, i, :] if external_input_left is not None else None
-                current_external_input_right = external_input_right[:, i,:] if external_input_right is not None else None
-                output, next_model_input = self.horizon_step(model_input, current_external_input_left, current_external_input_right)
-                model_input = next_model_input
-                if self.lib.lib == 'TF':
+            # if self.lib.lib == 'Pytorch':
+            #     static_range = range
+            # else:
+            #     static_range = self.lib.arange
+            # arange = static_range(self.lib, 1, horizon) if predictor == 'gp' or horizon == 1 else static_range(self.lib, 0, horizon)
+            # for i in arange:
+            #     current_external_input_left = external_input_left[:, i, :] if external_input_left is not None else None
+            #     current_external_input_right = external_input_right[:, i,:] if external_input_right is not None else None
+            #     output, next_model_input = self.horizon_step(model_input, current_external_input_left, current_external_input_right)
+            #     model_input = next_model_input
+            #     if self.lib.lib == 'TF':
+            #         outputs = outputs.write(i, output)
+            #     else:
+            #         outputs[:, i, :] = output
+
+            start_idx = 1 if (predictor == "gp" or horizon == 1) else 0
+
+            def loop_body(i, outputs, current_input):
+                # fetch exogenous inputs for step i
+                left  = (external_input_left[:,  i, :]
+                         if external_input_left  is not None else None)
+                right = (external_input_right[:, i, :]
+                         if external_input_right is not None else None)
+
+                output, next_input = self.horizon_step(current_input, left, right)
+
+                if self.lib.lib == "TF":
                     outputs = outputs.write(i, output)
                 else:
                     outputs[:, i, :] = output
+                return (i + 1, outputs, next_input)
+
+            # backend-aware loop
+            _, outputs, _ = self.lib.loop(
+                loop_body,
+                (start_idx, outputs, model_input),
+                horizon - start_idx,
+            )
+
 
         if self.lib.lib == 'TF':
             outputs = self.lib.permute(outputs.stack(), [1, 0, 2])

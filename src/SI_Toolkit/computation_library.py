@@ -347,6 +347,19 @@ class NumpyLibrary(ComputationLibrary):
         self.break_compilation_graph = lambda: None
 
     @staticmethod
+    def loop(body_fn, state, steps: int):
+        """
+        Run `body_fn` `steps` times starting from `state` and
+        return the final state.
+
+        * `body_fn(*state)` → new_state  (same structure)
+        * Works for TF, PyTorch, NumPy.
+        """
+        for _ in range(steps):
+            state = body_fn(*state)
+        return state
+
+    @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
         import numpy as np
         if isinstance(v, np.ndarray):
@@ -466,6 +479,34 @@ class TensorFlowLibrary(ComputationLibrary):
         self.break_compilation_graph = lambda: None
 
     @staticmethod
+    def loop(body_fn, state, steps: int):
+        """
+        Run `body_fn` `steps` times starting from `state` and
+        return the final state.
+
+        * `body_fn(*state)` → new_state  (same structure)
+        * Works for TF, PyTorch, NumPy.
+        """
+        import tensorflow as tf
+
+        def cond(i, *_):  # loop condition
+            return i < steps
+
+        def body(i, *curr):  # TF loop body
+            new = body_fn(*curr)
+            return (i + 1, *new)
+
+        _, *final = tf.while_loop(
+            cond,
+            body,
+            loop_vars=(0, *state),
+            parallel_iterations=64,
+            back_prop=True,  # ∇ only w.r.t. final state
+        )
+        return tuple(final)
+
+
+    @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
         import tensorflow as tf  # Lazy import
         if isinstance(v, tf.Variable):
@@ -579,6 +620,22 @@ class PyTorchLibrary(ComputationLibrary):
         self.divide = torch.div
         self.subtract = torch.subtract
         self.break_compilation_graph = pytorch_break_compilation_graph
+
+    def loop(self, body_fn, state, steps: int):
+        """
+        Run `body_fn` `steps` times starting from `state` and
+        return the final state.
+
+        * `body_fn(*state)` → new_state  (same structure)
+        * Works for TF, PyTorch, NumPy.
+        """
+
+        for _ in range(steps):
+            self.break_compilation_graph()
+            state = body_fn(*state)
+        self.break_compilation_graph()
+        return state
+
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
