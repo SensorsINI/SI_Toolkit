@@ -478,8 +478,8 @@ class TensorFlowLibrary(ComputationLibrary):
         self.GradientTape = tf.GradientTape
         self.break_compilation_graph = lambda: None
 
-    @staticmethod
-    def loop(body_fn, state, steps: int):
+
+    def loop(self, body_fn, state, steps: int):
         """
         Run `body_fn` `steps` times starting from `state` and
         return the final state.
@@ -487,23 +487,26 @@ class TensorFlowLibrary(ComputationLibrary):
         * `body_fn(*state)` → new_state  (same structure)
         * Works for TF, PyTorch, NumPy.
         """
-        import tensorflow as tf
-
-        def cond(i, *_):  # loop condition
-            return i < steps
-
-        def body(i, *curr):  # TF loop body
-            new = body_fn(*curr)
-            return (i + 1, *new)
-
-        _, *final = tf.while_loop(
-            cond,
-            body,
-            loop_vars=(0, *state),
-            parallel_iterations=64,
-            back_prop=True,  # ∇ only w.r.t. final state
-        )
-        return tuple(final)
+        for _ in self.arange(steps):
+            state = body_fn(*state)
+        return state
+        # import tensorflow as tf
+        #
+        # def cond(i, *_):  # loop condition
+        #     return i < steps
+        #
+        # def body(i, *curr):  # TF loop body
+        #     new = body_fn(*curr)
+        #     return (i + 1, *new)
+        #
+        # _, *final = tf.while_loop(
+        #     cond,
+        #     body,
+        #     loop_vars=(0, *state),
+        #     parallel_iterations=64,
+        #     back_prop=True,  # ∇ only w.r.t. final state
+        # )
+        # return tuple(final)
 
 
     @staticmethod
