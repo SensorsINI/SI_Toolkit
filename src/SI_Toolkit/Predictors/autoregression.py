@@ -112,18 +112,19 @@ class autoregression_loop:
             start_idx = 1 if (predictor == "gp" or horizon == 1) else 0
 
             def loop_body(i, outputs, current_input):
-                # fetch exogenous inputs for step i
-                left  = (external_input_left[:,  i, :]
-                         if external_input_left  is not None else None)
-                right = (external_input_right[:, i, :]
-                         if external_input_right is not None else None)
+                def _take_step(x):
+                    step = i if i.ndim else i.unsqueeze(0)  # (1,) index
+                    return x.index_select(1, step).squeeze(1)  # (B, E)
+
+                left = _take_step(external_input_left) if external_input_left is not None else None
+                right = _take_step(external_input_right) if external_input_right is not None else None
 
                 output, next_input = self.horizon_step(current_input, left, right)
 
-                if self.lib.lib == "TF":
-                    outputs = outputs.write(i, output)
-                else:
-                    outputs[:, i, :] = output
+                # ─── write the result back WITHOUT .item(), matching ranks ─────────
+                step = i if i.ndim else i.unsqueeze(0)  # 1-D index again
+                outputs = outputs.index_copy(1, step, output.unsqueeze(1))  # (B,1,E)
+
                 return (i + 1, outputs, next_input)
 
             # backend-aware loop
