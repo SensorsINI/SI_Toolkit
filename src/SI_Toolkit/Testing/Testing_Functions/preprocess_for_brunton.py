@@ -35,12 +35,16 @@ def preprocess_for_brunton(
             'You requested {}.'.format(dataset.shape[0]-test_max_horizon, test_len))
 
     # Get sampling interval
-    dataset_sampling_dt = get_sampling_interval_from_datafile(path_to_testfile[0])
+    dataset_sampling_dt = get_sampling_interval_from_datafile(dataset, path_to_testfile[0])
     if dataset_sampling_dt is None:
         print('No information about sampling interval found')
         # raise ValueError ('No information about sampling interval found')
 
-    time_axis = dataset['time'].to_numpy()[:test_len]
+    if 'time' in dataset.columns:
+        time_axis = dataset['time'].to_numpy()[:test_len]
+    else:
+        time_axis = np.arange(0, test_len * dataset_sampling_dt, dataset_sampling_dt)
+
     ground_truth_features = np.array(dataset.columns)
     ground_truth = [dataset[ground_truth_features].to_numpy()[:test_len, :], ground_truth_features]
 

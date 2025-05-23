@@ -12,7 +12,7 @@ E.g. the neural network predicts sin and cos this class can take care of adding 
 
 
 from SI_Toolkit.computation_library import NumpyLibrary
-from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
+from SI_Toolkit.Compile import CompileAdaptive
 
 import numpy as np
 
@@ -35,8 +35,8 @@ class next_state_predictor_ODE:
                  variable_parameters=None,
                  disable_individual_compilation=False):
         self.lib = lib
-        self.intermediate_steps = self.lib.to_tensor(intermediate_steps, dtype=self.lib.int32)
-        self.t_step = self.lib.to_tensor(dt / float(self.intermediate_steps), dtype=self.lib.float32)
+        self.intermediate_steps = intermediate_steps
+        self.t_step = float(dt / float(self.intermediate_steps))
         self.variable_parameters = variable_parameters
 
         self.cpe = CartPoleEquations(lib=self.lib)

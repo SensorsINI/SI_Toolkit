@@ -5,7 +5,7 @@ import numpy as np
 from SI_Toolkit.Functions.General.Initialization import get_net, get_norm_info_for_net
 from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function
 from SI_Toolkit.Functions.General.value_precision import set_value_precision
-from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
+from SI_Toolkit.Compile import CompileAdaptive
 from SI_Toolkit.computation_library import NumpyLibrary, ComputationLibrary
 
 

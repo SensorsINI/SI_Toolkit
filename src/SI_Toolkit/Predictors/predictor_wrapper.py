@@ -76,9 +76,20 @@ class PredictorWrapper:
 
         elif self.predictor_type == 'ODE':
             from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-            if computation_library is None:  # TODO: Remove it after making sure that the predictor gets the right library everywhere it is used.
-                from SI_Toolkit.computation_library import TensorFlowLibrary
-                computation_library = TensorFlowLibrary()
+            if computation_library is None:
+                computation_library_name = self.predictor_config['computation_library_name']
+                if computation_library_name == "Numpy":
+                    from SI_Toolkit.computation_library import NumpyLibrary
+                    computation_library = NumpyLibrary()
+                elif computation_library_name == "TF":
+                    from SI_Toolkit.computation_library import TensorFlowLibrary
+                    computation_library = TensorFlowLibrary()
+                elif computation_library_name == "Pytorch":
+                    from SI_Toolkit.computation_library import PyTorchLibrary
+                    computation_library = PyTorchLibrary()
+                else:
+                    raise ValueError(
+                        f"Invalid computation library. Got {computation_library}. Choose 'Numpy', 'TF', or 'Pytorch'.")
             self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, computation_library=computation_library, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         else:
