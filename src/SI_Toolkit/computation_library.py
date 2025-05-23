@@ -629,34 +629,38 @@ class PyTorchLibrary(ComputationLibrary):
         self.subtract = torch.subtract
         self.break_compilation_graph = pytorch_break_compilation_graph
 
-    def loop(self, body_fn, state, steps: int, counter: Optional[int] = 0):
+    def loop(self, body_fn, state, steps: int, counter = 0):
         """
-        Run `body_fn` `steps` times starting from `state` and
-        return the final state.
+        Run `body_fn` `steps` times starting from `state` and return the final state.
 
-        * `body_fn(*state)` → new_state  (same structure)
+        * `body_fn(*state)` → new_state (same structure)
         * Works for TF, PyTorch, NumPy.
         """
 
         import torch
 
-        # ────❶ normalize the counter to a (1,)-LongTensor ──────────
-        if not torch.is_tensor(counter):
-            # use int64 so index_copy will accept it
-            counter = torch.tensor(counter, dtype=torch.int64, device=state[0].device)
+        # ────❶ normalise counter once, *outside* the traced loop ────────
+        counter = torch.as_tensor(counter, dtype=torch.int64, device=state[0].device)
 
-        # ─── flatten the incoming state tuple ────────────────
+        # ─── flatten the incoming state tuple ───
         state = (counter, *state)
 
+        # ─── pure-Python loop; will be unrolled when `steps` is constant ───
         for _ in range(steps):
             self.break_compilation_graph()
+            # NOTE: no graph break here; keep the loop in one FX sub-graph
             state = body_fn(*state)
 
-            # ─── if the user returned a raw int for counter, re-tensor it ───
-            if not torch.is_tensor(state[0]):
-                state = (torch.tensor(state[0], dtype=torch.int64, device=counter.device),) + state[1:]
+            # ❷ Enforce invariant: `state[0]` *must* stay a tensor.
+            #    Instead of branching, assume well-behaved `body_fn` and fail
+            #    loudly if it violates the contract.  This avoids dynamic
+            #    recompilation guards.
+            assert torch.is_tensor(state[0]), "body_fn must return a tensor counter"
 
+        # ─── optional: a single break *after* the loop if you need to mix
+        #     non-traceable Python with the result; remove otherwise
         self.break_compilation_graph()
+
         return state
 
     @staticmethod
