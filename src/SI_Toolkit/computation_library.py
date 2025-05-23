@@ -485,34 +485,44 @@ class TensorFlowLibrary(ComputationLibrary):
         self.break_compilation_graph = lambda: None
 
     @staticmethod
-    def loop(body_fn, state, steps: int, counter: Optional[int] = 0):
+    def loop(body_fn,
+             state,
+             steps,
+             counter = 0):
         """
-        Run `body_fn` `steps` times starting from `state` and
-        return the final state.
-
-        * `body_fn(*state)` → new_state  (same structure)
-        * Works for TF, PyTorch, NumPy.
+        XLA-friendly loop.
+        Returns (counter, *state) exactly as your older helper did,
+        so existing call-sites remain valid.
         """
-
         import tensorflow as tf
 
-        # ─── normalize the counter to a scalar Tensor ─────────────
-        if not tf.is_tensor(counter):
-            counter = tf.constant(counter, dtype=tf.int32)
+        # ─── normalise inputs once ─────────────────────────────────────────
+        steps = tf.convert_to_tensor(steps, tf.int32, name="steps")
+        counter = tf.convert_to_tensor(counter, tf.int32, name="counter")
 
-        # ──────❶ flatten the incoming state tuple ────────────────
-        state = (counter, *state)
+        # loop variables = (iteration index, logical counter, *state)
+        loop_vars = (tf.constant(0, tf.int32),
+                     counter,
+                     *state)
 
-        for _ in tf.range(steps):
-            state = body_fn(*state)
+        def cond(i, *_):
+            return i < steps
 
-            # ─── if the user returned a raw int for counter, re-tensor it ───
-            if not tf.is_tensor(state[0]):
-                state = (tf.constant(state[0], dtype=tf.int32),) + state[1:]
+        def body(i, c, *s):
+            # delegate to user fn; it must return (new_c, *new_state)
+            c, *s = body_fn(c, *s)
+            # be lenient: tensorise once here, not every turn at outer level
+            c = tf.convert_to_tensor(c, tf.int32, name="counter_out")
+            return (i + 1, c, *s)
 
-        return state
+        _, c_final, *state_final = tf.while_loop(
+            cond, body, loop_vars,
+            parallel_iterations=32,
+            maximum_iterations=steps
+        )
 
-        return state
+        # public contract preserved
+        return (c_final, *state_final)
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
