@@ -347,7 +347,7 @@ class NumpyLibrary(ComputationLibrary):
         self.break_compilation_graph = lambda: None
 
     @staticmethod
-    def loop(body_fn, state, steps: int):
+    def loop(body_fn, state, steps: int, counter: int = 0):
         """
         Run `body_fn` `steps` times starting from `state` and
         return the final state.
@@ -355,8 +355,14 @@ class NumpyLibrary(ComputationLibrary):
         * `body_fn(*state)` → new_state  (same structure)
         * Works for TF, PyTorch, NumPy.
         """
+
+        # ──────❶ flatten the incoming state tuple ────────────────
+        # so that state = (counter, *state)
+        state = (counter, *state)
+
         for _ in range(steps):
             state = body_fn(*state)
+
         return state
 
     @staticmethod
@@ -478,8 +484,8 @@ class TensorFlowLibrary(ComputationLibrary):
         self.GradientTape = tf.GradientTape
         self.break_compilation_graph = lambda: None
 
-
-    def loop(self, body_fn, state, steps: int):
+    @staticmethod
+    def loop(body_fn, state, steps: int, counter: Optional[int] = 0):
         """
         Run `body_fn` `steps` times starting from `state` and
         return the final state.
@@ -487,27 +493,26 @@ class TensorFlowLibrary(ComputationLibrary):
         * `body_fn(*state)` → new_state  (same structure)
         * Works for TF, PyTorch, NumPy.
         """
-        for _ in self.arange(steps):
-            state = body_fn(*state)
-        return state
-        # import tensorflow as tf
-        #
-        # def cond(i, *_):  # loop condition
-        #     return i < steps
-        #
-        # def body(i, *curr):  # TF loop body
-        #     new = body_fn(*curr)
-        #     return (i + 1, *new)
-        #
-        # _, *final = tf.while_loop(
-        #     cond,
-        #     body,
-        #     loop_vars=(0, *state),
-        #     parallel_iterations=64,
-        #     back_prop=True,  # ∇ only w.r.t. final state
-        # )
-        # return tuple(final)
 
+        import tensorflow as tf
+
+        # ─── normalize the counter to a scalar Tensor ─────────────
+        if not tf.is_tensor(counter):
+            counter = tf.constant(counter, dtype=tf.int32)
+
+        # ──────❶ flatten the incoming state tuple ────────────────
+        state = (counter, *state)
+
+        for _ in tf.range(steps):
+            state = body_fn(*state)
+
+            # ─── if the user returned a raw int for counter, re-tensor it ───
+            if not tf.is_tensor(state[0]):
+                state = (tf.constant(state[0], dtype=tf.int32),) + state[1:]
+
+        return state
+
+        return state
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
@@ -624,7 +629,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.subtract = torch.subtract
         self.break_compilation_graph = pytorch_break_compilation_graph
 
-    def loop(self, body_fn, state, steps: int):
+    def loop(self, body_fn, state, steps: int, counter: Optional[int] = 0):
         """
         Run `body_fn` `steps` times starting from `state` and
         return the final state.
@@ -635,25 +640,24 @@ class PyTorchLibrary(ComputationLibrary):
 
         import torch
 
-        # ─── ❶ Normalise the counter to a (1,) LongTensor ─────────────
-        counter, *rest = state
-        if not torch.is_tensor(counter):                         # Python int → Tensor
-            counter = torch.tensor(counter, dtype=torch.int64)
+        # ────❶ normalize the counter to a (1,)-LongTensor ──────────
+        if not torch.is_tensor(counter):
+            # use int64 so index_copy will accept it
+            counter = torch.tensor(counter, dtype=torch.int64, device=state[0].device)
 
-        state = (counter, *rest)
-        dev   = counter.device                                  # reuse device later
+        # ─── flatten the incoming state tuple ────────────────
+        state = (counter, *state)
 
         for _ in range(steps):
-            self.break_compilation_graph()                      # keeps eager safe
-            state = body_fn(*state)                             # user updates counter
+            self.break_compilation_graph()
+            state = body_fn(*state)
 
-            # ─── ❷ If the user accidentally returned a plain int, fix it here ───
+            # ─── if the user returned a raw int for counter, re-tensor it ───
             if not torch.is_tensor(state[0]):
-                state = (torch.tensor(state[0], dtype=torch.int64, device=dev),) + state[1:]
+                state = (torch.tensor(state[0], dtype=torch.int64, device=counter.device),) + state[1:]
 
         self.break_compilation_graph()
         return state
-
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):

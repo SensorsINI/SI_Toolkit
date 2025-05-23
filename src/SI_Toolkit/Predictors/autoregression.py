@@ -161,8 +161,9 @@ class autoregression_loop:
             # backend-aware loop
             _, outputs, _ = self.lib.loop(
                 loop_body,
-                (start_idx, outputs, model_input),
+                (outputs, model_input),
                 horizon - start_idx,
+                start_idx
             )
 
 
