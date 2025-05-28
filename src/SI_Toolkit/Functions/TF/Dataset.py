@@ -19,6 +19,8 @@ from typing import List, Tuple
 
 from SI_Toolkit.Functions.General.Dataset import DatasetTemplate
 
+from tqdm.auto import tqdm
+
 
 class Dataset(DatasetTemplate):
     """
@@ -67,22 +69,20 @@ class Dataset(DatasetTemplate):
         self._cache_dir = self._cache_dir_manager.name
         atexit.register(lambda: shutil.rmtree(self._cache_dir, ignore_errors=True))
 
-        # One‑off NumPy→TF conversion (keeps original dtype precision)
-        self._tf_data   = [tf.constant(a, dtype=tf.as_dtype(a.dtype)) for a in self.data]
-        self._tf_labels = [tf.constant(a, dtype=tf.as_dtype(a.dtype)) for a in self.labels]
-
     def _experiments_ds(self) -> tf.data.Dataset:
-        spec_feat = tf.TensorSpec(shape=(None, len(self.inputs)),
-                                  dtype=self._tf_data[0].dtype)
-        spec_targ = tf.TensorSpec(shape=(None, len(self.outputs)),
-                                  dtype=self._tf_labels[0].dtype)
+        # we know every row has `len(self.inputs)` features, but T can vary
+        n_in = len(self.inputs)
+        n_out = len(self.outputs)
 
-        def gen():
-            for f, t in zip(self._tf_data, self._tf_labels):
-                yield f, t
+        spec_feat = tf.TensorSpec(shape=(None, n_in),
+                                  dtype=tf.as_dtype(self.data[0].dtype))
+        spec_targ = tf.TensorSpec(shape=(None, n_out),
+                                  dtype=tf.as_dtype(self.labels[0].dtype))
 
-        return tf.data.Dataset.from_generator(gen,
-                                              output_signature=(spec_feat, spec_targ))
+        return tf.data.Dataset.from_generator(
+            lambda: zip(self.data, self.labels),
+            output_signature=(spec_feat, spec_targ),
+        )
 
     # ------------------------------------------------------------------ #
     # Internal helpers
