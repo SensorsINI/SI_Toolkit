@@ -7,6 +7,7 @@ from math import pi
 
 # TensorType = Union[np.ndarray, tf.Tensor, torch.Tensor]
 TensorType = Union["np.ndarray", "tf.Tensor", "torch.Tensor"]
+VariableType = Union["np.ndarray", "tf.Variable", "torch.Tensor"]
 RandomGeneratorType = Union["np.random.Generator", "tf.random.Generator", "torch.Generator"]
 NumericType = Union[float, int]
 
@@ -50,8 +51,13 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
         import tensorflow as tf
 
         devices = tf.config.list_physical_devices()
-        if device_name not in [d.name for d in devices] and '/physical_'+device_name[1:] not in [d.name for d in devices]:
-            raise ValueError(f"Requested device {device_name} not found in the list of physical devices: {devices}")
+        # We accept either '/cpu:0' style or '/physical_cpu:0' style names
+        physical_names = [d.name for d in devices]
+        alias = '/physical_' + device_name[1:]
+        if device_name not in physical_names and alias not in physical_names:
+            raise ValueError(
+                f"Requested device {device_name!r} not found among physical devices: {physical_names}"
+            )
 
         # TensorFlow device management
         def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
@@ -65,36 +71,77 @@ def set_device_general(device_name: str, library: str) -> Callable[[Callable[...
 
         import torch
 
-        devices = [torch.device(f'cuda:{i}') for i in
-                   range(torch.cuda.device_count())] if torch.cuda.is_available() else [torch.device('cpu')]
-        target_device = torch.device(device_name)  # Create a torch.device object for comparison
+        # ─── Normalize various device-string formats ──────────────────────────────
+        # TensorFlow emits '/device:TYPE:IDX'; shorthand '/gpu:0'; convert both to PyTorch style.
+        dev_str = device_name
 
+        if dev_str.lower().startswith('/device:'):
+            # '/device:GPU:1' → ['device','GPU','1']
+            _, type_str, idx = dev_str.split(':', 2)
+            type_str = type_str.lower()
+            dev_str = 'cpu' if type_str == 'cpu' else f'cuda:{idx}'
+
+        elif dev_str.startswith('/'):
+            # '/gpu:0' → ['gpu','0']
+            type_str, idx = dev_str[1:].split(':', 1)
+            type_str = type_str.lower()
+            dev_str = 'cpu' if type_str == 'cpu' else f'cuda:{idx}'
+        # else assume already 'cpu' or 'cuda:0'
+
+        # ─── Enumerate available devices ─────────────────────────────────────────────
+        devices = [torch.device('cpu')]  # always allow CPU
+        if torch.cuda.is_available():
+            # include every GPU index
+            devices += [torch.device(f'cuda:{i}') for i in range(torch.cuda.device_count())]
+
+        target_device = torch.device(dev_str)
         if target_device not in devices:
-            raise ValueError(f"Requested device {device_name} not found in the list of physical devices: {devices}")
+            raise ValueError(
+                f"Requested device {device_name!r} (normalized to {dev_str!r}) "
+                f"not found among available devices: {devices}"
+            )
 
-        def decorator(func):
+        def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
             @functools.wraps(func)
-            def wrapper(*args, **kwargs):
-                # Process the first argument separately if it's a class instance with a .to() method
+            def wrapper(*args: Any, **kwargs: Any) -> Any:
+                # If first argument is a module/tensor with .to(), migrate it eagerly
                 if args and hasattr(args[0], 'to'):
-                    first_arg = args[0].to(target_device) if getattr(args[0], 'device', None) != target_device else args[0]
-                    args = (first_arg,) + args[1:]
+                    first = args[0]
+                    if getattr(first, 'device', None) != target_device:
+                        first = first.to(target_device)
+                    args = (first,) + args[1:]
 
                 # Then, handle all the args and kwargs
                 new_args = [
-                    arg.to(target_device) if isinstance(arg, torch.Tensor) and arg.device != target_device else arg
+                    arg.to(target_device)
+                    if isinstance(arg, torch.Tensor) and arg.device != target_device
+                    else arg
                     for arg in args
                 ]
                 new_kwargs = {
-                    k: (v.to(target_device) if isinstance(v, torch.Tensor) and v.device != target_device else v) for
-                    k, v in kwargs.items()}
+                    k: (v.to(target_device)
+                        if isinstance(v, torch.Tensor) and v.device != target_device
+                        else v)
+                    for k, v in kwargs.items()
+                }
                 return func(*new_args, **new_kwargs)
 
             return wrapper
     else:
-        raise ValueError('Invalid library name')
+        raise ValueError(f'Invalid library name: {library!r}')
 
     return decorator
+
+
+def clip_by_norm_factory(lib):
+
+    def clip_by_norm(x, clip_norm, axis=(-1,), eps=1e-9):
+        norm   = lib.norm(x, axis=axis, keepdims=True)
+        normed_x = clip_norm / (norm + eps)
+        factor = lib.min(lib.to_tensor(1.0, lib.float32), normed_x)
+        return x * factor
+
+    return clip_by_norm
 
 
 class ComputationLibrary:
@@ -111,6 +158,7 @@ class ComputationLibrary:
     unstack: Callable[[TensorType, int, int], "list[TensorType]"] = None
     ndim: Callable[[TensorType], int] = None
     clip: Callable[[TensorType, float, float], TensorType] = None
+    clip_by_norm: Callable[[TensorType, TensorType, Union[int, Sequence[int]]], TensorType] = None
     sin: Callable[[TensorType], TensorType] = None
     asin: Callable[[TensorType], TensorType] = None
     cos: Callable[[TensorType], TensorType] = None
@@ -136,7 +184,7 @@ class ComputationLibrary:
     gather: Callable[[TensorType, TensorType, int], TensorType] = None
     gather_last: Callable[[TensorType, TensorType], TensorType] = None
     arange: Callable[[Optional[NumericType], NumericType, Optional[NumericType]], TensorType] = None
-    zeros: Callable[["tuple[int]"], TensorType] = None
+    zeros: Callable[..., TensorType] = None
     zeros_like: Callable[[TensorType], TensorType] = None
     ones: Callable[["tuple[int]"], TensorType] = None
     ones_like: Callable[[TensorType], TensorType] = None
@@ -151,7 +199,7 @@ class ComputationLibrary:
     cumsum: Callable[[TensorType, int], TensorType] = None
     cumprod: Callable[[TensorType, int], TensorType] = None
     set_shape: Callable[[TensorType, "list[int]"], None] = None
-    concat: Callable[["list[TensorType, ...]", int], TensorType]
+    concat: Callable[[Sequence[TensorType], int], TensorType] = None
     pi: TensorType = None
     any: Callable[[TensorType], bool] = None
     all: Callable[[TensorType], bool] = None
@@ -171,9 +219,10 @@ class ComputationLibrary:
     atan2: Callable[[TensorType], TensorType] = None
     abs: Callable[[TensorType], TensorType] = None
     sqrt: Callable[[TensorType], TensorType] = None
+    argsort: Callable[[TensorType, int], TensorType] = None
     argpartition: Callable[[TensorType, int], TensorType] = None
     argmax: Callable[[TensorType, int], TensorType] = None
-    norm: Callable[[TensorType, int], bool] = None
+    norm: Callable[[TensorType, int, bool], TensorType] = None
     matmul: Callable[[TensorType, TensorType], TensorType] = None
     cross: Callable[[TensorType, TensorType], TensorType] = None
     dot: Callable[[TensorType, TensorType], TensorType] = None
@@ -186,6 +235,7 @@ class ComputationLibrary:
     print: Callable[[Any], None] = None
     square: Callable[[TensorType], TensorType] = None
     divide: Callable[[TensorType, TensorType], TensorType] = None
+    GradientTape = None
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -209,9 +259,10 @@ class NumpyLibrary(ComputationLibrary):
         self.to_variable = lambda x, dtype: np.array(x, dtype=dtype)
         self.to_tensor = lambda x, dtype: np.array(x, dtype=dtype)
         self.constant = lambda x, t: np.array(x, dtype=t)
-        self.unstack = lambda x, num, axis: list(np.moveaxis(x, axis, 0))
+        self.unstack = lambda x, num, axis: [np.take(x, i, axis=axis) for i in range(num)]
         self.ndim = np.ndim
         self.clip = np.clip
+        self.clip_by_norm = clip_by_norm_factory(self)
         self.sin = np.sin
         self.asin = np.arcsin
         self.cos = np.cos
@@ -272,9 +323,10 @@ class NumpyLibrary(ComputationLibrary):
         self.atan2 = np.arctan2
         self.abs = np.abs
         self.sqrt = np.sqrt
+        self.argsort = lambda x, axis=-1: np.argsort(x, axis=axis)
         self.argpartition = lambda x, k: np.argpartition(x, k)[..., :k]
         self.argmax = lambda x, a: np.argmax(x, axis=a)
-        self.norm = lambda x, axis: np.linalg.norm(x, axis=axis)
+        self.norm = lambda x, axis, keepdims=False: np.linalg.norm(x, axis=axis, keepdims=keepdims)
         self.matmul = np.matmul
         self.cross = np.cross
         self.dot = np.dot
@@ -322,6 +374,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.constant = lambda x, t: tf.constant(x, dtype=t)
         self.unstack = lambda x, num, axis: tf.unstack(x, num=num, axis=axis)
         self.ndim = tf.rank
+        self.clip_by_norm = clip_by_norm_factory(self)
         self.clip = tf.clip_by_value
         self.sin = tf.sin
         self.asin = tf.asin
@@ -382,9 +435,10 @@ class TensorFlowLibrary(ComputationLibrary):
         self.atan2 = tf.atan2
         self.abs = tf.abs
         self.sqrt = tf.sqrt
+        self.argsort = lambda x, axis=-1: tf.argsort(x, axis=axis)
         self.argpartition = lambda x, k: tf.math.top_k(-x, k, sorted=False)[1]
         self.argmax = lambda x, a: tf.math.argmax(x, axis=a)
-        self.norm = lambda x, axis: tf.norm(x, axis=axis)
+        self.norm = lambda x, axis, keepdims=False: tf.norm(x, axis=axis, keepdims=keepdims)
         self.matmul = tf.linalg.matmul
         self.cross = tf.linalg.cross
         self.dot = lambda a, b: tf.tensordot(a, b, 1)
@@ -396,6 +450,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.print = tf.print
         self.square = tf.square
         self.divide = tf.math.divide
+        self.GradientTape = tf.GradientTape
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
@@ -427,6 +482,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.constant = lambda x, t: torch.as_tensor(x, dtype=t)
         self.unstack = lambda x, num, dim: torch.unbind(x, dim=dim)
         self.ndim = lambda x: x.ndim
+        self.clip_by_norm = clip_by_norm_factory(self)
         self.clip = torch.clamp
         self.sin = torch.sin
         self.asin = torch.asin
@@ -450,10 +506,10 @@ class PyTorchLibrary(ComputationLibrary):
         self.bool = torch.bool
         self.tile = torch.tile
         self.repeat = lambda x, k, a: torch.repeat_interleave(x, repeats=k, dim=a)
-        self.gather = lambda x, i, a: torch.gather(x, dim=a, index=i)  # FIXME: It works very differently to TF!!!
+        self.gather = lambda x, idx, axis: torch.index_select(torch.as_tensor(x), axis, idx if torch.is_tensor(idx) else torch.as_tensor(idx, dtype=torch.long))
         self.gather_last = self.gather_last_pytorch
         self.arange = torch.arange
-        self.zeros = torch.zeros
+        self.zeros = lambda shape, *args, **kwargs: torch.zeros(*shape, *args, **kwargs)
         self.zeros_like = torch.zeros_like
         self.ones = torch.ones
         self.ones_like = torch.ones_like
@@ -478,7 +534,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.all = torch.all
         self.reduce_any = lambda a, axis: torch.any(a, dim=axis)
         self.reduce_all = lambda a, axis: torch.all(a, dim=axis)
-        self.reduce_max = lambda a, axis: torch.max(a, dim=axis)
+        self.reduce_max = lambda a, axis: torch.max(a, dim=axis)[0]
         self.reduce_min = lambda a, axis: torch.min(a, dim=axis)[0]
         self.equal = lambda x, y: torch.eq(x, y)
         self.less = lambda x, y: torch.less(x, y)
@@ -492,9 +548,10 @@ class PyTorchLibrary(ComputationLibrary):
         self.atan2 = torch.atan2
         self.abs = torch.abs
         self.sqrt = torch.sqrt
-        self.argpartition = torch.topk
+        self.argsort = lambda x, axis=-1: torch.argsort(x, dim=axis)
+        self.argpartition = lambda x, k: torch.topk(x, k, largest=False)[1]
         self.argmax = lambda x, a: torch.argmax(x, dim=a)
-        self.norm = lambda x, axis: torch.linalg.norm(x, dim=axis)
+        self.norm = lambda x, axis, keepdims=False: torch.linalg.norm(x, dim=axis, keepdim=keepdims)
         self.matmul = torch.matmul
         self.cross = torch.linalg.cross
         self.dot = torch.dot

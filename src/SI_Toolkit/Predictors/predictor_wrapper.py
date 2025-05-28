@@ -79,7 +79,7 @@ class PredictorWrapper:
             if computation_library is None:  # TODO: Remove it after making sure that the predictor gets the right library everywhere it is used.
                 from SI_Toolkit.computation_library import TensorFlowLibrary
                 computation_library = TensorFlowLibrary()
-            self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, computation_library=computation_library, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         else:
             raise NotImplementedError('Type of the predictor not recognised.')
