@@ -228,3 +228,43 @@ class Dataset(DatasetTemplate):
             print(f"[Cache] Generating new cache at prefix: {prefix_path}")
 
         return prefix_path
+
+
+    def build_cache(self, force: bool = False) -> None:
+        """
+        Materialise the `tf.data.Dataset.cache()` file **once** so the first
+        epoch is fast.  Call this *before* `model.fit()`.
+
+        Parameters
+        ----------
+        n_cpu : int, optional
+            Size of the private thread-pool used while writing the cache.
+            Defaults to all available physical cores.
+        force : bool, default False
+            Re-build the cache even if the `.index` file is present.
+        """
+
+        # 1) Where will the cache live?
+        cache_prefix = self._get_cache_prefix(cache_dir=self._cache_dir)
+        index_file   = cache_prefix + ".index"
+        if os.path.exists(index_file) and not force:
+            print(f"[build_cache] Cache already present: {cache_prefix}")
+            return  # nothing to do
+
+        # 2) Minimal pipeline: full experiments → cache → prefetch
+        ds = self._experiments_ds()
+
+        opts = tf.data.Options()
+        opts.threading.private_threadpool_size = os.cpu_count()
+        opts.threading.max_intra_op_parallelism = 1
+        ds = ds.with_options(opts)
+
+        ds = ds.cache(cache_prefix)
+        ds = ds.prefetch(tf.data.AUTOTUNE)
+
+        # 3) Run a single pass to write .data / .index shards
+        print(f"[build_cache] Writing cache to {cache_prefix} "
+              f"using {os.cpu_count()} CPU threads …")
+        for _ in tqdm(ds, desc="Building tf.data cache"):
+            pass
+        print("[build_cache] Done.")

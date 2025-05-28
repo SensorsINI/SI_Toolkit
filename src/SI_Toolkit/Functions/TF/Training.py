@@ -30,6 +30,10 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
     validation_dataset = Dataset(validation_dfs, a, shuffle=False, inputs=net_info.inputs,
                                  outputs=net_info.outputs, normalization_info=normalization_info)
 
+
+    training_dataset.build_cache()
+    validation_dataset.build_cache()
+
     tf_training_dataset = training_dataset.to_tf_data()
     tf_validation_dataset = validation_dataset.to_tf_data()
 
