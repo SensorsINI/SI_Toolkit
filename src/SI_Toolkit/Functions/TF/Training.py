@@ -11,6 +11,8 @@ try:
     from tensorflow_model_optimization.sparsity.keras import strip_pruning
 except ModuleNotFoundError:
     print('tensorflow_model_optimization not found. Pruning will not be available.')
+except AttributeError:
+    print("Pruning not available.")
 
 from SI_Toolkit.Functions.TF.Dataset import Dataset
 
@@ -18,6 +20,8 @@ from SI_Toolkit.Functions.TF.Loss import LossMeanResidual
 
 import tensorflow as tf
 
+from distutils.version import LooseVersion as _LV
+_CKPT_SUFFIX = ".weights.h5" if _LV(tf.keras.__version__) >= _LV("2.12.0") else ".ckpt"
 
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
 # Warning! It may affect performance. I would discourage you to use it for long training tasks
@@ -105,14 +109,21 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
     )
 
     net.optimizer = optimizer  # When loading a pretrained network, setting optimizer in compile does nothing.
-    tf.keras.backend.set_value(net.optimizer.lr, a.lr_initial)
+
+    try:
+        tf.keras.backend.set_value(net.optimizer.lr, a.lr_initial)
+    except AttributeError:                                    # ⇢ CHANGED
+        try:                                                  # ⇢ NEW
+            tf.keras.backend.set_value(net.optimizer.learning_rate, a.lr_initial)
+        except AttributeError:
+            net.optimizer.learning_rate = float(a.lr_initial) # plain float in Keras 3
 
     # region Define callbacks to be used in training
 
     callbacks_for_training = []
 
     model_checkpoint_callback = keras.callbacks.ModelCheckpoint(
-        filepath=os.path.join(net_info.path_to_net, 'ckpt' + '.ckpt'),
+        filepath=os.path.join(net_info.path_to_net, 'ckpt' + _CKPT_SUFFIX),   # ⇢ CHANGED
         save_weights_only=True,
         monitor='val_loss',
         mode='auto',
@@ -217,7 +228,7 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
             print('HLS4ML not found. No corresponding info possible.')
 
     net.save(os.path.join(net_info.path_to_net, net_info.net_full_name + '.keras'))
-    net.save_weights(os.path.join(net_info.path_to_net, 'ckpt' + '.ckpt'))
+    net.save_weights(os.path.join(net_info.path_to_net, 'ckpt' + _CKPT_SUFFIX))  # ⇢ CHANGED
     # endregion
 
     if a.plot_weights_distribution:
