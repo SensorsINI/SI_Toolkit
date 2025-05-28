@@ -1,11 +1,10 @@
 import sys
-import os
 
 import importlib.util
 
 import tensorflow as tf
 import numpy as np
-
+from pathlib import Path
 from SI_Toolkit.Functions.TF.Compile import CompileTF
 from SI_Toolkit.Functions.General.Initialization import calculate_inputs_length
 
@@ -30,23 +29,48 @@ except AttributeError as error:
     print(f'{error}. \n')
     print('tensorflow_model_optimization not working. Pruning will not be available.')
 
-def load_pretrained_net_weights(net, path, verbose=True):
-    """
-    Load weights from either a TensorFlow checkpoint (.ckpt prefix)
-    or a Keras HDF5 file (.h5).
-    """
-    if verbose:
-        print("Loading Model:", path)
+def ensure_weights_h5_suffix(path: str | Path) -> Path:
+    path = Path(path)
+    if not path.name.endswith('.weights.h5'):
+        return path.with_suffix('.weights.h5')
+    return path
 
-    ext = os.path.splitext(path)[1].lower()
-    if ext == '.h5':
-        # HDF5: no status returned
-        net.load_weights(path)
-    else:
-        # assume TF checkpoint prefix
-        ckpt = tf.train.Checkpoint(model=net)
-        status = ckpt.restore(path)
-        status.expect_partial()
+def load_pretrained_net_weights(net, ckpt_path, verbose=True):
+    """
+    A function loading parameters (weights and biases) from a previous training to a net RNN instance.
+    It prefers H5 format if available, falling back to CKPT and regenerating H5 on failure.
+
+    :param net: An instance of tf.keras.Model or RNN-based model
+    :param ckpt_path: Path to the TensorFlow .ckpt file storing weights and biases
+    :param verbose: Whether to print progress messages
+    :return: None. Modifies `net` in place by loading weights.
+    """
+
+    # Derive the expected .weights.h5 filepath from the checkpoint path
+    h5_path = ensure_weights_h5_suffix(ckpt_path)
+
+    # 1) If an H5 file already exists, attempt to load it first
+    if h5_path.exists():
+        if verbose:
+            print(f"Attempting to load weights from existing H5 file: {h5_path}")
+
+        net.load_weights(str(h5_path))
+        if verbose:
+            print("Successfully loaded weights from H5.")
+
+        return
+
+    # 2) Load from checkpoint when no valid H5 is available
+    if verbose:
+        print(f"Loading weights from checkpoint file: {ckpt_path}")
+    # expect_partial allows loading ckpt if some variables differ
+    net.load_weights(ckpt_path).expect_partial()
+
+    # 3) Save a new H5 file for future runs
+    if verbose:
+        print(f"Saving loaded weights to H5 for future use: {h5_path}")
+    net.save_weights(str(h5_path))
+
 
 
 def compose_net_from_module(model_info,
@@ -272,11 +296,22 @@ def compose_net_from_net_name_standard(net_info,
                         ))
     else:
 
+        input_args = {}
+
         if stateful:
-            # for a stateful RNN you need a fixed batch size
-            net.add(tf.keras.Input(batch_shape=(batch_size, time_series_length, inputs_len)))
+            # Stateful RNNs need a constant batch size baked into the graph
+            input_args['batch_shape'] = (batch_size, time_series_length, inputs_len)
+        elif remove_redundant_dimensions and batch_size == 1:
+            # If batch is always 1 and you want to drop that axis, just specify time+feature dims
+            input_args['shape'] = (time_series_length, inputs_len)
         else:
-            net.add(tf.keras.Input(shape=(time_series_length, inputs_len)))
+            # For stateless RNNs where batch_size > 1 (or you choose not to drop it),
+            # fix the batch size but keep it stateless
+            input_args['batch_size'] = batch_size
+            input_args['shape'] = (time_series_length, inputs_len)
+
+        # 2. Add the Input layer once, with the chosen arguments
+        net.add(tf.keras.Input(**input_args))
 
         # 2) Now add your recurrent layers without any input_* args:
         first_kwargs = {
