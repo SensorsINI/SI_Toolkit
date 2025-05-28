@@ -1,4 +1,5 @@
 import sys
+import os
 
 import importlib.util
 
@@ -29,18 +30,23 @@ except AttributeError as error:
     print(f'{error}. \n')
     print('tensorflow_model_optimization not working. Pruning will not be available.')
 
-def load_pretrained_net_weights(net, ckpt_path, verbose=True):
+def load_pretrained_net_weights(net, path, verbose=True):
     """
-    A function loading parameters (weights and biases) from a previous training to a net RNN instance
-    :param net: An instance of RNN
-    :param ckpt_path: path to .ckpt file storing weights and biases
-    :return: No return. Modifies net in place.
+    Load weights from either a TensorFlow checkpoint (.ckpt prefix)
+    or a Keras HDF5 file (.h5).
     """
     if verbose:
-        print("Loading Model: ", ckpt_path)
-        print('')
+        print("Loading Model:", path)
 
-    net.load_weights(ckpt_path).expect_partial()
+    ext = os.path.splitext(path)[1].lower()
+    if ext == '.h5':
+        # HDF5: no status returned
+        net.load_weights(path)
+    else:
+        # assume TF checkpoint prefix
+        ckpt = tf.train.Checkpoint(model=net)
+        status = ckpt.restore(path)
+        status.expect_partial()
 
 
 def compose_net_from_module(model_info,
@@ -266,9 +272,13 @@ def compose_net_from_net_name_standard(net_info,
                         ))
     else:
 
-        shape_input = (batch_size, time_series_length, inputs_len)
+        if stateful:
+            # for a stateful RNN you need a fixed batch size
+            net.add(tf.keras.Input(batch_shape=(batch_size, time_series_length, inputs_len)))
+        else:
+            net.add(tf.keras.Input(shape=(time_series_length, inputs_len)))
 
-        # build the first recurrent layer
+        # 2) Now add your recurrent layers without any input_* args:
         first_kwargs = {
             'units': h_size[0],
             'activation': activation,
@@ -279,28 +289,18 @@ def compose_net_from_net_name_standard(net_info,
             'activity_regularizer': regularization_activity,
             **quantization_args,
         }
-
-        if stateful:
-            # stateful=True requires a fixed batch size
-            first_kwargs['batch_input_shape'] = (batch_size, time_series_length, inputs_len)
-        else:
-            # stateless: just tell it the time+feature dims
-            first_kwargs['input_shape'] = (time_series_length, inputs_len)
-
         net.add(layer_type(**first_kwargs))
 
-        # Define following layers
-        for i in range(1, len(h_size)):
-            net.add(layer_type(
-                units=h_size[i],
-                activation=activation,
-                return_sequences=True,
-                stateful=stateful,
-                kernel_regularizer=regularization_kernel,
-                bias_regularizer=regularization_bias,
-                activity_regularizer=regularization_activity,
-                **quantization_args,
-            ))
+        # 3) Add any subsequent layers in the same way:
+        for units in h_size[1:]:
+            net.add(layer_type(units=units,
+                               activation=activation,
+                               return_sequences=True,
+                               stateful=stateful,
+                               kernel_regularizer=regularization_kernel,
+                               bias_regularizer=regularization_bias,
+                               activity_regularizer=regularization_activity,
+                               **quantization_args))
 
 
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
