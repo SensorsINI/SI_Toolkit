@@ -268,18 +268,27 @@ def compose_net_from_net_name_standard(net_info,
 
         shape_input = (batch_size, time_series_length, inputs_len)
 
-        # Or RNN...
-        net.add(layer_type(
-            units=h_size[0],
-            activation=activation,
-            batch_input_shape=shape_input,
-            return_sequences=True,
-            stateful=stateful,
-            kernel_regularizer=regularization_kernel,
-            bias_regularizer=regularization_bias,
-            activity_regularizer=regularization_activity,
+        # build the first recurrent layer
+        first_kwargs = {
+            'units': h_size[0],
+            'activation': activation,
+            'return_sequences': True,
+            'stateful': stateful,
+            'kernel_regularizer': regularization_kernel,
+            'bias_regularizer': regularization_bias,
+            'activity_regularizer': regularization_activity,
             **quantization_args,
-        ))
+        }
+
+        if stateful:
+            # stateful=True requires a fixed batch size
+            first_kwargs['batch_input_shape'] = (batch_size, time_series_length, inputs_len)
+        else:
+            # stateless: just tell it the time+feature dims
+            first_kwargs['input_shape'] = (time_series_length, inputs_len)
+
+        net.add(layer_type(**first_kwargs))
+
         # Define following layers
         for i in range(1, len(h_size)):
             net.add(layer_type(
