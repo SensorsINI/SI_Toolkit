@@ -20,8 +20,7 @@ from SI_Toolkit.Functions.TF.Loss import LossMeanResidual
 
 import tensorflow as tf
 
-from distutils.version import LooseVersion as _LV
-_CKPT_SUFFIX = ".weights.h5" if _LV(tf.keras.__version__) >= _LV("2.12.0") else ".ckpt"
+_CKPT_SUFFIX = ".weights.h5"
 
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
 # Warning! It may affect performance. I would discourage you to use it for long training tasks
