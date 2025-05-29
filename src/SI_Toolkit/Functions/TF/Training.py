@@ -103,12 +103,6 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
         metrics = None
 
 
-    net.compile(
-        loss=loss,
-        optimizer=optimizer,
-        metrics=metrics
-    )
-
     net.optimizer = optimizer  # When loading a pretrained network, setting optimizer in compile does nothing.
 
     try:
@@ -118,6 +112,13 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
             tf.keras.backend.set_value(net.optimizer.learning_rate, a.lr_initial)
         except AttributeError:
             net.optimizer.learning_rate = float(a.lr_initial) # plain float in Keras 3
+
+    # endregion
+    net.compile(
+        loss=loss,
+        optimizer=optimizer,
+        metrics=metrics
+    )
 
     # region Define callbacks to be used in training
 
