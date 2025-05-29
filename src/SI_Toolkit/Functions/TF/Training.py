@@ -117,7 +117,8 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
     net.compile(
         loss=loss,
         optimizer=optimizer,
-        metrics=metrics
+        metrics=metrics,
+        jit_compile=True,
     )
 
     # region Define callbacks to be used in training
