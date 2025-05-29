@@ -28,6 +28,10 @@ except AttributeError as error:
     print(f'Got an error: \n')
     print(f'{error}. \n')
     print('tensorflow_model_optimization not working. Pruning will not be available.')
+except ImportError as error:
+    print(f'Got an error: \n')
+    print(f'{error}. \n')
+    print('tensorflow_model_optimization not working. Pruning will not be available.')
 
 def ensure_weights_h5_suffix(path: str | Path) -> Path:
     path = Path(path)

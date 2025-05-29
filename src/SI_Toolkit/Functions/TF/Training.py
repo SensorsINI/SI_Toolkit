@@ -13,6 +13,8 @@ except ModuleNotFoundError:
     print('tensorflow_model_optimization not found. Pruning will not be available.')
 except AttributeError:
     print("Pruning not available.")
+except ImportError:
+    print("Pruning not available.")
 
 from SI_Toolkit.Functions.TF.Dataset import Dataset
 
