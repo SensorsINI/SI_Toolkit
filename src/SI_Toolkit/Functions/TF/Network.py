@@ -33,7 +33,7 @@ except ImportError as error:
     print(f'{error}. \n')
     print('tensorflow_model_optimization not working. Pruning will not be available.')
 
-def ensure_weights_h5_suffix(path: str | Path) -> Path:
+def ensure_weights_h5_suffix(path):
     path = Path(path)
     if not path.name.endswith('.weights.h5'):
         return path.with_suffix('.weights.h5')
