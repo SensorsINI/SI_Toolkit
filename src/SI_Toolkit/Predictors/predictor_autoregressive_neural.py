@@ -14,7 +14,7 @@ from SI_Toolkit.Functions.General.Normalising import (
     get_denormalization_function, get_normalization_function,
     )
 from SI_Toolkit.Functions.General.value_precision import set_value_precision
-from SI_Toolkit.Functions.TF.Compile import CompileAdaptive
+from SI_Toolkit.Compile import CompileAdaptive
 from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import predictor_output_augmentation
 
 from SI_Toolkit.Predictors.autoregression import autoregression_loop, differential_model_autoregression_helper, check_dimensions
@@ -193,6 +193,7 @@ class predictor_autoregressive_neural(template_predictor):
         self.input_quantization = input_quantization
 
         self.AL: autoregression_loop = autoregression_loop(
+            model=self.net,
             model_inputs_len=len(self.net_info.inputs),
             model_outputs_len=len(self.net_info.outputs),
             batch_size=self.batch_size,
@@ -277,7 +278,6 @@ class predictor_autoregressive_neural(template_predictor):
         self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
         outputs = self.AL.run(
-            model=self.net,
             horizon=self.horizon,
             initial_input=self.model_initial_input_normed,
             external_input_left=model_external_input_normed,

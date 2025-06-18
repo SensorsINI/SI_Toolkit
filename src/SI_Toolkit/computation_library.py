@@ -157,6 +157,7 @@ class ComputationLibrary:
     constant: Callable[[Union[float, TensorType], type], Union[float, TensorType]] = None
     unstack: Callable[[TensorType, int, int], "list[TensorType]"] = None
     ndim: Callable[[TensorType], int] = None
+    pad: Callable[[TensorType, Any], TensorType] = None
     clip: Callable[[TensorType, float, float], TensorType] = None
     clip_by_norm: Callable[[TensorType, TensorType, Union[int, Sequence[int]]], TensorType] = None
     sin: Callable[[TensorType], TensorType] = None
@@ -194,7 +195,7 @@ class ComputationLibrary:
     uniform: Callable[
         [RandomGeneratorType, "tuple[int]", TensorType, TensorType, type], TensorType
     ] = None
-    sum: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
+    sum: Callable[..., TensorType] = None
     mean: Callable[[TensorType, "Optional[Union[tuple[int], int]]"], TensorType] = None
     cumsum: Callable[[TensorType, int], TensorType] = None
     cumprod: Callable[[TensorType, int], TensorType] = None
@@ -221,6 +222,7 @@ class ComputationLibrary:
     sqrt: Callable[[TensorType], TensorType] = None
     argsort: Callable[[TensorType, int], TensorType] = None
     argpartition: Callable[[TensorType, int], TensorType] = None
+    argmin: Callable[[TensorType, int], TensorType] = None
     argmax: Callable[[TensorType, int], TensorType] = None
     norm: Callable[[TensorType, int, bool], TensorType] = None
     matmul: Callable[[TensorType, TensorType], TensorType] = None
@@ -234,8 +236,11 @@ class ComputationLibrary:
     logical_or: Callable[[TensorType, TensorType], TensorType] = None
     print: Callable[[Any], None] = None
     square: Callable[[TensorType], TensorType] = None
+    multiply: Callable[[TensorType, TensorType], TensorType] = None
     divide: Callable[[TensorType, TensorType], TensorType] = None
+    subtract: Callable[[TensorType, TensorType], TensorType] = None
     GradientTape = None
+    break_compilation_graph = None
 
 
 class NumpyLibrary(ComputationLibrary):
@@ -248,8 +253,6 @@ class NumpyLibrary(ComputationLibrary):
         self.float64 = np.float64
         self.int32 = np.int32
         self.int64 = np.int64
-        
-        self.lib = 'Numpy'
         self.set_device = lambda device_name: set_device_general(device_name, 'numpy')
         self.reshape = lambda x, shape: np.reshape(x, shape)
         self.permute = np.transpose
@@ -261,6 +264,7 @@ class NumpyLibrary(ComputationLibrary):
         self.constant = lambda x, t: np.array(x, dtype=t)
         self.unstack = lambda x, num, axis: [np.take(x, i, axis=axis) for i in range(num)]
         self.ndim = np.ndim
+        self.pad = lambda x, paddings: np.pad(x, paddings, mode='constant')
         self.clip = np.clip
         self.clip_by_norm = clip_by_norm_factory(self)
         self.sin = np.sin
@@ -285,7 +289,7 @@ class NumpyLibrary(ComputationLibrary):
         self.bool = np.bool_
         self.tile = np.tile
         self.repeat = lambda x, k, a: np.repeat(x, repeats=k, axis=a)
-        self.gather = lambda x, i, a: np.take(x, i, axis=a)
+        self.gather = lambda x, i, axis: np.take(x, i, axis=axis)
         self.gather_last = lambda x, i: np.take(x, i, axis=-1)
         self.arange = np.arange
         self.zeros = np.zeros
@@ -298,10 +302,10 @@ class NumpyLibrary(ComputationLibrary):
         self.uniform = lambda generator, shape, low, high, dtype: generator.uniform(
             low=low, high=high, size=shape
         ).astype(dtype)
-        self.sum = lambda x, a: np.sum(x, axis=a, keepdims=False)
-        self.mean = lambda x, a: np.mean(x, axis=a, keepdims=False)
-        self.cumsum = lambda x, a: np.cumsum(x, axis=a)
-        self.cumprod = lambda x, a: np.cumprod(x, axis=a)
+        self.sum = lambda x, axis: np.sum(x, axis=axis, keepdims=False)
+        self.mean = lambda x, axis: np.mean(x, axis=axis, keepdims=False)
+        self.cumsum = lambda x, axis: np.cumsum(x, axis=axis)
+        self.cumprod = lambda x, axis: np.cumprod(x, axis=axis)
         self.set_shape = lambda x, shape: x
         self.concat = lambda x, axis: np.concatenate(x, axis=axis)
         self.pi = np.array(np.pi).astype(np.float32)
@@ -325,6 +329,7 @@ class NumpyLibrary(ComputationLibrary):
         self.sqrt = np.sqrt
         self.argsort = lambda x, axis=-1: np.argsort(x, axis=axis)
         self.argpartition = lambda x, k: np.argpartition(x, k)[..., :k]
+        self.argmin = lambda x, axis: np.argmin(x, axis=axis)
         self.argmax = lambda x, a: np.argmax(x, axis=a)
         self.norm = lambda x, axis, keepdims=False: np.linalg.norm(x, axis=axis, keepdims=keepdims)
         self.matmul = np.matmul
@@ -336,7 +341,29 @@ class NumpyLibrary(ComputationLibrary):
         self.logical_or  = np.logical_or
         self.print = print
         self.square = np.square
+        self.multiply = np.multiply
         self.divide = np.divide
+        self.subtract = np.subtract
+        self.break_compilation_graph = lambda: None
+
+    @staticmethod
+    def loop(body_fn, state, steps: int, counter: int = 0):
+        """
+        Run `body_fn` `steps` times starting from `state` and
+        return the final state.
+
+        * `body_fn(*state)` → new_state  (same structure)
+        * Works for TF, PyTorch, NumPy.
+        """
+
+        # ──────❶ flatten the incoming state tuple ────────────────
+        # so that state = (counter, *state)
+        state = (counter, *state)
+
+        for _ in range(steps):
+            state = body_fn(*state)
+
+        return state
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
@@ -374,6 +401,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.constant = lambda x, t: tf.constant(x, dtype=t)
         self.unstack = lambda x, num, axis: tf.unstack(x, num=num, axis=axis)
         self.ndim = tf.rank
+        self.pad = tf.pad
         self.clip_by_norm = clip_by_norm_factory(self)
         self.clip = tf.clip_by_value
         self.sin = tf.sin
@@ -398,7 +426,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.bool = tf.bool
         self.tile = tf.tile
         self.repeat = lambda x, k, a: tf.repeat(x, repeats=k, axis=a)
-        self.gather = lambda x, i, a: tf.gather(x, i, axis=a)
+        self.gather = lambda x, i, axis: tf.gather(x, i, axis=axis)
         self.gather_last = lambda x, i: tf.gather(x, i, axis=-1)
         self.arange = tf.range
         self.zeros = tf.zeros
@@ -410,10 +438,10 @@ class TensorFlowLibrary(ComputationLibrary):
         self.standard_normal = lambda generator, shape: generator.normal(shape)
         self.uniform = lambda generator, shape, low, high, dtype: generator.uniform(
             shape, minval=low, maxval=high, dtype=dtype)
-        self.sum = lambda x, a: tf.reduce_sum(x, axis=a, keepdims=False)
-        self.mean = lambda x, a: tf.reduce_mean(x, axis=a, keepdims=False)
-        self.cumsum = lambda x, a: tf.math.cumsum(x, axis=a)
-        self.cumprod = lambda x, a: tf.math.cumprod(x, axis=a)
+        self.sum = lambda x, axis: tf.reduce_sum(x, axis=axis, keepdims=False)
+        self.mean = lambda x, axis: tf.reduce_mean(x, axis=axis, keepdims=False)
+        self.cumsum = lambda x, axis: tf.math.cumsum(x, axis=axis)
+        self.cumprod = lambda x, axis: tf.math.cumprod(x, axis=axis)
         self.set_shape = lambda x, shape: x.set_shape(shape)
         self.concat = lambda x, axis: tf.concat(x, axis)
         self.pi = tf.convert_to_tensor(pi, dtype=tf.float32)
@@ -437,6 +465,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.sqrt = tf.sqrt
         self.argsort = lambda x, axis=-1: tf.argsort(x, axis=axis)
         self.argpartition = lambda x, k: tf.math.top_k(-x, k, sorted=False)[1]
+        self.argmin = lambda x, axis: tf.math.argmin(x, axis=axis)
         self.argmax = lambda x, a: tf.math.argmax(x, axis=a)
         self.norm = lambda x, axis, keepdims=False: tf.norm(x, axis=axis, keepdims=keepdims)
         self.matmul = tf.linalg.matmul
@@ -449,8 +478,51 @@ class TensorFlowLibrary(ComputationLibrary):
         self.logical_or  = tf.math.logical_or
         self.print = tf.print
         self.square = tf.square
+        self.multiply = tf.multiply
         self.divide = tf.math.divide
+        self.subtract = tf.math.subtract
         self.GradientTape = tf.GradientTape
+        self.break_compilation_graph = lambda: None
+
+    @staticmethod
+    def loop(body_fn,
+             state,
+             steps,
+             counter = 0):
+        """
+        XLA-friendly loop.
+        Returns (counter, *state) exactly as your older helper did,
+        so existing call-sites remain valid.
+        """
+        import tensorflow as tf
+
+        # ─── normalise inputs once ─────────────────────────────────────────
+        steps = tf.convert_to_tensor(steps, tf.int32, name="steps")
+        counter = tf.convert_to_tensor(counter, tf.int32, name="counter")
+
+        # loop variables = (iteration index, logical counter, *state)
+        loop_vars = (tf.constant(0, tf.int32),
+                     counter,
+                     *state)
+
+        def cond(i, *_):
+            return i < steps
+
+        def body(i, c, *s):
+            # delegate to user fn; it must return (new_c, *new_state)
+            c, *s = body_fn(c, *s)
+            # be lenient: tensorise once here, not every turn at outer level
+            c = tf.convert_to_tensor(c, tf.int32, name="counter_out")
+            return (i + 1, c, *s)
+
+        _, c_final, *state_final = tf.while_loop(
+            cond, body, loop_vars,
+            parallel_iterations=32,
+            maximum_iterations=steps
+        )
+
+        # public contract preserved
+        return (c_final, *state_final)
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
@@ -465,12 +537,11 @@ class PyTorchLibrary(ComputationLibrary):
     
     def __init__(self):
         import torch  # Lazy import here
+        import torch.nn.functional as F
+
         self.lib = 'Pytorch'
         self.float32 = torch.float32
         self.float64 = torch.float64
-        
-        
-        self.lib = 'Pytorch'
         self.set_device = lambda device_name: set_device_general(device_name, 'pytorch')
         self.reshape = torch.reshape
         self.permute = torch.permute
@@ -482,6 +553,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.constant = lambda x, t: torch.as_tensor(x, dtype=t)
         self.unstack = lambda x, num, dim: torch.unbind(x, dim=dim)
         self.ndim = lambda x: x.ndim
+        self.pad = lambda x, paddings: F.pad(x, [p for dim in reversed(paddings) for p in reversed(dim)], mode='constant', value=0.0)
         self.clip_by_norm = clip_by_norm_factory(self)
         self.clip = torch.clamp
         self.sin = torch.sin
@@ -506,10 +578,10 @@ class PyTorchLibrary(ComputationLibrary):
         self.bool = torch.bool
         self.tile = torch.tile
         self.repeat = lambda x, k, a: torch.repeat_interleave(x, repeats=k, dim=a)
-        self.gather = lambda x, idx, axis: torch.index_select(torch.as_tensor(x), axis, idx if torch.is_tensor(idx) else torch.as_tensor(idx, dtype=torch.long))
+        self.gather = tf_gather_for_torch
         self.gather_last = self.gather_last_pytorch
         self.arange = torch.arange
-        self.zeros = lambda shape, *args, **kwargs: torch.zeros(*shape, *args, **kwargs)
+        self.zeros = lambda shape, **kw: torch.zeros(size=shape, **kw)
         self.zeros_like = torch.zeros_like
         self.ones = torch.ones
         self.ones_like = torch.ones_like
@@ -523,10 +595,10 @@ class PyTorchLibrary(ComputationLibrary):
             * torch.rand(*shape, generator=generator, dtype=dtype)
             + low
         )
-        self.sum = lambda x, a: torch.sum(x, a, keepdim=False)
-        self.mean = lambda x, a: torch.mean(x, a, keepdim=False)
-        self.cumsum = lambda x, a: torch.cumsum(x, dim=a)
-        self.cumprod = lambda x, a: torch.cumprod(x, dim=a)
+        self.sum = lambda x, axis: torch.sum(x, axis, keepdim=False)
+        self.mean = lambda x, axis: torch.mean(x, axis, keepdim=False)
+        self.cumsum = lambda x, axis: torch.cumsum(x, dim=axis)
+        self.cumprod = lambda x, axis: torch.cumprod(x, dim=axis)
         self.set_shape = lambda x, shape: x
         self.concat = lambda x, axis: torch.concat(x, dim=axis)
         self.pi = torch.as_tensor(pi, dtype=torch.float32)
@@ -550,18 +622,53 @@ class PyTorchLibrary(ComputationLibrary):
         self.sqrt = torch.sqrt
         self.argsort = lambda x, axis=-1: torch.argsort(x, dim=axis)
         self.argpartition = lambda x, k: torch.topk(x, k, largest=False)[1]
+        self.argmin = lambda x, axis: torch.argmin(x, dim=axis)
         self.argmax = lambda x, a: torch.argmax(x, dim=a)
         self.norm = lambda x, axis, keepdims=False: torch.linalg.norm(x, dim=axis, keepdim=keepdims)
         self.matmul = torch.matmul
         self.cross = torch.linalg.cross
         self.dot = torch.dot
-        # stop_gradient = tf.stop_gradient # FIXME: How to imlement this in torch?
+        self.stop_gradient = lambda x: x.detach()
         self.where = torch.where
         self.logical_and = torch.logical_and
         self.logical_or  = torch.logical_or
         self.print = print
         self.square = torch.square
+        self.multiply = torch.mul
         self.divide = torch.div
+        self.subtract = torch.subtract
+        self.break_compilation_graph = pytorch_break_compilation_graph
+
+    def loop(self, body_fn, state, steps: int, counter=0):
+        """
+        Run `body_fn` `steps` times starting from `state` and return the final state.
+
+        * `body_fn(*state)` → new_state (same structure)
+        * Works for TF, PyTorch, NumPy.
+        """
+        import torch
+
+        # Define a helper that encloses the for‐loop. Decorating with
+        # disable(recursive=False) means:
+        #   - THIS frame (the loop) is NOT traced.
+        #   - calls *into* body_fn *are* still traced/compiled.
+        @torch.compiler.disable(recursive=False)
+        def loop_control(state_tuple, num_steps):
+            # Iterate in plain eager mode. Dynamo sees a graph-break at the decorator.
+            for _ in range(num_steps):
+                # Each invocation of compiled_body(*state_tuple) runs as a subgraph.
+                state_tuple = body_fn(*state_tuple)
+                # Sanity check: ensure your counter stays a tensor.
+                assert torch.is_tensor(state_tuple[0]), "body_fn must return a tensor counter"
+            return state_tuple
+
+        # Turn the Python int counter into a tensor on the right device.
+        counter = torch.as_tensor(counter, dtype=torch.int64, device=state[0].device)
+        state = (counter, *state)
+
+        # This call graph‐breaks into loop_control (eager),
+        # but each compiled_body inside still gets compiled.
+        return loop_control(state, steps)
 
     @staticmethod
     def assign(v: "TensorType", x: "TensorType"):
@@ -582,7 +689,55 @@ class PyTorchLibrary(ComputationLibrary):
 
     @staticmethod
     def gather_last_pytorch(a, index_vector):
-        return a[..., index_vector]
+        import torch
+        # index_vector: (...,) long tensor indexing the last dim of `a`
+        idx = index_vector.unsqueeze(-1)  # now shape (...,1)
+        out = torch.gather(a, dim=-1, index=idx)  # shape (...,1)
+        return out.squeeze(-1)
 
 
 ComputationClasses = (NumpyLibrary, TensorFlowLibrary, PyTorchLibrary)
+
+
+def tf_gather_for_torch(input, index, axis=0):
+    """
+    PyTorch equivalent of tf.gather(input, index, axis=axis).
+    Accepts lists or NumPy arrays as well as Tensors.
+    """
+    import torch
+    dim = axis
+
+    # ensure our data is a Tensor, without copying if it already is one
+    if not torch.is_tensor(input):
+        input = torch.as_tensor(input)
+    # make sure indices are a LongTensor on the same device as `input`
+    if not torch.is_tensor(index):
+        index = torch.as_tensor(index, dtype=torch.long, device=input.device)
+    else:
+        if index.dtype != torch.long:
+            index = index.to(torch.long)
+        if index.device != input.device:
+            index = index.to(input.device)
+
+    # PyTorch’s index_select only accepts 1-D index tensors.
+    # For N-D `index`, we flatten → select → reshape back.
+    if index.dim() > 1:
+        # flatten all index dimensions into one vector
+        flat_idx = index.reshape(-1)
+        # gather the rows/slices
+        gathered = torch.index_select(input, dim, flat_idx)
+        # compute the output shape: original index shape + remaining dims of input after `dim`
+        out_shape = list(index.shape) + list(input.shape[dim + 1 :])
+        return gathered.reshape(*out_shape)
+    else:
+        # simple 1-D case: direct select
+        return torch.index_select(input, dim, index)
+
+
+def pytorch_break_compilation_graph():
+    """
+    Allows splitting the compilation graph in PyTorch. To make compilation faster/feasible.
+    """
+    import torch._dynamo as dynamo
+    dynamo.graph_break()
+

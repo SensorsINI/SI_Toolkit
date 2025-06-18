@@ -262,7 +262,7 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
 
 # This function returns the saving interval of datafile
 # Used to ensure that datafiles used for training save data with the same frequency
-def get_sampling_interval_from_datafile(path_to_datafile):
+def get_sampling_interval_from_datafile(df, path_to_datafile):
     preceding_text = '# Saving: '
     dt_save = None
     with open(path_to_datafile, 'r') as cmt_file:  # open file
@@ -270,7 +270,10 @@ def get_sampling_interval_from_datafile(path_to_datafile):
             if line[0:len(preceding_text)] == preceding_text:
                 dt_save = float(line[len(preceding_text):-2])
                 return dt_save
-    return dt_save
+    if dt_save is None and 'time' in df.columns:
+        dt_save = np.mean(np.diff(df['time']))
+        return dt_save
+    raise ValueError('No information about sampling interval found in the datafile. \n')
 
 
 # This function returns the saving interval of datafile

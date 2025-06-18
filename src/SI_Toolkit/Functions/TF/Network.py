@@ -5,7 +5,7 @@ import importlib.util
 import tensorflow as tf
 import numpy as np
 from pathlib import Path
-from SI_Toolkit.Functions.TF.Compile import CompileTF
+from SI_Toolkit.Compile import CompileTF
 from SI_Toolkit.Functions.General.Initialization import calculate_inputs_length
 
 from SI_Toolkit.Functions.TF.Network_Compose import create_bayesian_network
