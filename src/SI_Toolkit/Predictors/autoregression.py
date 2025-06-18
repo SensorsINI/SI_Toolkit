@@ -9,9 +9,12 @@ from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import (CONTRO
 import numpy as np
 
 
+
+
 class autoregression_loop:
     def __init__(
             self,
+            model,
             model_inputs_len,
             model_outputs_len,
             batch_size,
@@ -19,20 +22,50 @@ class autoregression_loop:
             differential_model_autoregression_helper_instance=None,
     ):
         self.lib = lib
+        self.model = model
         self.dmah = differential_model_autoregression_helper_instance
 
         self.model_inputs_len = model_inputs_len
         self.model_outputs_len = model_outputs_len
         self.batch_size = batch_size
 
+        self.evaluate_model = self.evaluate_model_factory()
+
 
         if isinstance(self.lib, TensorFlowLibrary):
             from tensorflow import TensorArray
             self.TensorArray = TensorArray
 
+    def evaluate_model_factory(self):
+        if self.lib.lib == 'Numpy':  # Covers just the case for hls4ml, when the model is hls model
+            evaluate_model = self.model.predict
+        else:
+            evaluate_model = self.model
+
+        return evaluate_model
+
+    def horizon_step(self, model_input, current_external_input_left, current_external_input_right):
+        if current_external_input_left is not None:
+            model_input = self.lib.concat([current_external_input_left, model_input], axis=1)
+        if current_external_input_right is not None:
+            model_input = self.lib.concat([model_input, current_external_input_right], axis=1)
+
+        model_input = self.lib.reshape(model_input, shape=[-1, 1, self.model_inputs_len])
+
+        model_output = self.evaluate_model(model_input)
+
+        model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
+
+        if self.dmah:
+            output, next_model_input = self.dmah.get_output_and_next_model_input(model_output)
+        else:
+            output = model_output
+            next_model_input = model_output
+
+        return output, next_model_input
+
     def run(
             self,
-            model,
             horizon,
             initial_input,
             external_input_left=None,
@@ -60,7 +93,7 @@ class autoregression_loop:
 
             model_input = self.lib.reshape(model_input, shape=[-1, 1, self.model_inputs_len])
 
-            model_output = self.evaluate_model(model, model_input)
+            model_output = self.evaluate_model(model_input)
 
             model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
 
@@ -73,45 +106,71 @@ class autoregression_loop:
                 outputs[:, 0, :] = output
 
             ##################### END OF 0th ITERATION ######################
-            arange = self.lib.arange(1, horizon)
-        else:
-            arange = self.lib.arange(0, horizon)
 
-        if horizon >  1:
-            for i in arange:
+        if horizon > 1:
 
-                if external_input_left is not None:
-                    model_input = self.lib.concat([external_input_left[:, i, :], model_input], axis=1)
-                if external_input_right is not None:
-                    model_input = self.lib.concat([model_input, external_input_right[:, i, :]], axis=1)
+            start_idx = 1 if (predictor == "gp" or horizon == 1) else 0
 
-                model_input = self.lib.reshape(model_input, shape=[-1, 1, self.model_inputs_len])
+            def loop_body(i, outputs, current_input):
+                # ––– ❶ normalise the step index so that gather/index_copy works everywhere –––––––––
+                #
+                # TF’s while_loop gives you a scalar tf.Tensor; PyTorch’s custom loop keeps a
+                # 0-D LongTensor; NumPy gives a Python int.  We upgrade everything to a **1-D
+                # tensor** when that is the requirement of the backend’s scatter/gather op.
+                #
+                step = i
+                if self.lib.lib == "Pytorch":  # needs 1-D LongTensor
+                    if getattr(step, "ndim", 0) == 0:
+                        step = step.unsqueeze(0)  # (1,)
+                elif self.lib.lib == "TF":  # tf.gather is happy
+                    step = self.lib.reshape(step, (1,))  # make rank-1 for symmetry
 
-                model_output = self.evaluate_model(model, model_input)
+                # ––– ❷ slice the exogenous inputs for this horizon ––––––––––––––––––––––––––––––––
+                #
+                # self.lib.gather implements tf.gather / np.take / torch.index_select with
+                # consistent semantics; squeezing axis 1 restores shape (B, E).
+                #
+                def _take_step(x):
+                    if x is None:
+                        return None
+                    slice_ = self.lib.gather(x, step, axis=1)  # (B,1,E)
+                    return self.lib.squeeze(slice_, 1)  # → (B,E)
 
-                model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
+                left = _take_step(external_input_left)
+                right = _take_step(external_input_right)
 
-                if self.dmah:
-                    output, model_input = self.dmah.get_output_and_next_model_input(model_output)
-                else:
-                    output = model_output
-                    model_input = model_output
+                # ––– ❸ user-supplied transition ––––––––––––––––––––––––––––––––––––––––––––––––––––
+                output, next_input = self.horizon_step(current_input, left, right)
 
-                if self.lib.lib == 'TF':
+                # ––– ❹ write the new output back –––––––––––––––––––––––––––––––––––––––––––––––––––
+                #
+                # - TF:   TensorArray.write(i, …) returns a **new** TensorArray.
+                # - NP:   plain assignment is fastest.
+                # - PT:   index_copy keeps everything differentiable without .item().
+                #
+                if self.lib.lib == "TF":
                     outputs = outputs.write(i, output)
-                else:
-                    outputs[:, i, :] = output
+                elif self.lib.lib == "Pytorch":
+                    outputs = outputs.index_copy(1, step, output.unsqueeze(1))  # (B,1,E)
+                else:  # NumPy
+                    outputs[:, int(step), :] = output  # in-place
+
+                # ––– ❺ advance the loop counter ––––––––––––––––––––––––––––––––––––––––––––––––––––
+                return (i + 1, outputs, next_input)
+
+            # backend-aware loop
+            _, outputs, _ = self.lib.loop(
+                loop_body,
+                (outputs, model_input),
+                horizon - start_idx,
+                start_idx
+            )
+
 
         if self.lib.lib == 'TF':
             outputs = self.lib.permute(outputs.stack(), [1, 0, 2])
 
         return outputs
-
-    def evaluate_model(self, model, model_input):
-        if self.lib.lib == 'Numpy':  # Covers just the case for hls4ml, when the model is hls model
-            return model.predict(model_input)
-        else:
-            return model(model_input)
 
 
 

@@ -1,6 +1,7 @@
-import logging
 import platform
 import os
+import importlib
+import logging
 
 from SI_Toolkit.computation_library import ComputationLibrary, ComputationClasses
 
@@ -35,6 +36,26 @@ else:
     else:
         CompileTF = tf_function_jit
         # CompileTF = tf_function_experimental # Should be same as tf_function_jit, not appropriate for newer version of TF
+
+
+def _torch_compile(fn):
+    import torch
+    from torch._inductor import config
+    import os  # for retrieving the number of CPU cores available
+
+    # Set compile threads to the maximum available CPU cores (fallback to 1 if detection fails)
+    config.compile_threads = os.cpu_count()//2 or 1
+
+    compiled_fn = torch.compile(
+        fn,
+        fullgraph=False,
+        dynamic=False,
+        backend="inductor",
+    )
+
+    return compiled_fn
+
+
 
 
 def CompileAdaptive(arg=None):
@@ -75,7 +96,6 @@ def decorator(fun, computation_library=None):
     elif lib_name == 'TF':
         return CompileTF(fun)
     elif lib_name == 'Pytorch':
-        print('Jit compilation for Pytorch not yet implemented.')
-        return identity(fun)
+        return _torch_compile(fun)
     else:
         return identity(fun)
