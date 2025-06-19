@@ -37,10 +37,10 @@ class autoregression_loop:
             self.TensorArray = TensorArray
 
     def evaluate_model_factory(self):
-        if self.lib.lib == 'Numpy':  # Covers just the case for hls4ml, when the model is hls model
-            evaluate_model = self.model.predict
+        if callable(self.model):
+            evaluate_model = self.model  # direct invocation e.g. model(input_data), TF, PyTorch.
         else:
-            evaluate_model = self.model
+            evaluate_model = self.model.predict  # hls4ml
 
         return evaluate_model
 

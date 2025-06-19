@@ -12,13 +12,13 @@ from SI_Toolkit.computation_library import NumpyLibrary, ComputationLibrary
 class neural_network_evaluator:
     _computation_library = NumpyLibrary()
 
-    def __init__(self, net_name, path_to_models, batch_size, input_precision='float', hls4ml=False):
+    def __init__(self, net_name, path_to_models, batch_size, input_precision='float', nn_evaluator_mode='normal'):
 
         self.net_name = net_name
         self.path_to_models = path_to_models
         self.batch_size = batch_size
         self.input_precision = input_precision
-        self.hls4ml = hls4ml
+        self.nn_evaluator_mode = nn_evaluator_mode
 
         a = SimpleNamespace()
 
@@ -30,7 +30,7 @@ class neural_network_evaluator:
             get_net(a, time_series_length=1,
                     batch_size=self.batch_size, stateful=True)
 
-        if self.hls4ml:
+        if self.nn_evaluator_mode == 'hls4ml':
             self._computation_library = NumpyLibrary()
             # Convert network to HLS form
             from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
@@ -38,16 +38,14 @@ class neural_network_evaluator:
             self.net.compile()
         elif self.net_info.library == 'Pytorch':
             from SI_Toolkit.computation_library import PyTorchLibrary
-            self._computation_library = PyTorchLibrary()
-        elif self.net_info.library == 'TF':
-            from SI_Toolkit.computation_library import TensorFlowLibrary
-            self._computation_library = TensorFlowLibrary()
-
-        if self.lib.lib == 'Pytorch':
             from SI_Toolkit.Functions.Pytorch.Network import get_device
+            self._computation_library = PyTorchLibrary()
             self.device = get_device()
             self.net.reset()
             self.net.eval()
+        elif self.net_info.library == 'TF':
+            from SI_Toolkit.computation_library import TensorFlowLibrary
+            self._computation_library = TensorFlowLibrary()
 
         self.normalization_info = get_norm_info_for_net(self.net_info)
         self.normalize_inputs = get_normalization_function(self.normalization_info, self.net_info.inputs, self.lib)
@@ -90,7 +88,7 @@ class neural_network_evaluator:
         net_input = self.lib.reshape(self.net_input_normed, (-1, 1, len(self.net_info.inputs)))
         net_input = set_value_precision(net_input, self.input_precision, lib=self.lib)
 
-        if self.lib.lib == 'Numpy':  # Covers just the case for hls4ml, when the model is hls model
+        if self.nn_evaluator_mode == 'hls4ml':  # Covers just the case for hls4ml, when the model is hls model
             net_output = self.net.predict(net_input)
         else:
             net_output = self.net(net_input)
