@@ -203,6 +203,80 @@ class NumpyGRUNetwork:
         return out
 
 
+def _merge_lstm_bias(b, units):
+    if b.ndim == 2 and b.shape[1] == 4*units:
+        # Already split input/recurrent rows
+        return b.sum(axis=0)
+    if b.ndim == 1 and b.size == 8*units:
+        # cuDNN format
+        return b.reshape(2, 4*units).sum(axis=0)
+    return b
+
+
+# ---------------------------------------------------------------------------
+#  Add immediately **after** the NumpyGRULayer class definition
+# ---------------------------------------------------------------------------
+class NumpyLSTMLayer:
+    """Keras-compatible LSTM cell (gate order [i,f,c,o])."""
+    def __init__(self, kernel, recurrent_kernel, bias, units, return_sequences=False):
+        self.units, self.return_sequences = units, return_sequences
+        self.W_xi = kernel[:, 0*units:1*units]; self.W_xf = kernel[:, 1*units:2*units]
+        self.W_xc = kernel[:, 2*units:3*units]; self.W_xo = kernel[:, 3*units:4*units]
+        self.W_hi = recurrent_kernel[:, 0*units:1*units]; self.W_hf = recurrent_kernel[:, 1*units:2*units]
+        self.W_hc = recurrent_kernel[:, 2*units:3*units]; self.W_ho = recurrent_kernel[:, 3*units:4*units]
+        if bias.size == 8 * units:
+            bias = bias.reshape(2, 4 * units).sum(axis=0)
+        bias = _merge_lstm_bias(bias, units)
+        self.b_i, self.b_f, self.b_c, self.b_o = np.split(bias, 4)
+
+    def _sigmoid(self, x): return 1.0/(1.0+np.exp(-x))
+
+    def forward(self, x_seq, h_init=None, c_init=None):
+        B,T,_ = x_seq.shape
+        h = np.zeros((B,self.units),np.float32) if h_init is None else h_init
+        c = np.zeros((B,self.units),np.float32) if c_init is None else c_init
+        outs=[]
+        for t in range(T):
+            x=x_seq[:,t,:]
+            i=self._sigmoid(x@self.W_xi+h@self.W_hi+self.b_i)
+            f=self._sigmoid(x@self.W_xf+h@self.W_hf+self.b_f)
+            g=np.tanh   (x@self.W_xc+h@self.W_hc+self.b_c)
+            o=self._sigmoid(x@self.W_xo+h@self.W_ho+self.b_o)
+            c=f*c+i*g
+            h=o*np.tanh(c)
+            outs.append(h)
+        outs=np.stack(outs,axis=1)
+        return outs if self.return_sequences else outs[:,-1,:]
+
+# ---------------------------------------------------------------------------
+#  Add immediately **after** NumpyGRUNetwork class definition
+# ---------------------------------------------------------------------------
+class NumpyLSTMNetwork:
+    """Two-layer LSTM + Dense replica of a corresponding Keras model."""
+    def __init__(self, keras_model):
+        self.layers=[]
+        for lyr in keras_model.layers:
+            typ=type(lyr).__name__
+            if typ=='LSTM':
+                k,r,b=lyr.get_weights()
+                self.layers.append(NumpyLSTMLayer(k,r,b,lyr.units,lyr.return_sequences))
+            elif typ=='Dense':
+                W,b=lyr.get_weights(); self.layers.append(NumpyDense(W,b))
+            else:
+                raise NotImplementedError(typ)
+
+    def forward(self,x,h_inits=None,c_inits=None):
+        if h_inits is None: h_inits=[None]*2
+        if c_inits is None: c_inits=[None]*2
+        li=0
+        for lyr in self.layers:
+            if isinstance(lyr,NumpyLSTMLayer):
+                x=lyr.forward(x,h_inits[li],c_inits[li]); li+=1
+            else:
+                x=lyr.forward(x)
+        return x
+
+
 ###############################################################################
 # 3) Testing Script
 ###############################################################################
@@ -262,6 +336,25 @@ def test_gru_network(num_gru_layers=2, units_per_layer=[8, 4], input_dim=3, outp
         print("SUCCESS: outputs match very closely!\n")
     else:
         print("WARNING: mismatch found. Check your gate ordering or biases.\n")
+
+
+def test_lstm_network(num_layers=2, units=[8,4], input_dim=3, output_dim=2):
+    model = tf.keras.Sequential()
+    model.add(tf.keras.layers.LSTM(units[0],
+                                   return_sequences=(num_layers > 1),
+                                   input_shape=(None, input_dim)))
+    for i in range(1, num_layers):
+        rs = i < num_layers - 1
+        model.add(tf.keras.layers.LSTM(units[i], return_sequences=rs))
+    model.add(tf.keras.layers.Dense(output_dim))
+    model.build()
+
+    x = np.random.randn(2, 5, input_dim).astype(np.float32)
+    tf_out = model(x).numpy()
+    np_out = NumpyLSTMNetwork(model).forward(x)
+
+    diff = np.abs(tf_out - np_out).max()
+    print(f"LSTM max abs diff = {diff}")
 
 
 if __name__ == "__main__":

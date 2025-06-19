@@ -1,4 +1,7 @@
+# TF2C.py
+
 import os
+import re
 import shutil
 import subprocess
 import numpy as np
@@ -6,7 +9,19 @@ from types import SimpleNamespace
 from SI_Toolkit.Functions.General.Initialization import get_net
 from SI_Toolkit.Functions.General.TerminalContentManager import TerminalContentManager
 
-from SI_Toolkit.Functions.General.NumpyNetworks import NumpyGRUNetwork
+from SI_Toolkit.Functions.General.NumpyNetworks import NumpyGRUNetwork, NumpyLSTMNetwork
+
+# ---------------------------------------------------------------------------
+# Generic helpers for variable‑depth networks
+# ---------------------------------------------------------------------------
+def _save_float_array(path, name, arr, transpose=False):
+    """Append a 1‑D C float array to <path>/network_parameters.c"""
+    if transpose:
+        arr = arr.T
+    with open(os.path.join(path, "network_parameters.c"), "a") as f:
+        f.write(f"const float {name}[] = {{\n")
+        f.write(", ".join(map(str, arr.flatten())))
+        f.write("\n};\n")
 
 # Set a seed for reproducibility
 seed_value = 1
@@ -15,48 +30,53 @@ np.random.seed(seed_value)
 
 def tf2C(path_to_models, net_name, batch_size):
 
-    with TerminalContentManager(os.path.join(path_to_models, net_name, "C_implementation", "terminal_output.txt")):
+    with (TerminalContentManager(os.path.join(path_to_models, net_name, "C_implementation", "terminal_output.txt"))):
         # Import network
         a = SimpleNamespace()
         a.path_to_models = path_to_models
         a.net_name = net_name
-        batch_size = batch_size
         net, net_info = get_net(
             a, time_series_length=1, batch_size=batch_size, stateful=True, remove_redundant_dimensions=True
         )
 
         # ------------------------------------------------
-        # Detect whether this model is GRU-based or Dense-based
+        # Detect whether this model is GRU-, LSTM- or Dense-based
         # ------------------------------------------------
-        from tensorflow.keras.layers import GRU, Dense
 
         first_layer_type = type(net.layers[0]).__name__
         is_gru_model = ('GRU' in first_layer_type)
+        is_lstm_model = ('LSTM' in first_layer_type)
 
         # Define input
         input_length = len(net_info.inputs)
 
-        if is_gru_model:
+        if is_gru_model or is_lstm_model:
             input_data = np.random.rand(1, 1, input_length).astype(np.float32)
         else:
             input_data = np.random.rand(1, input_length).astype(np.float32)
         inputs_string = ", ".join(map(str, input_data.flatten()))
         print(f"\nInput data: {inputs_string} \n")
 
-        # +++ If GRU, also initialize the hidden states to random values +++
-        if is_gru_model:
+        # +++ If GRU/LSTM, also initialize the hidden (and cell) states to random values +++
+        if is_gru_model or is_lstm_model:
             # Two-layer GRU => net.layers = [GRU1, GRU2, Dense_output]
             # The reset_states() method expects shape = (batch_size, units)
-            gru1_units = net.layers[0].output_shape[-1]
-            gru2_units = net.layers[1].output_shape[-1]
+            rnn1_units = net.layers[0].output_shape[-1]
+            rnn2_units = net.layers[1].output_shape[-1]
 
             # Create random initial states (just once, shape=(1, units))
-            h1_init = np.random.rand(1, gru1_units).astype(np.float32)
-            h2_init = np.random.rand(1, gru2_units).astype(np.float32)
+            h1_init = np.random.rand(1, rnn1_units).astype(np.float32)
+            h2_init = np.random.rand(1, rnn2_units).astype(np.float32)
 
-            # Force the TF GRUs to start from these states
-            net.layers[0].reset_states(h1_init)
-            net.layers[1].reset_states(h2_init)
+            # Force the TF GRUs/LSTMs to start from these states
+            if is_gru_model:
+                net.layers[0].reset_states(h1_init)
+                net.layers[1].reset_states(h2_init)
+            else:                                               # LSTM case
+                c1_init = np.random.rand(1, rnn1_units).astype(np.float32)
+                c2_init = np.random.rand(1, rnn2_units).astype(np.float32)
+                net.layers[0].reset_states([h1_init, c1_init])
+                net.layers[1].reset_states([h2_init, c2_init])
 
         # Now, check Python output to compare with C output
         output_tf = net(input_data).numpy().flatten()
@@ -65,7 +85,7 @@ def tf2C(path_to_models, net_name, batch_size):
         print("\n")
 
         # ------------------------------------------------
-        # Compare with NumPy-based GRU if it's a GRU model
+        # Compare with NumPy-based replica if it's a GRU/LSTM model
         # ------------------------------------------------
         if is_gru_model:
             print("Testing NumPy-based GRU implementation...")
@@ -78,10 +98,21 @@ def tf2C(path_to_models, net_name, batch_size):
                 input_data,
                 h_inits=[h1_init, h2_init]  # match the states we set in TF
             ).flatten()
+        elif is_lstm_model:
+            print("Testing NumPy-based LSTM implementation...")
+            numpy_net = NumpyLSTMNetwork(net)
+            np_output = numpy_net.forward(
+                input_data,
+                h_inits=[h1_init, h2_init],
+                c_inits=[c1_init, c2_init]
+            ).flatten()
+        else:
+            numpy_net = None
+            np_output = None
 
-            # 3) Compare
+        if numpy_net is not None:
             difference = np.max(np.abs(output_tf - np_output))
-            print(f"NumPy-based GRU output: {np_output}")
+            print(f"NumPy replica output: {np_output}")
             print(f"Max absolute difference (TF vs NumPy) = {difference:.6g}")
             if difference < 1e-6:
                 print("SUCCESS: Outputs match closely!\n")
@@ -117,7 +148,7 @@ def tf2C(path_to_models, net_name, batch_size):
             # Set macro indicating a GRU model
             network_h_content = network_h_content.replace(
                 "#define INPUT_SIZE      // Overwritten by python",
-                f"#define IS_GRU 1\n#define INPUT_SIZE {net.input_shape[-1]}      // Overwritten by python"
+                f"#define IS_GRU 1\n#define IS_LSTM 0\n#define INPUT_SIZE {net.input_shape[-1]}      // Overwritten by python"
             )
 
             # For a 2-layer GRU, net.layers = [GRU1, GRU2, Dense_output]
@@ -133,13 +164,17 @@ def tf2C(path_to_models, net_name, batch_size):
             output_size = net.layers[2].output_shape[-1]
 
             # Update #define placeholders in network.h
-            network_h_content = network_h_content.replace(
-                "#define LAYER1_SIZE     // Overwritten by python (used in Dense mode)",
-                f"#define GRU1_UNITS {gru1_units}     // Overwritten by python (used in Dense mode)"
+            network_h_content = re.sub(
+                r"^#\s*define\s+GRU1_UNITS\b.*$",
+                f"#define GRU1_UNITS {gru1_units}",
+                network_h_content,
+                flags=re.M
             )
-            network_h_content = network_h_content.replace(
-                "#define LAYER2_SIZE     // Overwritten by python (used in Dense mode)",
-                f"#define GRU2_UNITS {gru2_units}     // Overwritten by python (used in Dense mode)"
+            network_h_content = re.sub(
+                r"^#\s*define\s+GRU2_UNITS\b.*$",
+                f"#define GRU2_UNITS {gru2_units}",
+                network_h_content,
+                flags=re.M
             )
             network_h_content = network_h_content.replace(
                 "#define LAYER3_SIZE     // Overwritten by python (used in Dense mode)",
@@ -194,15 +229,95 @@ def tf2C(path_to_models, net_name, batch_size):
             save_as_cc_combined(dense_bias,      "bias3")
 
         # ------------------------------------------------
+        # If it is a LSTM model (two LSTM layers + linear output)
+        # ------------------------------------------------
+        elif is_lstm_model:
+            print("Detected LSTM-based model. Preparing code accordingly...\n")
+
+            network_h_content = network_h_content.replace(
+                "#define INPUT_SIZE      // Overwritten by python",
+                f"#define IS_GRU 0\n#define IS_LSTM 1\n#define INPUT_SIZE {net.input_shape[-1]}      // Overwritten by python"
+            )
+
+            lstm1_units = net.layers[0].output_shape[-1]
+            lstm2_units = net.layers[1].output_shape[-1]
+            output_size = net.layers[2].output_shape[-1]
+
+            network_h_content = re.sub(
+                r"^#\s*define\s+LSTM1_UNITS\b.*$",
+                f"#define LSTM1_UNITS {lstm1_units}",
+                network_h_content,
+                flags=re.M,
+            )
+
+            network_h_content = re.sub(
+                r"^#\s*define\s+LSTM2_UNITS\b.*$",
+                f"#define LSTM2_UNITS {lstm2_units}",
+                network_h_content,
+                flags=re.M,
+            )
+
+            network_h_content = network_h_content.replace(
+                "#define LAYER3_SIZE     // Overwritten by python (used in Dense mode)",
+                f"#define LAYER3_SIZE {output_size}     // Overwritten by python (used in Dense mode)"
+            )
+
+            # Write the updated network.h
+            with open(os.path.join(target_directory, 'network.h'), 'w') as f:
+                f.write(network_h_content)
+
+            lstm1_kernel, lstm1_recurrent, lstm1_bias = net.layers[0].get_weights()
+            lstm2_kernel, lstm2_recurrent, lstm2_bias = net.layers[1].get_weights()
+            dense_weights, dense_bias                 = net.layers[2].get_weights()
+
+            def _merge_lstm_bias(b, units):
+                # Case A: already stored as two 4U bias vectors
+                if b.ndim == 2 and b.shape[1] == 4 * units:
+                    return b.sum(axis=0)
+                # Case B: cuDNN format => flat 8U vector
+                if b.ndim == 1 and b.size == 8 * units:
+                    return b.reshape(2, 4 * units).sum(axis=0)
+                # Otherwise assume it’s already a flat 4U vector
+                return b
+
+            lstm1_bias = _merge_lstm_bias(lstm1_bias, lstm1_units)
+            lstm2_bias = _merge_lstm_bias(lstm2_bias, lstm2_units)
+
+            def save(arr, name):
+                with open(os.path.join(target_directory, "network_parameters.c"), "a") as f:
+                    f.write(f"const float {name}[] = {{\n")
+                    f.write(", ".join(map(str, arr.flatten())))
+                    f.write("\n};\n")
+
+            param_c_path = os.path.join(target_directory, "network_parameters.c")
+            if os.path.exists(param_c_path):
+                os.remove(param_c_path)
+
+            # Save initial states
+            save(h1_init, "initial_h1"); save(c1_init, "initial_c1")
+            save(h2_init, "initial_h2"); save(c2_init, "initial_c2")
+
+            # Save weights
+            save(lstm1_kernel,    "lstm1_kernel")
+            save(lstm1_recurrent, "lstm1_recurrent_kernel")
+            save(lstm1_bias,      "lstm1_bias")
+            save(lstm2_kernel,    "lstm2_kernel")
+            save(lstm2_recurrent, "lstm2_recurrent_kernel")
+            save(lstm2_bias,      "lstm2_bias")
+            save(dense_weights.T, "weights3")
+            save(dense_bias,      "bias3")
+
+
+        # ------------------------------------------------
         # Otherwise, the original Dense-based approach
         # ------------------------------------------------
         else:
             print("Detected Dense-based model. Using existing Dense conversion...\n")
 
-            # Insert #define IS_GRU 0 on top
+            # Insert #define IS_GRU 0 and IS_LSTM 0 on top
             network_h_content = network_h_content.replace(
                 "#define INPUT_SIZE      // Overwritten by python",
-                f"#define IS_GRU 0\n#define INPUT_SIZE {net.input_shape[1]}      // Overwritten by python"
+                f"#define IS_GRU 0\n#define IS_LSTM 0\n#define INPUT_SIZE {net.input_shape[1]}      // Overwritten by python"
             )
 
             # The rest is the original code which sets LAYER1_SIZE, LAYER2_SIZE, LAYER3_SIZE
@@ -260,7 +375,7 @@ def tf2C(path_to_models, net_name, batch_size):
         # Compile the C program
         def compile_c_code():
             result = subprocess.run(
-                ['gcc', os.path.join(target_directory, 'main.c'), '-o', os.path.join(target_directory, 'network_test'),
+                ['gcc', '-std=c99', '-O3', os.path.join(target_directory, 'main.c'), '-o', os.path.join(target_directory, 'network_test'),
                  '-lm'], capture_output=True, text=True)
             if result.returncode != 0:
                 print("Compilation failed!")

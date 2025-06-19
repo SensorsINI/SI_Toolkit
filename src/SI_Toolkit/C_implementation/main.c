@@ -22,6 +22,9 @@ int main(int argc, char *argv[]) {
 #if IS_GRU
     // +++ Call this once to set random initial states from network_parameters.c
     InitializeGRUStates();
+#elif IS_LSTM
+    // Initialize LSTM states
+    InitializeLSTMStates();
 #endif
 
     float output[LAYER3_SIZE];  // output array

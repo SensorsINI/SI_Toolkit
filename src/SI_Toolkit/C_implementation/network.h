@@ -2,20 +2,21 @@
 #ifndef NETWORK_H
 #define NETWORK_H
 
-// We will have our Python script insert either
-//     #define IS_GRU 0
-// or  #define IS_GRU 1
-// above these lines:
+// Python will insert the following:
+//     #define IS_GRU 0 or 1
+//     #define IS_LSTM 0 or 1
+// For Dense networks, both are set to 0.
 
 #define INPUT_SIZE      // Overwritten by python
 #define LAYER1_SIZE     // Overwritten by python (used in Dense mode)
 #define LAYER2_SIZE     // Overwritten by python (used in Dense mode)
 #define LAYER3_SIZE     // Overwritten by python (used in Dense mode)
 
-// For GRU mode, Python overwrites them as well:
-// #define GRU1_UNITS
-// #define GRU2_UNITS
-// (and sets LAYER3_SIZE to the final output dimension)
+#define GRU1_UNITS      // Overwritten by python
+#define GRU2_UNITS      // Overwritten by python
+
+#define LSTM1_UNITS     // Overwritten by python
+#define LSTM2_UNITS     // Overwritten by python
 
 //----------------------------------------------------
 // Declarations
@@ -24,6 +25,10 @@ void C_Network_Evaluate(float* inputs, float* outputs);
 
 #if IS_GRU
 void InitializeGRUStates(void);
+#endif
+
+#if IS_LSTM
+void InitializeLSTMStates(void);
 #endif
 
 // These exist for Dense networks
@@ -44,6 +49,26 @@ extern const float gru2_kernel[];
 extern const float gru2_recurrent_kernel[];
 extern const float gru2_bias[];
 
-// The final Dense layer after the second GRU reuses weights3, bias3.
+//----------------------------------------------------
+// LSTM network parameters
+//----------------------------------------------------
+extern const float lstm1_kernel[];
+extern const float lstm1_recurrent_kernel[];
+extern const float lstm1_bias[];
+
+extern const float lstm2_kernel[];
+extern const float lstm2_recurrent_kernel[];
+extern const float lstm2_bias[];
+
+//----------------------------------------------------
+// Initial RNN states
+//----------------------------------------------------
+extern const float initial_h1[];
+extern const float initial_h2[];
+
+#if IS_LSTM
+extern const float initial_c1[];
+extern const float initial_c2[];
+#endif
 
 #endif

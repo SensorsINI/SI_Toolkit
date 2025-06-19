@@ -1,3 +1,5 @@
+// network.c
+
 #include <stdio.h>
 #include <math.h>
 #include <stdlib.h>
@@ -21,6 +23,18 @@ void InitializeGRUStates(void) {
     for (int i = 0; i < GRU2_UNITS; i++) {
         h2[i] = initial_h2[i];
     }
+}
+#endif
+
+#if IS_LSTM
+static float h1[LSTM1_UNITS], h2[LSTM2_UNITS];
+static float c1[LSTM1_UNITS], c2[LSTM2_UNITS];
+
+void InitializeLSTMStates(void) {
+    memcpy(h1, initial_h1, sizeof(float) * LSTM1_UNITS);
+    memcpy(h2, initial_h2, sizeof(float) * LSTM2_UNITS);
+    memcpy(c1, initial_c1, sizeof(float) * LSTM1_UNITS);
+    memcpy(c2, initial_c2, sizeof(float) * LSTM2_UNITS);
 }
 #endif
 
@@ -127,6 +141,51 @@ static void GRU_Forward(
     }
 }
 
+#if IS_LSTM
+// ------------------- LSTM cell -----------------------
+static void LSTM_Forward(
+    const float* x,
+    float* h,
+    float* c,
+    int input_dim,
+    int units,
+    const float* kernel,
+    const float* recurrent,
+    const float* bias
+) {
+    float hp[units], cp[units];
+    memcpy(hp, h, sizeof(hp));
+    memcpy(cp, c, sizeof(cp));
+
+    for (int i = 0; i < units; i++) {
+        float xi = 0, xf = 0, xc = 0, xo = 0;
+        float hi = 0, hf = 0, hc = 0, ho = 0;
+
+        for (int d = 0; d < input_dim; d++) {
+            xi += x[d] * kernel[d * (4 * units) + 0 * units + i];
+            xf += x[d] * kernel[d * (4 * units) + 1 * units + i];
+            xc += x[d] * kernel[d * (4 * units) + 2 * units + i];
+            xo += x[d] * kernel[d * (4 * units) + 3 * units + i];
+        }
+
+        for (int u = 0; u < units; u++) {
+            hi += hp[u] * recurrent[u * (4 * units) + 0 * units + i];
+            hf += hp[u] * recurrent[u * (4 * units) + 1 * units + i];
+            hc += hp[u] * recurrent[u * (4 * units) + 2 * units + i];
+            ho += hp[u] * recurrent[u * (4 * units) + 3 * units + i];
+        }
+
+        float i_gate = sigmoidf(xi + hi + bias[0 * units + i]);
+        float f_gate = sigmoidf(xf + hf + bias[1 * units + i]);
+        float g      = tanhf(xc + hc + bias[2 * units + i]);
+        float o_gate = sigmoidf(xo + ho + bias[3 * units + i]);
+
+        c[i] = f_gate * cp[i] + i_gate * g;
+        h[i] = o_gate * tanhf(c[i]);
+    }
+}
+#endif
+
 //--------------------------------------
 // Single forward pass
 //--------------------------------------
@@ -143,6 +202,20 @@ void C_Network_Evaluate(float* inputs, float* outputs) {
                 gru2_kernel, gru2_recurrent_kernel, gru2_bias);
 
     matMul(weights3, h2, outputs, LAYER3_SIZE, GRU2_UNITS);
+    addBias(bias3, outputs, LAYER3_SIZE);
+
+#elif IS_LSTM
+    //--------------------------------------
+    // LSTM-based forward pass (two LSTM layers + final Dense)
+    //--------------------------------------
+
+    LSTM_Forward(inputs, h1, c1, INPUT_SIZE, LSTM1_UNITS,
+                 lstm1_kernel, lstm1_recurrent_kernel, lstm1_bias);
+
+    LSTM_Forward(h1, h2, c2, LSTM1_UNITS, LSTM2_UNITS,
+                 lstm2_kernel, lstm2_recurrent_kernel, lstm2_bias);
+
+    matMul(weights3, h2, outputs, LAYER3_SIZE, LSTM2_UNITS);
     addBias(bias3, outputs, LAYER3_SIZE);
 
 #else
