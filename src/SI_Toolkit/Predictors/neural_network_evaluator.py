@@ -1,6 +1,15 @@
+# neural_network_evaluator.py
+
 from types import SimpleNamespace
 
 import numpy as np
+
+# Imports for C backend
+import ctypes
+import subprocess
+import sys
+from pathlib import Path
+from contextlib import suppress
 
 from SI_Toolkit.Functions.General.Initialization import get_net, get_norm_info_for_net
 from SI_Toolkit.Functions.General.Normalising import get_normalization_function, get_denormalization_function
@@ -36,6 +45,11 @@ class neural_network_evaluator:
             from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
             self.net, _ = convert_model_with_hls4ml(self.net)
             self.net.compile()
+        elif self.nn_evaluator_mode == 'C':
+            if batch_size is not None and batch_size > 1:
+                raise ValueError("C implementation does not support batch size > 1")
+            self._computation_library = NumpyLibrary()
+            self._setup_c_backend()
         elif self.net_info.library == 'Pytorch':
             from SI_Toolkit.computation_library import PyTorchLibrary
             from SI_Toolkit.Functions.Pytorch.Network import get_device
@@ -90,6 +104,16 @@ class neural_network_evaluator:
 
         if self.nn_evaluator_mode == 'hls4ml':  # Covers just the case for hls4ml, when the model is hls model
             net_output = self.net.predict(net_input)
+        elif self.nn_evaluator_mode == 'C':  # Covers the case for C implementation
+
+            # --- copy into C buffer without allocations -----------------------
+            np.copyto(self._c_in_np, net_input.astype(np.float32, copy=False))
+
+            # --- C forward pass (releases GIL) --------------------------------
+            self._c_eval(self._c_in_arr, self._c_out_arr)
+
+            # --- NumPy view -------------------------------------
+            net_output = np.array(self._c_out_np)
         else:
             net_output = self.net(net_input)
 
@@ -115,5 +139,59 @@ class neural_network_evaluator:
         net_input = self.lib.stack(net_input, axis=-1)
 
         return net_input
+
+
+    def _setup_c_backend(self):
+        """
+        Locate C_implementation/, compile it into a shared object if necessary
+        and create ctypes function handles + reusable buffers.
+        """
+        c_dir = Path(self.path_to_models) / self.net_name / 'C_implementation'
+        if not c_dir.exists():
+            raise FileNotFoundError(f'C implementation missing: {c_dir}')
+
+        # --- choose platform‑specific filenames ----------------------------
+        ext = { 'linux': '.so', 'darwin': '.dylib', 'win32': '.dll' }[sys.platform]
+        lib_name = f'libnetwork{ext}'
+        lib_path = c_dir / lib_name
+
+        # --- build if not yet present --------------------------------------
+        if not lib_path.exists():
+            cmd = [
+                'gcc', '-O3', '-fPIC', '-shared',
+                'network.c',
+                '-lm', '-o', lib_name
+            ]
+            # Windows: assume mingw‑w64 in PATH; otherwise adapt accordingly.
+            subprocess.check_call(cmd, cwd=c_dir)
+
+        # --- load the library ----------------------------------------------
+        self._c_lib = ctypes.CDLL(str(lib_path))
+
+        # --- set up signatures --------------------------------------------
+        self._c_eval = self._c_lib.C_Network_Evaluate
+        self._c_eval.argtypes = (
+            ctypes.POINTER(ctypes.c_float),  # inputs
+            ctypes.POINTER(ctypes.c_float),  # outputs
+        )
+        self._c_eval.restype = None
+
+        # optional initialisers (GRU/LSTM) – call if they exist
+        with suppress(AttributeError):
+            self._c_lib.InitializeGRUStates()
+        with suppress(AttributeError):
+            self._c_lib.InitializeLSTMStates()
+
+        # --- reusable C buffers -------------------------------------------
+        self._n_in = len(self.net_info.inputs)
+        self._n_out = len(self.net_info.outputs)
+
+        self._c_in_arr = (ctypes.c_float * self._n_in)()
+        self._c_out_arr = (ctypes.c_float * self._n_out)()
+
+        # quick NumPy views (no copy) for each buffer
+        self._c_in_np = np.ctypeslib.as_array(self._c_in_arr)
+        self._c_out_np = np.ctypeslib.as_array(self._c_out_arr)
+        print(f'Using C backend for {self.net_info.net_full_name}')
 
 
