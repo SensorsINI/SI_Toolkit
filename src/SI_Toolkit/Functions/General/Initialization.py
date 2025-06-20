@@ -119,7 +119,8 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
 
         # region check for DeltaGRU, and alternatively load normal GRU printing a warning
         convert_to_delta = False
-        if os.path.isdir(os.path.join(net_info.path_to_models, parent_net_name)):
+        net_dir = os.path.abspath(os.path.join(net_info.path_to_models, parent_net_name))
+        if os.path.isdir(net_dir):
             print(f'Loading a pretrained network with the full name  {parent_net_name}  from  {net_info.path_to_models}')
         else:
             if parent_net_name[:5] == 'Delta':
@@ -130,7 +131,7 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
                 else:
                     raise FileNotFoundError('Neither specified DeltaGRU nor a normal GRU (Delta){} was found'.format(parent_net_name))
             else:
-                raise FileNotFoundError('{} not found'.format(parent_net_name))
+                raise FileNotFoundError(f"{parent_net_name} not found at {net_dir}. ")
         print('')
 
         # region Ensure that needed txt file are present in the indicated folder
