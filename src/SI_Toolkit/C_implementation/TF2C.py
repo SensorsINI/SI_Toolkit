@@ -376,7 +376,7 @@ def tf2C(path_to_models, net_name, batch_size):
         def compile_c_code():
             result = subprocess.run(
                 ['gcc', '-std=c99', '-O3', os.path.join(target_directory, 'main.c'), '-o', os.path.join(target_directory, 'network_test'),
-                 '-lm'], capture_output=True, text=True)
+                 '-lm', '-DBUILD_PARAMS_INLINE'], capture_output=True, text=True)
             if result.returncode != 0:
                 print("Compilation failed!")
                 print(result.stderr)
