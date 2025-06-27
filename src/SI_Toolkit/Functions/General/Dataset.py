@@ -45,21 +45,8 @@ class DatasetTemplate:
         else:
             self.outputs = outputs
 
-        if hasattr(args, 'translation_invariant_variables'):
-            self.tiv = args.translation_invariant_variables
-        else:
-            self.tiv = []
-        self.tiv_in_inputs_idx = [i for i, e in enumerate(self.inputs) if e in self.tiv]
-        self.tiv_in_outputs_idx = [i for i, e in enumerate(self.outputs) if e in self.tiv]
-        self.tiv_for_inputs_idx = [i for i, e in enumerate(self.tiv) if e in self.inputs]
-        self.tiv_for_outputs_idx = [i for i, e in enumerate(self.tiv) if e in self.outputs]
-
-        self.scaling_tiv_epoch_factor = 0.0
-        self.scaling_tiv = None
-
         self.data = []
         self.labels = []
-        self.time_axes = []
 
         dfs_split = []
         for df in dfs:
@@ -94,10 +81,8 @@ class DatasetTemplate:
             df = df[needed_columns]
             if hasattr(args, 'quantization') and args.quantization['ACTIVATED'] and args.quantization['QUANTIZATION_DATASET'] != 'float':
                 df = df.map(lambda x: set_value_precision(x, args.quantization['QUANTIZATION_DATASET']))
-            if 'time' in df.columns:
-                self.time_axes.append(df['time'])
-            self.data.append(df[self.inputs])
-            self.labels.append(df[self.outputs])
+            self.data.append(df[self.inputs].to_numpy(copy=False))
+            self.labels.append(df[self.outputs].to_numpy(copy=False))
 
         self.data_original = deepcopy(self.data)
         self.labels_original = deepcopy(self.labels)
@@ -118,10 +103,6 @@ class DatasetTemplate:
         self.indices_to_use = []
         self.number_of_samples_to_use = 0
         self.number_of_batches_to_use = 0
-
-        self.indices_subset = []
-        self.number_of_samples_in_subset = 0
-        self.number_of_batches_in_subset = 0
 
         self.shuffle = shuffle
 
@@ -181,44 +162,21 @@ class DatasetTemplate:
         if self.shuffle:
             np.random.shuffle(self.indices)
 
-    def get_series(self, idx, get_time_axis=False):
+    def get_series(self, idx):
         """
         Requires the self.data to be a list of pandas dataframes
         """
         # Find index of the dataset in self.data and index of the starting point in this dataset
         idx_data_set = next(i for i, v in enumerate(self.df_lengths_cs) if v > idx)
-        if idx_data_set == 0:
-            pass
-        else:
+        if idx_data_set != 0:
             idx -= self.df_lengths_cs[idx_data_set - 1]
 
-        features = self.data[idx_data_set].iloc[idx:idx + self.exp_len, :].to_numpy()
-        # Every point in features has its target value corresponding to the next time step:
-        targets = self.labels[idx_data_set].iloc[idx + self.shift_labels:idx + self.exp_len + self.shift_labels, :].to_numpy()
+        features = self.data[idx_data_set][idx:idx + self.exp_len, :]
+        targets = self.labels[idx_data_set][idx + self.shift_labels:idx + self.exp_len + self.shift_labels, :]
 
-        if hasattr(self.args, 'config_series_modification'):
-            features, targets = self.DA.series_modification(features, targets)
+        features, targets = self.data_augmentation(features, targets)
 
-        # Perturb the translation invariant inputs
-        if self.tiv:
-            self.scaling_tiv = self.scaling_tiv_epoch_factor * np.random.uniform(-2, 2, size=len(self.tiv))
-            features[:, self.tiv_in_inputs_idx] +=  self.scaling_tiv[self.tiv_for_inputs_idx]
-            targets[:, self.tiv_in_outputs_idx] += self.scaling_tiv[self.tiv_for_outputs_idx]
-
-
-        # If get_time_axis try to obtain a vector of time data for the chosen sample
-        if get_time_axis:
-            try:
-                # As targets and features are shifted by one timestep we have to make time_axis accordingly longer to cover both
-                time_axis = self.time_axes[idx_data_set].to_numpy()[idx:idx + self.exp_len + self.shift_labels]
-            except IndexError:
-                time_axis = []
-
-        # Return results
-        if get_time_axis:
-            return features, targets, time_axis
-        else:
-            return features, targets
+        return features, targets
 
     def __len__(self):
         raise NotImplementedError('You need to implement __len__ method for Dataset class.')
@@ -257,36 +215,16 @@ class DatasetTemplate:
         else:
             return int(np.ceil(number_of_samples / float(batch_size)))
 
+
+    def data_augmentation(self, features, targets):
+        """
+        Apply data augmentation to the features and targets.
+        """
+        return self.DA.series_modification(features, targets)
+
     # endregion
 
-    def create_subset(self, number_of_samples_in_subset=None, shuffle=True):
-        if number_of_samples_in_subset is None:
-            number_of_samples_in_subset = self.number_of_samples
-        if number_of_samples_in_subset > self.number_of_samples:
-            raise ValueError('Requested subset bigger than whole dataset')
-
-        self.number_of_samples_in_subset = number_of_samples_in_subset
-        if shuffle:
-            self.indices_subset = np.random.choice(self.number_of_samples, number_of_samples_in_subset, replace=False)
-        else:
-            self.indices_subset = self.indices[:number_of_samples_in_subset]
-
-        self.number_of_batches_in_subset = self.calculate_number_of_batches(number_of_samples_in_subset, self.batch_size, self.use_only_full_batches)
-
-    def use_subset(self):
-        self.indices_to_use = self.indices_subset
-        self.number_of_samples_to_use = self.number_of_samples_in_subset
-        self.number_of_batches_to_use = self.number_of_batches_in_subset
-
-    def use_full_set(self):
-        self.indices_to_use = self.indices
-        self.number_of_samples_to_use = self.number_of_samples
-        self.number_of_batches_to_use = self.number_of_batches
-
     def on_epoch_end(self):
-        if self.tiv:
-            self.scaling_tiv_epoch_factor += 1.0
-            print('scaling_tiv_epoch_factor is now {}'.format(self.scaling_tiv_epoch_factor))
         self.shuffle_dataset()
 
 

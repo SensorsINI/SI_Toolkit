@@ -55,7 +55,6 @@ def args():
     state_inputs = config['training_default']['state_inputs']
     setpoint_inputs = config['training_default']['setpoint_inputs']
     outputs = config['training_default']['outputs']
-    translation_invariant_variables = config['training_default']['translation_invariant_variables']
 
     EPOCHS = config['training_default']['EPOCHS']
     BATCH_SIZE = config['training_default']['BATCH_SIZE']
@@ -133,8 +132,6 @@ def args():
                         help='List of setpoint inputs to neural network')
     parser.add_argument('--outputs', default=outputs,
                         help='List of outputs from neural network')
-    parser.add_argument('--translation_invariant_variables', default=translation_invariant_variables,
-                        help='List of translation_invariant_variables to neural network - shift of the whole series does not change the result')
 
     # Training only:
     parser.add_argument('--wash_out_len', default=WASH_OUT_LEN, type=int, help='Number of timesteps for a wash-out sequence, min is 0')
@@ -203,6 +200,8 @@ def args():
         args.outputs = sorted(args.outputs)
 
     args.plot_weights_distribution = PLOT_WEIGHTS_DISTRIBUTION
+
+    args.loss_mode = config['training_default']['LOSS_MODE']
 
     args.regularization = REGULARIZATION
 

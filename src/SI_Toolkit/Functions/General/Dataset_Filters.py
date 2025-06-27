@@ -62,6 +62,8 @@ class DataFilter:
         for func in self.filter_funcs:
             df = func(df)
 
+        if df.empty:
+            return []
         dataframes = self.split_on_discontinuities(df)
         return dataframes
 

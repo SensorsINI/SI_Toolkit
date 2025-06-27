@@ -63,11 +63,6 @@ def load_net_info_from_txt_file(txt_path, parent_net_name=None, convert_to_delta
         if lines[i] == 'OUTPUTS:':
             net_info.outputs = lines[i + 1].rstrip("\n").split(sep=', ')
             continue
-        if lines[i] == 'TRANSLATION INVARIANT VARIABLES:':
-            net_info.translation_invariant_variables = lines[i + 1].rstrip("\n").split(sep=', ')
-            if len(net_info.translation_invariant_variables) == 1 and net_info.translation_invariant_variables[0] == '':
-                net_info.translation_invariant_variables = []
-            continue
         if lines[i] == 'TYPE:':
             net_info.net_type = lines[i + 1].rstrip("\n").split(sep=', ')
             continue
@@ -124,7 +119,8 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
 
         # region check for DeltaGRU, and alternatively load normal GRU printing a warning
         convert_to_delta = False
-        if os.path.isdir(os.path.join(net_info.path_to_models, parent_net_name)):
+        net_dir = os.path.abspath(os.path.join(net_info.path_to_models, parent_net_name))
+        if os.path.isdir(net_dir):
             print(f'Loading a pretrained network with the full name  {parent_net_name}  from  {net_info.path_to_models}')
         else:
             if parent_net_name[:5] == 'Delta':
@@ -135,7 +131,7 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
                 else:
                     raise FileNotFoundError('Neither specified DeltaGRU nor a normal GRU (Delta){} was found'.format(parent_net_name))
             else:
-                raise FileNotFoundError('{} not found'.format(parent_net_name))
+                raise FileNotFoundError(f"{parent_net_name} not found at {net_dir}. ")
         print('')
 
         # region Ensure that needed txt file are present in the indicated folder
@@ -177,8 +173,11 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
 
         # region Load weights from checkpoint file
         if net_info.library == 'TF':
+            import tensorflow as tf
             ckpt_filenames = [parent_net_name + '.ckpt',
-                              'ckpt.ckpt']  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
+                              'ckpt.ckpt',
+                              "ckpt.weights.h5",
+                              ]  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
         else:  # Pytorch
             ckpt_filenames = [parent_net_name + '.pt',
                               'ckpt.pt']  # First is old, second is new way of naming ckpt files. The old way resulted in two long paths for Windows
@@ -188,14 +187,21 @@ def load_pretrained_network(net_info, time_series_length, batch_size, stateful, 
         if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
             ckpt_found = True
         if not ckpt_found:
-            ckpt_path = os.path.join(net_info.path_to_models, parent_net_name, ckpt_filenames[1])
-            if os.path.isfile(ckpt_path + '.index') or os.path.isfile(ckpt_path):
+            ckpt_path1 = os.path.join(net_info.path_to_models, parent_net_name, ckpt_filenames[1])
+            if os.path.isfile(ckpt_path1 + '.index') or os.path.isfile(ckpt_path1):
                 ckpt_found = True
+                ckpt_path = ckpt_path1  # Update ckpt_path to the second one
         if not ckpt_found:
-            ckpt_not_found_str = 'The corresponding .ckpt file is missing' \
-                                 '(information about weights and biases). \n' \
-                                 'it was not found neither at the location {} nor at {}' \
-                .format(os.path.join(net_info.path_to_models, parent_net_name, ckpt_filenames[0], ckpt_path))
+            ckpt_path2 = os.path.join(net_info.path_to_models, parent_net_name, ckpt_filenames[2])
+            if os.path.isfile(ckpt_path2 + '.index') or os.path.isfile(ckpt_path2):
+                ckpt_found = True
+                ckpt_path = ckpt_path2  # Update ckpt_path to the third one
+
+        if not ckpt_found:
+            ckpt_not_found_str = f"The corresponding ckpt file is missing" \
+                                 "(information about weights and biases). \n" \
+                                 "it was not found neither at the location {} nor at {}, {}" \
+                .format(os.path.join(net_info.path_to_models, parent_net_name, ckpt_filenames[0]), ckpt_path1, ckpt_path2)
 
             if net_info.net_name == 'last':
                 print(ckpt_not_found_str)
@@ -402,8 +408,6 @@ def create_log_file(net_info, a, dfs):
     f.write(', '.join(map(str, net_info.inputs)))
     f.write('\n\nOUTPUTS:\n')
     f.write(', '.join(map(str, net_info.outputs)))
-    f.write('\n\nTRANSLATION INVARIANT VARIABLES:\n')
-    f.write(', '.join(map(str, net_info.translation_invariant_variables)))
     f.write('\n\nTYPE:\n')
     f.write(net_info.net_type)
     f.write('\n\nNORMALIZATION:\n')
