@@ -176,6 +176,9 @@ def minimum_filter(df, window, features, thresholds, **kwargs):
     return df_processed
 
 
+def time_reverse(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    """Return a copy of df with rows in reversed order."""
+    return df.iloc[::-1].reset_index(drop=True)
 
 
 def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut=1):
