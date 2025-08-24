@@ -489,12 +489,12 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
         except FileExistsError:
             pass
 
-        for feature in df_norm_info.columns:
+        for feature in tqdm(df_norm_info.columns, desc="Plotting histograms"):
             if feature in df_total.columns:
                 plt.clf()
                 plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
                 plt.title(feature)
-                plt.savefig(histograms_path + '/' + feature + '.png')
+                plt.savefig(os.path.join(histograms_path, f"{feature}.png"))
 
     # endregion
 
