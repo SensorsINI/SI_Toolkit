@@ -110,10 +110,8 @@ class predictor_autoregressive_GP(template_predictor):
         self.lib.assign(self.model_input_reg_initial_normed, self.lib.gather_last(initial_state_normed, self.indices_inputs_reg))
 
         outputs = self.AL.run(
-            horizon=self.horizon,
             external_input_right=Q,
             initial_input=self.model_input_reg_initial_normed,
-            predictor='gp'
         )
 
         outputs = self.denormalize_tf(outputs)

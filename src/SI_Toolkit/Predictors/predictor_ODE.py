@@ -90,7 +90,6 @@ class predictor_ODE(template_predictor):
     def _predict_core(self, initial_state, Q):
 
         self.output = self.AL.run(
-            horizon=self.horizon,
             initial_input=initial_state,
             external_input_left=Q,
         )

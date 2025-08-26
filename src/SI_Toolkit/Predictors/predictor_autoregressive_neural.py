@@ -278,7 +278,6 @@ class predictor_autoregressive_neural(template_predictor):
         self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
         outputs = self.AL.run(
-            horizon=self.horizon,
             initial_input=self.model_initial_input_normed,
             external_input_left=model_external_input_normed,
         )

@@ -95,11 +95,9 @@ class autoregression_loop:
 
     def run(
             self,
-            horizon,  # kept for backward compatibility; ignored below
             initial_input,
             external_input_left=None,
             external_input_right=None,
-            predictor='neural',
     ):
 
         # derive horizon at runtime from exogenous inputs
@@ -111,10 +109,6 @@ class autoregression_loop:
             outputs = self.lib.zeros([self.batch_size, int(horizon), self.model_outputs_len])
 
         model_input = initial_input
-
-        # The only difference it that for gp-predictor first interation of the for loop is done outside of the loop
-        # Otherwise tf.function throws error.
-        # This can be corrected back and only general loop used as soon as GPs are loaded in α not compiled state.
 
         ############### Oth ITERATION! ####################
         if external_input_left is not None:
