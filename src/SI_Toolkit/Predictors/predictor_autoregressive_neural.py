@@ -178,7 +178,7 @@ class predictor_autoregressive_neural(template_predictor):
         self.indices_outputs = self.lib.to_tensor(np.argsort(indices_outputs_rev+missing_indices_output), dtype=self.lib.int64)
         self.indices_outputs = self.indices_outputs[:len(self.indices_outputs)-indices_outputs_rev.count(np.inf)]
 
-        self.missing_outputs = self.lib.zeros((self.batch_size, self.horizon, len(missing_indices_output)))
+        self._num_missing_outputs = len(missing_indices_output)
 
         self.model_initial_input_normed = self.lib.zeros([self.batch_size, len(self.model_initial_input_indices)], dtype=self.lib.float32)
         self.last_initial_state = self.lib.zeros([self.batch_size, len(self.predictor_initial_input_features)], dtype=self.lib.float32)
@@ -187,8 +187,7 @@ class predictor_autoregressive_neural(template_predictor):
         self.model_initial_input_normed = self.lib.to_variable(self.model_initial_input_normed, self.lib.float32)
         self.last_initial_state = self.lib.to_variable(self.last_initial_state, self.lib.float32)
 
-        self.output = np.zeros([self.batch_size, self.horizon + 1, len(self.predictor_output_features)],
-                               dtype=np.float32)
+        self.output = None
 
         self.input_quantization = input_quantization
 
@@ -288,7 +287,10 @@ class predictor_autoregressive_neural(template_predictor):
         # Augment
         outputs_augmented = self.augmentation.augment(outputs)
 
-        outputs_augmented = self.lib.concat([outputs_augmented, self.missing_outputs], axis=-1)
+        T = self.lib.shape(outputs_augmented)[1]
+        if self._num_missing_outputs > 0:
+            missing_pad = self.lib.zeros([self.batch_size, T, self._num_missing_outputs])
+            outputs_augmented = self.lib.concat([outputs_augmented, missing_pad], axis=-1)
 
         outputs_augmented = self.lib.gather_last(outputs_augmented, self.indices_outputs)
 
