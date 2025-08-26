@@ -44,6 +44,35 @@ class autoregression_loop:
 
         return evaluate_model
 
+    # infer dynamic horizon from exogenous inputs (TF: tensor; PT/NP: int)
+    def _infer_steps(self, external_input_left, external_input_right):
+        def _time_len(x):
+            if x is None:
+                return None
+            return self.lib.shape(x)[1]
+
+        L = _time_len(external_input_left)
+        R = _time_len(external_input_right)
+
+        if self.lib.lib == 'TF':
+            import tensorflow as tf
+            if (external_input_left is None) and (external_input_right is None):
+                return tf.convert_to_tensor(1, dtype=tf.int32)
+            if (external_input_left is not None) and (external_input_right is not None):
+                with tf.control_dependencies([
+                    tf.debugging.assert_equal(L, R, message="left/right lengths must match")
+                ]):
+                    return tf.cast(L, tf.int32)
+            return tf.cast(L if L is not None else R, tf.int32)
+        else:
+            if (external_input_left is None) and (external_input_right is None):
+                return 1
+            if (external_input_left is not None) and (external_input_right is not None):
+                if L != R:
+                    raise ValueError("left/right lengths must match")
+                return int(L)
+            return int(L if L is not None else R)
+
     def horizon_step(self, model_input, current_external_input_left, current_external_input_right):
         if current_external_input_left is not None:
             model_input = self.lib.concat([current_external_input_left, model_input], axis=1)
@@ -66,17 +95,20 @@ class autoregression_loop:
 
     def run(
             self,
-            horizon,
+            horizon,  # kept for backward compatibility; ignored below
             initial_input,
             external_input_left=None,
             external_input_right=None,
             predictor='neural',
     ):
 
+        # derive horizon at runtime from exogenous inputs
+        horizon = self._infer_steps(external_input_left, external_input_right)
+
         if self.lib.lib == 'TF':
             outputs = self.TensorArray(self.lib.float32, size=horizon)
         else:
-            outputs = self.lib.zeros([self.batch_size, horizon, self.model_outputs_len])
+            outputs = self.lib.zeros([self.batch_size, int(horizon), self.model_outputs_len])
 
         model_input = initial_input
 
@@ -106,64 +138,48 @@ class autoregression_loop:
 
         ##################### END OF 0th ITERATION ######################
 
-        if horizon > 1:
+        # backend-aware loop with steps_rem; 0 ⇒ no-op
+        if self.lib.lib == 'TF':
+            steps_rem = self.lib.cast(horizon - 1, self.lib.int32)
+            start_idx = self.lib.cast(1, self.lib.int32)
+        else:
+            steps_rem = int(horizon) - 1
+            start_idx = 1
 
-            start_idx = 1  # 0th step already done
+        def loop_body(i, outputs, current_input):
+            step = i
+            if self.lib.lib == "Pytorch":
+                if getattr(step, "ndim", 0) == 0:
+                    step = step.unsqueeze(0)
+            elif self.lib.lib == "TF":
+                step = self.lib.reshape(step, (1,))
 
-            def loop_body(i, outputs, current_input):
-                # ––– ❶ normalise the step index so that gather/index_copy works everywhere –––––––––
-                #
-                # TF’s while_loop gives you a scalar tf.Tensor; PyTorch’s custom loop keeps a
-                # 0-D LongTensor; NumPy gives a Python int.  We upgrade everything to a **1-D
-                # tensor** when that is the requirement of the backend’s scatter/gather op.
-                #
-                step = i
-                if self.lib.lib == "Pytorch":  # needs 1-D LongTensor
-                    if getattr(step, "ndim", 0) == 0:
-                        step = step.unsqueeze(0)  # (1,)
-                elif self.lib.lib == "TF":  # tf.gather is happy
-                    step = self.lib.reshape(step, (1,))  # make rank-1 for symmetry
+            def _take_step(x):
+                if x is None:
+                    return None
+                slice_ = self.lib.gather(x, step, axis=1)
+                return self.lib.squeeze(slice_, 1)
 
-                # ––– ❷ slice the exogenous inputs for this horizon ––––––––––––––––––––––––––––––––
-                #
-                # self.lib.gather implements tf.gather / np.take / torch.index_select with
-                # consistent semantics; squeezing axis 1 restores shape (B, E).
-                #
-                def _take_step(x):
-                    if x is None:
-                        return None
-                    slice_ = self.lib.gather(x, step, axis=1)  # (B,1,E)
-                    return self.lib.squeeze(slice_, 1)  # → (B,E)
+            left = _take_step(external_input_left)
+            right = _take_step(external_input_right)
 
-                left = _take_step(external_input_left)
-                right = _take_step(external_input_right)
+            output, next_input = self.horizon_step(current_input, left, right)
 
-                # ––– ❸ user-supplied transition ––––––––––––––––––––––––––––––––––––––––––––––––––––
-                output, next_input = self.horizon_step(current_input, left, right)
+            if self.lib.lib == "TF":
+                outputs = outputs.write(i, output)
+            elif self.lib.lib == "Pytorch":
+                outputs = outputs.index_copy(1, step, output.unsqueeze(1))
+            else:  # NumPy
+                outputs[:, int(step), :] = output
 
-                # ––– ❹ write the new output back –––––––––––––––––––––––––––––––––––––––––––––––––––
-                #
-                # - TF:   TensorArray.write(i, …) returns a **new** TensorArray.
-                # - NP:   plain assignment is fastest.
-                # - PT:   index_copy keeps everything differentiable without .item().
-                #
-                if self.lib.lib == "TF":
-                    outputs = outputs.write(i, output)
-                elif self.lib.lib == "Pytorch":
-                    outputs = outputs.index_copy(1, step, output.unsqueeze(1))  # (B,1,E)
-                else:  # NumPy
-                    outputs[:, int(step), :] = output  # in-place
+            return (i + 1, outputs, next_input)
 
-                # ––– ❺ advance the loop counter ––––––––––––––––––––––––––––––––––––––––––––––––––––
-                return (i + 1, outputs, next_input)
-
-            # backend-aware loop
-            _, outputs, _ = self.lib.loop(
-                loop_body,
-                (outputs, model_input),
-                horizon - start_idx,
-                start_idx
-            )
+        _, outputs, _ = self.lib.loop(
+            loop_body,
+            (outputs, model_input),
+            steps_rem,
+            start_idx
+        )
 
 
         if self.lib.lib == 'TF':
