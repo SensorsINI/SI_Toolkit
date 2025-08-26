@@ -11,6 +11,7 @@ predictors_config = load_yaml(os.path.join('SI_Toolkit_ASF', 'config_predictors.
 
 NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM', 'Custom']
 
+
 class PredictorWrapper:
     """Wrapper class for creating a predictor.
     
@@ -20,7 +21,6 @@ class PredictorWrapper:
     """
     def __init__(self):
 
-        self.horizon = None
         self.batch_size = None
 
         self.num_states = None
@@ -36,13 +36,11 @@ class PredictorWrapper:
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
 
-    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, variable_parameters: SimpleNamespace=None, predictor_specification=None, compile_standalone=False, mode=None, hls=False):
+    def configure(self, batch_size: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, variable_parameters: SimpleNamespace=None, predictor_specification=None, compile_standalone=False, mode=None, hls=False):
         """Assign optimization-specific parameters to finalize instance creation.
 
         :param batch_size: Batch size equals the number of parallel rollouts of the optimizer.
         :type batch_size: int
-        :param horizon: Number of MPC horizon steps
-        :type horizon: int
         :param dt: Used to compute state trajectory rollouts
         :type dt: float
         :param computation_library: Whether to use NumPy / TensorFlow / PyTorch, defaults to None
@@ -60,7 +58,6 @@ class PredictorWrapper:
         compile_standalone = {'disable_individual_compilation': not compile_standalone}
 
         self.batch_size = batch_size
-        self.horizon = horizon
 
         if self.predictor_type == 'neural':
             from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
@@ -103,13 +100,13 @@ class PredictorWrapper:
             computation_library = self.predictor.lib
         if not isinstance(computation_library, self.predictor.supported_computation_libraries):
             raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__class__}")
-    def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None, mode=None, hls=False):
+    def configure_with_compilation(self, batch_size, dt, predictor_specification=None, mode=None, hls=False):
         """
         To get max performance
         use this for standalone predictors (like in Brunton test)
         but not predictors within controllers
         """
-        self.configure(batch_size, horizon, dt, predictor_specification=predictor_specification, compile_standalone=True, mode=mode, hls=hls)
+        self.configure(batch_size, dt, predictor_specification=predictor_specification, compile_standalone=True, mode=mode, hls=hls)
 
     def update_predictor_config_from_specification(self, predictor_specification: str = None):
 
@@ -195,7 +192,7 @@ class PredictorWrapper:
 
     def copy(self):
         """
-        Makes a copy of a predictor, specification get preserved, configuration (batch_size, horizon) not
+        Makes a copy of a predictor, specification get preserved, configuration (batch_size) not
         The predictor needs to be reconfigured, however the specification needs not to be provided. 
         """
         predictor_copy = PredictorWrapper()   
