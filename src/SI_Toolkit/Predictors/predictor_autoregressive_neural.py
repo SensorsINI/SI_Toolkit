@@ -41,7 +41,7 @@ class predictor_autoregressive_neural(template_predictor):
         input_quantization='float',
         **kwargs
     ):
-        super().__init__(horizon=horizon, batch_size=batch_size)
+        super().__init__(batch_size=batch_size)
         self.dt = dt
 
         a = SimpleNamespace()
@@ -159,7 +159,6 @@ class predictor_autoregressive_neural(template_predictor):
                     outputs=self.net_info.outputs,
                     normalization_info=self.normalization_info,
                     dt=self.dt,
-                    batch_size=self.batch_size,
                     lib=self.lib,
                 )
             outputs_names = [(x[2:] if x[:2] == 'D_' else x) for x in self.net_info.outputs]
@@ -195,7 +194,6 @@ class predictor_autoregressive_neural(template_predictor):
             model=self.net,
             model_inputs_len=len(self.net_info.inputs),
             model_outputs_len=len(self.net_info.outputs),
-            batch_size=self.batch_size,
             lib=self.lib,
             differential_model_autoregression_helper_instance=self.dmah,
         )
@@ -258,9 +256,6 @@ class predictor_autoregressive_neural(template_predictor):
             Q = self.normalize_control_inputs(Q)
         else:
             initial_state_normed = initial_state
-
-        if self.dmah:
-            self.dmah.set_starting_point(initial_state_normed)
 
         self.lib.assign(self.model_initial_input_normed, self.lib.gather_last(initial_state_normed, self.model_initial_input_indices))
 

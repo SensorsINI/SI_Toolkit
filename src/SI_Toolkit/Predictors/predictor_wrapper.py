@@ -64,15 +64,15 @@ class PredictorWrapper:
 
         if self.predictor_type == 'neural':
             from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
-            self.predictor = predictor_autoregressive_neural(horizon=self.horizon, batch_size=self.batch_size, variable_parameters=variable_parameters, dt=dt, mode=mode, hls=hls, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_autoregressive_neural(batch_size=self.batch_size, variable_parameters=variable_parameters, dt=dt, mode=mode, hls=hls, **self.predictor_config, **compile_standalone)
 
         elif self.predictor_type == 'GP':
             from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
-            self.predictor = predictor_autoregressive_GP(horizon=self.horizon, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_autoregressive_GP(batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         elif self.predictor_type == 'ODE_v0':
             from SI_Toolkit.Predictors.predictor_ODE_v0 import predictor_ODE_v0
-            self.predictor = predictor_ODE_v0(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
+            self.predictor = predictor_ODE_v0(dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
 
         elif self.predictor_type == 'ODE':
             from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
@@ -90,7 +90,7 @@ class PredictorWrapper:
                 else:
                     raise ValueError(
                         f"Invalid computation library. Got {computation_library}. Choose 'Numpy', 'TF', or 'Pytorch'.")
-            self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, computation_library=computation_library, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_ODE(dt=dt, computation_library=computation_library, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         else:
             raise NotImplementedError('Type of the predictor not recognised.')

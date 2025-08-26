@@ -17,7 +17,6 @@ class autoregression_loop:
             model,
             model_inputs_len,
             model_outputs_len,
-            batch_size,
             lib,
             differential_model_autoregression_helper_instance=None,
     ):
@@ -27,7 +26,6 @@ class autoregression_loop:
 
         self.model_inputs_len = model_inputs_len
         self.model_outputs_len = model_outputs_len
-        self.batch_size = batch_size
 
         self.evaluate_model = self.evaluate_model_factory()
 
@@ -73,7 +71,7 @@ class autoregression_loop:
                 return int(L)
             return int(L if L is not None else R)
 
-    def horizon_step(self, model_input, current_external_input_left, current_external_input_right):
+    def horizon_step(self, model_input, current_external_input_left, current_external_input_right, dm_state=None):
         if current_external_input_left is not None:
             model_input = self.lib.concat([current_external_input_left, model_input], axis=1)
         if current_external_input_right is not None:
@@ -85,13 +83,15 @@ class autoregression_loop:
 
         model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
 
-        if self.dmah:
-            output, next_model_input = self.dmah.get_output_and_next_model_input(model_output)
+        if self.dmah is not None:
+            if dm_state is None:
+                raise ValueError("dm_state must be provided when using a differential model helper.")
+            output, next_model_input, next_dm_state = self.dmah.apply(dm_state, model_output)
+            return output, next_model_input, next_dm_state
         else:
             output = model_output
             next_model_input = model_output
-
-        return output, next_model_input
+            return output, next_model_input, None
 
     def run(
             self,
@@ -106,9 +106,14 @@ class autoregression_loop:
         if self.lib.lib == 'TF':
             outputs = self.TensorArray(self.lib.float32, size=horizon)
         else:
-            outputs = self.lib.zeros([self.batch_size, int(horizon), self.model_outputs_len])
+            outputs = self.lib.zeros([self.lib.shape(initial_input)[0], int(horizon), self.model_outputs_len])
 
         model_input = initial_input
+
+        if self.dmah is not None:
+            dm_state = self.lib.gather_last(model_input, self.dmah.indices_output_to_input)
+        else:
+            dm_state = None
 
         ############### Oth ITERATION! ####################
         if external_input_left is not None:
@@ -122,8 +127,11 @@ class autoregression_loop:
 
         model_output = self.lib.reshape(model_output, [-1, self.model_outputs_len])
 
-        output = model_output
-        model_input = model_output
+        if self.dmah is not None:
+            output, model_input, dm_state = self.dmah.apply(dm_state, model_output)
+        else:
+            output = model_output
+            model_input = model_output
 
         if self.lib.lib == 'TF':
             outputs = outputs.write(0, output)
@@ -140,7 +148,7 @@ class autoregression_loop:
             steps_rem = int(horizon) - 1
             start_idx = 1
 
-        def loop_body(i, outputs, current_input):
+        def loop_body(i, outputs, current_input, dm_state):
             step = i
             if self.lib.lib == "Pytorch":
                 if getattr(step, "ndim", 0) == 0:
@@ -157,7 +165,7 @@ class autoregression_loop:
             left = _take_step(external_input_left)
             right = _take_step(external_input_right)
 
-            output, next_input = self.horizon_step(current_input, left, right)
+            output, nxt_in, nxt_dm = self.horizon_step(current_input, left, right, dm_state)
 
             if self.lib.lib == "TF":
                 outputs = outputs.write(i, output)
@@ -166,11 +174,11 @@ class autoregression_loop:
             else:  # NumPy
                 outputs[:, int(step), :] = output
 
-            return (i + 1, outputs, next_input)
+            return (i + 1, outputs, nxt_in, nxt_dm)
 
-        _, outputs, _ = self.lib.loop(
+        _, outputs, _, _ = self.lib.loop(
             loop_body,
-            (outputs, model_input),
+            (outputs, model_input, dm_state),
             steps_rem,
             start_idx
         )
@@ -189,7 +197,6 @@ class differential_model_autoregression_helper:
                 outputs,
                 normalization_info,
                 dt,
-                batch_size,
                 lib,
                 ):
         self.lib = lib
@@ -212,18 +219,11 @@ class differential_model_autoregression_helper:
         self.indices_output_to_input = self.lib.to_tensor(
             [output_indices.get(key) for key in inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int64)
 
-        starting_point = self.lib.zeros([batch_size, len(outputs_names_after_integration)], dtype=self.lib.float32)
-        self.starting_point = self.lib.to_variable(starting_point, self.lib.float32)
-
-    def set_starting_point(self, starting_point):
-        self.lib.assign(self.starting_point, self.lib.gather_last(starting_point, self.indices_state_to_output))
-
-    def get_output_and_next_model_input(self, differential_model_output):
-        self.lib.assign(self.starting_point,
-                        self.starting_point + self.rescale_output_diff_model(differential_model_output))
-        output = self.starting_point
+    def apply(self, dm_state, differential_model_output):
+        next_dm_state = dm_state + self.rescale_output_diff_model(differential_model_output)
+        output = next_dm_state
         next_model_input = self.lib.gather_last(output, self.indices_output_to_input)
-        return output, next_model_input
+        return output, next_model_input, next_dm_state
 
 
 def check_dimensions(s, Q, lib):

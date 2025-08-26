@@ -6,8 +6,7 @@ from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import CONTROL
 class template_predictor:
     supported_computation_libraries = (NumpyLibrary, TensorFlowLibrary, PyTorchLibrary)
     
-    def __init__(self, horizon: float, batch_size: int) -> None:
-        self.horizon = horizon
+    def __init__(self, batch_size: int) -> None:
         self.batch_size = batch_size
 
         # Default, can be overwritten

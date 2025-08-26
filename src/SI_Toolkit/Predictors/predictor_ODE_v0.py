@@ -20,17 +20,18 @@ class predictor_ODE_v0(template_predictor):
     
     def __init__(
         self,
-        horizon: int,
         dt: float,
         intermediate_steps: int,
         batch_size=1,
         variable_parameters=None,
         **kwargs
     ):
-        super().__init__(horizon=horizon, batch_size=batch_size)
+        super().__init__(batch_size=batch_size)
 
         self.initial_state = None
         self.output = None
+
+        self.horizon = None
 
         self.next_step_predictor = next_state_predictor_ODE_v0(
             dt=dt,
@@ -64,6 +65,8 @@ class predictor_ODE_v0(template_predictor):
             pass
         else:
             raise ValueError('Batch size of control input contradict batch size of initial state')
+
+        self.horizon = Q.shape[1]
 
         self.output = np.zeros((self.batch_size, self.horizon + 1, len(STATE_VARIABLES.tolist())), dtype=np.float32)
         self.output[:, 0, :] = self.initial_state
