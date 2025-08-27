@@ -298,6 +298,18 @@ def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwa
     return df_processed
 
 
+def flip_column_signs(df, variables_to_flip, **kwargs):
+    df_processed = df.copy()
+
+    for var in variables_to_flip:
+        if var in df_processed.columns:
+            df_processed[var] = -df_processed[var]
+        else:
+            raise ValueError(f"Column '{var}' does not exist in dataframe.")
+
+    return df_processed
+
+
 def subtract_columns(df, variables_to_subtract, **kwargs):
     """
     Appends new columns to the dataframe by subtracting two existing columns.
