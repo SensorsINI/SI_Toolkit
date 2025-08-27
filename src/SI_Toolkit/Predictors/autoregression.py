@@ -98,6 +98,7 @@ class autoregression_loop:
             initial_input,
             external_input_left=None,
             external_input_right=None,
+            dm_state_init=None,   # ← NEW: optional full-length seed for differential models
     ):
 
         # derive horizon at runtime from exogenous inputs
@@ -111,7 +112,15 @@ class autoregression_loop:
         model_input = initial_input
 
         if self.dmah is not None:
-            dm_state = self.lib.gather_last(model_input, self.dmah.indices_output_to_input)
+            if dm_state_init is not None:
+                # Use the caller-provided full state (ordered exactly as outputs after integration).
+                # This avoids dimensionality/normalization mismatches when some state features
+                # are not present among the network inputs.
+                dm_state = dm_state_init
+            else:
+                # Backward-compatible fallback (subset inferred from inputs).
+                # This may be shorter than outputs if some state features are not inputs.
+                dm_state = self.lib.gather_last(model_input, self.dmah.indices_output_to_input)
         else:
             dm_state = None
 

@@ -30,7 +30,6 @@ class predictor_autoregressive_neural(template_predictor):
         self,
         model_name=None,
         path_to_model=None,
-        horizon=None,
         dt=None,
         batch_size=None,
         variable_parameters=None,
@@ -42,7 +41,7 @@ class predictor_autoregressive_neural(template_predictor):
         **kwargs
     ):
         super().__init__(batch_size=batch_size)
-        self.dt = dt
+        self.dt = abs(dt)
 
         a = SimpleNamespace()
         
@@ -271,9 +270,22 @@ class predictor_autoregressive_neural(template_predictor):
         # load internal RNN state if applies
         self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
+        # -------- seed the differential-model state with the full state --------
+        # dmah integrates in the SAME space as the model operates:
+        # - if normalized training was used, increments are computed in normalized space,
+        #   hence dm_state must also be normalized;
+        # - otherwise dm_state is raw.
+        dm_state0 = None
+        if self.differential_network and self.dmah is not None:
+            s_for_dm = initial_state_normed if self.net_info.normalize else initial_state
+            # Map full state -> output order (e.g., [theta_cos, theta_sin, x, y, ...])
+            dm_state0 = self.lib.gather_last(s_for_dm, self.dmah.indices_state_to_output)
+        # ---------------------------------------------------------------------------
+
         outputs = self.AL.run(
             initial_input=self.model_initial_input_normed,
             external_input_left=model_external_input_normed,
+            dm_state_init=dm_state0,   # ← NEW
         )
 
         if self.net_info.normalize:
@@ -293,6 +305,7 @@ class predictor_autoregressive_neural(template_predictor):
             outputs_augmented = self.lib.concat((initial_state[:, self.lib.newaxis, :], outputs_augmented), axis=1)
 
         return outputs_augmented
+
 
     def update_internal_state(self, Q0=None, s=None):
 
