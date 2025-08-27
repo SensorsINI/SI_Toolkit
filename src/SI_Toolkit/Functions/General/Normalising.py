@@ -29,6 +29,7 @@ def get_normalization_function(
 
     for variable in set(variables_names)-set(normalization_info.columns):
         normalization_info[variable] = [np.nan, np.nan, np.nan, np.nan]
+        raise Warning(f'Variable {variable} not found in normalization info!')
 
     normalizing_array = lib.to_tensor(
         normalization_info[variables_names].values, dtype=lib.float32)
