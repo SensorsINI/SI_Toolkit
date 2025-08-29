@@ -122,7 +122,7 @@ class autoregression_loop:
                 # This may be shorter than outputs if some state features are not inputs.
                 dm_state = self.lib.gather_last(model_input, self.dmah.indices_output_to_input)
         else:
-            dm_state = None
+            dm_state = self.lib.zeros([self.lib.shape(model_input)[0], 0], dtype=self.lib.float32)
 
         ############### Oth ITERATION! ####################
         if external_input_left is not None:
@@ -139,6 +139,7 @@ class autoregression_loop:
         if self.dmah is not None:
             output, model_input, dm_state = self.dmah.apply(dm_state, model_output)
         else:
+            dm_state = self.lib.zeros([self.lib.shape(model_input)[0], 0])
             output = model_output
             model_input = model_output
 
@@ -175,6 +176,9 @@ class autoregression_loop:
             right = _take_step(external_input_right)
 
             output, nxt_in, nxt_dm = self.horizon_step(current_input, left, right, dm_state)
+
+            if self.dmah is None:
+                nxt_dm = dm_state  # carry the dummy tensor forward
 
             if self.lib.lib == "TF":
                 outputs = outputs.write(i, output)
