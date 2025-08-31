@@ -6,6 +6,7 @@ You will get the plots but no control over the number of samples to keep or the 
 
 import sys
 
+from PyQt6.QtGui import QIcon
 from PyQt6.QtCore import Qt, QSize
 from PyQt6.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSlider, QComboBox, QPushButton, QFrame
 
@@ -15,16 +16,27 @@ from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as Navigatio
 
 from SI_Toolkit.LivePlotter.live_plotter import LivePlotter
 
+from pathlib import Path
+
 
 class LivePlotterGUI(QWidget):
     def __init__(self, address=None, keep_samples=None):
         super().__init__()
+
+        script_dir = Path(__file__).resolve().parent
+        icon_file = "live_plotter_icon.png"  # ← or whatever name you chose
+        self._icon_path = str(script_dir / icon_file)
 
         self.headers = []
         self.initUI(address, keep_samples)
 
     def initUI(self, address=None, keep_samples=None):
         self.setWindowTitle('Live Plotter Control Panel')
+
+        if self._icon_path:  # only do it if the caller supplied a file
+            icon = QIcon(self._icon_path)  # QIcon handles .png, .ico, .svg, …
+            self.setWindowIcon(icon)  # window icon (title-bar & task-switcher)
+            QApplication.instance().setWindowIcon(icon)  # dock / task-bar icon
 
         layout = QVBoxLayout()
 
