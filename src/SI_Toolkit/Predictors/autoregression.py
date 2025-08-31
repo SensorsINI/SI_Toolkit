@@ -2,9 +2,8 @@ from SI_Toolkit.computation_library import TensorFlowLibrary
 
 from SI_Toolkit.Functions.General.Normalising import get_scaling_function_for_output_of_differential_network
 
-from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import (CONTROL_INPUTS,
-                                                                          STATE_INDICES,
-                                                                          STATE_VARIABLES)
+from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import (CONTROL_INPUTS_FOR_PREDICTOR,
+                                                                          STATE_VARIABLES_FOR_PREDICTOR)
 
 import numpy as np
 
@@ -197,11 +196,12 @@ class differential_model_autoregression_helper:
 
         outputs_names_after_integration = np.array([x[2:] for x in outputs])
 
+        STATE_INDICES = {x: np.where(STATE_VARIABLES_FOR_PREDICTOR == x)[0][0] for x in STATE_VARIABLES_FOR_PREDICTOR}
         self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names_after_integration],
                                                           dtype=self.lib.int64)
         output_indices = {x: np.where(outputs_names_after_integration == x)[0][0] for x in outputs_names_after_integration}
         self.indices_output_to_input = self.lib.to_tensor(
-            [output_indices.get(key) for key in inputs[len(CONTROL_INPUTS):]], dtype=self.lib.int64)
+            [output_indices.get(key) for key in inputs[len(CONTROL_INPUTS_FOR_PREDICTOR):]], dtype=self.lib.int64)
 
         starting_point = self.lib.zeros([batch_size, len(outputs_names_after_integration)], dtype=self.lib.float32)
         self.starting_point = self.lib.to_variable(starting_point, self.lib.float32)

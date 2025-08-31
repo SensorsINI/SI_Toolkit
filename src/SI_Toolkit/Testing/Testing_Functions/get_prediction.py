@@ -2,7 +2,6 @@ from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 import numpy as np
 from tqdm import trange
 
-from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import STATE_VARIABLES, CONTROL_INPUTS
 
 def get_prediction(
         dataset,
@@ -87,7 +86,8 @@ def get_prediction(
                 output = predictor.predict(predictor_initial_input_formatted, predictor_external_input_current_timestep)
             else:
                 output = np.concatenate((output, predictor.predict(predictor_initial_input_formatted, predictor_external_input_current_timestep)), axis=0)
-            predictor.update(predictor_external_input_current_timestep[:, np.newaxis, 0, :], predictor_initial_input_formatted)
+
+            predictor.update(predictor_external_input_current_timestep[:, np.newaxis, 0, :], predictor_initial_input_formatted)   # FIXME: Does it still deal with RNN update correctly? Only if predict contains an reset to memory states, which I don't know now
 
     if routine == 'autoregressive':
         output = output[:, 1:, :]  # Remove initial state
