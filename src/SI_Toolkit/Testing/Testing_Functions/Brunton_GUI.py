@@ -547,7 +547,7 @@ class MainWindow(QMainWindow):
                                            self.horizon + 1) * labels_shift: labels_shift]
                 predictions = predictions[self.current_point_at_timeaxis, :self.horizon]
 
-        return predictions - ground_truth
+        return predictions - ground_truth[:, None]
 
     @staticmethod
     def ground_truth_for_error_calculation_show_all(ground_truth, horizon, labels_shift):

@@ -31,13 +31,13 @@ def get_prediction(
     # mode = 'batch'
 
     if mode == 'batch':
-        predictor.configure_with_compilation(batch_size=test_len, horizon=predictor_horizon, dt=dt, mode=routine, hls=hls)
+        predictor.configure_with_compilation(batch_size=test_len, dt=dt, mode=routine, hls=hls)
     else:
-        predictor.configure_with_compilation(batch_size=1, horizon=predictor_horizon, dt=dt, mode=routine, hls=hls)
+        predictor.configure_with_compilation(batch_size=1, dt=dt, mode=routine, hls=hls)
 
-    if hasattr(predictor.predictor, 'net_info') and hasattr(predictor.predictor.net_info, 'dt') and predictor.predictor.net_info.dt == 0.0:
-        dt_predictions = 0.0
-    elif hasattr(predictor.predictor, 'dt'):
+    if hasattr(predictor.predictor, 'net_info') and hasattr(predictor.predictor.net_info, 'dt') and predictor.predictor.net_info.dt != 0.0:
+        dt_predictions = predictor.predictor.net_info.dt
+    elif hasattr(predictor.predictor, 'dt') and predictor.predictor.dt != 0.0:
         dt_predictions = predictor.predictor.dt
     else:
         dt_predictions = dt

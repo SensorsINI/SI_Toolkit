@@ -176,6 +176,9 @@ def minimum_filter(df, window, features, thresholds, **kwargs):
     return df_processed
 
 
+def time_reverse(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    """Return a copy of df with rows in reversed order."""
+    return df.iloc[::-1].reset_index(drop=True)
 
 
 def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut=1):
@@ -291,6 +294,18 @@ def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwa
 
     max_shift = max(abs(shift) for shift in indices_by_which_to_shift)
     df_processed = df.iloc[max_shift:-max_shift]
+
+    return df_processed
+
+
+def flip_column_signs(df, variables_to_flip, **kwargs):
+    df_processed = df.copy()
+
+    for var in variables_to_flip:
+        if var in df_processed.columns:
+            df_processed[var] = -df_processed[var]
+        else:
+            raise ValueError(f"Column '{var}' does not exist in dataframe.")
 
     return df_processed
 

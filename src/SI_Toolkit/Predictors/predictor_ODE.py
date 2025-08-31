@@ -28,7 +28,6 @@ class predictor_ODE(template_predictor):
     supported_computation_libraries = (TensorFlowLibrary, PyTorchLibrary, NumpyLibrary)  # Overwrites default from parent
     
     def __init__(self,
-                 horizon: int,
                  dt: float,
                  computation_library=None,
                  intermediate_steps=10,
@@ -36,7 +35,7 @@ class predictor_ODE(template_predictor):
                  batch_size=1,
                  variable_parameters=None,
                  **kwargs):
-        super().__init__(horizon=horizon, batch_size=batch_size)
+        super().__init__(batch_size=batch_size)
         self.lib = computation_library
         print(f"Using {self.lib.lib} for ODE predictor")
         self.disable_individual_compilation = disable_individual_compilation
@@ -64,7 +63,6 @@ class predictor_ODE(template_predictor):
             model=self.model,
             model_inputs_len=self.num_control_inputs + self.num_states,
             model_outputs_len=self.num_states,
-            batch_size=self.batch_size,
             lib=self.lib,
             differential_model_autoregression_helper_instance=None,
         )
@@ -92,7 +90,6 @@ class predictor_ODE(template_predictor):
     def _predict_core(self, initial_state, Q):
 
         self.output = self.AL.run(
-            horizon=self.horizon,
             initial_input=initial_state,
             external_input_left=Q,
         )
@@ -113,7 +110,7 @@ if __name__ == '__main__':
 
     initialisation = '''
 from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
-predictor = predictor_ODE(horizon, 0.02, intermediate_steps=10)
+predictor = predictor_ODE(0.02, intermediate_steps=10)
 '''
 
     timer_predictor(initialisation)
