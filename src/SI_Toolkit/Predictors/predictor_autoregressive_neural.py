@@ -285,7 +285,7 @@ class predictor_autoregressive_neural(template_predictor):
         outputs = self.AL.run(
             initial_input=self.model_initial_input_normed,
             external_input_left=model_external_input_normed,
-            dm_state_init=dm_state0,   # ← NEW
+            dm_state_init=dm_state0,
         )
 
         if self.net_info.normalize:
@@ -331,6 +331,7 @@ class predictor_autoregressive_neural(template_predictor):
         else:
 
             net_input_reg = self.lib.gather_last(s, self.model_initial_input_indices)  # [batch_size, features]
+            Q0 = self.lib.gather_last(Q0, self.model_external_input_indices)  # TODO: NOT TESTED
 
             if self.net_info.normalize:
                 net_input_reg = self.normalize_inputs(net_input_reg)
@@ -349,7 +350,9 @@ class predictor_autoregressive_neural(template_predictor):
 
     def reset(self):
         self.last_optimal_control_input = None
-        self.last_optimal_control_input = None
+        if self.last_initial_state is not None:
+            self.lib.assign(self.last_initial_state,
+                            self.lib.zeros_like(self.last_initial_state))
 
 
 if __name__ == '__main__':
