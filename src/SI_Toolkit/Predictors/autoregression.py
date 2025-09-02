@@ -229,8 +229,11 @@ class differential_model_autoregression_helper:
         self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names_after_integration],
                                                           dtype=self.lib.int64)
         output_indices = {x: np.where(outputs_names_after_integration == x)[0][0] for x in outputs_names_after_integration}
+
+        num_controls_present = sum(1 for name in inputs if name in CONTROL_INPUTS_FOR_PREDICTOR)
+
         self.indices_output_to_input = self.lib.to_tensor(
-            [output_indices.get(key) for key in inputs[len(CONTROL_INPUTS_FOR_PREDICTOR):]], dtype=self.lib.int64)
+            [output_indices.get(key) for key in inputs[num_controls_present:]], dtype=self.lib.int64)
 
     def apply(self, dm_state, differential_model_output):
         next_dm_state = dm_state + self.rescale_output_diff_model(differential_model_output)
