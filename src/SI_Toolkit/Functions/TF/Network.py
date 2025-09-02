@@ -135,7 +135,19 @@ def compose_net_from_net_name(net_info,
     if not h_size:
         raise ValueError('You have to provide the size of at least one hidden layer in rnn name')
 
-    if 'GRU' in names:
+    # detect GRU_maskX where X is PERCENT OF MASKED UNITS ----
+    mask_tokens = [t for t in names if t.startswith('GRU_mask')]
+    if mask_tokens:
+        tok = mask_tokens[0]
+        try:
+            pct_masked = int(tok.replace('GRU_mask', ''))
+        except ValueError:
+            raise ValueError(f"Cannot parse percentage in token '{tok}'. Use e.g. GRU_mask30.")
+        if not (0 < pct_masked < 100):
+            raise ValueError("GRU_maskX requires 0 < X < 100 (percentage of masked units).")
+        net_type = 'GRU_mask'
+        net_info.mask_percent = pct_masked  # store for layer construction
+    elif 'GRU' in names:
         net_type = 'GRU'
     elif 'LSTM' in names:
         net_type = 'LSTM'
@@ -199,9 +211,11 @@ def compose_net_from_net_name_standard(net_info,
 
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
         if 'qkeras' not in sys.modules:
-            raise ModuleNotFoundError('QKeras not found. Quantization-aware training will not be available. Change config_training or install the module')
+            raise ModuleNotFoundError('QKeras not found. Quantization-aware training will not be available.')
         if net_type == 'GRU':
             layer_type = qkeras.QGRU
+        elif net_type == 'GRU_mask':
+            raise NotImplementedError('Quantized CustomGRU (GRU_mask) not implemented.')
         elif net_type == 'LSTM':
             layer_type = qkeras.QLSTM
         elif net_type == 'Dense':
@@ -211,12 +225,17 @@ def compose_net_from_net_name_standard(net_info,
     else:
         if net_type == 'GRU':
             layer_type = tf.keras.layers.GRU
+        elif net_type == 'GRU_mask':
+            from SI_Toolkit.Functions.TF.TFnetworks import CustomGRU
+            layer_type = CustomGRU
         elif net_type == 'LSTM':
             layer_type = tf.keras.layers.LSTM
         elif net_type == 'Dense':
             layer_type = tf.keras.layers.Dense
         else:
             layer_type = tf.keras.layers.SimpleRNN
+
+    custom_mask = (net_type == 'GRU_mask')
 
     quantization_last_layer_args = {}
     quantization_args = {}
@@ -229,6 +248,15 @@ def compose_net_from_net_name_standard(net_info,
         quantization_args = quantization_last_layer_args.copy()
         if net_type in ['GRU', 'LSTM', 'RNN-Basic']:
             quantization_args['recurrent_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['RECURRENT'], alpha=1)
+
+    # pick activation for recurrent layers
+    if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED'] and not custom_mask:
+        activation_for_recurrent = qkeras.quantizers.quantized_tanh(
+            **net_info.quantization['ACTIVATION'], use_real_tanh=True, symmetric=True
+        )
+    else:
+        activation_for_recurrent = activation  # plain 'tanh' for CustomGRU or non-quantized
+
 
     if hasattr(net_info, 'regularization') and net_info.regularization['ACTIVATED']:
         regularization_kernel = tf.keras.regularizers.l1_l2(**net_info.regularization['KERNEL'])
@@ -317,29 +345,48 @@ def compose_net_from_net_name_standard(net_info,
         # 2. Add the Input layer once, with the chosen arguments
         net.add(tf.keras.Input(**input_args))
 
+        # If we are in CustomGRU (masked), quantization args are not supported — strip them.
+        effective_quant_args = {} if layer_type is CustomGRU else quantization_args
+
+        def visible_units_from_pct(units, pct_masked):
+            # pct_masked = % of units zeroed in the OUTPUT; recurrence keeps full 'units'
+            v = int(round(units * (100 - pct_masked) / 100.0))
+            if not (0 < v < units):
+                raise ValueError(f"Mask percentage yields invalid visible_units={v} for units={units}.")
+            return v
+
         # 2) Now add your recurrent layers without any input_* args:
         first_kwargs = {
             'units': h_size[0],
-            'activation': activation,
+            'activation': activation_for_recurrent,  # <- use the computed one
             'return_sequences': True,
             'stateful': stateful,
             'kernel_regularizer': regularization_kernel,
             'bias_regularizer': regularization_bias,
             'activity_regularizer': regularization_activity,
-            **quantization_args,
+            **effective_quant_args,  # <- not quantization_args
         }
+        if layer_type is CustomGRU:
+            pct = int(getattr(net_info, 'mask_percent', None))
+            first_kwargs['visible_units'] = visible_units_from_pct(h_size[0], pct)
         net.add(layer_type(**first_kwargs))
 
         # 3) Add any subsequent layers in the same way:
         for units in h_size[1:]:
-            net.add(layer_type(units=units,
-                               activation=activation,
-                               return_sequences=True,
-                               stateful=stateful,
-                               kernel_regularizer=regularization_kernel,
-                               bias_regularizer=regularization_bias,
-                               activity_regularizer=regularization_activity,
-                               **quantization_args))
+            kwargs_i = dict(
+                units=units,
+                activation=activation_for_recurrent,  # <- unify here
+                return_sequences=True,
+                stateful=stateful,
+                kernel_regularizer=regularization_kernel,
+                bias_regularizer=regularization_bias,
+                activity_regularizer=regularization_activity,
+                **effective_quant_args,  # <- unify here
+            )
+            if layer_type is CustomGRU:
+                pct = int(getattr(net_info, 'mask_percent', None))
+                kwargs_i['visible_units'] = visible_units_from_pct(units, pct)
+            net.add(layer_type(**kwargs_i))
 
 
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
