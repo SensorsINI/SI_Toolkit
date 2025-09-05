@@ -52,7 +52,7 @@ class TFGRULayer(tf.keras.layers.Layer):
             mask = np.ones((units,), dtype=np.float32)
         else:
             assert isinstance(visible_units, int), "visible_units must be int."
-            assert 0 < visible_units < units, "visible_units must satisfy 0 < visible_units < units."
+            assert 0 <= visible_units <= units, "visible_units must satisfy 0 <= visible_units <= units."
             mask = np.zeros((units,), dtype=np.float32)
             mask[:visible_units] = 1.0
         self._mask = tf.constant(mask, dtype=dtype)
@@ -118,8 +118,8 @@ class CustomGRUCell(tf.keras.layers.Layer):
         else:
             if not isinstance(visible_units, int):
                 raise TypeError("visible_units must be int.")
-            if not (0 < visible_units < self.units):
-                raise ValueError("visible_units must satisfy 0 < visible_units < units.")
+            if not (0 <= visible_units <= self.units):
+                raise ValueError("visible_units must satisfy 0 <= visible_units <= units.")
             mask = tf.concat(
                 [tf.ones([visible_units], tf.float32),
                  tf.zeros([self.units - visible_units], tf.float32)], axis=0)
@@ -333,41 +333,42 @@ def main():
                           .forward(x_seq, h_init=h0), atol=1e-6, rtol=1e-6))
 
     # --- CustomGRU (masked): parity with TFGRULayer (recurrence unmasked; output masked) ---
-    visible_units = 3  # 0 < 3 < U
-    for rs in (False, True):
-        cg_m = CustomGRU(U, return_sequences=rs, visible_units=visible_units)
-        _ = cg_m(tf.convert_to_tensor(x_seq), initial_state=tf.convert_to_tensor(h0))
+    visible_units_options = [0, 3, U]
+    for visible_units in visible_units_options:
+        for rs in (False, True):
+            cg_m = CustomGRU(U, return_sequences=rs, visible_units=visible_units)
+            _ = cg_m(tf.convert_to_tensor(x_seq), initial_state=tf.convert_to_tensor(h0))
+
+            # Assign directly
+            cg_m.cell.kernel.assign(kernel)
+            cg_m.cell.recurrent_kernel.assign(recurrent_kernel)
+            cg_m.cell.bias.assign(bias)
+
+            y_cg_m = cg_m(tf.convert_to_tensor(x_seq), initial_state=tf.convert_to_tensor(h0)).numpy()
+
+            tf_layer_m = TFGRULayer(kernel, recurrent_kernel, bias, units=U,
+                                    return_sequences=rs, visible_units=visible_units)
+            y_tf_m = tf_layer_m(x_seq, h_init=h0).numpy()
+
+            print(f"[CustomGRU masked (visible_units={visible_units}) | return_sequences={rs}] vs TF ref:",
+                  np.allclose(y_cg_m, y_tf_m, atol=1e-6, rtol=1e-6))
+
+        # --- CustomGRU: eager vs graph (masked) ---
+        cg_graph = CustomGRU(U, return_sequences=True, visible_units=visible_units)
+        _ = cg_graph(tf.convert_to_tensor(x_seq), initial_state=tf.convert_to_tensor(h0))
 
         # Assign directly
-        cg_m.cell.kernel.assign(kernel)
-        cg_m.cell.recurrent_kernel.assign(recurrent_kernel)
-        cg_m.cell.bias.assign(bias)
+        cg_graph.cell.kernel.assign(kernel)
+        cg_graph.cell.recurrent_kernel.assign(recurrent_kernel)
+        cg_graph.cell.bias.assign(bias)
 
-        y_cg_m = cg_m(tf.convert_to_tensor(x_seq), initial_state=tf.convert_to_tensor(h0)).numpy()
+        @tf.function
+        def run_graph_cg(x, s):
+            return cg_graph(x, initial_state=s)
 
-        tf_layer_m = TFGRULayer(kernel, recurrent_kernel, bias, units=U,
-                                return_sequences=rs, visible_units=visible_units)
-        y_tf_m = tf_layer_m(x_seq, h_init=h0).numpy()
-
-        print(f"[CustomGRU masked (visible_units={visible_units}) | return_sequences={rs}] vs TF ref:",
-              np.allclose(y_cg_m, y_tf_m, atol=1e-6, rtol=1e-6))
-
-    # --- CustomGRU: eager vs graph (masked) ---
-    cg_graph = CustomGRU(U, return_sequences=True, visible_units=visible_units)
-    _ = cg_graph(tf.convert_to_tensor(x_seq), initial_state=tf.convert_to_tensor(h0))
-
-    # Assign directly
-    cg_graph.cell.kernel.assign(kernel)
-    cg_graph.cell.recurrent_kernel.assign(recurrent_kernel)
-    cg_graph.cell.bias.assign(bias)
-
-    @tf.function
-    def run_graph_cg(x, s):
-        return cg_graph(x, initial_state=s)
-
-    y_cg_g = run_graph_cg(tf.convert_to_tensor(x_seq), tf.convert_to_tensor(h0)).numpy()
-    y_cg_e = cg_graph(tf.convert_to_tensor(x_seq), initial_state=tf.convert_to_tensor(h0)).numpy()
-    print("[CustomGRU eager vs graph with mask] equal:", np.allclose(y_cg_g, y_cg_e, atol=1e-6, rtol=1e-6))
+        y_cg_g = run_graph_cg(tf.convert_to_tensor(x_seq), tf.convert_to_tensor(h0)).numpy()
+        y_cg_e = cg_graph(tf.convert_to_tensor(x_seq), initial_state=tf.convert_to_tensor(h0)).numpy()
+        print("[CustomGRU eager vs graph with mask] equal:", np.allclose(y_cg_g, y_cg_e, atol=1e-6, rtol=1e-6))
 
 
 if __name__ == "__main__":
