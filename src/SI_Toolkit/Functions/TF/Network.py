@@ -143,8 +143,8 @@ def compose_net_from_net_name(net_info,
             pct_masked = int(tok.replace('GRU_mask', ''))
         except ValueError:
             raise ValueError(f"Cannot parse percentage in token '{tok}'. Use e.g. GRU_mask30.")
-        if not (0 < pct_masked < 100):
-            raise ValueError("GRU_maskX requires 0 < X < 100 (percentage of masked units).")
+        if not (0 <= pct_masked <= 100):
+            raise ValueError("GRU_maskX requires 0 <= X <= 100 (percentage of masked units).")
         net_type = 'GRU_mask'
         net_info.mask_percent = pct_masked  # store for layer construction
     elif 'GRU' in names:
@@ -346,12 +346,12 @@ def compose_net_from_net_name_standard(net_info,
         net.add(tf.keras.Input(**input_args))
 
         # If we are in CustomGRU (masked), quantization args are not supported — strip them.
-        effective_quant_args = {} if layer_type is CustomGRU else quantization_args
+        effective_quant_args = {} if net_type == 'GRU_mask' and layer_type is CustomGRU else quantization_args
 
         def visible_units_from_pct(units, pct_masked):
             # pct_masked = % of units zeroed in the OUTPUT; recurrence keeps full 'units'
             v = int(round(units * (100 - pct_masked) / 100.0))
-            if not (0 < v < units):
+            if not (0 <= v <= units):
                 raise ValueError(f"Mask percentage yields invalid visible_units={v} for units={units}.")
             return v
 
@@ -366,7 +366,7 @@ def compose_net_from_net_name_standard(net_info,
             'activity_regularizer': regularization_activity,
             **effective_quant_args,  # <- not quantization_args
         }
-        if layer_type is CustomGRU:
+        if net_type == 'GRU_mask' and layer_type is CustomGRU:
             pct = int(getattr(net_info, 'mask_percent', None))
             first_kwargs['visible_units'] = visible_units_from_pct(h_size[0], pct)
         net.add(layer_type(**first_kwargs))
@@ -383,7 +383,7 @@ def compose_net_from_net_name_standard(net_info,
                 activity_regularizer=regularization_activity,
                 **effective_quant_args,  # <- unify here
             )
-            if layer_type is CustomGRU:
+            if net_type == 'GRU_mask' and layer_type is CustomGRU:
                 pct = int(getattr(net_info, 'mask_percent', None))
                 kwargs_i['visible_units'] = visible_units_from_pct(units, pct)
             net.add(layer_type(**kwargs_i))
