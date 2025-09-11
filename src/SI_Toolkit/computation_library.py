@@ -220,6 +220,7 @@ class ComputationLibrary:
     atan2: Callable[[TensorType], TensorType] = None
     abs: Callable[[TensorType], TensorType] = None
     sqrt: Callable[[TensorType], TensorType] = None
+    nan_to_num: Callable[[TensorType], TensorType] = None
     argsort: Callable[[TensorType, int], TensorType] = None
     argpartition: Callable[[TensorType, int], TensorType] = None
     argmin: Callable[[TensorType, int], TensorType] = None
@@ -327,6 +328,7 @@ class NumpyLibrary(ComputationLibrary):
         self.atan2 = np.arctan2
         self.abs = np.abs
         self.sqrt = np.sqrt
+        self.nan_to_num = lambda x, **kw: np.nan_to_num(x, **kw)
         self.argsort = lambda x, axis=-1: np.argsort(x, axis=axis)
         self.argpartition = lambda x, k: np.argpartition(x, k)[..., :k]
         self.argmin = lambda x, axis: np.argmin(x, axis=axis)
@@ -463,6 +465,7 @@ class TensorFlowLibrary(ComputationLibrary):
         self.atan2 = tf.atan2
         self.abs = tf.abs
         self.sqrt = tf.sqrt
+        self.nan_to_num = self._tf_nan_to_num
         self.argsort = lambda x, axis=-1: tf.argsort(x, axis=axis)
         self.argpartition = lambda x, k: tf.math.top_k(-x, k, sorted=False)[1]
         self.argmin = lambda x, axis: tf.math.argmin(x, axis=axis)
@@ -531,6 +534,26 @@ class TensorFlowLibrary(ComputationLibrary):
             v.assign(x)
         else:
             raise TypeError("Unsupported tensor type")
+
+    @staticmethod
+    def _tf_nan_to_num(x, nan: float = 0.0, posinf: Optional[float] = None, neginf: Optional[float] = None):
+        import tensorflow as tf
+        # If x is not floating (e.g., int/bool), there are no NaNs/Infs to fix
+        if not x.dtype.is_floating:
+            return x
+
+        finfo = tf.experimental.numpy.finfo(x.dtype.as_numpy_dtype)
+        pos_default = finfo.max
+        neg_default = -finfo.max
+        pos_val = tf.cast(posinf if posinf is not None else pos_default, x.dtype)
+        neg_val = tf.cast(neginf if neginf is not None else neg_default, x.dtype)
+
+        y = tf.where(tf.math.is_nan(x), tf.cast(nan, x.dtype), x)
+        pos_mask = tf.math.is_inf(y) & (y > 0)
+        neg_mask = tf.math.is_inf(y) & (y < 0)
+        y = tf.where(pos_mask, pos_val, y)
+        y = tf.where(neg_mask, neg_val, y)
+        return y
 
 
 class PyTorchLibrary(ComputationLibrary):
@@ -620,6 +643,7 @@ class PyTorchLibrary(ComputationLibrary):
         self.atan2 = torch.atan2
         self.abs = torch.abs
         self.sqrt = torch.sqrt
+        self.nan_to_num = lambda x, **kw: torch.nan_to_num(x, **kw)
         self.argsort = lambda x, axis=-1: torch.argsort(x, dim=axis)
         self.argpartition = lambda x, k: torch.topk(x, k, largest=False)[1]
         self.argmin = lambda x, axis: torch.argmin(x, dim=axis)
