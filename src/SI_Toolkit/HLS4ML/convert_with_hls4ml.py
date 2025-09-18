@@ -2,6 +2,7 @@ import yaml
 import os
 import shutil
 import hls4ml
+from pathlib import Path
 
 from types import SimpleNamespace
 
@@ -20,27 +21,55 @@ def convert_with_hls4ml():
     a.path_to_models = config_hls['path_to_models']
     a.net_name = config_hls['net_name']
 
-    with TerminalContentManager(os.path.join(config_hls['output_dir'], 'terminal_output.txt')):
-        # Import network
-        # Create a copy of the network suitable for inference (stateful and with sequence length one)
-        net, net_info = \
-            get_net(a, time_series_length=1,
-                    batch_size=batch_size, stateful=True, remove_redundant_dimensions=True)
+    # Create temporary directory in home folder to avoid long path issues
+    home_dir = Path.home()
+    temp_dir = os.path.join(home_dir, 'hls4ml_temp')
+    temp_output_dir = os.path.join(temp_dir, a.net_name)
+    
+    # Final destination for the converted network with output folder name suffix
+    hls4ml_output_folder_name = config_hls.get('hls4ml_output_folder_name', 'default')
+    final_output_dir = os.path.join(a.path_to_models, a.net_name, f'hls4ml_{hls4ml_output_folder_name}')
+    
+    try:
+        with TerminalContentManager(os.path.join(temp_output_dir, 'terminal_output.txt')):
+            # Import network
+            # Create a copy of the network suitable for inference (stateful and with sequence length one)
+            net, net_info = \
+                get_net(a, time_series_length=1,
+                        batch_size=batch_size, stateful=True, remove_redundant_dimensions=True)
 
-        path_to_network = os.path.join(a.path_to_models, a.net_name)
-        path_to_hls_network = os.path.join(config_hls['output_dir'], a.net_name)
-        shutil.copytree(path_to_network, path_to_hls_network)
+            # Copy original network to temp directory
+            path_to_network = os.path.join(a.path_to_models, a.net_name)
+            shutil.copytree(path_to_network, temp_output_dir)
 
+            # Convert model using temporary directory
+            hls_model, hls_model_config = convert_model_with_hls4ml(net, temp_output_dir=temp_output_dir)
 
-        hls_model, hls_model_config = convert_model_with_hls4ml(net)
+            hls4ml.utils.plot_model(hls_model, show_shapes=True, show_precision=True, to_file=None)
 
-        hls4ml.utils.plot_model(hls_model, show_shapes=True, show_precision=True, to_file=None)
+            # Synthesis
+            hls_model.build(reset=False, csim=True, synth=True, cosim=True, validation=True, export=True, vsynth=True)
+            # hls_model.build(csim=False)
 
-
-        # Synthesis
-        hls_model.build(reset=False, csim=True, synth=True, cosim=True, validation=True, export=True, vsynth=True)
-        # hls_model.build(csim=False)
-
-        # Reports
-        hls4ml.report.read_vivado_report(config_hls['output_dir'])
+            # Reports
+            hls4ml.report.read_vivado_report(temp_output_dir)
+            
+            # Move converted network to final destination
+            if os.path.exists(final_output_dir):
+                shutil.rmtree(final_output_dir)
+            os.makedirs(os.path.dirname(final_output_dir), exist_ok=True)
+            shutil.move(temp_output_dir, final_output_dir)
+            
+            print(f"Converted network successfully moved to: {final_output_dir}")
+            
+    except Exception as e:
+        print(f"Error during conversion: {e}")
+        raise
+    finally:
+        # Clean up temporary directory
+        try:
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir)
+        except Exception as e:
+            print(f"Warning: Could not clean up temporary directory {temp_dir}: {e}")
 

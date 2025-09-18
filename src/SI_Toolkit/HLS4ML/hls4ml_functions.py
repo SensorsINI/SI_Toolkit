@@ -18,7 +18,7 @@ def print_dict(d, indent=0):
             print(':' + ' ' * (20 - len(key) - 2 * indent) + str(value))
 
 
-def convert_model_with_hls4ml(net, granularity='model', use_temp_dir=False):
+def convert_model_with_hls4ml(net, granularity='model', use_temp_dir=False, temp_output_dir=None):
 
     config = hls4ml.utils.config_from_keras_model(net, granularity='name')
 
@@ -51,11 +51,14 @@ def convert_model_with_hls4ml(net, granularity='model', use_temp_dir=False):
     print_dict(config)
 
     # Use temporary directory for neural controller to avoid file system issues
-    if use_temp_dir:
+    if use_temp_dir or temp_output_dir is not None:
         import tempfile
         import shutil
-        temp_dir = tempfile.mkdtemp(prefix='hls4ml_temp_')
-        output_dir = temp_dir
+        if temp_output_dir is not None:
+            output_dir = temp_output_dir
+        else:
+            temp_dir = tempfile.mkdtemp(prefix='hls4ml_temp_')
+            output_dir = temp_dir
     else:
         output_dir = config_hls['output_dir']
 
@@ -69,8 +72,8 @@ def convert_model_with_hls4ml(net, granularity='model', use_temp_dir=False):
 
     hls_model.compile()
 
-    # Clean up temporary directory if used
-    if use_temp_dir:
+    # Clean up temporary directory if used (only if we created it ourselves)
+    if use_temp_dir and temp_output_dir is None:
         try:
             shutil.rmtree(temp_dir)
         except Exception as e:
