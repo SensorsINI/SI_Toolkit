@@ -41,9 +41,9 @@ class neural_network_evaluator:
 
         if self.nn_evaluator_mode == 'hls4ml':
             self._computation_library = NumpyLibrary()
-            # Convert network to HLS form
+            # Convert network to HLS form using temporary directory to avoid file system issues
             from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
-            self.net, _ = convert_model_with_hls4ml(self.net)
+            self.net, _ = convert_model_with_hls4ml(self.net, use_temp_dir=True)
             self.net.compile()
         elif self.nn_evaluator_mode == 'C':
             if batch_size is not None and batch_size > 1:

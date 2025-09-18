@@ -211,9 +211,9 @@ class predictor_autoregressive_neural(template_predictor):
             # Not clear if supported at all in HLS model
             self.copy_internal_states_from_ref = lambda *args: None
             self.copy_internal_states_to_ref = lambda *args: None
-            # Convert network to HLS form
+            # Convert network to HLS form using temporary directory to avoid file system issues
             from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
-            self.net, _ = convert_model_with_hls4ml(self.net)
+            self.net, _ = convert_model_with_hls4ml(self.net, use_temp_dir=True)
             self.net.compile()
             # Not compilation supported for HLS models
             self.predict_with_update_tf = self._predict_with_update_tf
