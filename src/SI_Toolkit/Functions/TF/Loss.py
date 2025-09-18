@@ -32,10 +32,15 @@ class LossMeanResidual(tf.keras.losses.Loss):
             condition = tf.abs(y_true) >= 1.0
             y_predicted = tf.where(condition, tf.clip_by_value(y_predicted, -1.0, 1.0), y_predicted)
 
+        # Handle shape mismatch: if y_predicted has one more timestep than y_true, slice it
+        pred_time_steps = tf.shape(y_predicted)[1]
+        true_time_steps = tf.shape(y_true)[1]
+        
+        # Use tf.slice to ensure proper gradient computation
         _y_predicted = tf.cond(
-            tf.equal(tf.shape(y_predicted)[1], tf.shape(y_true)[1] + 1),
-            lambda: y_predicted[:, 1:, :],  # A case where we train a predictor which output includes the input
-            lambda: y_predicted  # If condition is False, normal training of a network
+            tf.equal(pred_time_steps, true_time_steps + 1),
+            lambda: tf.slice(y_predicted, [0, 1, 0], [-1, -1, -1]),  # Slice from index 1 to end
+            lambda: y_predicted
         )
 
         if 'squared' in self.loss_mode:
