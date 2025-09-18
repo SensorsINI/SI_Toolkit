@@ -54,11 +54,24 @@ def convert_with_hls4ml():
             # Reports
             hls4ml.report.read_vivado_report(temp_dir)
             
-            # Move converted network to final destination
+            # Create final output directory
             if os.path.exists(final_output_dir):
                 shutil.rmtree(final_output_dir)
-            os.makedirs(os.path.dirname(final_output_dir), exist_ok=True)
-            shutil.move(temp_dir, final_output_dir)
+            os.makedirs(final_output_dir, exist_ok=True)
+            
+            # Copy only the files we need: hls4ml_config.yml, terminal_output.txt, verilog/, vhdl/
+            files_to_copy = ['hls4ml_config.yml', 'terminal_output.txt']
+            for file_name in files_to_copy:
+                src_file = os.path.join(temp_dir, file_name)
+                if os.path.exists(src_file):
+                    shutil.copy2(src_file, final_output_dir)
+            
+            # Copy verilog and vhdl folders if they exist
+            for folder_name in ['verilog', 'vhdl']:
+                src_folder = os.path.join(temp_dir, 'myproject_prj', 'solution1', 'impl', folder_name)
+                if os.path.exists(src_folder):
+                    dst_folder = os.path.join(final_output_dir, folder_name)
+                    shutil.copytree(src_folder, dst_folder)
             
             print(f"Converted network successfully moved to: {final_output_dir}")
             
