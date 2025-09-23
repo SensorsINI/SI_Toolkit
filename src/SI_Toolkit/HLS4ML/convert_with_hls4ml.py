@@ -11,6 +11,8 @@ from types import SimpleNamespace
 from SI_Toolkit.Functions.General.Initialization import get_net
 from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
 from SI_Toolkit.Functions.General.TerminalContentManager import TerminalContentManager
+from SI_Toolkit.HLS4ML.network_parser import parse_network_config
+from SI_Toolkit.HLS4ML.vhdl_package_generator import create_mlp_pkg_from_config
 
 
 def convert_with_hls4ml():
@@ -59,12 +61,17 @@ def convert_with_hls4ml():
                 shutil.rmtree(final_output_dir)
             os.makedirs(final_output_dir, exist_ok=True)
             
-            # Copy only the files we need: hls4ml_config.yml, terminal_output.txt, verilog/, vhdl/
+            # Copy only the files we need: hls4ml_config.yml, terminal_output.txt, config_hls.yml, verilog/, vhdl/
             files_to_copy = ['hls4ml_config.yml', 'terminal_output.txt']
             for file_name in files_to_copy:
                 src_file = os.path.join(temp_dir, file_name)
                 if os.path.exists(src_file):
                     shutil.copy2(src_file, final_output_dir)
+            
+            # Also copy the original config_hls.yml file for future reference
+            config_hls_src = os.path.join('SI_Toolkit_ASF', 'config_hls.yml')
+            if os.path.exists(config_hls_src):
+                shutil.copy2(config_hls_src, final_output_dir)
             
             # Copy verilog and vhdl folders if they exist
             for folder_name in ['verilog', 'vhdl']:
@@ -72,6 +79,21 @@ def convert_with_hls4ml():
                 if os.path.exists(src_folder):
                     dst_folder = os.path.join(final_output_dir, folder_name)
                     shutil.copytree(src_folder, dst_folder)
+            
+            # Copy and update mlp_top_pkg.vhd in the vhdl folder
+            vhdl_dir = Path(final_output_dir) / 'vhdl'
+            if vhdl_dir.exists():
+                # Parse network configuration
+                network_config = parse_network_config(a.net_name, config_hls['PRECISION'])
+                
+                # Copy and update mlp_top_pkg.vhd
+                source_mlp_pkg = Path('FPGA/NeuralNetworks/Interfaces/mlp_top_pkg.vhd')
+                if not source_mlp_pkg.exists():
+                    print(f"Warning: Source mlp_top_pkg.vhd not found at {source_mlp_pkg}")
+                    source_mlp_pkg = None
+                
+                # Create the updated mlp_top_pkg.vhd
+                create_mlp_pkg_from_config(network_config, vhdl_dir, source_mlp_pkg)
             
             print(f"Converted network successfully moved to: {final_output_dir}")
             
