@@ -276,13 +276,17 @@ def append_derivatives(df, variables_for_derivative, derivative_algorithm, df_na
 
 
 def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwargs):
-    length_original_df = len(df)
+
+    orig_index = df.index  # keep original row set & order for final trimming
+
     for j in range(len(indices_by_which_to_shift)):
         index_by_which_to_shift = int(indices_by_which_to_shift[j])
         if index_by_which_to_shift == 0:
             continue
         new_names = [variable_to_shift + '_' + str(index_by_which_to_shift) for variable_to_shift in variables_to_shift]
-        subset = df.loc[:, variables_to_shift]
+        subset = df.loc[:, variables_to_shift].copy()  # copy to avoid chained-index pitfalls
+
+        # Reindex the subset so values align to shifted rows on concat.
         if index_by_which_to_shift > 0:
             subset.index += -index_by_which_to_shift
 
@@ -292,8 +296,23 @@ def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwa
         subset.columns = new_names
         df = pd.concat((df, subset), axis=1)
 
-    max_shift = max(abs(shift) for shift in indices_by_which_to_shift)
-    df_processed = df.iloc[max_shift:-max_shift]
+    # --- Correct, minimal trimming logic ---
+    # Head rows are incomplete if there are NEGATIVE shifts (values pushed forward),
+    # Tail rows are incomplete if there are POSITIVE shifts (values pulled from the future).
+    pos_max = max((int(s) for s in indices_by_which_to_shift if int(s) > 0), default=0)
+    neg_max = max((abs(int(s)) for s in indices_by_which_to_shift if int(s) < 0), default=0)
+
+    # First, restrict back to the original index to drop any extra rows created by shifting
+    df = df.reindex(orig_index)
+
+    # If there is nothing to trim (all shifts are 0), return as-is
+    if pos_max == 0 and neg_max == 0:
+        return df
+
+    # Trim asymmetrically: drop 'neg_max' from the head, 'pos_max' from the tail.
+    start = neg_max
+    end = len(df) - pos_max
+    df_processed = df.iloc[start:end]
 
     return df_processed
 
