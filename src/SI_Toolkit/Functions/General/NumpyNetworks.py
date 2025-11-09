@@ -21,7 +21,7 @@ class NumpyGRULayer:
       - return_sequences: bool
     """
 
-    def __init__(self, kernel, recurrent_kernel, bias, units, return_sequences=False):
+    def __init__(self, kernel, recurrent_kernel, bias, units, return_sequences=False, *, visible_units=None,):
         """
         :param kernel:            (input_dim, 3*units)
         :param recurrent_kernel:  (units, 3*units)
@@ -60,6 +60,16 @@ class NumpyGRULayer:
         self.b_xz, self.b_xr, self.b_xh = b_xz, b_xr, b_xh
         self.b_hz, self.b_hr, self.b_hh = b_hz, b_hr, b_hh
 
+        # ---- visible units mask (applied at output only) ----
+        if visible_units is None:
+            self._mask = np.ones((units,), dtype=np.float32)
+        else:
+            assert isinstance(visible_units, int), "visible_units must be int."
+            assert 0 < visible_units < units, "visible_units must satisfy 0 < visible_units < units."
+            mask = np.zeros((units,), dtype=np.float32)
+            mask[:visible_units] = 1.0
+            self._mask = mask
+
     def _sigmoid(self, x):
         return 1.0 / (1.0 + np.exp(-x))
 
@@ -94,10 +104,10 @@ class NumpyGRULayer:
         outputs = np.stack(outputs, axis=1)  # shape: (batch_size, timesteps, units)
 
         if self.return_sequences:
-            return outputs
+            return outputs * self._mask.reshape(1, 1, -1)
         else:
             # Return only the last hidden state
-            return outputs[:, -1, :]
+            return outputs[:, -1, :] * self._mask.reshape(1, -1)
 
 
 class NumpyDense:

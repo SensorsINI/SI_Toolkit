@@ -20,6 +20,7 @@ from SI_Toolkit.computation_library import NumpyLibrary, ComputationLibrary
 
 class neural_network_evaluator:
     _computation_library = NumpyLibrary()
+    _hls4ml_cache = {}  # Cache for hls4ml converted networks
 
     def __init__(self, net_name, path_to_models, batch_size, input_precision='float', nn_evaluator_mode='normal'):
 
@@ -41,10 +42,24 @@ class neural_network_evaluator:
 
         if self.nn_evaluator_mode == 'hls4ml':
             self._computation_library = NumpyLibrary()
-            # Convert network to HLS form
-            from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
-            self.net, _ = convert_model_with_hls4ml(self.net)
-            self.net.compile()
+            
+            # Create a cache key based on network parameters
+            cache_key = f"{net_name}_{path_to_models}_{batch_size}_{input_precision}"
+            
+            # Check if we already have a converted network in cache
+            if cache_key in self._hls4ml_cache:
+                print(f"Using cached hls4ml network for {net_name}")
+                self.net = self._hls4ml_cache[cache_key]
+            else:
+                # Convert network to HLS form using temporary directory to avoid file system issues
+                from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
+                print(f"Converting network {net_name} to hls4ml format (this may take a while)...")
+                self.net, _ = convert_model_with_hls4ml(self.net, use_temp_dir=True)
+                self.net.compile()
+                
+                # Cache the converted network
+                self._hls4ml_cache[cache_key] = self.net
+                print(f"Cached hls4ml network for {net_name}")
         elif self.nn_evaluator_mode == 'C':
             if batch_size is not None and batch_size > 1:
                 raise ValueError("C implementation does not support batch size > 1")
@@ -74,6 +89,20 @@ class neural_network_evaluator:
                 np.zeros([len(self.net_info.inputs), ], dtype=np.float32), self.lib.float32)
 
         self.step_compilable = CompileAdaptive(self._step_compilable)
+
+    @classmethod
+    def clear_hls4ml_cache(cls):
+        """Clear the hls4ml conversion cache. Useful for memory management or when networks change."""
+        cls._hls4ml_cache.clear()
+        print("hls4ml cache cleared")
+
+    @classmethod
+    def get_cache_info(cls):
+        """Get information about the current hls4ml cache."""
+        return {
+            'cache_size': len(cls._hls4ml_cache),
+            'cached_networks': list(cls._hls4ml_cache.keys())
+        }
 
 
     def step(self, net_input):
