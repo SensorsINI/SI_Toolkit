@@ -101,6 +101,9 @@ class Dataset(DatasetTemplate):
         full_len = self.exp_len + self.shift_labels  # == frame_length
         n_in, n_out = len(self.inputs), len(self.outputs)
 
+        x = tf.cast(x, tf.float32)
+        y = tf.cast(y, tf.float32)
+
         combined = tf.concat([x, y], axis=1)                    # «T, n_in + n_out»
 
         # Sliding framing along *time* axis (axis=0).  No padding: windows are
