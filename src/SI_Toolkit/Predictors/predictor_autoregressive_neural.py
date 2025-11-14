@@ -306,7 +306,6 @@ class predictor_autoregressive_neural(template_predictor):
 
         return outputs_augmented
 
-
     def update_internal_state(self, Q0=None, s=None):
 
         s, Q0 = check_dimensions(s, Q0, self.lib)

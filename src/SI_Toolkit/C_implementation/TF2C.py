@@ -398,6 +398,7 @@ def tf2C(path_to_models, net_name, batch_size):
 
         run_c_code()
 
+
         print(f"\n{bold_start}Timing of Python (TensorFlow) network for comparison:{bold_end} \n")
 
         import timeit
@@ -424,8 +425,10 @@ def tf2C(path_to_models, net_name, batch_size):
         print(f"Total time for {nr_runs_with_compilation} runs with TF compilation: {time_with_compilation:.3f} seconds")
         print(f"Average time per call: {time_with_compilation*1.0e6/nr_runs_with_compilation:.2f} us")
 
+
         # Clean up: Delete the copied C files after compilation and execution
         os.remove(os.path.join(target_directory, 'main.c'))
         os.remove(os.path.join(target_directory, 'network_test'))
 
         print("Temporary C files have been deleted.")
+

@@ -1,10 +1,3 @@
-# dataset_tf.py
-# Copyright (c) 2025 ...
-# -----------------------------------------------------------------------------
-# A fully ‑vectorised tf.data implementation that mirrors the semantics of the
-# legacy Keras Sequence‑based loader found in DatasetTemplate.
-# -----------------------------------------------------------------------------
-
 from __future__ import annotations  # Python ≥3.11 – allows list | None type‑hints
 
 import hashlib

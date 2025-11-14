@@ -11,7 +11,6 @@ predictors_config = load_yaml(os.path.join('SI_Toolkit_ASF', 'config_predictors.
 
 NETWORK_NAMES = ['Dense', 'RNN', 'GRU', 'DeltaGRU', 'LSTM', 'Custom']
 
-
 class PredictorWrapper:
     """Wrapper class for creating a predictor.
     
@@ -165,7 +164,6 @@ class PredictorWrapper:
         self.predictor_name = predictor_name
         self.predictor_config = dcp(predictors_config['predictors'][self.predictor_name])
         self.predictor_type = self.predictor_config['predictor_type']
-
         if model_name is not None:
             self.predictor_config['model_name'] = model_name
         else:

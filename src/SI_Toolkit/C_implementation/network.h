@@ -18,9 +18,7 @@
 #define LSTM1_UNITS     // Overwritten by python
 #define LSTM2_UNITS     // Overwritten by python
 
-//----------------------------------------------------
-// Declarations
-//----------------------------------------------------
+// Declare the function and global variables
 void C_Network_Evaluate(float* inputs, float* outputs);
 
 #if IS_GRU
@@ -31,7 +29,7 @@ void InitializeGRUStates(void);
 void InitializeLSTMStates(void);
 #endif
 
-// These exist for Dense networks
+// Other necessary declarations if required
 extern const float weights1[];
 extern const float bias1[];
 extern const float weights2[];
