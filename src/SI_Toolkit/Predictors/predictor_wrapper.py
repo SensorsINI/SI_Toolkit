@@ -20,7 +20,6 @@ class PredictorWrapper:
     """
     def __init__(self):
 
-        self.horizon = None
         self.batch_size = None
 
         self.num_states = None
@@ -36,13 +35,11 @@ class PredictorWrapper:
         self.predictor_type: str = self.predictor_config['predictor_type']
         self.model_name: str = self.predictor_config['model_name']
 
-    def configure(self, batch_size: int, horizon: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, variable_parameters: SimpleNamespace=None, predictor_specification=None, compile_standalone=False, mode=None, hls=False):
+    def configure(self, batch_size: int, dt: float, computation_library: "Optional[type[ComputationLibrary]]"=None, variable_parameters=None, predictor_specification=None, compile_standalone=False, mode=None, hls=False):
         """Assign optimization-specific parameters to finalize instance creation.
 
         :param batch_size: Batch size equals the number of parallel rollouts of the optimizer.
         :type batch_size: int
-        :param horizon: Number of MPC horizon steps
-        :type horizon: int
         :param dt: Used to compute state trajectory rollouts
         :type dt: float
         :param computation_library: Whether to use NumPy / TensorFlow / PyTorch, defaults to None
@@ -60,19 +57,18 @@ class PredictorWrapper:
         compile_standalone = {'disable_individual_compilation': not compile_standalone}
 
         self.batch_size = batch_size
-        self.horizon = horizon
 
         if self.predictor_type == 'neural':
             from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
-            self.predictor = predictor_autoregressive_neural(horizon=self.horizon, batch_size=self.batch_size, variable_parameters=variable_parameters, dt=dt, mode=mode, hls=hls, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_autoregressive_neural(batch_size=self.batch_size, variable_parameters=variable_parameters, dt=dt, mode=mode, hls=hls, **self.predictor_config, **compile_standalone)
 
         elif self.predictor_type == 'GP':
             from SI_Toolkit.Predictors.predictor_autoregressive_GP import predictor_autoregressive_GP
-            self.predictor = predictor_autoregressive_GP(horizon=self.horizon, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_autoregressive_GP(batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         elif self.predictor_type == 'ODE_v0':
             from SI_Toolkit.Predictors.predictor_ODE_v0 import predictor_ODE_v0
-            self.predictor = predictor_ODE_v0(horizon=self.horizon, dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
+            self.predictor = predictor_ODE_v0(dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config)
 
         elif self.predictor_type == 'ODE':
             from SI_Toolkit.Predictors.predictor_ODE import predictor_ODE
@@ -90,7 +86,7 @@ class PredictorWrapper:
                 else:
                     raise ValueError(
                         f"Invalid computation library. Got {computation_library}. Choose 'Numpy', 'TF', or 'Pytorch'.")
-            self.predictor = predictor_ODE(horizon=self.horizon, dt=dt, computation_library=computation_library, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
+            self.predictor = predictor_ODE(dt=dt, computation_library=computation_library, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
         else:
             raise NotImplementedError('Type of the predictor not recognised.')
@@ -103,13 +99,13 @@ class PredictorWrapper:
             computation_library = self.predictor.lib
         if not isinstance(computation_library, self.predictor.supported_computation_libraries):
             raise ValueError(f"Predictor {self.predictor.__class__.__name__} does not support {computation_library.__class__}")
-    def configure_with_compilation(self, batch_size, horizon, dt, predictor_specification=None, mode=None, hls=False):
+    def configure_with_compilation(self, batch_size, dt, predictor_specification=None, mode=None, hls=False):
         """
         To get max performance
         use this for standalone predictors (like in Brunton test)
         but not predictors within controllers
         """
-        self.configure(batch_size, horizon, dt, predictor_specification=predictor_specification, compile_standalone=True, mode=mode, hls=hls)
+        self.configure(batch_size, dt, predictor_specification=predictor_specification, compile_standalone=True, mode=mode, hls=hls)
 
     def update_predictor_config_from_specification(self, predictor_specification: str = None):
 
@@ -170,6 +166,8 @@ class PredictorWrapper:
         self.predictor_type = self.predictor_config['predictor_type']
         if model_name is not None:
             self.predictor_config['model_name'] = model_name
+        else:
+            self.predictor_config['model_name'] = self.predictor_config.get('model_name', None)
         self.model_name = self.predictor_config['model_name']
 
         if model_name_contains_path_to_model is True:  # We want to delete the default path to model if model_name contains one
@@ -181,6 +179,9 @@ class PredictorWrapper:
     def predict_core(self, s, Q):  # TODO: This function should disappear: predict() should manage the right library
         return self.predictor.predict_core(s, Q)
 
+    def predict_next_step(self, s, Q):
+        return self.predictor.next_step_predictor.step(s, Q)
+
     def update(self, Q0, s):
         if self.predictor_type == 'neural':
             s = self.predictor.lib.to_tensor(s, self.predictor.lib.float32)
@@ -189,7 +190,7 @@ class PredictorWrapper:
 
     def copy(self):
         """
-        Makes a copy of a predictor, specification get preserved, configuration (batch_size, horizon) not
+        Makes a copy of a predictor, specification get preserved, configuration (batch_size) not
         The predictor needs to be reconfigured, however the specification needs not to be provided. 
         """
         predictor_copy = PredictorWrapper()   

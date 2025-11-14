@@ -72,7 +72,7 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
                 transformation_function = globals()[transformation]
             except KeyError:
                 raise NotImplementedError(f'Transformation {transformation} is not implemented')
-            df_processed = transformation_function(df, **kwargs)
+            df_processed = transformation_function(df, df_name=processed_file_name, current_path=current_path, **kwargs)
 
         if df_processed is None:
             print('Dropping {}, transformation not successful.'.format(current_path))
@@ -108,6 +108,77 @@ def decimate_datasets(df, keep_every_nth_row, **kwargs):
     df_processed = df.iloc[::keep_every_nth_row, :]
 
     return df_processed
+
+
+def keep_section(df, section_to_keep, mode='percent', **kwargs):
+    """
+    Extract a section of the DataFrame.
+
+    Parameters:
+    - df: input DataFrame
+    - section_to_keep: tuple of (start, end)
+        * If mode='percent': values must be between 0 and 1
+        * If mode='lines': start and end are row indices; use -1 as end to indicate "until end"
+    - mode: 'percent' or 'lines'
+    """
+    n = len(df)
+
+    if mode == 'percent':
+        if not (0 <= section_to_keep[0] < section_to_keep[1] <= 1):
+            raise ValueError("For 'percent' mode, section_to_keep must be within [0, 1] and in increasing order")
+        start_idx = int(n * section_to_keep[0])
+        end_idx = int(n * section_to_keep[1])
+
+    elif mode == 'lines':
+        start_idx, end_idx = section_to_keep
+        if end_idx == -1:
+            end_idx = n
+        if not (0 <= start_idx < end_idx <= n):
+            raise ValueError(f"For 'lines' mode, indices must be within [0, {n}] and in increasing order (use -1 for end)")
+    else:
+        raise ValueError("mode must be either 'percent' or 'lines'")
+
+    return df.iloc[start_idx:end_idx].reset_index(drop=True)
+
+
+def minimum_filter(df, window, features, thresholds, **kwargs):
+    """
+    Replace values whose absolute value exceeds the threshold with the value
+    (from a centered rolling window) that has the smallest absolute value.
+
+    Uses built-in rolling + apply for efficiency.
+
+    Parameters:
+        df (pd.DataFrame): Input DataFrame.
+        window (int): Size of the centered rolling window.
+        features (list): List of feature names to filter.
+        thresholds (list): List of corresponding thresholds.
+
+    Returns:
+        pd.DataFrame: Filtered DataFrame.
+    """
+    df_processed = df.copy()
+
+    def min_abs_value(x):
+        return x[np.argmin(np.abs(x))]
+
+    for feature, threshold in zip(features, thresholds):
+        if feature not in df.columns:
+            raise ValueError(f"Feature '{feature}' not found in DataFrame.")
+
+        # Apply custom rolling function
+        rolling_min_abs = df[feature].rolling(window=window, center=True, min_periods=1).apply(min_abs_value, raw=True)
+
+        # Replace only where |value| > threshold
+        condition = df[feature].abs() > threshold
+        df_processed[feature] = np.where(condition, rolling_min_abs, df[feature])
+
+    return df_processed
+
+
+def time_reverse(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    """Return a copy of df with rows in reversed order."""
+    return df.iloc[::-1].reset_index(drop=True)
 
 
 def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut=1):
@@ -205,13 +276,17 @@ def append_derivatives(df, variables_for_derivative, derivative_algorithm, df_na
 
 
 def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwargs):
-    length_original_df = len(df)
+
+    orig_index = df.index  # keep original row set & order for final trimming
+
     for j in range(len(indices_by_which_to_shift)):
         index_by_which_to_shift = int(indices_by_which_to_shift[j])
         if index_by_which_to_shift == 0:
             continue
         new_names = [variable_to_shift + '_' + str(index_by_which_to_shift) for variable_to_shift in variables_to_shift]
-        subset = df.loc[:, variables_to_shift]
+        subset = df.loc[:, variables_to_shift].copy()  # copy to avoid chained-index pitfalls
+
+        # Reindex the subset so values align to shifted rows on concat.
         if index_by_which_to_shift > 0:
             subset.index += -index_by_which_to_shift
 
@@ -221,8 +296,61 @@ def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwa
         subset.columns = new_names
         df = pd.concat((df, subset), axis=1)
 
-    max_shift = max(abs(shift) for shift in indices_by_which_to_shift)
-    df_processed = df.iloc[max_shift:-max_shift]
+    # --- Correct, minimal trimming logic ---
+    # Head rows are incomplete if there are NEGATIVE shifts (values pushed forward),
+    # Tail rows are incomplete if there are POSITIVE shifts (values pulled from the future).
+    pos_max = max((int(s) for s in indices_by_which_to_shift if int(s) > 0), default=0)
+    neg_max = max((abs(int(s)) for s in indices_by_which_to_shift if int(s) < 0), default=0)
+
+    # First, restrict back to the original index to drop any extra rows created by shifting
+    df = df.reindex(orig_index)
+
+    # If there is nothing to trim (all shifts are 0), return as-is
+    if pos_max == 0 and neg_max == 0:
+        return df
+
+    # Trim asymmetrically: drop 'neg_max' from the head, 'pos_max' from the tail.
+    start = neg_max
+    end = len(df) - pos_max
+    df_processed = df.iloc[start:end]
+
+    return df_processed
+
+
+def flip_column_signs(df, variables_to_flip, **kwargs):
+    df_processed = df.copy()
+
+    for var in variables_to_flip:
+        if var in df_processed.columns:
+            df_processed[var] = -df_processed[var]
+        else:
+            raise ValueError(f"Column '{var}' does not exist in dataframe.")
+
+    return df_processed
+
+
+def subtract_columns(df, variables_to_subtract, **kwargs):
+    """
+    Appends new columns to the dataframe by subtracting two existing columns.
+
+    Parameters:
+        df (pd.DataFrame): Input dataframe.
+        variables_to_subtract (list of lists): Each sublist has three elements [column_a, column_b, column_c],
+            where column_c will be calculated as column_a - column_b and appended to df.
+        kwargs: Additional parameters for future extensions.
+
+    Returns:
+        pd.DataFrame: Processed dataframe with new columns added.
+    """
+    df_processed = df.copy()
+
+    for var_a, var_b, var_c in variables_to_subtract:
+        # Verify columns exist in DataFrame to avoid errors
+        if var_a not in df_processed.columns or var_b not in df_processed.columns:
+            raise ValueError(f"One or both columns '{var_a}' or '{var_b}' do not exist in dataframe.")
+
+        # Perform the subtraction and create the new column
+        df_processed[var_c] = df_processed[var_a] - df_processed[var_b]
 
     return df_processed
 

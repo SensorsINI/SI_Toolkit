@@ -1,8 +1,9 @@
 import pandas as pd
 import numpy as np
 from collections.abc import Iterable
+from joblib import Parallel, delayed
 
-from tqdm import trange
+from tqdm import trange, tqdm
 from time import sleep
 
 import glob
@@ -203,6 +204,22 @@ def load_csv_recording(file_path):
 
     return data
 
+
+# Helper function to detect if a value can be numeric
+def is_numeric_vectorized(series):
+    # Convert the series to numeric, returning NaN where conversion fails
+    return pd.to_numeric(series, errors='coerce').notna()
+
+
+# Helper function to detect JSON-like lists (assuming lists are stored as strings like '[...]')
+def is_json_list_vectorized(series):
+    # Check if the column is of object (string-like) type before applying .str methods
+    if series.dtype == 'object':
+        return series.str.startswith('[') & series.str.endswith(']')
+    else:
+        # Return a boolean series of False if the column is not string-like
+        return pd.Series([False] * len(series), index=series.index)
+
 def load_data(list_of_paths_to_datafiles=None, verbose=True):
 
     all_dfs = []  # saved separately to get normalization
@@ -211,29 +228,19 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
         range_function = trange
     else:
         range_function = range
-    sleep(0.1)
+
     for file_number in range_function(len(list_of_paths_to_datafiles)):
         filepath = list_of_paths_to_datafiles[file_number]
         # print(filepath)
         # Read column names from file
-        df = pd.read_csv(filepath, comment='#')
+        try:
+            df = pd.read_csv(filepath, comment='#', quotechar='"')
+        except Exception as e:
+            print('Cannot load: Caught {} trying to read CSV file {}'.format(e, filepath))
+            continue
 
         # Change to float32 wherever numeric column
         cols = df.columns
-
-        # Helper function to detect if a value can be numeric
-        def is_numeric_vectorized(series):
-            # Convert the series to numeric, returning NaN where conversion fails
-            return pd.to_numeric(series, errors='coerce').notna()
-
-        # Helper function to detect JSON-like lists (assuming lists are stored as strings like '[...]')
-        def is_json_list_vectorized(series):
-            # Check if the column is of object (string-like) type before applying .str methods
-            if series.dtype == 'object':
-                return series.str.startswith('[') & series.str.endswith(']')
-            else:
-                # Return a boolean series of False if the column is not string-like
-                return pd.Series([False] * len(series), index=series.index)
 
         # Loop through each column
         for col in df.columns:
@@ -482,12 +489,12 @@ def calculate_normalization_info(paths_to_data_information=None, plot_histograms
         except FileExistsError:
             pass
 
-        for feature in df_norm_info.columns:
+        for feature in tqdm(df_norm_info.columns, desc="Plotting histograms"):
             if feature in df_total.columns:
                 plt.clf()
                 plt.hist(df_total[feature].to_numpy(), 50, density=True, facecolor='g', alpha=0.75)
                 plt.title(feature)
-                plt.savefig(histograms_path + '/' + feature + '.png')
+                plt.savefig(os.path.join(histograms_path, f"{feature}.png"))
 
     # endregion
 
@@ -602,16 +609,28 @@ def normalize_feature(feature, normalization_info, normalization_type='minmax_sy
             return -1.0 + 2.0 * (feature - col_min) / (col_max - col_min)
 
 
-def normalize_df(dfs, normalization_info, normalization_type='minmax_sym'):
+def normalize_df(
+    dfs,
+    normalization_info,
+    normalization_type='minmax_sym',
+    n_jobs=-1,  # how many workers you want
+):
+    # helper that exactly mirrors your old in‐place apply
+    def _apply_norm(df):
+        return df.apply(
+            normalize_feature,
+            axis=0,
+            normalization_info=normalization_info,
+            normalization_type=normalization_type,
+        )
+
     if type(dfs) is list:
-        for i in range(len(dfs)):
-            dfs[i] = dfs[i].apply(normalize_feature, axis=0,
-                                  normalization_info=normalization_info,
-                                  normalization_type=normalization_type)
+        print('Normalizing data...')
+        dfs = Parallel(n_jobs=n_jobs)(
+            delayed(_apply_norm)(df) for df in dfs
+        )
     else:
-        dfs = dfs.apply(normalize_feature, axis=0,
-                        normalization_info=normalization_info,
-                        normalization_type=normalization_type)
+        dfs = _apply_norm(dfs)
 
     return dfs
 

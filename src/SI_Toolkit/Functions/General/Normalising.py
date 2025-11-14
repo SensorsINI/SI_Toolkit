@@ -29,6 +29,7 @@ def get_normalization_function(
 
     for variable in set(variables_names)-set(normalization_info.columns):
         normalization_info[variable] = [np.nan, np.nan, np.nan, np.nan]
+        raise Warning(f'Variable {variable} not found in normalization info!')
 
     normalizing_array = lib.to_tensor(
         normalization_info[variables_names].values, dtype=lib.float32)
@@ -197,7 +198,11 @@ def write_out_normalization_vectors(normalization_info, net_info):
     #     f.write('A = ' + str(A) + '\n')
     #     f.write('B = ' + str(B) + '\n')
 
-    np.savetxt(os.path.join(net_info.path_to_net, "normalization_vec_a.csv"), a[np.newaxis, :], delimiter=",", fmt='%0.8f')
-    np.savetxt(os.path.join(net_info.path_to_net, "normalization_vec_b.csv"), b[np.newaxis, :], delimiter=",", fmt='%0.8f')
-    np.savetxt(os.path.join(net_info.path_to_net, "denormalization_vec_A.csv"), A[np.newaxis, :], delimiter=",", fmt='%0.8f')
-    np.savetxt(os.path.join(net_info.path_to_net, "denormalization_vec_B.csv"), B[np.newaxis, :], delimiter=",", fmt='%0.8f')
+    # Create norm_vectors subfolder
+    norm_vectors_dir = os.path.join(net_info.path_to_net, "norm_vectors")
+    os.makedirs(norm_vectors_dir, exist_ok=True)
+
+    np.savetxt(os.path.join(norm_vectors_dir, "normalization_vec_a.csv"), a[np.newaxis, :], delimiter=",", fmt='%0.8f')
+    np.savetxt(os.path.join(norm_vectors_dir, "normalization_vec_b.csv"), b[np.newaxis, :], delimiter=",", fmt='%0.8f')
+    np.savetxt(os.path.join(norm_vectors_dir, "denormalization_vec_A.csv"), A[np.newaxis, :], delimiter=",", fmt='%0.8f')
+    np.savetxt(os.path.join(norm_vectors_dir, "denormalization_vec_B.csv"), B[np.newaxis, :], delimiter=",", fmt='%0.8f')

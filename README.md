@@ -126,7 +126,10 @@ but our programs need Vitis too.
 5. Run the launch script `python -m SI_Toolkit_ASF.Run.Convert_Network_With_hls4ml`
 
 
-
+## Live Plotter
+Allows for streaming data and plot of the data in real-time.
+See README in `SI_Toolkit/src/SI_Toolkit/LivePlotter/` for more details.
+![LivePlotterExample.png](src/SI_Toolkit/LivePlotter/LivePlotterExample.png)
 
 ## Gallery
 Testing with Brunton GUI predicted vs actual car trajectories

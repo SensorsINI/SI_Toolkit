@@ -19,7 +19,23 @@ int main(int argc, char *argv[]) {
         input[i] = atof(argv[i + 1]);
     }
 
+#if IS_GRU
+    // +++ Call this once to set random initial states from network_parameters.c
+    InitializeGRUStates();
+#elif IS_LSTM
+    // Initialize LSTM states
+    InitializeLSTMStates();
+#endif
+
     float output[LAYER3_SIZE];  // output array
+
+    // Test the network with the provided input
+    C_Network_Evaluate(input, output);
+    printf("Output of C network: ");
+    for (int i = 0; i < LAYER3_SIZE; i++) {
+        printf("%f ", output[i]);
+    }
+    printf("\n\n");
 
 
     // Start timing
@@ -36,12 +52,6 @@ int main(int argc, char *argv[]) {
     // Calculate time per call
     double total_time = ((double)(end_time - start_time)) / CLOCKS_PER_SEC;  // Convert clock ticks to seconds
     double time_per_call = total_time*1000000.0 / NUM_RUNS;
-
-    printf("Output of C network: ");
-    for (int i = 0; i < LAYER3_SIZE; i++) {
-        printf("%f ", output[i]);
-    }
-    printf("\n\n");
 
     // Print timing result
     printf("Total time for %d runs C implementation: %f seconds\n", NUM_RUNS, total_time);

@@ -4,7 +4,7 @@ import importlib.util
 
 import tensorflow as tf
 import numpy as np
-
+from pathlib import Path
 from SI_Toolkit.Compile import CompileTF
 from SI_Toolkit.Functions.General.Initialization import calculate_inputs_length
 
@@ -28,41 +28,78 @@ except AttributeError as error:
     print(f'Got an error: \n')
     print(f'{error}. \n')
     print('tensorflow_model_optimization not working. Pruning will not be available.')
+except ImportError as error:
+    print(f'Got an error: \n')
+    print(f'{error}. \n')
+    print('tensorflow_model_optimization not working. Pruning will not be available.')
+
+def ensure_weights_h5_suffix(path):
+    path = Path(path)
+    if not path.name.endswith('.weights.h5'):
+        return path.with_suffix('.weights.h5')
+    return path
 
 def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     """
-    A function loading parameters (weights and biases) from a previous training to a net RNN instance
-    :param net: An instance of RNN
-    :param ckpt_path: path to .ckpt file storing weights and biases
-    :return: No return. Modifies net in place.
-    """
-    if verbose:
-        print("Loading Model: ", ckpt_path)
-        print('')
+    A function loading parameters (weights and biases) from a previous training to a net RNN instance.
+    It prefers H5 format if available, falling back to CKPT and regenerating H5 on failure.
 
+    :param net: An instance of tf.keras.Model or RNN-based model
+    :param ckpt_path: Path to the TensorFlow .ckpt file storing weights and biases
+    :param verbose: Whether to print progress messages
+    :return: None. Modifies `net` in place by loading weights.
+    """
+
+    # Derive the expected .weights.h5 filepath from the checkpoint path
+    h5_path = ensure_weights_h5_suffix(ckpt_path)
+
+    # 1) If an H5 file already exists, attempt to load it first
+    if h5_path.exists():
+        if verbose:
+            print(f"Attempting to load weights from existing H5 file: {h5_path}")
+
+        net.load_weights(str(h5_path))
+        if verbose:
+            print("Successfully loaded weights from H5.")
+
+        return
+
+    # 2) Load from checkpoint when no valid H5 is available
+    if verbose:
+        print(f"Loading weights from checkpoint file: {ckpt_path}")
+    # expect_partial allows loading ckpt if some variables differ
     net.load_weights(ckpt_path).expect_partial()
 
+    # 3) Save a new H5 file for future runs
+    if verbose:
+        print(f"Saving loaded weights to H5 for future use: {h5_path}")
+    net.save_weights(str(h5_path))
 
-def compose_net_from_module(net_info,
+
+
+def compose_net_from_module(model_info,
                             time_series_length,
                             batch_size,
                             stateful=False,
                             **kwargs,
                             ):
-    net_type, module_name, class_name = net_info.net_name.split('-')
+    net_type, module_name, *_ = model_info.net_name.split('-')
     path = './SI_Toolkit_ASF/ToolkitCustomization/Modules/'
 
-    spec = importlib.util.spec_from_file_location(class_name, f"{path}/{module_name}.py")
+    spec = importlib.util.spec_from_file_location(module_name, f"{path}/{module_name}.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
-    net = getattr(module, class_name)(time_series_length, batch_size, net_info)
+    model = getattr(module, module_name)(time_series_length, model_info.batch_size, model_info)
 
-    print(f'Loaded the model {class_name} from {path}.')
+    print(f'Loaded the model {module_name} from {path}.')
 
-    net_info.net_type = net_type
+    model_info.net_type = net_type
+    model_info.inputs_len = calculate_inputs_length(model_info.inputs)
 
-    return net, net_info
+
+
+    return model, model_info
 
 
 def compose_net_from_net_name(net_info,
@@ -98,7 +135,19 @@ def compose_net_from_net_name(net_info,
     if not h_size:
         raise ValueError('You have to provide the size of at least one hidden layer in rnn name')
 
-    if 'GRU' in names:
+    # detect GRU_maskX where X is PERCENT OF MASKED UNITS ----
+    mask_tokens = [t for t in names if t.startswith('GRU_mask')]
+    if mask_tokens:
+        tok = mask_tokens[0]
+        try:
+            pct_masked = int(tok.replace('GRU_mask', ''))
+        except ValueError:
+            raise ValueError(f"Cannot parse percentage in token '{tok}'. Use e.g. GRU_mask30.")
+        if not (0 <= pct_masked <= 100):
+            raise ValueError("GRU_maskX requires 0 <= X <= 100 (percentage of masked units).")
+        net_type = 'GRU_mask'
+        net_info.mask_percent = pct_masked  # store for layer construction
+    elif 'GRU' in names:
         net_type = 'GRU'
     elif 'LSTM' in names:
         net_type = 'LSTM'
@@ -162,9 +211,11 @@ def compose_net_from_net_name_standard(net_info,
 
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
         if 'qkeras' not in sys.modules:
-            raise ModuleNotFoundError('QKeras not found. Quantization-aware training will not be available. Change config_training or install the module')
+            raise ModuleNotFoundError('QKeras not found. Quantization-aware training will not be available.')
         if net_type == 'GRU':
             layer_type = qkeras.QGRU
+        elif net_type == 'GRU_mask':
+            raise NotImplementedError('Quantized CustomGRU (GRU_mask) not implemented.')
         elif net_type == 'LSTM':
             layer_type = qkeras.QLSTM
         elif net_type == 'Dense':
@@ -174,12 +225,17 @@ def compose_net_from_net_name_standard(net_info,
     else:
         if net_type == 'GRU':
             layer_type = tf.keras.layers.GRU
+        elif net_type == 'GRU_mask':
+            from SI_Toolkit.Functions.TF.TFnetworks import CustomGRU
+            layer_type = CustomGRU
         elif net_type == 'LSTM':
             layer_type = tf.keras.layers.LSTM
         elif net_type == 'Dense':
             layer_type = tf.keras.layers.Dense
         else:
             layer_type = tf.keras.layers.SimpleRNN
+
+    custom_mask = (net_type == 'GRU_mask')
 
     quantization_last_layer_args = {}
     quantization_args = {}
@@ -193,14 +249,25 @@ def compose_net_from_net_name_standard(net_info,
         if net_type in ['GRU', 'LSTM', 'RNN-Basic']:
             quantization_args['recurrent_quantizer'] = qkeras.quantizers.quantized_bits(**net_info.quantization['RECURRENT'], alpha=1)
 
+    # pick activation for recurrent layers
+    if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED'] and not custom_mask:
+        activation_for_recurrent = qkeras.quantizers.quantized_tanh(
+            **net_info.quantization['ACTIVATION'], use_real_tanh=True, symmetric=True
+        )
+    else:
+        activation_for_recurrent = activation  # plain 'tanh' for CustomGRU or non-quantized
+
+
     if hasattr(net_info, 'regularization') and net_info.regularization['ACTIVATED']:
         regularization_kernel = tf.keras.regularizers.l1_l2(**net_info.regularization['KERNEL'])
         regularization_bias = tf.keras.regularizers.l1_l2(**net_info.regularization['BIAS'])
         regularization_activity = tf.keras.regularizers.l1_l2(**net_info.regularization['ACTIVITY'])
+        regularization_activity_last = tf.keras.regularizers.l1_l2(**net_info.regularization['ACTIVITY_LAST'])
     else:
         regularization_kernel = None
         regularization_bias = None
         regularization_activity = None
+        regularization_activity_last = None
 
     net = tf.keras.Sequential()
 
@@ -261,41 +328,72 @@ def compose_net_from_net_name_standard(net_info,
                         ))
     else:
 
-        if remove_redundant_dimensions and batch_size==1:
-            shape_input = (time_series_length, inputs_len)
-        else:
-            shape_input = (batch_size, time_series_length, inputs_len)
+        input_args = {}
 
-        # Or RNN...
-        net.add(layer_type(
-            units=h_size[0],
-            activation=activation,
-            batch_input_shape=shape_input,
-            return_sequences=True,
-            stateful=stateful,
-            kernel_regularizer=regularization_kernel,
-            bias_regularizer=regularization_bias,
-            activity_regularizer=regularization_activity,
-            **quantization_args,
-        ))
-        # Define following layers
-        for i in range(1, len(h_size)):
-            net.add(layer_type(
-                units=h_size[i],
-                activation=activation,
+        if stateful:
+            # Stateful RNNs need a constant batch size baked into the graph
+            input_args['batch_shape'] = (batch_size, time_series_length, inputs_len)
+        elif remove_redundant_dimensions and batch_size == 1:
+            # If batch is always 1 and you want to drop that axis, just specify time+feature dims
+            input_args['shape'] = (time_series_length, inputs_len)
+        else:
+            # For stateless RNNs where batch_size > 1 (or you choose not to drop it),
+            # fix the batch size but keep it stateless
+            input_args['batch_size'] = batch_size
+            input_args['shape'] = (time_series_length, inputs_len)
+
+        # 2. Add the Input layer once, with the chosen arguments
+        net.add(tf.keras.Input(**input_args))
+
+        # If we are in CustomGRU (masked), quantization args are not supported — strip them.
+        effective_quant_args = {} if net_type == 'GRU_mask' and layer_type is CustomGRU else quantization_args
+
+        def visible_units_from_pct(units, pct_masked):
+            # pct_masked = % of units zeroed in the OUTPUT; recurrence keeps full 'units'
+            v = int(round(units * (100 - pct_masked) / 100.0))
+            if not (0 <= v <= units):
+                raise ValueError(f"Mask percentage yields invalid visible_units={v} for units={units}.")
+            return v
+
+        # 2) Now add your recurrent layers without any input_* args:
+        first_kwargs = {
+            'units': h_size[0],
+            'activation': activation_for_recurrent,  # <- use the computed one
+            'return_sequences': True,
+            'stateful': stateful,
+            'kernel_regularizer': regularization_kernel,
+            'bias_regularizer': regularization_bias,
+            'activity_regularizer': regularization_activity,
+            **effective_quant_args,  # <- not quantization_args
+        }
+        if net_type == 'GRU_mask' and layer_type is CustomGRU:
+            pct = int(getattr(net_info, 'mask_percent', None))
+            first_kwargs['visible_units'] = visible_units_from_pct(h_size[0], pct)
+        net.add(layer_type(**first_kwargs))
+
+        # 3) Add any subsequent layers in the same way:
+        for units in h_size[1:]:
+            kwargs_i = dict(
+                units=units,
+                activation=activation_for_recurrent,  # <- unify here
                 return_sequences=True,
                 stateful=stateful,
                 kernel_regularizer=regularization_kernel,
                 bias_regularizer=regularization_bias,
                 activity_regularizer=regularization_activity,
-                **quantization_args,
-            ))
+                **effective_quant_args,  # <- unify here
+            )
+            if net_type == 'GRU_mask' and layer_type is CustomGRU:
+                pct = int(getattr(net_info, 'mask_percent', None))
+                kwargs_i['visible_units'] = visible_units_from_pct(units, pct)
+            net.add(layer_type(**kwargs_i))
 
 
     if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
         net.add(qkeras.QDense(units=len(outputs_list), name='layers_{}'.format(h_number),
                               kernel_regularizer=regularization_kernel,
                               bias_regularizer=regularization_bias,
+                              activity_regularizer=regularization_activity_last,
                               **quantization_last_layer_args,
                               ))
     else:
@@ -303,6 +401,7 @@ def compose_net_from_net_name_standard(net_info,
                                       activation=activation_last_layer,
                                       kernel_regularizer=regularization_kernel,
                                       bias_regularizer=regularization_bias,
+                                      activity_regularizer=regularization_activity_last,
                                       ))
 
     return net, net_info
@@ -409,7 +508,11 @@ def get_activation_statistics(model, datasets, path_to_save=None):
     print('Calculating activations statistics...')
     print('For each - except for last - layer the calculation is done twice: with and without the activation function')
     # Creating a list of intermediate models for each layer's output
-    intermediate_models = [tf.keras.Model(inputs=model.input, outputs=layer.output) for layer in model.layers]
+    try:
+        intermediate_models = [tf.keras.Model(inputs=model.input, outputs=layer.output) for layer in model.layers]
+    except AttributeError:
+        print('The model is not a standard model. No activation statistics will be calculated.')
+        return
     for i in range(len(intermediate_models)):
         layer_model = intermediate_models[i]
         layer_name = layer_model.layers[-1].name

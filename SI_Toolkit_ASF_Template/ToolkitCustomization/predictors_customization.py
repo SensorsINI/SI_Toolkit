@@ -55,8 +55,7 @@ class next_state_predictor_ODE:
             pole_length = self.lib.to_tensor(self.cpe.params.L, dtype=self.lib.float32)
 
         Q = Q[..., 0]  # Removes features dimension, specific for cartpole as it has only one control input
-        u = self.cpe.Q2u(Q)
-        s_next = self.cpe.cartpole_fine_integration(s, u=u, t_step=self.t_step, intermediate_steps=self.intermediate_steps, L=pole_length)
+        s_next = self.cpe.cartpole_fine_integration(s, Q=Q, t_step=self.t_step, intermediate_steps=self.intermediate_steps, L=pole_length)
 
         return s_next
 

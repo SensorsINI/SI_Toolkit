@@ -30,7 +30,7 @@ class LivePlotter_ConnectionHandlerReceiver:
             try:
                 while self.connection.poll(timeout):
                     buffer = self.connection.recv()
-                    if buffer == "ping":
+                    if isinstance(buffer, str) and buffer == "ping":
                         self.connection.send("pong")
                     else:
                         yield buffer

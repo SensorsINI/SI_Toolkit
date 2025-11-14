@@ -2,7 +2,6 @@ from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 import numpy as np
 from tqdm import trange
 
-from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import STATE_VARIABLES, CONTROL_INPUTS
 
 def get_prediction(
         dataset,
@@ -32,13 +31,13 @@ def get_prediction(
     # mode = 'batch'
 
     if mode == 'batch':
-        predictor.configure_with_compilation(batch_size=test_len, horizon=predictor_horizon, dt=dt, mode=routine, hls=hls)
+        predictor.configure_with_compilation(batch_size=test_len, dt=dt, mode=routine, hls=hls)
     else:
-        predictor.configure_with_compilation(batch_size=1, horizon=predictor_horizon, dt=dt, mode=routine, hls=hls)
+        predictor.configure_with_compilation(batch_size=1, dt=dt, mode=routine, hls=hls)
 
-    if hasattr(predictor.predictor, 'net_info') and hasattr(predictor.predictor.net_info, 'dt') and predictor.predictor.net_info.dt == 0.0:
-        dt_predictions = 0.0
-    elif hasattr(predictor.predictor, 'dt'):
+    if hasattr(predictor.predictor, 'net_info') and hasattr(predictor.predictor.net_info, 'dt') and predictor.predictor.net_info.dt != 0.0:
+        dt_predictions = predictor.predictor.net_info.dt
+    elif hasattr(predictor.predictor, 'dt') and predictor.predictor.dt != 0.0:
         dt_predictions = predictor.predictor.dt
     else:
         dt_predictions = dt
@@ -87,7 +86,8 @@ def get_prediction(
                 output = predictor.predict(predictor_initial_input_formatted, predictor_external_input_current_timestep)
             else:
                 output = np.concatenate((output, predictor.predict(predictor_initial_input_formatted, predictor_external_input_current_timestep)), axis=0)
-            predictor.update(predictor_external_input_current_timestep[:, np.newaxis, 0, :], predictor_initial_input_formatted)
+
+            predictor.update(predictor_external_input_current_timestep[:, np.newaxis, 0, :], predictor_initial_input_formatted)   # FIXME: Does it still deal with RNN update correctly? Only if predict contains an reset to memory states, which I don't know now
 
     if routine == 'autoregressive':
         output = output[:, 1:, :]  # Remove initial state

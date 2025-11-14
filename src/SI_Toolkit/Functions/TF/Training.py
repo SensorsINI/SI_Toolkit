@@ -11,13 +11,18 @@ try:
     from tensorflow_model_optimization.sparsity.keras import strip_pruning
 except ModuleNotFoundError:
     print('tensorflow_model_optimization not found. Pruning will not be available.')
+except AttributeError:
+    print("Pruning not available.")
+except ImportError:
+    print("Pruning not available.")
 
 from SI_Toolkit.Functions.TF.Dataset import Dataset
 
-from SI_Toolkit.Functions.TF.Loss import LossMSRSequence, LossMSRSequenceCustomizableRelative
+from SI_Toolkit.Functions.TF.Loss import LossMeanResidual
 
 import tensorflow as tf
 
+_CKPT_SUFFIX = ".weights.h5"
 
 # Uncomment the @profile(precision=4) to get the report on memory usage after the training
 # Warning! It may affect performance. I would discourage you to use it for long training tasks
@@ -29,6 +34,13 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
 
     validation_dataset = Dataset(validation_dfs, a, shuffle=False, inputs=net_info.inputs,
                                  outputs=net_info.outputs, normalization_info=normalization_info)
+
+
+    training_dataset.build_cache()
+    validation_dataset.build_cache()
+
+    tf_training_dataset = training_dataset.to_tf_data()
+    tf_validation_dataset = validation_dataset.to_tf_data()
 
     del training_dfs, validation_dfs, test_dfs
 
@@ -69,14 +81,19 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
             stddev = tf.exp(y_pred[..., 1])  # Assuming log-stddev is at index 1
             return tf.reduce_mean(stddev)
 
-        loss = negative_log_likelihood
+        if a.loss_mode == 'negative_log_likelihood':
+            loss = negative_log_likelihood
+        else:
+            raise ValueError("Unsupported loss mode for Bayesian networks: {}".format(a.loss_mode))
+
         metrics = [metric_mae, metric_std]
 
     else:
         # Use existing loss function for non-Bayesian networks
         # loss = "mse"  # Might be not the same as Pytorch - MSE, not checked
         # loss = LossMSRSequenceCustomizableRelative(
-        loss = LossMSRSequence(
+        loss = LossMeanResidual(
+            loss_mode=a.loss_mode,
             wash_out_len=a.wash_out_len,
             post_wash_out_len=a.post_wash_out_len,
             discount_factor=1.0
@@ -86,19 +103,30 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
         metrics = None
 
 
+    net.optimizer = optimizer  # When loading a pretrained network, setting optimizer in compile does nothing.
+
+    try:
+        tf.keras.backend.set_value(net.optimizer.lr, a.lr_initial)
+    except AttributeError:                                    # ⇢ CHANGED
+        try:                                                  # ⇢ NEW
+            tf.keras.backend.set_value(net.optimizer.learning_rate, a.lr_initial)
+        except AttributeError:
+            net.optimizer.learning_rate = float(a.lr_initial) # plain float in Keras 3
+
+    # endregion
     net.compile(
         loss=loss,
         optimizer=optimizer,
-        metrics=metrics
+        metrics=metrics,
+        jit_compile=True,
     )
 
-    net.optimizer = optimizer  # When loading a pretrained network, setting optimizer in compile does nothing.
     # region Define callbacks to be used in training
 
     callbacks_for_training = []
 
     model_checkpoint_callback = keras.callbacks.ModelCheckpoint(
-        filepath=os.path.join(net_info.path_to_net, 'ckpt' + '.ckpt'),
+        filepath=os.path.join(net_info.path_to_net, 'ckpt' + _CKPT_SUFFIX),   # ⇢ CHANGED
         save_weights_only=True,
         monitor='val_loss',
         mode='auto',
@@ -159,7 +187,7 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
     # endregion
 
 
-    loss_eval = net.evaluate(validation_dataset)
+    loss_eval = net.evaluate(tf_validation_dataset, steps=len(validation_dataset))
     print('Validation loss before starting training is {}'.format(loss_eval))
 
     # region Print information about the network
@@ -168,11 +196,13 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
 
     # region Training loop
     history = net.fit(
-        training_dataset,
+        tf_training_dataset,
         epochs=a.num_epochs,
         verbose=True,
-        shuffle=False,
-        validation_data=validation_dataset,
+        shuffle=False,  # Keras must not reshuffle again
+        validation_data=tf_validation_dataset,
+        steps_per_epoch=len(training_dataset),
+        validation_steps=len(validation_dataset),
         callbacks=callbacks_for_training,
     )
 
@@ -201,7 +231,7 @@ def train_network_core(net, net_info, training_dfs, validation_dfs, test_dfs, no
             print('HLS4ML not found. No corresponding info possible.')
 
     net.save(os.path.join(net_info.path_to_net, net_info.net_full_name + '.keras'))
-    net.save_weights(os.path.join(net_info.path_to_net, 'ckpt' + '.ckpt'))
+    net.save_weights(os.path.join(net_info.path_to_net, 'ckpt' + _CKPT_SUFFIX))  # ⇢ CHANGED
     # endregion
 
     if a.plot_weights_distribution:

@@ -1,18 +1,4 @@
-"""
-This is a CLASS of predictor.
-The idea is to decouple the estimation of system future state from the controller design.
-While designing the controller you just chose the predictor you want,
- initialize it while initializing the controller and while stepping the controller you just give it current state
-    and it returns the future states
-
-"""
-
-"""
-Control inputs should be first (regarding vector indices) inputs of the vector.
-all other net inputs in the same order as net outputs
-"""
-
-# TODO: Make horizon updatable in runtime
+# predictor_autoregressive_neural.py
 
 import os
 from types import SimpleNamespace
@@ -44,7 +30,6 @@ class predictor_autoregressive_neural(template_predictor):
         self,
         model_name=None,
         path_to_model=None,
-        horizon=None,
         dt=None,
         batch_size=None,
         variable_parameters=None,
@@ -55,8 +40,8 @@ class predictor_autoregressive_neural(template_predictor):
         input_quantization='float',
         **kwargs
     ):
-        super().__init__(horizon=horizon, batch_size=batch_size)
-        self.dt = dt
+        super().__init__(batch_size=batch_size)
+        self.dt = abs(dt)
 
         a = SimpleNamespace()
         
@@ -96,12 +81,12 @@ class predictor_autoregressive_neural(template_predictor):
             self.predictor_output_features = np.array(self.net_info.outputs)
             self.horizon = 1
 
-        if hasattr(self.net_info, 'dt'):
+        if hasattr(self.net_info, 'dt') and self.net_info.dt is not None and self.net_info.dt != 0.0:
             if self.net_info.dt != self.dt:
                 print(f'\n dt of the network {self.net_info.dt} s is different from dt requested of the predictor {self.dt}.\n'
                       f'Using dt of the network {self.net_info.dt} s.\n'
                       f'If it is what you intended (e.g. in Brunton test), ignore this message.\n')
-            self.dt = self.net_info.dt
+            self.dt = abs(self.net_info.dt)
 
 
         if self.net_info.library == 'TF':
@@ -173,7 +158,6 @@ class predictor_autoregressive_neural(template_predictor):
                     outputs=self.net_info.outputs,
                     normalization_info=self.normalization_info,
                     dt=self.dt,
-                    batch_size=self.batch_size,
                     lib=self.lib,
                 )
             outputs_names = [(x[2:] if x[:2] == 'D_' else x) for x in self.net_info.outputs]
@@ -192,7 +176,7 @@ class predictor_autoregressive_neural(template_predictor):
         self.indices_outputs = self.lib.to_tensor(np.argsort(indices_outputs_rev+missing_indices_output), dtype=self.lib.int64)
         self.indices_outputs = self.indices_outputs[:len(self.indices_outputs)-indices_outputs_rev.count(np.inf)]
 
-        self.missing_outputs = self.lib.zeros((self.batch_size, self.horizon, len(missing_indices_output)))
+        self._num_missing_outputs = len(missing_indices_output)
 
         self.model_initial_input_normed = self.lib.zeros([self.batch_size, len(self.model_initial_input_indices)], dtype=self.lib.float32)
         self.last_initial_state = self.lib.zeros([self.batch_size, len(self.predictor_initial_input_features)], dtype=self.lib.float32)
@@ -201,8 +185,7 @@ class predictor_autoregressive_neural(template_predictor):
         self.model_initial_input_normed = self.lib.to_variable(self.model_initial_input_normed, self.lib.float32)
         self.last_initial_state = self.lib.to_variable(self.last_initial_state, self.lib.float32)
 
-        self.output = np.zeros([self.batch_size, self.horizon + 1, len(self.predictor_output_features)],
-                               dtype=np.float32)
+        self.output = None
 
         self.input_quantization = input_quantization
 
@@ -210,7 +193,6 @@ class predictor_autoregressive_neural(template_predictor):
             model=self.net,
             model_inputs_len=len(self.net_info.inputs),
             model_outputs_len=len(self.net_info.outputs),
-            batch_size=self.batch_size,
             lib=self.lib,
             differential_model_autoregression_helper_instance=self.dmah,
         )
@@ -229,9 +211,9 @@ class predictor_autoregressive_neural(template_predictor):
             # Not clear if supported at all in HLS model
             self.copy_internal_states_from_ref = lambda *args: None
             self.copy_internal_states_to_ref = lambda *args: None
-            # Convert network to HLS form
+            # Convert network to HLS form using temporary directory to avoid file system issues
             from SI_Toolkit.HLS4ML.hls4ml_functions import convert_model_with_hls4ml
-            self.net, _ = convert_model_with_hls4ml(self.net)
+            self.net, _ = convert_model_with_hls4ml(self.net, use_temp_dir=True)
             self.net.compile()
             # Not compilation supported for HLS models
             self.predict_with_update_tf = self._predict_with_update_tf
@@ -274,9 +256,6 @@ class predictor_autoregressive_neural(template_predictor):
         else:
             initial_state_normed = initial_state
 
-        if self.dmah:
-            self.dmah.set_starting_point(initial_state_normed)
-
         self.lib.assign(self.model_initial_input_normed, self.lib.gather_last(initial_state_normed, self.model_initial_input_indices))
 
         model_initial_input_normed = self.lib.gather_last(initial_state_normed, self.model_initial_input_indices)
@@ -291,10 +270,22 @@ class predictor_autoregressive_neural(template_predictor):
         # load internal RNN state if applies
         self.copy_internal_states_from_ref(self.net, self.memory_states_ref)
 
+        # -------- seed the differential-model state with the full state --------
+        # dmah integrates in the SAME space as the model operates:
+        # - if normalized training was used, increments are computed in normalized space,
+        #   hence dm_state must also be normalized;
+        # - otherwise dm_state is raw.
+        dm_state0 = None
+        if self.differential_network and self.dmah is not None:
+            s_for_dm = initial_state_normed if self.net_info.normalize else initial_state
+            # Map full state -> output order (e.g., [theta_cos, theta_sin, x, y, ...])
+            dm_state0 = self.lib.gather_last(s_for_dm, self.dmah.indices_state_to_output)
+        # ---------------------------------------------------------------------------
+
         outputs = self.AL.run(
-            horizon=self.horizon,
             initial_input=self.model_initial_input_normed,
             external_input_left=model_external_input_normed,
+            dm_state_init=dm_state0,
         )
 
         if self.net_info.normalize:
@@ -303,7 +294,10 @@ class predictor_autoregressive_neural(template_predictor):
         # Augment
         outputs_augmented = self.augmentation.augment(outputs)
 
-        outputs_augmented = self.lib.concat([outputs_augmented, self.missing_outputs], axis=-1)
+        T = self.lib.shape(outputs_augmented)[1]
+        if self._num_missing_outputs > 0:
+            missing_pad = self.lib.zeros([self.batch_size, T, self._num_missing_outputs])
+            outputs_augmented = self.lib.concat([outputs_augmented, missing_pad], axis=-1)
 
         outputs_augmented = self.lib.gather_last(outputs_augmented, self.indices_outputs)
 
@@ -336,6 +330,7 @@ class predictor_autoregressive_neural(template_predictor):
         else:
 
             net_input_reg = self.lib.gather_last(s, self.model_initial_input_indices)  # [batch_size, features]
+            Q0 = self.lib.gather_last(Q0, self.model_external_input_indices)  # TODO: NOT TESTED
 
             if self.net_info.normalize:
                 net_input_reg = self.normalize_inputs(net_input_reg)
@@ -354,7 +349,9 @@ class predictor_autoregressive_neural(template_predictor):
 
     def reset(self):
         self.last_optimal_control_input = None
-        self.last_optimal_control_input = None
+        if self.last_initial_state is not None:
+            self.lib.assign(self.last_initial_state,
+                            self.lib.zeros_like(self.last_initial_state))
 
 
 if __name__ == '__main__':

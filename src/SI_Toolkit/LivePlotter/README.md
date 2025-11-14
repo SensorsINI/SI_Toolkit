@@ -1,5 +1,7 @@
 # Live Plotter
 
+![LivePlotterExample.png](LivePlotterExample.png)
+
 ## Overview
 
 Live Plotter is a tool for real-time data plotting and visualization. It consists of a server-side component that handles data reception and plotting, and a client-side component that sends data to the server for visualization.
