@@ -30,6 +30,10 @@ def get_prediction(
     # mode = 'sequential'
     # mode = 'batch'
 
+    # For backward trajectory networks, use negative dt
+    backward_mode = 'backward' in routine
+    dt = -dt if backward_mode else dt
+
     if mode == 'batch':
         predictor.configure_with_compilation(batch_size=test_len, dt=dt, mode=routine, hls=hls)
     else:
@@ -44,8 +48,12 @@ def get_prediction(
 
 
     predictor_initial_input = dataset[predictor.predictor.predictor_initial_input_features].to_numpy()
+    predictor_initial_input_len = len(predictor_initial_input)
     if predictor_initial_input is not None:
-        predictor_initial_input = predictor_initial_input[:-test_max_horizon, :]
+        if backward_mode:
+            predictor_initial_input = predictor_initial_input[predictor_horizon:, :]
+        else:
+            predictor_initial_input = predictor_initial_input[:predictor_initial_input_len-predictor_horizon, :]
     try:
         predictor_external_input = dataset[predictor.predictor.predictor_external_input_features].to_numpy()
     except KeyError as e:
@@ -63,9 +71,12 @@ def get_prediction(
                        )
         raise KeyError(f'{e}' + f" See terminal output for more information.")
 
-
-
-    predictor_external_input_array = [predictor_external_input[..., i:-predictor_horizon + i, :] for i in range(predictor_horizon)]
+    predictor_external_input_len = len(predictor_external_input)
+    if backward_mode:
+        # Backward: for each test point k at dataset index (predictor_horizon+k), we need [u(t-1), u(t-2), ..., u(t-pred_hor)]
+        predictor_external_input_array = [predictor_external_input[..., predictor_horizon-i:predictor_external_input_len-i, :] for i in range(predictor_horizon+1)]
+    else:
+        predictor_external_input_array = [predictor_external_input[..., i: predictor_external_input_len-predictor_horizon + i, :] for i in range(predictor_horizon+1)]
     predictor_external_input_array = np.stack(predictor_external_input_array, axis=1)
 
     if routine == "simple evaluation":
@@ -89,7 +100,7 @@ def get_prediction(
 
             predictor.update(predictor_external_input_current_timestep[:, np.newaxis, 0, :], predictor_initial_input_formatted)   # FIXME: Does it still deal with RNN update correctly? Only if predict contains an reset to memory states, which I don't know now
 
-    if routine == 'autoregressive':
+    if 'autoregressive' in routine:
         output = output[:, 1:, :]  # Remove initial state
 
     prediction = [output, predictor.predictor.predictor_output_features, dt_predictions]

@@ -125,6 +125,9 @@ def get_scaling_function_for_output_of_differential_network(
 
         return scale_output_of_differential_network
 
+    import re
+    strip_suffix = lambda name: re.sub(r'_-?\d+$', '', name)
+    network_outputs = [strip_suffix(x) for x in network_outputs]
     DIFF_NET_STATE_VARIABLES = [(x[2:] if x[:2] == 'D_' else x) for x in network_outputs]  # Outputs without D_ -> to make possible comparison with inputs
     denormalizing_derivatives = lib.to_tensor(normalization_info[network_outputs].values, dtype=lib.float32)
     normalizing_variables = lib.to_tensor(normalization_info[DIFF_NET_STATE_VARIABLES].values, dtype=lib.float32)

@@ -25,11 +25,18 @@ def run_brunton_test(test_hls=False):
     predictor = PredictorWrapper()
     titles = []
     for predictor_specification in predictors_list:
+        routine = "autoregressive"
+        
+        # Check for S: prefix (simple evaluation)
         if predictor_specification[:2] == 'S:':
             routine = "simple evaluation"
             predictor_specification = predictor_specification[2:]
-        else:
-            routine = "autoregressive"
+        
+        # Check for B: prefix (backward trajectory)
+        if predictor_specification[:2] == 'B:':
+            routine = routine + "_backward"
+            predictor_specification = predictor_specification[2:]
+        
         predictor.update_predictor_config_from_specification(predictor_specification=predictor_specification)
         predictions_list.append(get_prediction(dataset, predictor, dataset_sampling_dt, routine, **config_testing))
         titles.append(predictor_specification)

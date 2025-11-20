@@ -41,7 +41,7 @@ class predictor_autoregressive_neural(template_predictor):
         **kwargs
     ):
         super().__init__(batch_size=batch_size)
-        self.dt = abs(dt)
+        self.dt = dt
 
         a = SimpleNamespace()
         
@@ -86,7 +86,7 @@ class predictor_autoregressive_neural(template_predictor):
                 print(f'\n dt of the network {self.net_info.dt} s is different from dt requested of the predictor {self.dt}.\n'
                       f'Using dt of the network {self.net_info.dt} s.\n'
                       f'If it is what you intended (e.g. in Brunton test), ignore this message.\n')
-            self.dt = abs(self.net_info.dt)
+            self.dt = self.net_info.dt
 
 
         if self.net_info.library == 'TF':
@@ -140,9 +140,22 @@ class predictor_autoregressive_neural(template_predictor):
         
         if self.net_info.normalize:
             self.normalization_info = get_norm_info_for_net(self.net_info)
-            self.normalize_state = get_normalization_function(self.normalization_info, self.predictor_initial_input_features, self.lib)
-            self.normalize_inputs = get_normalization_function(self.normalization_info, self.model_initial_input_features, self.lib)
-            self.normalize_control_inputs = get_normalization_function(self.normalization_info, self.predictor_external_input_features, self.lib)
+            # Strip time suffixes (e.g., _-1) from feature names for normalization lookup
+            import re
+            strip_suffix = lambda name: re.sub(r'_-?\d+$', '', name)
+            
+            self.normalize_state = get_normalization_function(
+                self.normalization_info, 
+                [strip_suffix(f) for f in self.predictor_initial_input_features], 
+                self.lib)
+            self.normalize_inputs = get_normalization_function(
+                self.normalization_info, 
+                [strip_suffix(f) for f in self.model_initial_input_features], 
+                self.lib)
+            self.normalize_control_inputs = get_normalization_function(
+                self.normalization_info, 
+                [strip_suffix(f) for f in self.predictor_external_input_features], 
+                self.lib)
         else:
             self.normalization_info = None
 
@@ -160,7 +173,9 @@ class predictor_autoregressive_neural(template_predictor):
                     dt=self.dt,
                     lib=self.lib,
                 )
-            outputs_names = [(x[2:] if x[:2] == 'D_' else x) for x in self.net_info.outputs]
+            # Strip D_ prefix and time suffixes for denormalization lookup
+            import re
+            outputs_names = [re.sub(r'_-?\d+$', '', x[2:] if x[:2] == 'D_' else x) for x in self.net_info.outputs]
         else:
             self.dmah: Optional[differential_model_autoregression_helper] = None
             outputs_names = self.net_info.outputs
