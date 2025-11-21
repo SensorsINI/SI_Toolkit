@@ -105,9 +105,9 @@ class MainWindow(QMainWindow):
 
         self.show_all = False
         self.downsample = False
-        self.current_point_timeaxis_index = (self.time_axis.shape[0]-self.max_horizon)//2
-        if self.dt_predictions < 0:
-            self.current_point_timeaxis_index += self.max_horizon  # No data for first max_horizon steps
+        self._current_point_timeaxis_index = (self.time_axis.shape[0]-self.max_horizon)//2
+        self._current_point_predictions_index = None
+        self._update_predictions_index()
         self.select_dataset(0)
         self.combine_features = False
 
@@ -325,9 +325,31 @@ class MainWindow(QMainWindow):
 
         self.redraw_canvas()
 
+    @property
+    def current_point_timeaxis_index(self):
+        """Get the current point timeaxis index."""
+        return self._current_point_timeaxis_index
+
+    @current_point_timeaxis_index.setter
+    def current_point_timeaxis_index(self, value):
+        """Set the current point timeaxis index and automatically update predictions index."""
+        self._current_point_timeaxis_index = value
+        self._update_predictions_index()
+
+    @property
+    def current_point_predictions_index(self):
+        """Get the current point predictions index (computed based on dt_predictions)."""
+        return self._current_point_predictions_index
+
+    def _update_predictions_index(self):
+        """Update predictions index based on timeaxis index and dt_predictions."""
+        if self.dt_predictions < 0:
+            self._current_point_predictions_index = self._current_point_timeaxis_index - self.max_horizon
+        else:
+            self._current_point_predictions_index = self._current_point_timeaxis_index
 
     def set_horizon(self):
-        self.max_horizon = self.predictions_list[0][0].shape[-2]
+        self.max_horizon = self.predictions_list[0][0].shape[-2] - 1 - 1  # Contains seed state hance -1; Predicts one additional step hence -1 - but the last prediction does not have control input paired with it.
         self.horizon = int(np.ceil(self.max_horizon / 2))
 
         if hasattr(self, 'sl_h'):
@@ -449,6 +471,7 @@ class MainWindow(QMainWindow):
             brunton_widget(self.features, self.ground_truth, self.dataset, self.time_axis,
                         axs=self.fig.Ax,
                         current_point_timeaxis_index=self.current_point_timeaxis_index,
+                        current_point_predictions_index=self.current_point_predictions_index,
                         feature_to_display=self.feature_to_display,
                         max_horizon=self.max_horizon,
                         horizon=self.horizon,
@@ -479,6 +502,7 @@ class MainWindow(QMainWindow):
             brunton_widget_combined(self.features, self.ground_truth, self.dataset, self.time_axis,
                         axs=self.fig.Ax,
                         current_point_timeaxis_index=self.current_point_timeaxis_index,
+                        current_point_predictions_index=self.current_point_predictions_index,
                         feature_to_display_1=self.feature_to_display,
                         feature_to_display_2=self.feature_to_display_2,
                         max_horizon=self.max_horizon,
@@ -558,7 +582,7 @@ class MainWindow(QMainWindow):
                 ground_truth = ground_truth[
                                self.current_point_timeaxis_index + labels_shift: self.current_point_timeaxis_index + (
                                            self.horizon + 1) * labels_shift: labels_shift]
-                predictions = predictions[self.current_point_timeaxis_index, :self.horizon]
+                predictions = predictions[self.current_point_predictions_index, :self.horizon]
 
         return predictions - ground_truth[:, None]
 
@@ -578,6 +602,7 @@ class MainWindow(QMainWindow):
 
 def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=None,
                    current_point_timeaxis_index=None,
+                   current_point_predictions_index=None,
                    feature_to_display=None,
                    max_horizon=10, horizon=None,
                    show_all=True,
@@ -628,10 +653,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
         time_axis_horizon = np.arange(horizon+1)*dt_predictions + time_axis[current_point_timeaxis_index]
         for i in range(0, horizon+1):
 
-            prediction_index_at_current_point = current_point_timeaxis_index
-            if labels_shift < 0:
-                prediction_index_at_current_point -= max_horizon  #FIXME: Seems it works with -2
-            prediction_to_plot.append(predictions_array[prediction_index_at_current_point, i, feature_idx])
+            prediction_to_plot.append(predictions_array[current_point_predictions_index, i, feature_idx])
             if downsample:
                 if (i % 2) == 0:
                     continue
@@ -647,14 +669,20 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
     else:
 
         for i in range(1, horizon+1):
-            prediction_to_plot.append(predictions_array[:-i, i-1, feature_idx])
+
+            prediction_to_plot.append(predictions_array[:, i, feature_idx].squeeze())
+            if dt_predictions > 0:
+                time_axis_to_plot = time_axis[:-max_horizon]+i*dt_predictions
+            else:
+                time_axis_to_plot = time_axis[max_horizon:] + i * dt_predictions
+            
             if downsample:
                 if (i % 2) == 0:
                     continue
 
-            axs.plot(time_axis[:-i]+i*dt_predictions, prediction_to_plot[i-1],
-                        c=cmap((float(i-1) / max_horizon)*0.8+0.2),
-                        marker='.', linestyle = '')
+            axs.plot(time_axis_to_plot, prediction_to_plot[i-1],
+            c=cmap((float(i-1) / max_horizon)*0.8+0.2),
+            marker='.', linestyle = '')
 
     axs.set_ylim(y_lim)
     plt.show()
@@ -662,6 +690,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
 
 def brunton_widget_combined(features, ground_truth, predictions_array, time_axis, axs=None,
                    current_point_timeaxis_index=None,
+                   current_point_predictions_index=None,
                    feature_to_display_1=None,
                    feature_to_display_2=None,
                    max_horizon=10, horizon=None,
@@ -708,10 +737,11 @@ def brunton_widget_combined(features, ground_truth, predictions_array, time_axis
                  ground_truth[0][current_point_timeaxis_index, ground_truth_feature_idx_2],
                  'g.', markersize=16, label='Start')
         # time_axis_predictions = np.arange(horizon+1)*dt_predictions + time_axis[current_point_timeaxis_index]
+        prediction_index = current_point_predictions_index if current_point_predictions_index is not None else current_point_timeaxis_index
         for i in range(horizon):
 
-            prediction_to_plot_1.append(predictions_array[current_point_timeaxis_index, i, feature_idx_1])
-            prediction_to_plot_2.append(predictions_array[current_point_timeaxis_index, i, feature_idx_2])
+            prediction_to_plot_1.append(predictions_array[prediction_index, i, feature_idx_1])
+            prediction_to_plot_2.append(predictions_array[prediction_index, i, feature_idx_2])
             if downsample:
                 if (i % 2) == 0:
                     continue

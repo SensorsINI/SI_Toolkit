@@ -100,8 +100,8 @@ def get_prediction(
 
             predictor.update(predictor_external_input_current_timestep[:, np.newaxis, 0, :], predictor_initial_input_formatted)   # FIXME: Does it still deal with RNN update correctly? Only if predict contains an reset to memory states, which I don't know now
 
-    if 'autoregressive' in routine:
-        output = output[:, 1:, :]  # Remove initial state
+    # if 'autoregressive' in routine:
+    #     output = output[:, 1:, :]  # Remove initial state
 
     prediction = [output, predictor.predictor.predictor_output_features, dt_predictions]
 
