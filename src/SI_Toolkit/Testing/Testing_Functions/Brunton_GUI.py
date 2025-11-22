@@ -810,7 +810,8 @@ def canvas2_plot(features, ground_truth, time_axis, axs=None,
                  'g.', markersize=16, label='Start')
 
         if dt_predictions != 0.0:
-            within_horizon_idx = np.arange(1, horizon + 1) + current_point_timeaxis_index
+            direction = 1 if dt_predictions > 0 else -1
+            within_horizon_idx = current_point_timeaxis_index + direction * np.arange(1, horizon + 1)
             time_axis_within_horizon = time_axis[within_horizon_idx]
             feature_within_horizon = ground_truth[0][within_horizon_idx, ground_truth_feature_idx]
             axs.plot(time_axis_within_horizon, feature_within_horizon, 'r.', markersize=5, label='within horizon')
