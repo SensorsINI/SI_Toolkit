@@ -132,7 +132,8 @@ class predictor_autoregressive_neural(template_predictor):
         self.predictor_external_input_indices = {x: np.where(self.predictor_external_input_features == x)[0][0] for x in self.predictor_external_input_features}
         self.predictor_output_indices = {x: np.where(self.predictor_output_features == x)[0][0] for x in self.predictor_output_features}
 
-        self.model_input_features = self.net_info.inputs
+        import re
+        self.model_input_features = [re.sub(r'_-?\d+$', '', x) for x in self.net_info.inputs]
         self.model_output_features = self.net_info.outputs
 
         self.model_external_input_features = [feature for feature in self.model_input_features if feature in self.predictor_external_input_features]

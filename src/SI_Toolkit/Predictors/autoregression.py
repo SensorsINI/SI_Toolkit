@@ -226,6 +226,7 @@ class differential_model_autoregression_helper:
         import re
         # Strip D_ prefix and time suffixes (e.g., _-1) from outputs  
         outputs_names_after_integration = np.array([re.sub(r'_-?\d+$', '', x[2:]) for x in outputs])
+        inputs = np.array([re.sub(r'_-?\d+$', '', x) for x in inputs])
 
         STATE_INDICES = {x: np.where(STATE_VARIABLES_FOR_PREDICTOR == x)[0][0] for x in STATE_VARIABLES_FOR_PREDICTOR}
         self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names_after_integration],

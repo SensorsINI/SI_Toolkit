@@ -344,7 +344,7 @@ class MainWindow(QMainWindow):
     def _update_predictions_index(self):
         """Update predictions index based on timeaxis index and dt_predictions."""
         if self.dt_predictions < 0:
-            self._current_point_predictions_index = self._current_point_timeaxis_index - self.max_horizon
+            self._current_point_predictions_index = self._current_point_timeaxis_index - self.max_horizon - 1  # -1 because control inputs for backwards prediction needs to be shifted
         else:
             self._current_point_predictions_index = self._current_point_timeaxis_index
 
@@ -602,6 +602,7 @@ class MainWindow(QMainWindow):
             raise ValueError("Show-all ground truth extraction expects non-zero labels_shift.")
 
         if labels_shift < 0:
+            ground_truth = ground_truth[1:]
             reversed_gt = MainWindow.ground_truth_for_error_calculation_show_all(
                 ground_truth[::-1],
                 horizon,
@@ -701,7 +702,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
             if dt_predictions > 0:
                 time_axis_to_plot = time_axis[:-max_horizon]+i*dt_predictions
             else:
-                time_axis_to_plot = time_axis[max_horizon:] + i * dt_predictions
+                time_axis_to_plot = time_axis[max_horizon + 1:] + i * dt_predictions
             
             if downsample:
                 if (i % 2) == 0:

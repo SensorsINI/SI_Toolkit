@@ -21,6 +21,13 @@ def get_prediction(
 
     test_len = dataset.shape[0]-test_max_horizon  # Overwrites the config which might be string ('max') with a value computed at preprocessing
 
+    # For backward trajectory networks, use negative dt
+    backward_mode = 'backward' in routine
+    dt = -dt if backward_mode else dt
+
+    if backward_mode:
+        test_len = test_len - 1  # Accounts for dataset shift as control input is in an earlier row
+
     stateful_components = ['RNN', 'GRU', 'LSTM']
     if predictor.predictor_type == 'neural' and any(stateful_component in predictor.model_name for stateful_component in stateful_components):
         mode = 'sequential'
@@ -29,10 +36,6 @@ def get_prediction(
 
     # mode = 'sequential'
     # mode = 'batch'
-
-    # For backward trajectory networks, use negative dt
-    backward_mode = 'backward' in routine
-    dt = -dt if backward_mode else dt
 
     if mode == 'batch':
         predictor.configure_with_compilation(batch_size=test_len, dt=dt, mode=routine, hls=hls)
@@ -51,7 +54,7 @@ def get_prediction(
     predictor_initial_input_len = len(predictor_initial_input)
     if predictor_initial_input is not None:
         if backward_mode:
-            predictor_initial_input = predictor_initial_input[predictor_horizon:, :]
+            predictor_initial_input = predictor_initial_input[predictor_horizon + 1:, :]  # +1 accounts for shift of control inputs which needs to be done and makes the effective length of data shorter.
         else:
             predictor_initial_input = predictor_initial_input[:predictor_initial_input_len-predictor_horizon, :]
     try:
@@ -70,6 +73,9 @@ def get_prediction(
                        "Select the proper one, for cartpole in state_utilities.py\n"
                        )
         raise KeyError(f'{e}' + f" See terminal output for more information.")
+
+    if backward_mode:
+        predictor_external_input = predictor_external_input[:-1]  # Shift by one for backword mode
 
     predictor_external_input_len = len(predictor_external_input)
     if backward_mode:
