@@ -1,3 +1,5 @@
+from typing import Optional
+
 from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 import numpy as np
 from tqdm import trange
@@ -10,6 +12,7 @@ def get_prediction(
         routine: str,
         test_max_horizon: int,
         hls: bool = False,
+        forward_predictor: Optional[PredictorWrapper] = None,
         **kwargs,
 ):
     if routine == "simple evaluation":
@@ -23,7 +26,7 @@ def get_prediction(
 
     # For backward trajectory networks, use negative dt
     backward_mode = 'backward' in routine
-    dt = -dt if backward_mode else dt
+    dt = -abs(dt) if backward_mode else abs(dt)
 
     if backward_mode:
         test_len = test_len - 1  # Accounts for dataset shift as control input is in an earlier row
@@ -110,5 +113,27 @@ def get_prediction(
     #     output = output[:, 1:, :]  # Remove initial state
 
     prediction = [output, predictor.predictor.predictor_output_features, dt_predictions]
+
+    ## Calculate forward prediction
+    if backward_mode and forward_predictor:
+        if not isinstance(forward_predictor, PredictorWrapper):
+            raise TypeError("forward_predictor must be an instance of PredictorWrapper, True, or None.")
+
+        # Forward pass starts from the max-horizon backward prediction (last but one state)
+        if output.shape[1] < 3:  # Should never happen
+            raise ValueError("Backward predictor output is too short to compute forward predictions.")
+
+        forward_predictor.configure_with_compilation(batch_size=test_len, dt=abs(dt), mode=routine.replace('_backward', ''), hls=hls)
+
+        forward_initial_state = output[:, -2, :]  # State at max_horizon backward prediction
+
+
+        forward_external_input_array = predictor_external_input_array[:, :-1, :]
+        forward_external_input_array = np.flip(forward_external_input_array, axis=1)
+
+        forward_output = forward_predictor.predict(forward_initial_state, forward_external_input_array)
+
+        forward_prediction = [forward_output, forward_predictor.predictor.predictor_output_features,  abs(dt)]
+        prediction.append({'forward_prediction': forward_prediction})
 
     return prediction
