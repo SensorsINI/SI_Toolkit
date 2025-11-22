@@ -567,11 +567,10 @@ class MainWindow(QMainWindow):
     def _get_error(self, predictions, ground_truth, labels_shift):
         if self.show_all:
 
-            if labels_shift == 0:
-                predictions = predictions[:, :self.horizon]
-            else:
-                predictions = predictions[:-self.horizon * labels_shift, :self.horizon]
-                ground_truth = self.ground_truth_for_error_calculation_show_all(ground_truth, self.horizon, labels_shift)
+            predictions = predictions[:, 1:self.horizon+1]
+
+            if labels_shift != 0:
+                ground_truth = self.ground_truth_for_error_calculation_show_all(ground_truth, self.horizon, labels_shift, self.max_horizon)
 
         else:
             if labels_shift == 0:
@@ -579,21 +578,33 @@ class MainWindow(QMainWindow):
                     self.current_point_timeaxis_index, np.newaxis]  # Just the current point but keep the dimensions
                 predictions = predictions[self.current_point_timeaxis_index, 0, np.newaxis]
             else:
-                ground_truth = ground_truth[
-                               self.current_point_timeaxis_index + labels_shift: self.current_point_timeaxis_index + (
-                                           self.horizon + 1) * labels_shift: labels_shift]
-                predictions = predictions[self.current_point_predictions_index, :self.horizon]
+                if labels_shift > 0:
+                    gt_min = self.current_point_timeaxis_index + labels_shift
+                    gt_max = self.current_point_timeaxis_index + (self.horizon + 1) * labels_shift
+                else:
+                    gt_min = self.current_point_timeaxis_index + (self.horizon + 1) * labels_shift
+                    gt_max = self.current_point_timeaxis_index + labels_shift
 
-        return predictions - ground_truth[:, None]
+                gt_step = labels_shift
+
+                ground_truth = ground_truth[gt_min:gt_max]
+                ground_truth = ground_truth[::gt_step]
+                predictions = predictions[self.current_point_predictions_index, 1:self.horizon+1]
+
+        return predictions - ground_truth
 
     @staticmethod
-    def ground_truth_for_error_calculation_show_all(ground_truth, horizon, labels_shift):
+    def ground_truth_for_error_calculation_show_all(ground_truth, horizon, labels_shift, alignment_horizon):
+        if labels_shift <= 0:
+            raise ValueError("Show-all ground truth extraction expects a positive labels_shift.")
+
         gt_slices = []
         for i in range(1, horizon + 1):
             gt_slices_partial = []
             for j in range(labels_shift):
-                gt_slices_partial.append(ground_truth[i * labels_shift + j:ground_truth.shape[0] - (
-                        horizon - i) * labels_shift + j:labels_shift])
+                start_idx = i * labels_shift + j
+                stop_idx = ground_truth.shape[0] - (alignment_horizon - i) * labels_shift + j
+                gt_slices_partial.append(ground_truth[start_idx:stop_idx:labels_shift])
             gt_slices_partial = np.dstack(gt_slices_partial).flatten()
             gt_slices.append(gt_slices_partial)
 
