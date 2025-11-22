@@ -594,9 +594,21 @@ class MainWindow(QMainWindow):
         return predictions - ground_truth
 
     @staticmethod
-    def ground_truth_for_error_calculation_show_all(ground_truth, horizon, labels_shift, alignment_horizon):
-        if labels_shift <= 0:
-            raise ValueError("Show-all ground truth extraction expects a positive labels_shift.")
+    def ground_truth_for_error_calculation_show_all(ground_truth,
+                                                    horizon,
+                                                    labels_shift,
+                                                    alignment_horizon):
+        if labels_shift == 0:
+            raise ValueError("Show-all ground truth extraction expects non-zero labels_shift.")
+
+        if labels_shift < 0:
+            reversed_gt = MainWindow.ground_truth_for_error_calculation_show_all(
+                ground_truth[::-1],
+                horizon,
+                -labels_shift,
+                alignment_horizon,
+            )
+            return reversed_gt[::-1]
 
         gt_slices = []
         for i in range(1, horizon + 1):
@@ -605,8 +617,12 @@ class MainWindow(QMainWindow):
                 start_idx = i * labels_shift + j
                 stop_idx = ground_truth.shape[0] - (alignment_horizon - i) * labels_shift + j
                 gt_slices_partial.append(ground_truth[start_idx:stop_idx:labels_shift])
-            gt_slices_partial = np.dstack(gt_slices_partial).flatten()
-            gt_slices.append(gt_slices_partial)
+            if gt_slices_partial:
+                gt_slices_partial = np.dstack(gt_slices_partial).flatten()
+                gt_slices.append(gt_slices_partial)
+
+        if not gt_slices:
+            return np.empty((0, horizon), dtype=ground_truth.dtype)
 
         return np.stack(gt_slices, axis=1)
 
