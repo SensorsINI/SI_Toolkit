@@ -134,6 +134,8 @@ def get_prediction(
         forward_output = forward_predictor.predict(forward_initial_state, forward_external_input_array)
 
         forward_prediction = [forward_output, forward_predictor.predictor.predictor_output_features,  abs(dt)]
-        prediction.append({'forward_prediction': forward_prediction})
+        prediction.append(forward_prediction)
+    else:
+        prediction.append(None)
 
     return prediction

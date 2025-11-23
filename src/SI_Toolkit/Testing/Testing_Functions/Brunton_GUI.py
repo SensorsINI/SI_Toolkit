@@ -96,6 +96,7 @@ class MainWindow(QMainWindow):
         self.features = None
         self.feature_to_display = None
         self.feature_to_display_2 = None
+        self.forward_prediction = None
 
         self.dt_predictions = self.predictions_list[0][2]
 
@@ -404,6 +405,7 @@ class MainWindow(QMainWindow):
         self.features = self.predictions_list[i][1]
 
         self.dt_predictions = self.predictions_list[i][2]
+        self.forward_prediction = self.predictions_list[i][3] if len(self.predictions_list[i]) > 3 else None
 
         self.features_labels_dict = {}
 
@@ -477,7 +479,8 @@ class MainWindow(QMainWindow):
                         horizon=self.horizon,
                         show_all=self.show_all,
                         downsample=self.downsample,
-                        dt_predictions=self.dt_predictions)
+                        dt_predictions=self.dt_predictions,
+                        forward_prediction=self.forward_prediction)
 
             self.fig2.Ax.clear()
             # brunton_widget(self.features, self.ground_truth, self.dataset, self.time_axis,
@@ -636,6 +639,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                    show_all=True,
                    downsample=False,
                    dt_predictions=0.0,
+                   forward_prediction=None,
                    ):
 
     # Start at should be done bu widget (slider)
@@ -693,6 +697,30 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
             axs.plot(time_axis_horizon[i], prediction_to_plot[i],
                      c=cmap((float(i-1) / max_horizon)*0.8+0.2),
                      marker='.')
+
+        if forward_prediction is not None and current_point_predictions_index is not None:
+            forward_array, forward_features, forward_dt = forward_prediction
+            if forward_array is not None and forward_features is not None and forward_dt != 0.0:
+                if feature_to_display in forward_features:
+                    forward_feature_idx, = np.where(forward_features == feature_to_display)
+                    forward_feature_idx = int(forward_feature_idx)
+                    forward_steps = min(horizon+1, forward_array.shape[1])
+                    forward_values = forward_array[current_point_predictions_index, :forward_steps, forward_feature_idx].squeeze()
+                    if forward_values.ndim == 0:
+                        forward_values = np.array([forward_values])
+                    if labels_shift != 0:
+                        forward_start_idx = current_point_timeaxis_index + horizon * labels_shift
+                        forward_start_idx = np.clip(forward_start_idx, 0, time_axis.shape[0]-1)
+                        forward_start_time = time_axis[forward_start_idx]
+                    else:
+                        forward_start_time = time_axis[current_point_timeaxis_index]
+                    forward_time_axis = forward_start_time + np.arange(forward_steps) * forward_dt
+                    axs.plot(forward_time_axis,
+                             forward_values,
+                             linestyle='--',
+                             marker='x',
+                             color='tab:orange',
+                             label='Forward recon.')
 
     else:
 
