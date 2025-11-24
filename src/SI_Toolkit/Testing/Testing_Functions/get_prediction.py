@@ -1,8 +1,78 @@
-from typing import Optional
+from typing import Optional, Dict
 
 from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 import numpy as np
 from tqdm import trange
+
+
+def calculate_forward_predictions(
+        backward_output: np.ndarray,
+        predictor_external_input_array: np.ndarray,
+        forward_predictor: PredictorWrapper,
+        predictor_horizon: int,
+        dt: float,
+        routine: str,
+        hls: bool = False,
+        forward_from_all_horizons: bool = False,
+        test_len: int = None,
+) -> Dict[int, np.ndarray]:
+    """
+    Calculate forward predictions from backward trajectory outputs.
+    
+    Args:
+        backward_output: The output from backward prediction [test_len, predictor_horizon+1, features]
+        predictor_external_input_array: External inputs array [test_len, predictor_horizon+1, features]
+        forward_predictor: PredictorWrapper instance configured for forward prediction
+        predictor_horizon: Maximum horizon used in backward prediction
+        dt: Time step (will be made positive for forward prediction)
+        routine: Prediction routine (e.g., "autoregressive_backward")
+        hls: Whether to use HLS mode
+        forward_from_all_horizons: If True, calculate forward from all horizons; if False, only from max horizon
+        test_len: Number of test samples
+        
+    Returns:
+        Dictionary mapping horizon_idx to forward prediction arrays
+    """
+    if backward_output.shape[1] < 3:
+        raise ValueError("Backward predictor output is too short to compute forward predictions.")
+    
+    if test_len is None:
+        test_len = backward_output.shape[0]
+    
+    # Configure forward predictor
+    forward_predictor.configure_with_compilation(
+        batch_size=test_len, 
+        dt=abs(dt), 
+        mode=routine.replace('_backward', ''), 
+        hls=hls
+    )
+    
+    # Determine loop range
+    start_horizon = predictor_horizon
+    if forward_from_all_horizons:
+        stop_horizon = 0
+        desc_text = f"Forward from all horizons ({predictor_horizon} to 1)"
+    else:
+        stop_horizon = predictor_horizon - 1
+        desc_text = "Forward from max horizon"
+    
+    # Calculate forward trajectories
+    forward_outputs_dict = {}
+    for horizon_idx in trange(start_horizon, stop_horizon, -1, desc=desc_text):
+        # State at this horizon
+        forward_initial_state = backward_output[:, horizon_idx, :]
+        
+        # External inputs for forward prediction from this horizon
+        # For backward prediction at horizon_idx, we went horizon_idx steps back in time
+        # To reconstruct forward, we need to go those same horizon_idx steps forward
+        # Take the first horizon_idx control inputs and flip them to go forward
+        forward_external_input_slice = predictor_external_input_array[:, :horizon_idx, :]
+        forward_external_input_slice = np.flip(forward_external_input_slice, axis=1)
+        
+        forward_output = forward_predictor.predict(forward_initial_state, forward_external_input_slice)
+        forward_outputs_dict[horizon_idx] = forward_output
+    
+    return forward_outputs_dict
 
 
 def get_prediction(
@@ -118,39 +188,20 @@ def get_prediction(
     ## Calculate forward prediction
     if backward_mode and forward_predictor:
         if not isinstance(forward_predictor, PredictorWrapper):
-            raise TypeError("forward_predictor must be an instance of PredictorWrapper, True, or None.")
+            raise TypeError("forward_predictor must be an instance of PredictorWrapper.")
 
-        # Forward pass starts from the max-horizon backward prediction (last but one state)
-        if output.shape[1] < 3:  # Should never happen
-            raise ValueError("Backward predictor output is too short to compute forward predictions.")
-
-        forward_predictor.configure_with_compilation(batch_size=test_len, dt=abs(dt), mode=routine.replace('_backward', ''), hls=hls)
-
-        # Determine loop range: all horizons or just max_horizon
-        start_horizon = predictor_horizon
-        if forward_from_all_horizons:
-            stop_horizon = 0
-            desc_text = f"Forward from all horizons ({predictor_horizon} to 1)"
-        else:
-            stop_horizon = predictor_horizon - 1
-            desc_text = "Forward from max horizon"
-        
-        # Calculate forward trajectories
-        forward_outputs_dict = {}
-        for horizon_idx in trange(start_horizon, stop_horizon, -1, desc=desc_text):
-            # State at this horizon (note: output includes seed at index 0, so horizon_idx corresponds to that step)
-            forward_initial_state = output[:, horizon_idx, :]
-            
-            # External inputs for forward prediction from this horizon
-            # For backward prediction at horizon_idx, we went horizon_idx steps back in time
-            # To reconstruct forward, we need to go those same horizon_idx steps forward
-            # Take the first horizon_idx control inputs (which correspond to going backwards)
-            # and flip them to go forward
-            forward_external_input_slice = predictor_external_input_array[:, :horizon_idx, :]
-            forward_external_input_slice = np.flip(forward_external_input_slice, axis=1)
-
-            forward_output = forward_predictor.predict(forward_initial_state, forward_external_input_slice)
-            forward_outputs_dict[horizon_idx] = forward_output
+        # Use refactored function to calculate forward predictions
+        forward_outputs_dict = calculate_forward_predictions(
+            backward_output=output,
+            predictor_external_input_array=predictor_external_input_array,
+            forward_predictor=forward_predictor,
+            predictor_horizon=predictor_horizon,
+            dt=dt,
+            routine=routine,
+            hls=hls,
+            forward_from_all_horizons=forward_from_all_horizons,
+            test_len=test_len,
+        )
         
         # Package results
         if forward_from_all_horizons:
