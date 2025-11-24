@@ -149,6 +149,13 @@ class MainWindow(QMainWindow):
         self.fig2.tight_layout()
         self.fig2.subplots_adjust(0.06, 0.18, 0.99, 0.9)
 
+        # Setup synchronized zooming between the two plots
+        self._syncing_axes = False  # Flag to prevent infinite recursion
+        self.canvas.mpl_connect('draw_event', self._on_draw_fig1)
+        self.canvas2.mpl_connect('draw_event', self._on_draw_fig2)
+        self._last_xlim_fig1 = None
+        self._last_xlim_fig2 = None
+
         self.toolbar2 = NavigationToolbar(self.canvas2, self)
 
         # Attach figure to the layout
@@ -325,6 +332,36 @@ class MainWindow(QMainWindow):
         # endregion
 
         self.redraw_canvas()
+
+    def _on_draw_fig1(self, event):
+        """Callback when fig1 is drawn - check if xlim changed and sync to fig2 if visible."""
+        if self._syncing_axes or not self.canvas2.isVisible():
+            return
+        
+        current_xlim = self.fig.Ax.get_xlim()
+        if self._last_xlim_fig1 != current_xlim:
+            self._last_xlim_fig1 = current_xlim
+            self._syncing_axes = True
+            try:
+                self.fig2.Ax.set_xlim(current_xlim)
+                self.canvas2.draw_idle()
+            finally:
+                self._syncing_axes = False
+
+    def _on_draw_fig2(self, event):
+        """Callback when fig2 is drawn - check if xlim changed and sync to fig1 if visible."""
+        if self._syncing_axes or not self.canvas2.isVisible():
+            return
+        
+        current_xlim = self.fig2.Ax.get_xlim()
+        if self._last_xlim_fig2 != current_xlim:
+            self._last_xlim_fig2 = current_xlim
+            self._syncing_axes = True
+            try:
+                self.fig.Ax.set_xlim(current_xlim)
+                self.canvas.draw_idle()
+            finally:
+                self._syncing_axes = False
 
     @property
     def current_point_timeaxis_index(self):
