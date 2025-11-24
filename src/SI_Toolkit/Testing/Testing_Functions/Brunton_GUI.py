@@ -402,9 +402,19 @@ class MainWindow(QMainWindow):
         """Enable/disable forward reconstruction checkbox based on prediction type."""
         # Only enable if we have backward predictions and forward reconstruction data
         has_backward_predictions = self.dt_predictions < 0
-        has_forward_data = (self.forward_prediction is not None and 
-                           self.forward_prediction[0] is not None and 
-                           self.forward_prediction[2] != 0.0)
+        
+        # Check if forward data exists (handle both old and new formats)
+        if self.forward_prediction is not None and len(self.forward_prediction) >= 3:
+            forward_data = self.forward_prediction[0]
+            forward_dt = self.forward_prediction[2]
+            
+            # Check if it's the new dict format or old array format
+            if isinstance(forward_data, dict):
+                has_forward_data = len(forward_data) > 0 and forward_dt != 0.0
+            else:
+                has_forward_data = forward_data is not None and forward_dt != 0.0
+        else:
+            has_forward_data = False
         
         should_enable = has_backward_predictions and has_forward_data
         
@@ -795,31 +805,64 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                      marker='.')
 
         if show_forward_reconstruction and forward_prediction is not None and current_point_predictions_index is not None:
-            forward_array, forward_features, forward_dt = forward_prediction
-            if forward_array is not None and forward_features is not None and forward_dt != 0.0:
+            # Handle both old format (3 elements) and new format (4 elements)
+            if len(forward_prediction) >= 4:
+                forward_data, forward_features, forward_dt, from_all_horizons = forward_prediction
+            else:
+                forward_data, forward_features, forward_dt = forward_prediction
+                from_all_horizons = False
+            
+            if forward_data is not None and forward_features is not None and forward_dt != 0.0:
                 if feature_to_display in forward_features:
                     forward_feature_idx, = np.where(forward_features == feature_to_display)
                     forward_feature_idx = int(forward_feature_idx)
-                    # Always plot the full forward trajectory, not limited by current horizon
-                    forward_steps = forward_array.shape[1]
-                    forward_values = forward_array[current_point_predictions_index, :forward_steps, forward_feature_idx].squeeze()
-                    if forward_values.ndim == 0:
-                        forward_values = np.array([forward_values])
-                    if labels_shift != 0:
-                        # Use max_horizon instead of horizon to calculate the start position
-                        # This ensures the forward trajectory always starts from the end of the backward trajectory
-                        forward_start_idx = current_point_timeaxis_index + max_horizon * labels_shift
-                        forward_start_idx = np.clip(forward_start_idx, 0, time_axis.shape[0]-1)
-                        forward_start_time = time_axis[forward_start_idx]
+                    
+                    # Check if we have dict format (from all horizons) or array format (from max_horizon only)
+                    if isinstance(forward_data, dict) and from_all_horizons:
+                        # Use forward prediction from the current horizon
+                        if horizon in forward_data and forward_data[horizon] is not None:
+                            forward_array = forward_data[horizon]
+                            forward_steps = forward_array.shape[1]
+                            forward_values = forward_array[current_point_predictions_index, :forward_steps, forward_feature_idx].squeeze()
+                            if forward_values.ndim == 0:
+                                forward_values = np.array([forward_values])
+                            
+                            # Calculate start position based on current horizon
+                            if labels_shift != 0:
+                                forward_start_idx = current_point_timeaxis_index + horizon * labels_shift
+                                forward_start_idx = np.clip(forward_start_idx, 0, time_axis.shape[0]-1)
+                                forward_start_time = time_axis[forward_start_idx]
+                            else:
+                                forward_start_time = time_axis[current_point_timeaxis_index]
+                            
+                            forward_time_axis = forward_start_time + np.arange(forward_steps) * forward_dt
+                            axs.plot(forward_time_axis,
+                                     forward_values,
+                                     linestyle='--',
+                                     marker='x',
+                                     color='tab:orange',
+                                     label='Forward recon.')
                     else:
-                        forward_start_time = time_axis[current_point_timeaxis_index]
-                    forward_time_axis = forward_start_time + np.arange(forward_steps) * forward_dt
-                    axs.plot(forward_time_axis,
-                             forward_values,
-                             linestyle='--',
-                             marker='x',
-                             color='tab:orange',
-                             label='Forward recon.')
+                        # Original behavior: single forward trajectory from max_horizon
+                        forward_array = forward_data
+                        forward_steps = forward_array.shape[1]
+                        forward_values = forward_array[current_point_predictions_index, :forward_steps, forward_feature_idx].squeeze()
+                        if forward_values.ndim == 0:
+                            forward_values = np.array([forward_values])
+                        if labels_shift != 0:
+                            # Use max_horizon to calculate the start position
+                            forward_start_idx = current_point_timeaxis_index + max_horizon * labels_shift
+                            forward_start_idx = np.clip(forward_start_idx, 0, time_axis.shape[0]-1)
+                            forward_start_time = time_axis[forward_start_idx]
+                        else:
+                            forward_start_time = time_axis[current_point_timeaxis_index]
+                        forward_time_axis = forward_start_time + np.arange(forward_steps) * forward_dt
+                        axs.plot(forward_time_axis,
+                                 forward_values,
+                                 linestyle='--',
+                                 marker='x',
+                                 color='tab:orange',
+                                 label='Forward recon.')
 
     else:
 

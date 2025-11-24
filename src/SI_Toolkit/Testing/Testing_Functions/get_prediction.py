@@ -13,6 +13,7 @@ def get_prediction(
         test_max_horizon: int,
         hls: bool = False,
         forward_predictor: Optional[PredictorWrapper] = None,
+        forward_from_all_horizons: bool = False,
         **kwargs,
 ):
     if routine == "simple evaluation":
@@ -125,15 +126,39 @@ def get_prediction(
 
         forward_predictor.configure_with_compilation(batch_size=test_len, dt=abs(dt), mode=routine.replace('_backward', ''), hls=hls)
 
-        forward_initial_state = output[:, -2, :]  # State at max_horizon backward prediction
+        # Determine loop range: all horizons or just max_horizon
+        start_horizon = predictor_horizon
+        if forward_from_all_horizons:
+            stop_horizon = 0
+            desc_text = f"Forward from all horizons ({predictor_horizon} to 1)"
+        else:
+            stop_horizon = predictor_horizon - 1
+            desc_text = "Forward from max horizon"
+        
+        # Calculate forward trajectories
+        forward_outputs_dict = {}
+        for horizon_idx in trange(start_horizon, stop_horizon, -1, desc=desc_text):
+            # State at this horizon (note: output includes seed at index 0, so horizon_idx corresponds to that step)
+            forward_initial_state = output[:, horizon_idx, :]
+            
+            # External inputs for forward prediction from this horizon
+            # For backward prediction at horizon_idx, we went horizon_idx steps back in time
+            # To reconstruct forward, we need to go those same horizon_idx steps forward
+            # Take the first horizon_idx control inputs (which correspond to going backwards)
+            # and flip them to go forward
+            forward_external_input_slice = predictor_external_input_array[:, :horizon_idx, :]
+            forward_external_input_slice = np.flip(forward_external_input_slice, axis=1)
 
-
-        forward_external_input_array = predictor_external_input_array[:, :-1, :]
-        forward_external_input_array = np.flip(forward_external_input_array, axis=1)
-
-        forward_output = forward_predictor.predict(forward_initial_state, forward_external_input_array)
-
-        forward_prediction = [forward_output, forward_predictor.predictor.predictor_output_features,  abs(dt)]
+            forward_output = forward_predictor.predict(forward_initial_state, forward_external_input_slice)
+            forward_outputs_dict[horizon_idx] = forward_output
+        
+        # Package results
+        if forward_from_all_horizons:
+            forward_prediction = [forward_outputs_dict, forward_predictor.predictor.predictor_output_features, abs(dt), True]
+        else:
+            # Backward compatibility: return single array instead of dict
+            forward_prediction = [forward_outputs_dict[predictor_horizon], forward_predictor.predictor.predictor_output_features, abs(dt), False]
+        
         prediction.append(forward_prediction)
     else:
         prediction.append(None)
