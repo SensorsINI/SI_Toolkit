@@ -504,6 +504,12 @@ class MainWindow(QMainWindow):
 
     def redraw_canvas(self):
 
+        # Save current zoom levels (both horizontal and vertical) before clearing
+        xlim_fig1 = self.fig.Ax.get_xlim()
+        ylim_fig1 = self.fig.Ax.get_ylim()
+        xlim_fig2 = self.fig2.Ax.get_xlim()
+        ylim_fig2 = self.fig2.Ax.get_ylim()
+
         self.fig.Ax.clear()
 
         if not self.combine_features:
@@ -556,6 +562,18 @@ class MainWindow(QMainWindow):
         self.lab_MSE.setText("Error - Avg (sqrt(MSE) all): {:.4f},  ".format(self.sqrt_MSE_along_horizon))
         self.lab_end.setText("End (sqrt(MSE) end): {:.4f},  ".format(self.sqrt_MSE_at_horizon))
         self.lab_max.setText("Max: {:.4f}".format(self.max_error))
+        
+        # Restore zoom levels (both horizontal and vertical) before drawing (preserve user's zoom)
+        # Only restore if the limits were previously set (not default initial values)
+        if xlim_fig1 != (0.0, 1.0):  # Default matplotlib limits
+            self.fig.Ax.set_xlim(xlim_fig1)
+        if ylim_fig1 != (0.0, 1.0):
+            self.fig.Ax.set_ylim(ylim_fig1)
+        if xlim_fig2 != (0.0, 1.0) and self.canvas2.isVisible():
+            self.fig2.Ax.set_xlim(xlim_fig2)
+        if ylim_fig2 != (0.0, 1.0) and self.canvas2.isVisible():
+            self.fig2.Ax.set_ylim(ylim_fig2)
+        
         self.fig.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.fig2.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.canvas.draw()
