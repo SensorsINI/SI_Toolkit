@@ -759,12 +759,15 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                 if feature_to_display in forward_features:
                     forward_feature_idx, = np.where(forward_features == feature_to_display)
                     forward_feature_idx = int(forward_feature_idx)
-                    forward_steps = min(horizon+1, forward_array.shape[1])
+                    # Always plot the full forward trajectory, not limited by current horizon
+                    forward_steps = forward_array.shape[1]
                     forward_values = forward_array[current_point_predictions_index, :forward_steps, forward_feature_idx].squeeze()
                     if forward_values.ndim == 0:
                         forward_values = np.array([forward_values])
                     if labels_shift != 0:
-                        forward_start_idx = current_point_timeaxis_index + horizon * labels_shift
+                        # Use max_horizon instead of horizon to calculate the start position
+                        # This ensures the forward trajectory always starts from the end of the backward trajectory
+                        forward_start_idx = current_point_timeaxis_index + max_horizon * labels_shift
                         forward_start_idx = np.clip(forward_start_idx, 0, time_axis.shape[0]-1)
                         forward_start_time = time_axis[forward_start_idx]
                     else:
