@@ -106,6 +106,7 @@ class MainWindow(QMainWindow):
 
         self.show_all = False
         self.downsample = False
+        self.show_forward_reconstruction = True
         self._current_point_timeaxis_index = (self.time_axis.shape[0]-self.max_horizon)//2
         self._current_point_predictions_index = None
         self._update_predictions_index()
@@ -278,6 +279,14 @@ class MainWindow(QMainWindow):
         l_cb.addWidget(self.cb_downsample)
         # endregion
 
+        # region -- Checkbox: Show forward reconstruction
+        self.cb_show_forward_recon = QCheckBox('Show forward reconstruction', self)
+        if self.show_forward_reconstruction:
+            self.cb_show_forward_recon.toggle()
+        self.cb_show_forward_recon.toggled.connect(self.cb_show_forward_recon_f)
+        l_cb.addWidget(self.cb_show_forward_recon)
+        # endregion
+
         # region -- Checkbox: Combine features
         self.cb_combine_features = QCheckBox('Combine features', self)
         if self.combine_features:
@@ -330,6 +339,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle('Testing System Model')
 
         # endregion
+
+        # Initialize forward reconstruction checkbox state
+        self._update_forward_recon_checkbox_state()
 
         self.redraw_canvas()
 
@@ -386,6 +398,22 @@ class MainWindow(QMainWindow):
         else:
             self._current_point_predictions_index = self._current_point_timeaxis_index
 
+    def _update_forward_recon_checkbox_state(self):
+        """Enable/disable forward reconstruction checkbox based on prediction type."""
+        # Only enable if we have backward predictions and forward reconstruction data
+        has_backward_predictions = self.dt_predictions < 0
+        has_forward_data = (self.forward_prediction is not None and 
+                           self.forward_prediction[0] is not None and 
+                           self.forward_prediction[2] != 0.0)
+        
+        should_enable = has_backward_predictions and has_forward_data
+        
+        if hasattr(self, 'cb_show_forward_recon'):
+            self.cb_show_forward_recon.setEnabled(should_enable)
+            if not should_enable:
+                self.cb_show_forward_recon.setChecked(False)
+                self.show_forward_reconstruction = False
+
     def set_horizon(self):
         self.max_horizon = self.predictions_list[0][0].shape[-2] - 1 - 1  # Contains seed state hance -1; Predicts one additional step hence -1 - but the last prediction does not have control input paired with it.
         self.horizon = int(np.ceil(self.max_horizon / 2))
@@ -435,6 +463,14 @@ class MainWindow(QMainWindow):
 
         self.redraw_canvas()
 
+    def cb_show_forward_recon_f(self, state):
+        if state:
+            self.show_forward_reconstruction = True
+        else:
+            self.show_forward_reconstruction = False
+
+        self.redraw_canvas()
+
     def select_dataset(self, i):
 
         self.dataset = self.predictions_list[i][0]
@@ -461,6 +497,9 @@ class MainWindow(QMainWindow):
 
         if self.feature_to_display not in self.features:
             self.feature_to_display = self.features[0]
+
+        # Update forward reconstruction checkbox state
+        self._update_forward_recon_checkbox_state()
 
 
     def RadioButtons_detaset_selection(self):
@@ -523,7 +562,8 @@ class MainWindow(QMainWindow):
                         show_all=self.show_all,
                         downsample=self.downsample,
                         dt_predictions=self.dt_predictions,
-                        forward_prediction=self.forward_prediction)
+                        forward_prediction=self.forward_prediction,
+                        show_forward_reconstruction=self.show_forward_reconstruction)
 
             self.fig2.Ax.clear()
             # brunton_widget(self.features, self.ground_truth, self.dataset, self.time_axis,
@@ -695,6 +735,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                    downsample=False,
                    dt_predictions=0.0,
                    forward_prediction=None,
+                   show_forward_reconstruction=True,
                    ):
 
     # Start at should be done bu widget (slider)
@@ -753,7 +794,7 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                      c=cmap((float(i-1) / max_horizon)*0.8+0.2),
                      marker='.')
 
-        if forward_prediction is not None and current_point_predictions_index is not None:
+        if show_forward_reconstruction and forward_prediction is not None and current_point_predictions_index is not None:
             forward_array, forward_features, forward_dt = forward_prediction
             if forward_array is not None and forward_features is not None and forward_dt != 0.0:
                 if feature_to_display in forward_features:
