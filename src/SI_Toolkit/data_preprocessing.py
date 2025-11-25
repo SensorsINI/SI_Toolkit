@@ -99,6 +99,14 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
             with open(processed_file_path, 'w', newline='') as f_output:
                 f_output.write(f'# Original file transformed with "{transformation}" transformation\n#\n')
                 f_output.writelines(comments)
+                
+                # Add transformation-specific metadata from DataFrame attrs
+                if hasattr(df_processed, 'attrs') and df_processed.attrs:
+                    f_output.write('#\n# Transformation metadata:\n')
+                    for key, value in df_processed.attrs.items():
+                        f_output.write(f'# {key}: {value}\n')
+                    f_output.write('#\n')
+                    
             df_processed.to_csv(processed_file_path, index=False, mode='a')
 
 

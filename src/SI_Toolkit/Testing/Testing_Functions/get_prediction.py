@@ -5,6 +5,72 @@ import numpy as np
 from tqdm import trange
 
 
+def predict_with_fixed_batch_size(
+        predictor: PredictorWrapper,
+        initial_input: np.ndarray,
+        external_input: np.ndarray,
+        fixed_batch_size: int,
+        actual_test_len: int,
+) -> np.ndarray:
+    """
+    Predict using a fixed batch size with padding or chunking as needed.
+    
+    This allows reusing a predictor configured with a fixed batch size across
+    datasets of different sizes.
+    
+    Args:
+        predictor: Configured predictor wrapper
+        initial_input: Initial state input [actual_test_len, state_features]
+        external_input: External/control input [actual_test_len, horizon_steps, control_features]
+        fixed_batch_size: The batch size the predictor was configured with
+        actual_test_len: Actual number of test samples
+        
+    Returns:
+        Predictions array [actual_test_len, ...]
+    """
+    if actual_test_len <= fixed_batch_size:
+        # Pad to fixed batch size if needed
+        if actual_test_len < fixed_batch_size:
+            pad_size = fixed_batch_size - actual_test_len
+            initial_input_padded = np.pad(initial_input, ((0, pad_size), (0, 0)), mode='edge')
+            external_input_padded = np.pad(external_input, ((0, pad_size), (0, 0), (0, 0)), mode='edge')
+            output_padded = predictor.predict(initial_input_padded, external_input_padded)
+            return output_padded[:actual_test_len]  # Remove padding
+        else:
+            # Exact match
+            return predictor.predict(initial_input, external_input)
+    else:
+        # Process in chunks if data exceeds fixed batch size
+        num_chunks = int(np.ceil(actual_test_len / fixed_batch_size))
+        output_chunks = []
+        for i in range(num_chunks):
+            start_idx = i * fixed_batch_size
+            end_idx = min((i + 1) * fixed_batch_size, actual_test_len)
+            chunk_size = end_idx - start_idx
+            
+            # Pad last chunk if needed
+            if chunk_size < fixed_batch_size:
+                pad_size = fixed_batch_size - chunk_size
+                init_chunk = np.pad(
+                    initial_input[start_idx:end_idx],
+                    ((0, pad_size), (0, 0)),
+                    mode='edge'
+                )
+                ext_chunk = np.pad(
+                    external_input[start_idx:end_idx],
+                    ((0, pad_size), (0, 0), (0, 0)),
+                    mode='edge'
+                )
+                chunk_output = predictor.predict(init_chunk, ext_chunk)[:chunk_size]
+            else:
+                chunk_output = predictor.predict(
+                    initial_input[start_idx:end_idx],
+                    external_input[start_idx:end_idx]
+                )
+            output_chunks.append(chunk_output)
+        return np.concatenate(output_chunks, axis=0)
+
+
 def prepare_predictor_inputs(
         dataset,
         predictor: PredictorWrapper,
@@ -91,6 +157,8 @@ def calculate_back2front_predictions(
         hls: bool = False,
         forward_from_all_horizons: bool = False,
         test_len: int = None,
+        max_batch_size: int = None,
+        forward_predictor_created: bool = False,
 ) -> Dict[int, np.ndarray]:
     """
     Calculate forward predictions from backward trajectory outputs.
@@ -105,6 +173,8 @@ def calculate_back2front_predictions(
         hls: Whether to use HLS mode
         forward_from_all_horizons: If True, calculate forward from all horizons; if False, only from max horizon
         test_len: Number of test samples
+        max_batch_size: Maximum batch size for predictor (for reuse with padding/chunking)
+        forward_predictor_created: Whether forward predictor was just created (needs configuration)
         
     Returns:
         Dictionary mapping horizon_idx to forward prediction arrays
@@ -115,13 +185,22 @@ def calculate_back2front_predictions(
     if test_len is None:
         test_len = backward_output.shape[0]
     
-    # Configure forward predictor
-    forward_predictor.configure_with_compilation(
-        batch_size=test_len, 
-        dt=abs(dt), 
-        mode=routine.replace('_backward', ''), 
-        hls=hls
-    )
+    # Determine batch size for forward predictor
+    if max_batch_size is None:
+        # Legacy behavior: configure with actual test_len
+        configured_batch_size = test_len
+    else:
+        configured_batch_size = max_batch_size
+    
+    # Configure forward predictor (only if newly created or not yet configured)
+    if forward_predictor_created or not hasattr(forward_predictor, '_configured_batch_size'):
+        forward_predictor.configure_with_compilation(
+            batch_size=configured_batch_size, 
+            dt=abs(dt), 
+            mode=routine.replace('_backward', ''), 
+            hls=hls
+        )
+        forward_predictor._configured_batch_size = configured_batch_size
     
     # Determine loop range
     start_horizon = predictor_horizon
@@ -148,10 +227,23 @@ def calculate_back2front_predictions(
         # For backward prediction at horizon_idx, we went horizon_idx steps back in time
         # To reconstruct forward, we need to go those same horizon_idx steps forward
         # Take the first horizon_idx control inputs and flip them to go forward
+        # With horizon_idx controls, autoregressive predictor produces horizon_idx+1 states (initial + predictions)
         forward_external_input_slice = predictor_external_input_array[:, :horizon_idx, :]
         forward_external_input_slice = np.flip(forward_external_input_slice, axis=1)
         
-        forward_output = forward_predictor.predict(forward_initial_state, forward_external_input_slice)
+        # Use fixed batch size with padding/chunking if max_batch_size is provided
+        if max_batch_size is not None and configured_batch_size != test_len:
+            forward_output = predict_with_fixed_batch_size(
+                predictor=forward_predictor,
+                initial_input=forward_initial_state,
+                external_input=forward_external_input_slice,
+                fixed_batch_size=configured_batch_size,
+                actual_test_len=test_len,
+            )
+        else:
+            # Exact batch size match (used in Brunton test)
+            forward_output = forward_predictor.predict(forward_initial_state, forward_external_input_slice)
+        
         forward_outputs_dict[horizon_idx] = forward_output
     
     return forward_outputs_dict

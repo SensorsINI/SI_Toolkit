@@ -273,6 +273,7 @@ def get_sampling_interval_from_datafile(df, path_to_datafile):
     if dt_save is None and 'time' in df.columns:
         dt_save = np.mean(np.diff(df['time']))
         return dt_save
+    return 0.02
     raise ValueError('No information about sampling interval found in the datafile. \n')
 
 
