@@ -46,6 +46,9 @@ def back_to_front_trajectories(
     verbose=False,
     predictor=None,
     forward_predictor=None,
+    randomize_mu=False,
+    mu_range=None,
+    random_seed=None,
     **kwargs
 ):
     """
@@ -64,6 +67,9 @@ def back_to_front_trajectories(
         verbose: If True, print diagnostic information (default: False)
         predictor: Optional pre-created backward predictor (for reuse across files)
         forward_predictor: Optional pre-created forward predictor (for reuse across files)
+        randomize_mu: If True, replace mu values with random samples for each trajectory (default: False)
+        mu_range: Tuple (min, max) for random mu sampling. If None, uses (0.1, 1.0) (default: None)
+        random_seed: Random seed for reproducibility. If None, uses hash of df_name (default: None)
         **kwargs: Additional arguments
         
     Returns:
@@ -196,6 +202,31 @@ def back_to_front_trajectories(
     forward_features = forward_predictor.predictor.predictor_output_features
     control_features = predictor.predictor.predictor_external_input_features
     
+    # Setup random mu generation if requested
+    if randomize_mu:
+        if mu_range is None:
+            mu_range = (0.1, 1.0)
+        if random_seed is None:
+            # Use hash of df_name for reproducibility per file
+            random_seed = hash(df_name) % (2**32)
+        rng = np.random.RandomState(random_seed)
+        
+        # Check if 'mu' is in control features
+        mu_idx = None
+        for idx, feat in enumerate(control_features):
+            if feat == 'mu':
+                mu_idx = idx
+                break
+        
+        if mu_idx is None and verbose:
+            print(f"  Warning: randomize_mu=True but 'mu' not found in control features: {control_features}")
+        
+        if verbose and mu_idx is not None:
+            print(f"  Randomizing mu for each trajectory (range: {mu_range})")
+    else:
+        mu_idx = None
+        rng = None
+    
     # Build output dataframe
     if verbose:
         print("  Building output dataframe...")
@@ -228,6 +259,13 @@ def back_to_front_trajectories(
             # Need one more control - take the next available one from external input array
             extra_control = predictor_external_input_array[traj_idx, predictor_horizon:predictor_horizon+1, :]
             control_traj_forward = np.concatenate([control_traj_forward, extra_control], axis=0)
+        
+        # Replace mu with random value if requested
+        if randomize_mu and mu_idx is not None:
+            # Sample one random mu for this entire trajectory
+            random_mu = rng.uniform(mu_range[0], mu_range[1])
+            # Replace all mu values in this trajectory
+            control_traj_forward[:, mu_idx] = random_mu
         
         # Note: backward_df is computed but not saved (user only wants forward trajectories)
         # Keeping this for debugging/verification purposes
