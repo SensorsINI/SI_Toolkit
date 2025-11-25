@@ -24,6 +24,7 @@ except ImportError:
     pass
 
 from SI_Toolkit.General.preprocess_data_add_control_along_trajectories import add_control_along_trajectories
+from SI_Toolkit.General.preprocess_data_back_to_front_trajectories import back_to_front_trajectories
 
 
 def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
@@ -65,7 +66,7 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
             df_processed = transformation(df, **kwargs)
         else:
             # If `transformation` is a string, retrieve the function and call it
-            # Available transformations: add_control_along_trajectories, append_derivatives, apply_sensors_quantization, add_shifted_columns
+            # Available transformations: back_to_front_trajectories, add_control_along_trajectories, append_derivatives, apply_sensors_quantization, add_shifted_columns
             # Plus the application specific transformations
             try:
                 # Retrieve the function by name and call it with the appropriate arguments
