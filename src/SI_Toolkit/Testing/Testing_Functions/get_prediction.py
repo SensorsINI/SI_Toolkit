@@ -5,6 +5,82 @@ import numpy as np
 from tqdm import trange
 
 
+def prepare_predictor_inputs(
+        dataset,
+        predictor: PredictorWrapper,
+        predictor_horizon: int,
+        backward_mode: bool,
+        routine: str = None,
+        test_max_horizon: int = None,
+):
+    """
+    Prepare initial and external inputs for predictor from dataset.
+    
+    Args:
+        dataset: Input dataset (DataFrame)
+        predictor: PredictorWrapper instance
+        predictor_horizon: Prediction horizon
+        backward_mode: Whether in backward prediction mode
+        routine: Prediction routine (for simple evaluation check)
+        test_max_horizon: Maximum test horizon (for simple evaluation)
+        
+    Returns:
+        Tuple of (predictor_initial_input, predictor_external_input_array)
+    """
+    # Get initial inputs
+    predictor_initial_input = dataset[predictor.predictor.predictor_initial_input_features].to_numpy()
+    predictor_initial_input_len = len(predictor_initial_input)
+    
+    if predictor_initial_input is not None:
+        if backward_mode:
+            predictor_initial_input = predictor_initial_input[predictor_horizon + 1:, :]
+        else:
+            predictor_initial_input = predictor_initial_input[:predictor_initial_input_len-predictor_horizon, :]
+    
+    # Get external inputs (control signals)
+    try:
+        predictor_external_input = dataset[predictor.predictor.predictor_external_input_features].to_numpy()
+    except KeyError as e:
+        similar_features = []
+        for element in dataset.columns:
+            if any(fx in element for fx in predictor.predictor.predictor_external_input_features):
+                similar_features.append(element)
+        print(f"Predictor external input features {predictor.predictor.predictor_external_input_features} not found in the dataset.\n"
+                       f"Similar features to requested found in the dataset: {similar_features}\n"
+                       f"It might be that there exist versions of the feature with and without added noise.\n"
+                       f"For cartpole e.g. this is Q (old but still used, general one), Q_applied (with noise), Q_calculated (without noise)\n"
+                       "Select the proper one, for cartpole in state_utilities.py\n"
+                       )
+        raise KeyError(f'{e}' + " See terminal output for more information.")
+    
+    if backward_mode:
+        predictor_external_input = predictor_external_input[:-1]  # Shift by one for backward mode
+    
+    predictor_external_input_len = len(predictor_external_input)
+    
+    # Build external input array for all horizons
+    if backward_mode:
+        # Backward: for each test point k at dataset index (predictor_horizon+k), we need [u(t-1), u(t-2), ..., u(t-pred_hor)]
+        predictor_external_input_array = [
+            predictor_external_input[..., predictor_horizon-i:predictor_external_input_len-i, :] 
+            for i in range(predictor_horizon+1)
+        ]
+    else:
+        predictor_external_input_array = [
+            predictor_external_input[..., i: predictor_external_input_len-predictor_horizon + i, :] 
+            for i in range(predictor_horizon+1)
+        ]
+    predictor_external_input_array = np.stack(predictor_external_input_array, axis=1)
+    
+    # Handle simple evaluation mode
+    if routine == "simple evaluation":
+        predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input) - test_max_horizon, ...]
+    else:
+        predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input), ...]
+    
+    return predictor_initial_input, predictor_external_input_array
+
+
 def calculate_back2front_predictions(
         backward_output: np.ndarray,
         predictor_external_input_array: np.ndarray,
@@ -123,46 +199,15 @@ def get_prediction(
     else:
         dt_predictions = dt
 
-
-    predictor_initial_input = dataset[predictor.predictor.predictor_initial_input_features].to_numpy()
-    predictor_initial_input_len = len(predictor_initial_input)
-    if predictor_initial_input is not None:
-        if backward_mode:
-            predictor_initial_input = predictor_initial_input[predictor_horizon + 1:, :]  # +1 accounts for shift of control inputs which needs to be done and makes the effective length of data shorter.
-        else:
-            predictor_initial_input = predictor_initial_input[:predictor_initial_input_len-predictor_horizon, :]
-    try:
-        predictor_external_input = dataset[predictor.predictor.predictor_external_input_features].to_numpy()
-    except KeyError as e:
-        similar_features = []
-        for element in dataset.columns:
-            # Check if any element in predictor.predictor.predictor_external_input_features is a substring of the current element in dataset.columns
-            if any(fx in element for fx in predictor.predictor.predictor_external_input_features):
-                # If yes, add the element to the similar_features
-                similar_features.append(element)
-        print(f"Predictor external input features {predictor.predictor.predictor_external_input_features} not found in the dataset.\n"
-                       f"Similar features to requested found in the dataset: {similar_features}\n"
-                       f"It might be that there exist versions of the feature with and without added noise.\n"
-                       f"For cartpole e.g. this is Q (old but still used, general one), Q_applied (with noise), Q_calculated (without noise)\n"
-                       "Select the proper one, for cartpole in state_utilities.py\n"
-                       )
-        raise KeyError(f'{e}' + f" See terminal output for more information.")
-
-    if backward_mode:
-        predictor_external_input = predictor_external_input[:-1]  # Shift by one for backword mode
-
-    predictor_external_input_len = len(predictor_external_input)
-    if backward_mode:
-        # Backward: for each test point k at dataset index (predictor_horizon+k), we need [u(t-1), u(t-2), ..., u(t-pred_hor)]
-        predictor_external_input_array = [predictor_external_input[..., predictor_horizon-i:predictor_external_input_len-i, :] for i in range(predictor_horizon+1)]
-    else:
-        predictor_external_input_array = [predictor_external_input[..., i: predictor_external_input_len-predictor_horizon + i, :] for i in range(predictor_horizon+1)]
-    predictor_external_input_array = np.stack(predictor_external_input_array, axis=1)
-
-    if routine == "simple evaluation":
-        predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input) - test_max_horizon, ...]
-    else:
-        predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input), ...]
+    # Prepare inputs using refactored function
+    predictor_initial_input, predictor_external_input_array = prepare_predictor_inputs(
+        dataset=dataset,
+        predictor=predictor,
+        predictor_horizon=predictor_horizon,
+        backward_mode=backward_mode,
+        routine=routine,
+        test_max_horizon=test_max_horizon,
+    )
 
     if mode == 'batch':
         output = predictor.predict(predictor_initial_input, predictor_external_input_array)
