@@ -128,13 +128,19 @@ def calculate_back2front_predictions(
     if forward_from_all_horizons:
         stop_horizon = 0
         desc_text = f"Forward from all horizons ({predictor_horizon} to 1)"
+        use_progress_bar = True
     else:
         stop_horizon = predictor_horizon - 1
         desc_text = "Forward from max horizon"
+        use_progress_bar = False  # Don't show progress bar for single iteration
     
     # Calculate forward trajectories
     forward_outputs_dict = {}
-    for horizon_idx in trange(start_horizon, stop_horizon, -1, desc=desc_text):
+    iterator = range(start_horizon, stop_horizon, -1)
+    if use_progress_bar:
+        iterator = trange(start_horizon, stop_horizon, -1, desc=desc_text)
+    
+    for horizon_idx in iterator:
         # State at this horizon
         forward_initial_state = backward_output[:, horizon_idx, :]
         
