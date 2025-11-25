@@ -5,7 +5,7 @@ import numpy as np
 from tqdm import trange
 
 
-def calculate_forward_predictions(
+def calculate_back2front_predictions(
         backward_output: np.ndarray,
         predictor_external_input_array: np.ndarray,
         forward_predictor: PredictorWrapper,
@@ -191,7 +191,7 @@ def get_prediction(
             raise TypeError("forward_predictor must be an instance of PredictorWrapper.")
 
         # Use refactored function to calculate forward predictions
-        forward_outputs_dict = calculate_forward_predictions(
+        forward_outputs_dict = calculate_back2front_predictions(
             backward_output=output,
             predictor_external_input_array=predictor_external_input_array,
             forward_predictor=forward_predictor,
