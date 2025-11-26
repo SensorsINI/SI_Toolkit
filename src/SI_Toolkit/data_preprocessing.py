@@ -49,7 +49,7 @@ def split_by_column(df, column_name):
         return [df]
 
 
-def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', split_by_column=None, **kwargs):
+def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', split_on_column=None, **kwargs):
 
     if os.path.exists(get_files_from):
         # If the path is a file
@@ -83,7 +83,7 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
         df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
 
         # Split by specified column if provided and present
-        dfs_split = split_by_column(df, split_by_column)
+        dfs_split = split_by_column(df, split_on_column)
         
         # Apply transformation to each split
         dfs_processed = []
