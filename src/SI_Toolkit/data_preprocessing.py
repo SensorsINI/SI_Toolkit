@@ -27,7 +27,29 @@ from SI_Toolkit.General.preprocess_data_add_control_along_trajectories import ad
 from SI_Toolkit.General.preprocess_data_back_to_front_trajectories import back_to_front_trajectories
 
 
-def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', **kwargs):
+def split_by_column(df, column_name):
+    """
+    Split a DataFrame by a specified column if it exists.
+    
+    Parameters:
+        df (pd.DataFrame): Input DataFrame
+        column_name (str): Name of the column to split by
+    
+    Returns:
+        list of pd.DataFrame: List of DataFrames split by the specified column,
+                              or [df] if the column doesn't exist
+    """
+    if column_name and column_name in df.columns:
+        dfs_split = []
+        grouped = df.groupby(column_name, sort=False)
+        for idx in df[column_name].unique():
+            dfs_split.append(grouped.get_group(idx))
+        return dfs_split
+    else:
+        return [df]
+
+
+def transform_dataset(get_files_from, save_files_to, transformation='add_shifted_columns', split_by_column=None, **kwargs):
 
     if os.path.exists(get_files_from):
         # If the path is a file
@@ -60,20 +82,34 @@ def transform_dataset(get_files_from, save_files_to, transformation='add_shifted
 
         df = load_data(list_of_paths_to_datafiles=[current_path], verbose=False)[0]
 
-        # Apply transformation
-        if callable(transformation):
-            # If `transformation` is a function, call it directly
-            df_processed = transformation(df, **kwargs)
+        # Split by specified column if provided and present
+        dfs_split = split_by_column(df, split_by_column)
+        
+        # Apply transformation to each split
+        dfs_processed = []
+        for df_partial in dfs_split:
+            if callable(transformation):
+                # If `transformation` is a function, call it directly
+                df_transformed = transformation(df_partial, **kwargs)
+            else:
+                # If `transformation` is a string, retrieve the function and call it
+                # Available transformations: back_to_front_trajectories, add_control_along_trajectories, append_derivatives, apply_sensors_quantization, add_shifted_columns
+                # Plus the application specific transformations
+                try:
+                    # Retrieve the function by name and call it with the appropriate arguments
+                    transformation_function = globals()[transformation]
+                except KeyError:
+                    raise NotImplementedError(f'Transformation {transformation} is not implemented')
+                df_transformed = transformation_function(df_partial, df_name=processed_file_name, current_path=current_path, **kwargs)
+            
+            if df_transformed is not None:
+                dfs_processed.append(df_transformed)
+        
+        # Concatenate results
+        if dfs_processed:
+            df_processed = pd.concat(dfs_processed, axis=0, ignore_index=True)
         else:
-            # If `transformation` is a string, retrieve the function and call it
-            # Available transformations: back_to_front_trajectories, add_control_along_trajectories, append_derivatives, apply_sensors_quantization, add_shifted_columns
-            # Plus the application specific transformations
-            try:
-                # Retrieve the function by name and call it with the appropriate arguments
-                transformation_function = globals()[transformation]
-            except KeyError:
-                raise NotImplementedError(f'Transformation {transformation} is not implemented')
-            df_processed = transformation_function(df, df_name=processed_file_name, current_path=current_path, **kwargs)
+            df_processed = None
 
         if df_processed is None:
             print('Dropping {}, transformation not successful.'.format(current_path))
