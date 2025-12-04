@@ -107,7 +107,18 @@ class MainWindow(QMainWindow):
         self.show_all = False
         self.downsample = False
         self.show_forward_reconstruction = True
-        self._current_point_timeaxis_index = (self.time_axis.shape[0]-self.max_horizon)//2
+        
+        # Initialize current point index, accounting for backward predictions
+        # Use the same logic as _calculate_position_slider_bounds for consistency
+        init_index = (self.time_axis.shape[0] - self.max_horizon) // 2
+        if self.dt_predictions < 0:
+            init_index += self.max_horizon
+            # Ensure we're within valid bounds for backward predictions
+            min_valid = self.max_horizon + 1
+            max_valid = self.time_axis.shape[0] - 1
+            init_index = max(init_index, min_valid)
+            init_index = min(init_index, max_valid)
+        self._current_point_timeaxis_index = init_index
         self._current_point_predictions_index = None
         self._update_predictions_index()
         self.select_dataset(0)
@@ -177,15 +188,7 @@ class MainWindow(QMainWindow):
         l_sl_p.addWidget(QLabel('"Current" point in time:'))
         self.sl_p = QSlider(Qt.Orientation.Horizontal)
 
-        current_moment_min = 0
-        current_moment_max = self.time_axis.shape[0]-self.max_horizon-1
-        current_moment_init = (self.time_axis.shape[0]-self.max_horizon)//2
-
-        if self.dt_predictions < 0:
-            current_moment_min += self.max_horizon
-            current_moment_max += self.max_horizon
-            current_moment_init += self.max_horizon
-
+        current_moment_min, current_moment_max, current_moment_init = self._calculate_position_slider_bounds()
 
         self.sl_p.setMinimum(current_moment_min)
         self.sl_p.setMaximum(current_moment_max)
@@ -401,6 +404,26 @@ class MainWindow(QMainWindow):
             self._current_point_predictions_index = self._current_point_timeaxis_index - self.max_horizon - 1  # -1 because control inputs for backwards prediction needs to be shifted
         else:
             self._current_point_predictions_index = self._current_point_timeaxis_index
+
+    def _calculate_position_slider_bounds(self):
+        """Calculate position slider min, max, and initial values based on current settings."""
+        current_moment_min = 0
+        current_moment_max = self.time_axis.shape[0] - self.max_horizon - 1
+        current_moment_init = (self.time_axis.shape[0] - self.max_horizon) // 2
+
+        if self.dt_predictions < 0:
+            # For backward predictions, the earliest valid starting point is max_horizon + 1
+            # because predictions_array[j] corresponds to time_axis[j + max_horizon + 1]
+            # Using max_horizon instead of max_horizon + 1 causes predictions_index = -1 wrap-around bug
+            current_moment_min += self.max_horizon + 1
+            current_moment_max += self.max_horizon
+            current_moment_init += self.max_horizon
+
+            # Ensure init is within valid range
+            current_moment_init = max(current_moment_init, current_moment_min)
+            current_moment_init = min(current_moment_init, current_moment_max)
+
+        return current_moment_min, current_moment_max, current_moment_init
 
     def _update_forward_recon_checkbox_state(self):
         """Enable/disable forward reconstruction checkbox based on prediction type."""
