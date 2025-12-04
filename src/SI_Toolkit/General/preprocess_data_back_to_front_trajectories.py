@@ -10,7 +10,7 @@ IMPORTANT: Control-State Alignment
 ==================================
 Backward mode: x(t) = g(x(t+1), q(t))
   - To predict state at time t from state at t+1, we use control q(t)
-  - Controls are shifted by -1 in prepare_predictor_inputs (line 57 of get_prediction.py)
+  - Controls are shifted by -1 in prepare_predictor_inputs (line 123 of get_prediction.py)
   
 Forward mode: x(t+1) = g(x(t), q(t))
   - To predict state at time t+1 from state at t, we use control q(t)
@@ -22,6 +22,14 @@ Example trajectory (horizon=30):
   - Forward: T-30 → T-29 → ... → T using controls q(T-30), q(T-29), ..., q(T-1) [30 controls produce 31 states]
   - For alignment: q(T) is appended from external_input_array to match all 31 states
   - The controls are extracted and flipped in calculate_back2front_predictions
+
+Parameter Randomization (e.g., mu)
+==================================
+When randomize_param is set (e.g., 'mu'), the parameter is randomized BEFORE predictions:
+  - Each trajectory gets a unique random value sampled from param_range
+  - The SAME random value is used for both backward and forward predictions
+  - This ensures physical consistency: the same friction coefficient is used throughout
+  - The output data contains the actual randomized parameter values used in predictions
 """
 
 import numpy as np
@@ -156,6 +164,43 @@ def back_to_front_trajectories(
         print(f"  Error: Required features not found in dataset: {e}")
         return None
     
+    # Get control features for parameter randomization check
+    control_features = predictor.predictor.predictor_external_input_features
+    
+    # Setup random parameter generation and apply BEFORE predictions
+    # This ensures the same randomized parameter is used in both backward and forward predictions
+    random_param_values = None  # Will store the random value per trajectory
+    if randomize_param is not None:
+        if param_range is None:
+            param_range = (0.1, 1.0)
+        if random_seed is None:
+            # Use hash of df_name for reproducibility per file
+            random_seed = hash(df_name) % (2**32)
+        rng = np.random.RandomState(random_seed)
+        
+        # Check if the parameter is in control features
+        param_idx = None
+        for idx, feat in enumerate(control_features):
+            if feat == randomize_param:
+                param_idx = idx
+                break
+        
+        if param_idx is None:
+            if verbose:
+                print(f"  Warning: randomize_param='{randomize_param}' not found in control features: {control_features}")
+        else:
+            # Generate one random value per trajectory
+            random_param_values = rng.uniform(param_range[0], param_range[1], size=test_len_calc)
+            
+            # Apply randomization to predictor_external_input_array BEFORE predictions
+            # Shape: [test_len, predictor_horizon+1, control_features]
+            for traj_idx in range(test_len_calc):
+                predictor_external_input_array[traj_idx, :, param_idx] = random_param_values[traj_idx]
+            
+            if verbose:
+                print(f"  Randomizing '{randomize_param}' for each trajectory (range: {param_range})")
+                print(f"    Applied to {test_len_calc} trajectories before prediction")
+    
     # Predict backward trajectories
     if verbose:
         print("  Calculating backward trajectories...")
@@ -200,33 +245,7 @@ def back_to_front_trajectories(
     # Extract feature names
     backward_features = predictor.predictor.predictor_output_features
     forward_features = forward_predictor.predictor.predictor_output_features
-    control_features = predictor.predictor.predictor_external_input_features
-    
-    # Setup random parameter generation if requested
-    if randomize_param is not None:
-        if param_range is None:
-            param_range = (0.1, 1.0)
-        if random_seed is None:
-            # Use hash of df_name for reproducibility per file
-            random_seed = hash(df_name) % (2**32)
-        rng = np.random.RandomState(random_seed)
-        
-        # Check if the parameter is in control features
-        param_idx = None
-        for idx, feat in enumerate(control_features):
-            if feat == randomize_param:
-                param_idx = idx
-                break
-        
-        if param_idx is None:
-            if verbose:
-                print(f"  Warning: randomize_param='{randomize_param}' not found in control features: {control_features}")
-            rng = None
-        elif verbose:
-            print(f"  Randomizing '{randomize_param}' for each trajectory (range: {param_range})")
-    else:
-        param_idx = None
-        rng = None
+    # control_features already extracted above for parameter randomization
     
     # Build output dataframe
     if verbose:
@@ -251,22 +270,27 @@ def back_to_front_trajectories(
         num_forward_steps = len(forward_traj)
         
         # Take predictor_horizon controls (these were actually used in prediction)
+        # Note: if randomize_param was set, predictor_external_input_array already has the randomized values
         control_traj = predictor_external_input_array[traj_idx, :predictor_horizon, :]  # [predictor_horizon, control_features]
         control_traj_forward = np.flip(control_traj, axis=0)  # Flip to forward time order
         
         # If forward trajectory has one more state than controls (initial state + predictions),
-        # we need to add one more control for alignment. Take it from the external input array.
+        # we need to add one more control for alignment. Take it from the dataset.
         if num_forward_steps == predictor_horizon + 1:
-            # Need one more control - take the next available one from external input array
-            extra_control = predictor_external_input_array[traj_idx, predictor_horizon:predictor_horizon+1, :]
+            # Need one more control - take the control that belongs to the seed state directly from the dataset
+            extra_control = dataset.loc[seed_idx, control_features].to_numpy(dtype=float)[np.newaxis, :]
+            
+            # If parameter was randomized, apply the same random value to the extra control
+            if random_param_values is not None:
+                param_idx = None
+                for idx, feat in enumerate(control_features):
+                    if feat == randomize_param:
+                        param_idx = idx
+                        break
+                if param_idx is not None:
+                    extra_control[0, param_idx] = random_param_values[traj_idx]
+            
             control_traj_forward = np.concatenate([control_traj_forward, extra_control], axis=0)
-        
-        # Replace parameter with random value if requested
-        if randomize_param is not None and param_idx is not None and rng is not None:
-            # Sample one random value for this entire trajectory
-            random_value = rng.uniform(param_range[0], param_range[1])
-            # Replace all parameter values in this trajectory
-            control_traj_forward[:, param_idx] = random_value
         
         # Note: backward_df is computed but not saved (user only wants forward trajectories)
         # Keeping this for debugging/verification purposes
@@ -297,7 +321,7 @@ def back_to_front_trajectories(
         # Example with horizon=30 (31 states from autoregressive predictor with 30 controls):
         # - Backward used controls q(T-1), ..., q(T-30) to produce 31 states x(T), ..., x(T-30)
         # - Forward uses controls q(T-30), ..., q(T-1) (flipped) to produce 31 states x(T-30), ..., x(T)
-        # - We append q(T) from the external array for complete alignment
+        # - We append q(T) by reading it from the original dataset (so it also picks up any randomized param)
         # Row 0: state x(T-30), control q(T-30) → produces x(T-29) in Row 1
         # Row 1: state x(T-29), control q(T-29) → produces x(T-28) in Row 2  
         # ...
