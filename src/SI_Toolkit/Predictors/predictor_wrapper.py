@@ -88,6 +88,10 @@ class PredictorWrapper:
                         f"Invalid computation library. Got {computation_library}. Choose 'Numpy', 'TF', or 'Pytorch'.")
             self.predictor = predictor_ODE(dt=dt, computation_library=computation_library, batch_size=self.batch_size, variable_parameters=variable_parameters, **self.predictor_config, **compile_standalone)
 
+        elif self.predictor_type == 'backward_optimizer':
+            from SI_Toolkit.Predictors.predictor_backward_optimizer import predictor_backward_optimizer
+            self.predictor = predictor_backward_optimizer(dt=dt, batch_size=self.batch_size, variable_parameters=variable_parameters, mode=mode, **self.predictor_config, **compile_standalone)
+
         else:
             raise NotImplementedError('Type of the predictor not recognised.')
 
@@ -135,6 +139,8 @@ class PredictorWrapper:
             predictor_name = 'neural_default'
         if predictor_specification_components[0] == 'GP':
             predictor_name = 'GP_default'
+        if predictor_specification_components[0] == 'BP':
+            predictor_name = 'backward_optimizer_default'
 
         if predictor_name is None:
             for predefined_predictor in self.predictors_config.keys():
