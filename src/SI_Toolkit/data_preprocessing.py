@@ -226,14 +226,33 @@ def time_reverse(df: pd.DataFrame, **kwargs) -> pd.DataFrame:
     return df.iloc[::-1].reset_index(drop=True)
 
 
-def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut=1):
-
+def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm, cut=1, compute_differences=False):
+    """
+    Append derivative columns (D_*) to a dataframe.
+    
+    Args:
+        df: Input dataframe
+        variables_for_derivative: List of column names to compute derivatives for
+        derivative_algorithm: Algorithm to use ('finite_difference', 'single_difference', 'backward_difference')
+        cut: Number of rows to cut from start/end (default: 1)
+        compute_differences: If True, compute increments (Δx) instead of rates (dx/dt).
+                           When False (default), requires 'time' column and computes rates.
+    
+    Returns:
+        DataFrame with D_* columns appended
+    """
     df = df.reset_index(drop=True)
 
-    try:
-        t = df['time'].values
-    except KeyError:
+    if compute_differences:
+        # Explicit mode: compute increments (Δx) with dt=1
         t = np.arange(df.shape[0])
+    elif 'time' not in df.columns:
+        raise KeyError(
+            "'time' column required for rate calculation (dx/dt). "
+            "Use compute_differences=True if you want increments (Δx) instead."
+        )
+    else:
+        t = df['time'].values
     y = df[variables_for_derivative].values
     dy = np.zeros_like(y)
     for j in range(len(variables_for_derivative)):
@@ -259,12 +278,22 @@ def append_derivatives_to_df(df, variables_for_derivative, derivative_algorithm,
     return df
 
 
-def append_derivatives(df, variables_for_derivative, derivative_algorithm, df_name, verbose=False, **kwargs):
+def append_derivatives(df, variables_for_derivative, derivative_algorithm, df_name, verbose=False, compute_differences=False, **kwargs):
     """
     Takes list of dataframes dfs
     and augment it with derivatives of columns indicated in variables_for_derivative
     using algorithm indicated in derivative_algorithm.
     The output file is shorter - first and last indices for which it is difficult to get good derivative are dropped.
+    
+    Args:
+        df: Input dataframe
+        variables_for_derivative: List of column names to compute derivatives for
+        derivative_algorithm: Algorithm to use ('finite_difference', 'single_difference', 'backward_difference')
+        df_name: Name of the file being processed (for logging)
+        verbose: If True, print warnings about missing time axis
+        compute_differences: If True, compute increments (Δx) instead of rates (dx/dt).
+                           When False (default), requires 'time' column and computes rates.
+        **kwargs: Additional arguments (ignored)
     """
 
     cut = 1
@@ -284,7 +313,7 @@ def append_derivatives(df, variables_for_derivative, derivative_algorithm, df_na
         # print(file_names)
         if df_partial.shape[0] < 2 * cut:
             continue
-        df_partial = append_derivatives_to_df(df_partial, variables_for_derivative, derivative_algorithm, cut)
+        df_partial = append_derivatives_to_df(df_partial, variables_for_derivative, derivative_algorithm, cut, compute_differences=compute_differences)
         dfs_processed.append(df_partial)
 
     if dfs_processed:
