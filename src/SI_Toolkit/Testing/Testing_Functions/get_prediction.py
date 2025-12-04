@@ -159,6 +159,9 @@ def calculate_back2front_predictions(
         test_len: int = None,
         max_batch_size: int = None,
         forward_predictor_created: bool = False,
+        param_name: Optional[str] = None,
+        param_value: Optional[float] = None,
+        backward_predictor_features: Optional[np.ndarray] = None,
 ) -> Dict[int, np.ndarray]:
     """
     Calculate forward predictions from backward trajectory outputs.
@@ -175,6 +178,9 @@ def calculate_back2front_predictions(
         test_len: Number of test samples
         max_batch_size: Maximum batch size for predictor (for reuse with padding/chunking)
         forward_predictor_created: Whether forward predictor was just created (needs configuration)
+        param_name: Name of parameter being swept (e.g., 'mu')
+        param_value: Value of parameter for this sweep iteration
+        backward_predictor_features: External input features of backward predictor (for reordering if needed)
         
     Returns:
         Dictionary mapping horizon_idx to forward prediction arrays
@@ -201,6 +207,26 @@ def calculate_back2front_predictions(
             hls=hls
         )
         forward_predictor._configured_batch_size = configured_batch_size
+    
+    # Handle parameter mapping between backward and forward predictors
+    # The predictor_external_input_array was built with backward predictor's feature ordering
+    # We need to ensure the forward predictor receives the parameter at the correct index
+    forward_features = forward_predictor.predictor.predictor_external_input_features
+    need_reorder = False
+    feature_mapping = None
+    
+    if backward_predictor_features is not None and not np.array_equal(backward_predictor_features, forward_features):
+        # Feature orderings differ - need to reorder
+        need_reorder = True
+        # Build mapping: forward_idx -> backward_idx
+        feature_mapping = []
+        for fwd_feat in forward_features:
+            try:
+                bwd_idx = np.where(backward_predictor_features == fwd_feat)[0][0]
+                feature_mapping.append(bwd_idx)
+            except IndexError:
+                raise ValueError(f"Forward predictor feature '{fwd_feat}' not found in backward predictor features")
+        feature_mapping = np.array(feature_mapping)
     
     # Determine loop range
     start_horizon = predictor_horizon
@@ -231,6 +257,10 @@ def calculate_back2front_predictions(
         forward_external_input_slice = predictor_external_input_array[:, :horizon_idx, :]
         forward_external_input_slice = np.flip(forward_external_input_slice, axis=1)
         
+        # Reorder features if backward and forward predictors have different feature orderings
+        if need_reorder and feature_mapping is not None:
+            forward_external_input_slice = forward_external_input_slice[:, :, feature_mapping]
+        
         # Use fixed batch size with padding/chunking if max_batch_size is provided
         if max_batch_size is not None and configured_batch_size != test_len:
             forward_output = predict_with_fixed_batch_size(
@@ -258,6 +288,8 @@ def get_prediction(
         hls: bool = False,
         forward_predictor: Optional[PredictorWrapper] = None,
         forward_from_all_horizons: bool = False,
+        param_name: Optional[str] = None,
+        param_value: Optional[float] = None,
         **kwargs,
 ):
     if routine == "simple evaluation":
@@ -307,6 +339,20 @@ def get_prediction(
         test_max_horizon=test_max_horizon,
     )
 
+    # Override parameter value in external inputs if specified (for parameter sweep)
+    if param_name is not None and param_value is not None:
+        external_features = predictor.predictor.predictor_external_input_features
+        param_idx = None
+        for idx, feat in enumerate(external_features):
+            if feat == param_name:
+                param_idx = idx
+                break
+        if param_idx is not None:
+            # Override the parameter across all samples and horizons
+            predictor_external_input_array[:, :, param_idx] = param_value
+        else:
+            print(f"Warning: param_name '{param_name}' not found in external features: {external_features}")
+
     if mode == 'batch':
         output = predictor.predict(predictor_initial_input, predictor_external_input_array)
 
@@ -344,6 +390,9 @@ def get_prediction(
             hls=hls,
             forward_from_all_horizons=forward_from_all_horizons,
             test_len=test_len,
+            param_name=param_name,
+            param_value=param_value,
+            backward_predictor_features=predictor.predictor.predictor_external_input_features,
         )
         
         # Package results

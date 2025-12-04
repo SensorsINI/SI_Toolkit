@@ -54,13 +54,13 @@ cmap = colors.LinearSegmentedColormap('custom', cdict)
 
 # endregion
 
-def run_test_gui(titles, ground_truth, predictions_list, time_axis):
+def run_test_gui(titles, ground_truth, predictions_list, time_axis, param_values=None, param_name=None, true_param_idx=None):
     # Creat an instance of PyQt6 application
     # Every PyQt6 application has to contain this line
     app = QApplication(sys.argv)
     app.setQuitOnLastWindowClosed(True)
     # Create an instance of the GUI window.
-    window = MainWindow(titles, ground_truth, predictions_list, time_axis)
+    window = MainWindow(titles, ground_truth, predictions_list, time_axis, param_values=param_values, param_name=param_name, true_param_idx=true_param_idx)
     window.show()
     # Next line hands the control over to Python GUI
     sys.exit(app.exec())
@@ -73,13 +73,26 @@ class MainWindow(QMainWindow):
                  ground_truth,
                  predictions_list,
                  time_axis,
+                 param_values=None,
+                 param_name=None,
+                 true_param_idx=None,
                  *args, **kwargs):
         super(MainWindow, self).__init__(*args, **kwargs)
 
         self.titles = titles
         self.ground_truth = ground_truth   # First element of the list is the dataset, second the columns names
-        self.predictions_list = predictions_list
+        self.predictions_list_raw = predictions_list  # Store original (may be dict-indexed)
         self.time_axis = time_axis
+        
+        # Parameter sweep support
+        self.param_values = param_values
+        self.param_name = param_name
+        self.has_param_sweep = param_values is not None and len(param_values) > 0
+        self.true_param_idx = true_param_idx  # Index of true parameter value (from data)
+        self.current_param_idx = true_param_idx if true_param_idx is not None else 0  # Start at true value if available
+        
+        # Build predictions_list for current param value (or use as-is if no sweep)
+        self.predictions_list = self._get_predictions_for_current_param()
 
         try:
             self.ground_truth, self.predictions_list = calculete_additional_metrics(ground_truth, self.predictions_list)
@@ -222,6 +235,51 @@ class MainWindow(QMainWindow):
         l_sl.addLayout(l_sl_p)
         l_sl.addWidget(separatorLine)
         l_sl.addLayout(l_sl_h)
+        
+        # region - Slider parameter (only shown when param_sweep is enabled)
+        if self.has_param_sweep:
+            separatorLine2 = QFrame()
+            separatorLine2.setFrameShape(QFrame.Shape.VLine)
+            separatorLine2.setFrameShadow(QFrame.Shadow.Raised)
+            l_sl.addWidget(separatorLine2)
+            
+            l_sl_param = QVBoxLayout()
+            
+            # Header row with label and true value button
+            l_param_header = QHBoxLayout()
+            current_param_value = self.param_values[self.current_param_idx]
+            self.param_slider_label = QLabel(f'{self.param_name}: {current_param_value:.4f}')
+            l_param_header.addWidget(self.param_slider_label)
+            
+            # Show true value info and button to jump to it
+            if self.true_param_idx is not None:
+                true_value = self.param_values[self.true_param_idx]
+                self.true_param_label = QLabel(f'[True: {true_value:.4f}]')
+                self.true_param_label.setStyleSheet("color: green; font-weight: bold;")
+                l_param_header.addWidget(self.true_param_label)
+                
+                btn_true = QPushButton("→ True")
+                btn_true.setMaximumWidth(60)
+                btn_true.setToolTip(f"Jump to true {self.param_name} value ({true_value:.4f})")
+                btn_true.clicked.connect(self._jump_to_true_param)
+                l_param_header.addWidget(btn_true)
+            
+            l_param_header.addStretch(1)
+            l_sl_param.addLayout(l_param_header)
+            
+            self.sl_param = QSlider(Qt.Orientation.Horizontal)
+            self.sl_param.setMinimum(0)
+            self.sl_param.setMaximum(len(self.param_values) - 1)
+            self.sl_param.setValue(self.current_param_idx)
+            self.sl_param.setTickPosition(QSlider.TickPosition.TicksBelow)
+            l_sl_param.addWidget(self.sl_param)
+            self.sl_param.valueChanged.connect(self.slider_param_f)
+            l_sl.addLayout(l_sl_param)
+            
+            # Update label styling based on whether we're at true value
+            self._update_param_label_style()
+        # endregion
+        
         layout.addLayout(l_sl)
 
 
@@ -452,7 +510,16 @@ class MainWindow(QMainWindow):
                 self.show_forward_reconstruction = False
 
     def set_horizon(self):
-        self.max_horizon = self.predictions_list[0][0].shape[-2] - 1 - 1  # Contains seed state hance -1; Predicts one additional step hence -1 - but the last prediction does not have control input paired with it.
+        # Get predictions array - handle both direct list and param-indexed dict formats
+        first_pred = self.predictions_list[0]
+        if isinstance(first_pred, dict):
+            # Param-indexed - get first value
+            first_key = list(first_pred.keys())[0]
+            pred_array = first_pred[first_key][0]
+        else:
+            pred_array = first_pred[0]
+        
+        self.max_horizon = pred_array.shape[-2] - 1 - 1  # Contains seed state hance -1; Predicts one additional step hence -1 - but the last prediction does not have control input paired with it.
         self.horizon = int(np.ceil(self.max_horizon / 2))
 
         if hasattr(self, 'sl_h'):
@@ -468,6 +535,69 @@ class MainWindow(QMainWindow):
         self.horizon = int(value)
 
         self.redraw_canvas()
+
+    def slider_param_f(self, value):
+        """Handle parameter slider change."""
+        self.current_param_idx = int(value)
+        current_param_value = self.param_values[self.current_param_idx]
+        self.param_slider_label.setText(f'{self.param_name}: {current_param_value:.4f}')
+        
+        # Update label styling based on whether we're at true value
+        self._update_param_label_style()
+        
+        # Update predictions for new parameter value
+        self.predictions_list = self._get_predictions_for_current_param()
+        
+        # Re-select current dataset to update displayed data
+        for i in range(len(self.rbs_datasets)):
+            if self.rbs_datasets[i].isChecked():
+                self.select_dataset(i)
+                break
+        
+        self._feature_changed = True  # Reset Y-axis when changing parameter
+        self.redraw_canvas()
+
+    def _jump_to_true_param(self):
+        """Jump slider to true parameter value."""
+        if self.true_param_idx is not None:
+            self.sl_param.setValue(self.true_param_idx)
+
+    def _update_param_label_style(self):
+        """Update parameter label style based on whether current value is true value."""
+        if not hasattr(self, 'param_slider_label'):
+            return
+        
+        if self.true_param_idx is not None and self.current_param_idx == self.true_param_idx:
+            # At true value - highlight in green
+            self.param_slider_label.setStyleSheet("color: green; font-weight: bold;")
+        else:
+            # Not at true value - normal style
+            self.param_slider_label.setStyleSheet("")
+
+    def _get_predictions_for_current_param(self):
+        """Extract predictions list for current parameter value from param-indexed data."""
+        if not self.has_param_sweep:
+            # No param sweep - return as-is
+            return self.predictions_list_raw
+        
+        current_param_value = self.param_values[self.current_param_idx]
+        
+        # Build predictions_list by extracting data for current param value
+        predictions_list = []
+        for pred_entry in self.predictions_list_raw:
+            if isinstance(pred_entry, dict):
+                # Param-indexed predictions - extract for current value
+                if current_param_value in pred_entry:
+                    predictions_list.append(pred_entry[current_param_value])
+                else:
+                    # Try to find closest value (handles floating point issues)
+                    closest_key = min(pred_entry.keys(), key=lambda k: abs(k - current_param_value))
+                    predictions_list.append(pred_entry[closest_key])
+            else:
+                # Not param-indexed (backward compatibility)
+                predictions_list.append(pred_entry)
+        
+        return predictions_list
 
     def cb_show_all_f(self, state):
         if state:
@@ -650,6 +780,13 @@ class MainWindow(QMainWindow):
                         dt_predictions=self.dt_predictions)
 
         self.horizon_slider_label.setText('Prediction horizon: {}'.format(self.horizon))
+        
+        # Update parameter slider label if param sweep is enabled
+        if self.has_param_sweep and hasattr(self, 'param_slider_label'):
+            current_param_value = self.param_values[self.current_param_idx]
+            self.param_slider_label.setText(f'{self.param_name}: {current_param_value:.4f}')
+            self._update_param_label_style()
+        
         self.get_sqrt_MSE_at_horizon()
         self.lab_MSE.setText("Error - Avg (sqrt(MSE) all): {:.4f},  ".format(self.sqrt_MSE_along_horizon))
         self.lab_end.setText("End (sqrt(MSE) end): {:.4f},  ".format(self.sqrt_MSE_at_horizon))
