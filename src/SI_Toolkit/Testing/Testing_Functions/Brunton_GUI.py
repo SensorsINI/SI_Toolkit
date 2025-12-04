@@ -119,6 +119,10 @@ class MainWindow(QMainWindow):
         self.sqrt_MSE_at_horizon: float = 0.0
         self.max_error: float = 0.0
 
+        # Flags to track feature changes (for Y-axis reset)
+        self._feature_changed: bool = True  # Start as True to allow initial auto-scaling
+        self._feature2_changed: bool = True
+
         # region - Create container for top level layout
         layout = QVBoxLayout()
         # endregion
@@ -459,9 +463,11 @@ class MainWindow(QMainWindow):
             self.cb_select_feature.setCurrentText('pose_x')
             self.cb_select_feature_f()
             self.canvas2.hide()
+            self._feature_changed = True  # Reset Y-axis when combining features
             self.redraw_canvas()
         else:
             self.combine_features = False
+            self._feature_changed = True  # Reset Y-axis when uncombining features
             self.cb_select_feature2.setCurrentText('')
             self.cb_select_feature2_f()
 
@@ -507,6 +513,7 @@ class MainWindow(QMainWindow):
 
         if self.feature_to_display not in self.features:
             self.feature_to_display = self.features[0]
+            self._feature_changed = True
 
         # Update forward reconstruction checkbox state
         self._update_forward_recon_checkbox_state()
@@ -519,21 +526,33 @@ class MainWindow(QMainWindow):
                 self.select_dataset(i)
         self.set_horizon()
 
+        # Reset Y-axis when changing models (data ranges may differ)
+        self._feature_changed = True
+        self._feature2_changed = True
+
         self.redraw_canvas()
 
     def cb_select_feature_f(self):
         feature_label_to_display = self.cb_select_feature.currentText()
-        self.feature_to_display = list(self.cb_select_feature_items.keys())[list(self.cb_select_feature_items.values()).index(feature_label_to_display)]
+        new_feature = list(self.cb_select_feature_items.keys())[list(self.cb_select_feature_items.values()).index(feature_label_to_display)]
+        if new_feature != self.feature_to_display:
+            self._feature_changed = True
+        self.feature_to_display = new_feature
         self.redraw_canvas()
 
     def cb_select_feature2_f(self):
         if self.cb_select_feature2.currentText() != '':
             feature_label_to_display = self.cb_select_feature2.currentText()
-            self.feature_to_display_2 = list(self.features2_labels_dict.keys())[
+            new_feature = list(self.features2_labels_dict.keys())[
                 list(self.features2_labels_dict.values()).index(feature_label_to_display)]
+            if new_feature != self.feature_to_display_2:
+                self._feature2_changed = True
+            self.feature_to_display_2 = new_feature
             if not self.combine_features:
                 self.canvas2.show()
         else:
+            if self.feature_to_display_2 is not None:
+                self._feature2_changed = True
             self.feature_to_display_2 = None
             self.canvas2.hide()
         self.redraw_canvas()
@@ -613,16 +632,22 @@ class MainWindow(QMainWindow):
         self.lab_end.setText("End (sqrt(MSE) end): {:.4f},  ".format(self.sqrt_MSE_at_horizon))
         self.lab_max.setText("Max: {:.4f}".format(self.max_error))
         
-        # Restore zoom levels (both horizontal and vertical) before drawing (preserve user's zoom)
+        # Restore X-axis zoom levels (preserve user's horizontal zoom)
         # Only restore if the limits were previously set (not default initial values)
         if xlim_fig1 != (0.0, 1.0):  # Default matplotlib limits
             self.fig.Ax.set_xlim(xlim_fig1)
-        if ylim_fig1 != (0.0, 1.0):
-            self.fig.Ax.set_ylim(ylim_fig1)
         if xlim_fig2 != (0.0, 1.0) and self.canvas2.isVisible():
             self.fig2.Ax.set_xlim(xlim_fig2)
-        if ylim_fig2 != (0.0, 1.0) and self.canvas2.isVisible():
+        
+        # Restore Y-axis zoom levels only if feature hasn't changed (allow auto-scaling on feature change)
+        if not self._feature_changed and ylim_fig1 != (0.0, 1.0):
+            self.fig.Ax.set_ylim(ylim_fig1)
+        if not self._feature2_changed and ylim_fig2 != (0.0, 1.0) and self.canvas2.isVisible():
             self.fig2.Ax.set_ylim(ylim_fig2)
+        
+        # Reset feature change flags
+        self._feature_changed = False
+        self._feature2_changed = False
         
         self.fig.Ax.grid(color="k", linestyle="--", linewidth=0.5)
         self.fig2.Ax.grid(color="k", linestyle="--", linewidth=0.5)
