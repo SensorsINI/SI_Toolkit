@@ -280,12 +280,14 @@ def back_to_front_trajectories(
         # Forward part - this is what gets saved
         forward_df = pd.DataFrame(forward_traj, columns=forward_features)
         num_forward_steps = len(forward_traj)
-        forward_df['phase'] = [f'forward_{i}' for i in range(1, num_forward_steps + 1)]
-        forward_df['time_step'] = np.arange(1, num_forward_steps + 1)
+        forward_df['phase'] = [f'forward_{i}' for i in range(num_forward_steps)]
+        forward_df['time_step'] = np.arange(num_forward_steps)
         # Time starts from furthest backward point and goes forward
-        forward_df['absolute_time'] = (
+        # Row 0 is at time T-H, Row H is at time T (the seed time)
+        # Named 'time' (not 'absolute_time') for compatibility with append_derivatives
+        forward_df['time'] = (
             time_axis[seed_idx] - predictor_horizon * abs(dt) 
-            + np.arange(1, num_forward_steps + 1) * abs(dt)
+            + np.arange(num_forward_steps) * abs(dt)
         )
         
         # Add control inputs
@@ -318,7 +320,7 @@ def back_to_front_trajectories(
     
     # Reorder columns: metadata first, then states, then controls
     metadata_cols = [
-        'experiment_index', 'seed_absolute_time', 'absolute_time', 'phase', 'time_step'
+        'experiment_index', 'seed_absolute_time', 'time', 'phase', 'time_step'
     ]
     state_cols = [col for col in forward_features if col in combined_df.columns]
     control_cols = [col for col in control_features if col in combined_df.columns]
