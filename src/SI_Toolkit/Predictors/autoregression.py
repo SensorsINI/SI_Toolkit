@@ -2,9 +2,6 @@ from SI_Toolkit.computation_library import TensorFlowLibrary
 
 from SI_Toolkit.Functions.General.Normalising import get_scaling_function_for_output_of_differential_network
 
-from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import (CONTROL_INPUTS_FOR_PREDICTOR,
-                                                                          STATE_VARIABLES_FOR_PREDICTOR)
-
 import numpy as np
 
 
@@ -210,6 +207,7 @@ class differential_model_autoregression_helper:
                 normalization_info,
                 dt,
                 lib,
+                state_variables=None,
                 ):
         self.lib = lib
 
@@ -228,12 +226,21 @@ class differential_model_autoregression_helper:
         outputs_names_after_integration = np.array([re.sub(r'_-?\d+$', '', x[2:]) for x in outputs])
         inputs = np.array([re.sub(r'_-?\d+$', '', x) for x in inputs])
 
-        STATE_INDICES = {x: np.where(STATE_VARIABLES_FOR_PREDICTOR == x)[0][0] for x in STATE_VARIABLES_FOR_PREDICTOR}
-        self.indices_state_to_output = self.lib.to_tensor([STATE_INDICES.get(key) for key in outputs_names_after_integration],
+        # State variables must be provided
+        if state_variables is None:
+            raise ValueError("state_variables must be provided")
+        state_variables = np.array(state_variables)
+        state_indices = {x: i for i, x in enumerate(state_variables)}
+        
+        self.indices_state_to_output = self.lib.to_tensor([state_indices.get(key) for key in outputs_names_after_integration],
                                                           dtype=self.lib.int64)
         output_indices = {x: np.where(outputs_names_after_integration == x)[0][0] for x in outputs_names_after_integration}
 
-        num_controls_present = sum(1 for name in inputs if name in CONTROL_INPUTS_FOR_PREDICTOR)
+        # Count controls: check if input name is a control (not a state variable)
+        def is_control_input(name):
+            base_name = re.sub(r'_-?\d+$', '', name)  # Strip time suffix
+            return base_name not in state_variables
+        num_controls_present = sum(1 for name in inputs if is_control_input(name))
 
         self.indices_output_to_input = self.lib.to_tensor(
             [output_indices.get(key) for key in inputs[num_controls_present:]], dtype=self.lib.int64)

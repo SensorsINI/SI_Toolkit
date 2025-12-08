@@ -16,6 +16,7 @@ from SI_Toolkit.Functions.General.Normalising import (
 from SI_Toolkit.Functions.General.value_precision import set_value_precision
 from SI_Toolkit.Compile import CompileAdaptive
 from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import predictor_output_augmentation
+from utilities.state_utilities import STATE_VARIABLES
 
 from SI_Toolkit.Predictors.autoregression import autoregression_loop, differential_model_autoregression_helper, check_dimensions
 
@@ -173,6 +174,7 @@ class predictor_autoregressive_neural(template_predictor):
                     normalization_info=self.normalization_info,
                     dt=self.dt,
                     lib=self.lib,
+                    state_variables=STATE_VARIABLES,
                 )
             # Strip D_ prefix and time suffixes for denormalization lookup
             import re

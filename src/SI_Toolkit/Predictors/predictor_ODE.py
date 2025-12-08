@@ -33,14 +33,12 @@ class predictor_ODE(template_predictor):
                  disable_individual_compilation=False,
                  batch_size=1,
                  variable_parameters=None,
+                 control_inputs=None,
+                 state_variables=None,
                  **kwargs):
-        super().__init__(batch_size=batch_size)
+        super().__init__(batch_size=batch_size, control_inputs=control_inputs, state_variables=state_variables)
         self.lib = computation_library
         print(f"Using {self.lib.lib} for ODE predictor")
-        self.disable_individual_compilation = disable_individual_compilation
-
-        self.initial_state = self.lib.zeros(shape=(1, self.num_states))
-        self.output = None
         self.disable_individual_compilation = disable_individual_compilation
 
         self.dt = dt
@@ -52,9 +50,20 @@ class predictor_ODE(template_predictor):
             self.lib,
             self.batch_size,
             variable_parameters=variable_parameters,
+            control_inputs=control_inputs,
+            state_variables=state_variables,
             disable_individual_compilation=True,
             **kwargs,
         )
+        
+        # Update from next_step_predictor
+        self.num_control_inputs = self.next_step_predictor.num_control_inputs
+        self.predictor_external_input_features = self.next_step_predictor.control_inputs
+        self.num_states = len(self.next_step_predictor.state_variables)
+        
+        self.initial_state = self.lib.zeros(shape=(1, self.num_states))
+        self.output = None
+        
         self.params = self.next_step_predictor.params
         self.model = model_interface(self.next_step_predictor, self.num_control_inputs)
 
@@ -99,7 +108,6 @@ class predictor_ODE(template_predictor):
 
     def update_internal_state(self, Q, s=None):
         pass
-
 
 
 
