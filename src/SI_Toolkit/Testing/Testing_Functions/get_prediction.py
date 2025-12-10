@@ -119,18 +119,32 @@ def prepare_predictor_inputs(
                        )
         raise KeyError(f'{e}' + " See terminal output for more information.")
     
-    if backward_mode:
-        predictor_external_input = predictor_external_input[:-1]  # Shift by one for backward mode
+    # Check if external inputs are already time-shifted (e.g., _-1 columns)
+    # Networks trained with _-1 columns need different index alignment
+    external_features = predictor.predictor.predictor_external_input_features
+    uses_preshifted_features = any('_-1' in str(f) for f in external_features)
+    
+    if backward_mode and not uses_preshifted_features:
+        predictor_external_input = predictor_external_input[:-1]  # Shift only for regular columns
     
     predictor_external_input_len = len(predictor_external_input)
     
     # Build external input array for all horizons
     if backward_mode:
-        # Backward: for each test point k at dataset index (predictor_horizon+k), we need [u(t-1), u(t-2), ..., u(t-pred_hor)]
-        predictor_external_input_array = [
-            predictor_external_input[..., predictor_horizon-i:predictor_external_input_len-i, :] 
-            for i in range(predictor_horizon+1)
-        ]
+        if uses_preshifted_features:
+            # For networks trained with _-1 columns: no additional shifting needed
+            # At test point k (initial state at idx = predictor_horizon + 1 + k):
+            # h=0 uses features from row idx, h=1 from row idx-1, etc.
+            predictor_external_input_array = [
+                predictor_external_input[..., predictor_horizon+1-i:predictor_external_input_len-i, :] 
+                for i in range(predictor_horizon+1)
+            ]
+        else:
+            # For regular columns: apply standard backward windowing
+            predictor_external_input_array = [
+                predictor_external_input[..., predictor_horizon-i:predictor_external_input_len-i, :] 
+                for i in range(predictor_horizon+1)
+            ]
     else:
         predictor_external_input_array = [
             predictor_external_input[..., i: predictor_external_input_len-predictor_horizon + i, :] 
