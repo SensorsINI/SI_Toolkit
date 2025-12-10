@@ -286,7 +286,7 @@ def compose_net_from_net_name_standard(net_info,
         for i in range(h_number):
             if hasattr(net_info, 'quantization') and net_info.quantization['ACTIVATED']:
                 net.add(layer_type(
-                    units=h_size[i], batch_size=batch_size, name='layers_{}'.format(i),
+                    units=h_size[i], name='layers_{}'.format(i),
                     kernel_regularizer=regularization_kernel,
                     bias_regularizer=regularization_bias,
                     activity_regularizer=regularization_activity,
@@ -295,7 +295,7 @@ def compose_net_from_net_name_standard(net_info,
                 net.add(qkeras.QActivation(activation=activation))
             else:
                 net.add(layer_type(
-                    units=h_size[i], batch_size=batch_size, name='layers_{}'.format(i),
+                    units=h_size[i], name='layers_{}'.format(i),
                     kernel_regularizer=regularization_kernel,
                     bias_regularizer=regularization_bias,
                     activity_regularizer=regularization_activity,
