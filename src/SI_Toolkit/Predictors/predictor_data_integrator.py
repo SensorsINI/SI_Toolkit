@@ -73,6 +73,13 @@ class predictor_data_integrator(template_predictor):
                 This determines what columns are read from dataset as initial state.
             disable_individual_compilation: If True, skip compilation optimization.
             variable_parameters: Variable parameters (for API compatibility).
+            
+        Note on backward prediction:
+            For backward prediction (negative dt), the same derivative columns (D_x) are used.
+            The key relationships are:
+            - Forward:  x(t+1) = x(t) + dt * D_x(t)
+            - Backward: x(t-1) = x(t) - dt * D_x(t-1)
+            The time alignment of derivatives is handled by the Brunton test.
         """
         super().__init__(batch_size=batch_size)
         
@@ -87,7 +94,8 @@ class predictor_data_integrator(template_predictor):
         
         self.output = None
         
-        print(f"[DataIntegrator] dt={dt:.4f}")
+        mode_str = "backward" if dt < 0 else "forward"
+        print(f"[DataIntegrator] Mode: {mode_str}, dt={dt:.4f}")
         print(f"[DataIntegrator] External inputs (derivatives): {list(self.predictor_external_input_features)}")
         print(f"[DataIntegrator] Initial state: {list(self.predictor_initial_input_features)}")
         print(f"[DataIntegrator] Outputs: {list(self.predictor_output_features)}")
@@ -101,6 +109,8 @@ class predictor_data_integrator(template_predictor):
         """Set up input/output feature mappings."""
         
         # Default derivative features (from typical config_training.yml)
+        # Use regular D_x columns for both forward and backward prediction.
+        # The Brunton test's get_prediction handles index alignment internally.
         if derivative_features is None:
             derivative_features = [
                 "D_pose_theta_cos",
@@ -113,15 +123,25 @@ class predictor_data_integrator(template_predictor):
                 "D_steering_angle",
             ]
         
+        # Store base derivative names for deriving state/output features
+        base_derivative_features = derivative_features.copy() if isinstance(derivative_features, list) else list(derivative_features)
+        
         self.derivative_features = np.array(derivative_features)
         self.num_derivatives = len(derivative_features)
         
-        # Derive output features by stripping D_ prefix
+        # Derive output features by stripping D_ prefix and _-1 suffix from derivative names
+        # Output features represent the state we're predicting (e.g., pose_x, not pose_x_-1)
         if output_features is None:
-            output_features = [f[2:] if f.startswith('D_') else f for f in derivative_features]
+            output_features = []
+            for f in base_derivative_features:
+                out = f[2:] if f.startswith('D_') else f  # Strip 'D_' prefix
+                if out.endswith('_-1'):
+                    out = out[:-3]  # Strip '_-1' suffix
+                output_features.append(out)
         self.output_feature_names = np.array(output_features)
         
-        # State features for initial input (typically same as outputs)
+        # State features for initial input - use base names (no _-1 suffix)
+        # The initial state is where we START from, not a shifted version
         if state_features is None:
             state_features = output_features.copy() if isinstance(output_features, list) else list(output_features)
         
@@ -275,6 +295,13 @@ class predictor_data_integrator_flexible(predictor_data_integrator):
         
     This will verify that integrating the D_* columns reproduces the state trajectory,
     confirming that the training data derivatives are computed correctly.
+    
+    Configuration in config_predictors.yml:
+        data_integrator_default:
+            predictor_type: "data_integrator"
+            computation_library_name: "Numpy"
+            config_path: "SI_Toolkit_ASF/config_training.yml"
+            config_section: "training_nn_physical_model"  # Section containing D_* outputs
     """
     
     def __init__(
@@ -283,6 +310,8 @@ class predictor_data_integrator_flexible(predictor_data_integrator):
         batch_size: int = 1,
         computation_library=None,
         config_path: str = 'SI_Toolkit_ASF/config_training.yml',
+        config_section: str = 'training_nn_physical_model',
+        use_shifted_features: bool = False,
         disable_individual_compilation: bool = False,
         variable_parameters=None,
         **kwargs
@@ -295,6 +324,10 @@ class predictor_data_integrator_flexible(predictor_data_integrator):
             batch_size: Batch size.
             computation_library: Computation library.
             config_path: Path to config_training.yml.
+            config_section: Section in config to load from. Use 'training_nn_physical_model'
+                for D_* derivative features, or 'training_default' for other setups.
+            use_shifted_features: If True, use _-1 shifted derivatives for backward prediction.
+                This appends '_-1' to derivative column names (e.g., D_pose_x_-1).
             disable_individual_compilation: Skip compilation.
             variable_parameters: Variable parameters (for API compatibility).
         """
@@ -306,22 +339,40 @@ class predictor_data_integrator_flexible(predictor_data_integrator):
         
         try:
             config = load_yaml(config_path)
-            training_config = config.get('training_default', {})
+            
+            # Try specified config section first, then fall back to training_default
+            training_config = config.get(config_section, {})
+            if not training_config:
+                print(f"[DataIntegrator] Config section '{config_section}' not found, trying 'training_default'")
+                training_config = config.get('training_default', {})
+            
             outputs = training_config.get('outputs', [])
             
             # Filter to only D_ features
             derivative_features = [f for f in outputs if f.startswith('D_')]
             
-            # For Brunton testing, we need the integrated state features (D_* with prefix stripped)
-            # as our initial state. The Brunton test will extract these columns from the dataset.
+            # For Brunton testing, we need the integrated state features as initial state.
+            # Strip both 'D_' prefix and '_-1' suffix to get base state names.
+            # E.g., 'D_pose_x_-1' -> 'pose_x'
             if derivative_features:
-                state_features = [f[2:] for f in derivative_features]  # Strip D_ prefix
+                state_features = []
+                for f in derivative_features:
+                    base = f[2:]  # Strip 'D_' prefix
+                    if base.endswith('_-1'):
+                        base = base[:-3]  # Strip '_-1' suffix
+                    state_features.append(base)
             
             if not derivative_features:
-                print(f"[DataIntegrator] Warning: No D_* features in config outputs. Using defaults.")
+                print(f"[DataIntegrator] Warning: No D_* features in '{config_section}' outputs.")
+                print(f"[DataIntegrator] Available outputs: {outputs}")
+                print(f"[DataIntegrator] Using default derivative features.")
                 derivative_features = None
             else:
-                print(f"[DataIntegrator] Loaded {len(derivative_features)} derivative features from config")
+                print(f"[DataIntegrator] Loaded {len(derivative_features)} derivative features from '{config_section}':")
+                print(f"[DataIntegrator]   Base derivatives: {derivative_features}")
+                if use_shifted_features:
+                    print(f"[DataIntegrator]   Will use shifted (_-1) versions for backward prediction")
+                print(f"[DataIntegrator]   States: {state_features}")
                 
         except Exception as e:
             print(f"[DataIntegrator] Could not load config from {config_path}: {e}")
@@ -333,6 +384,7 @@ class predictor_data_integrator_flexible(predictor_data_integrator):
             computation_library=computation_library,
             derivative_features=derivative_features,
             state_features=state_features,
+            use_shifted_features=use_shifted_features,
             disable_individual_compilation=disable_individual_compilation,
             variable_parameters=variable_parameters,
             **kwargs
