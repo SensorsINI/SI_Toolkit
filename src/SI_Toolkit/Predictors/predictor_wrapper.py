@@ -105,12 +105,25 @@ class PredictorWrapper:
                 elif computation_library_name == "Pytorch":
                     from SI_Toolkit.computation_library import PyTorchLibrary
                     computation_library = PyTorchLibrary()
+            
+            # Extract data integrator specific config
+            config_path = self.predictor_config.get('config_path', 'SI_Toolkit_ASF/config_training.yml')
+            config_section = self.predictor_config.get('config_section', 'training_nn_physical_model')
+            
+            # NOTE: We do NOT use shifted (_-1) derivative columns for backward prediction.
+            # The _-1 columns are D_x shifted FORWARD (D_x_-1[t] = D_x[t+1]), not backward.
+            # For backward: x(t-1) = x(t) - dt * D_x(t-1), the shifting is handled
+            # by the Brunton test's get_prediction function through index alignment.
+            use_shifted_features = False
+            
             self.predictor = predictor_data_integrator_flexible(
                 dt=dt, 
                 batch_size=self.batch_size, 
                 computation_library=computation_library,
+                config_path=config_path,
+                config_section=config_section,
+                use_shifted_features=use_shifted_features,
                 variable_parameters=variable_parameters, 
-                **self.predictor_config, 
                 **compile_standalone
             )
 
