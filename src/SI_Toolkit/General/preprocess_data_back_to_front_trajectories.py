@@ -57,6 +57,8 @@ def back_to_front_trajectories(
     randomize_param=None,
     param_range=None,
     random_seed=None,
+    compute_error_score=True,
+    normalization_info=None,
     **kwargs
 ):
     """
@@ -78,10 +80,12 @@ def back_to_front_trajectories(
         randomize_param: Name of control parameter to randomize (e.g., 'mu'). If None, no randomization (default: None)
         param_range: Tuple (min, max) for random parameter sampling. If None, uses (0.1, 1.0) (default: None)
         random_seed: Random seed for reproducibility. If None, uses hash of df_name (default: None)
+        compute_error_score: If True, compute trajectory error score comparing backward vs forward (default: True)
+        normalization_info: DataFrame with normalization statistics (mean, std, min, max). If None, uses raw values (default: None)
         **kwargs: Additional arguments
         
     Returns:
-        DataFrame with all trajectories, or None if processing failed
+        DataFrame with all trajectories including 'trajectory_error_score' column, or None if processing failed
     """
     
     # Use full dataset
@@ -220,11 +224,32 @@ def back_to_front_trajectories(
     if verbose:
         print(f"    Backward output shape: {backward_output.shape}")
     
+    # Extract feature names BEFORE augmentation
+    backward_features_original = predictor.predictor.predictor_output_features
+    
+    # Validate forward_predictor is provided (required for back-to-front)
+    if forward_predictor is None:
+        raise ValueError("forward_predictor is required for back_to_front_trajectories transformation")
+    
+    # Augment backward output to match ODE's expected full state vector
+    # Uses shared augmentation function from predictors_customization
+    from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import augment_states_numpy
+    backward_output_augmented, backward_features_augmented = augment_states_numpy(
+        states=backward_output,
+        input_features=backward_features_original,
+        target_features=None,  # Use FULL_STATE_ORDER from predictors_customization
+        verbose=verbose
+    )
+    backward_features_augmented = np.array(backward_features_augmented)
+    
+    # Use original features for output dataframes (NN output features)
+    backward_features = backward_features_original
+    
     # Calculate forward predictions from max horizon using refactored function
     if verbose:
         print("  Calculating forward trajectories...")
     forward_outputs_dict = calculate_back2front_predictions(
-        backward_output=backward_output,
+        backward_output=backward_output_augmented,
         predictor_external_input_array=predictor_external_input_array,
         forward_predictor=forward_predictor,
         predictor_horizon=predictor_horizon,
@@ -242,8 +267,7 @@ def back_to_front_trajectories(
     if verbose:
         print(f"    Forward output shape: {forward_output.shape}")
     
-    # Extract feature names
-    backward_features = predictor.predictor.predictor_output_features
+    # Extract forward feature names (backward_features already extracted before augmentation)
     forward_features = forward_predictor.predictor.predictor_output_features
     # control_features already extracted above for parameter randomization
     
@@ -251,6 +275,7 @@ def back_to_front_trajectories(
     if verbose:
         print("  Building output dataframe...")
     all_trajectories = []
+    trajectory_error_scores = []  # Store error score for each trajectory
     
     # Use tqdm only if verbose, otherwise silent iteration
     iterator = trange(test_len_calc, desc="  Processing trajectories", leave=False) if verbose else range(test_len_calc)
@@ -332,6 +357,62 @@ def back_to_front_trajectories(
         for col in control_df.columns:
             forward_df[col] = control_df[col].values
         
+        # Compute error score if requested
+        # Score = L∞ over features of (L2 over time for each normalized feature)
+        # i.e., the worst feature's RMS error after normalization
+        # 
+        # IMPORTANT: Compare BACKWARD trajectory vs FORWARD trajectory (NOT vs ground truth!)
+        # Both backward and forward use the SAME randomized mu, so they should match.
+        # Ground truth has a DIFFERENT mu (original from dataset), so comparison would be unfair.
+        if compute_error_score:
+            # Get backward trajectory states (reversed to forward time order)
+            # backward_traj: [horizon+1, features] with order [s(T), s(T-1), ..., s(T-H)]
+            # We need to reverse it to [s(T-H), s(T-H+1), ..., s(T)] to match forward trajectory
+            backward_traj_fwd_order = np.flip(backward_traj, axis=0)  # Now: [s(T-H), ..., s(T)]
+            
+            # Use NN output features directly (backward_features_original has 8 states)
+            # These are the features the NN actually predicts
+            features_for_error = list(backward_features_original)
+            
+            # Get backward states (all features)
+            backward_states = backward_traj_fwd_order.astype(np.float64)
+            
+            # Get forward trajectory states for same features
+            forward_feature_indices = [list(forward_features).index(f) for f in features_for_error]
+            forward_states = forward_traj[:, forward_feature_indices].astype(np.float64)
+            
+            # Ensure shapes match
+            min_len = min(len(backward_states), len(forward_states))
+            if min_len > 0:
+                backward_states = backward_states[:min_len]
+                forward_states = forward_states[:min_len]
+                
+                # Normalize if normalization_info provided
+                if normalization_info is not None:
+                    for feat_idx, feat_name in enumerate(features_for_error):
+                        if feat_name in normalization_info.columns:
+                            # Use minmax_sym normalization: scale to [-1, 1]
+                            feat_min = normalization_info.loc['min', feat_name]
+                            feat_max = normalization_info.loc['max', feat_name]
+                            feat_range = feat_max - feat_min
+                            if feat_range > 0:
+                                backward_states[:, feat_idx] = -1.0 + 2.0 * (backward_states[:, feat_idx] - feat_min) / feat_range
+                                forward_states[:, feat_idx] = -1.0 + 2.0 * (forward_states[:, feat_idx] - feat_min) / feat_range
+                
+                # Compute L2 over time for each feature (RMS)
+                # error_per_feature[f] = sqrt(mean_t((backward[t,f] - forward[t,f])^2))
+                squared_errors = (backward_states - forward_states) ** 2  # [time, features]
+                rms_per_feature = np.sqrt(np.mean(squared_errors, axis=0))  # [features]
+                
+                # Take L∞ over features (max = worst feature)
+                max_feature_error = np.max(rms_per_feature)
+            else:
+                max_feature_error = np.nan
+            
+            trajectory_error_scores.append(max_feature_error)
+        else:
+            trajectory_error_scores.append(np.nan)
+        
         # Combine
         traj_df = forward_df
         traj_df['experiment_index'] = traj_idx
@@ -342,10 +423,23 @@ def back_to_front_trajectories(
     # Combine all trajectories
     combined_df = pd.concat(all_trajectories, ignore_index=True)
     
+    # Add trajectory error score column (same value for all rows in each trajectory)
+    if compute_error_score:
+        # Create a mapping from experiment_index to error score
+        error_score_map = {i: score for i, score in enumerate(trajectory_error_scores)}
+        combined_df['trajectory_error_score'] = combined_df['experiment_index'].map(error_score_map)
+        
+        if verbose:
+            valid_scores = [s for s in trajectory_error_scores if not np.isnan(s)]
+            if valid_scores:
+                print(f"  Error scores: min={min(valid_scores):.6f}, max={max(valid_scores):.6f}, mean={np.mean(valid_scores):.6f}")
+    
     # Reorder columns: metadata first, then states, then controls
     metadata_cols = [
         'experiment_index', 'seed_absolute_time', 'time', 'phase', 'time_step'
     ]
+    if compute_error_score:
+        metadata_cols.append('trajectory_error_score')
     state_cols = [col for col in forward_features if col in combined_df.columns]
     control_cols = [col for col in control_features if col in combined_df.columns]
     
