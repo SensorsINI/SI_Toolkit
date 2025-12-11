@@ -118,27 +118,46 @@ class predictor_autoregressive_neural(template_predictor):
         self.copy_internal_states_from_ref = _copy_internal_states_from_ref
         self.copy_internal_states_to_ref = _copy_internal_states_to_ref
 
+        import re
+        
         if np.any(['D_' in output_name for output_name in self.net_info.outputs]):
             self.differential_network = True
             if self.dt is None:
                 raise ValueError('Differential network was loaded but timestep dt was not provided to the predictor')
+            # For differential networks, derive state variables from outputs (strip D_ and time suffix)
+            state_vars = [re.sub(r'_-?\d+$', '', x[2:] if x[:2] == 'D_' else x) for x in self.net_info.outputs]
         else:
             self.differential_network = False
+            # For non-differential networks, outputs ARE the state variables
+            state_vars = [re.sub(r'_-?\d+$', '', x) for x in self.net_info.outputs]
 
+        # Set predictor initial input features from derived state variables
+        self.predictor_initial_input_features = np.array(state_vars)
+        self.predictor_output_features = np.array(state_vars)
+        
         self.update_before_predicting = update_before_predicting
         self.last_net_input_reg_initial = None
         self.last_optimal_control_input = None
 
-        self.predictor_initial_input_indices = {x: np.where(self.predictor_initial_input_features == x)[0][0] for x in self.predictor_initial_input_features}
-        self.predictor_external_input_indices = {x: np.where(self.predictor_external_input_features == x)[0][0] for x in self.predictor_external_input_features}
-        self.predictor_output_indices = {x: np.where(self.predictor_output_features == x)[0][0] for x in self.predictor_output_features}
-
-        import re
+        # Strip time suffixes from network input names for feature matching
         self.model_input_features = [re.sub(r'_-?\d+$', '', x) for x in self.net_info.inputs]
         self.model_output_features = self.net_info.outputs
 
-        self.model_external_input_features = [feature for feature in self.model_input_features if feature in self.predictor_external_input_features]
-        self.model_initial_input_features = [feature for feature in self.model_input_features if feature in self.predictor_initial_input_features] 
+        # Identify which network inputs are state variables vs external (control) inputs
+        # State inputs match the derived state variables
+        self.model_initial_input_features = [feature for feature in self.model_input_features if feature in self.predictor_initial_input_features]
+        self.model_external_input_features = [feature for feature in self.model_input_features if feature not in self.predictor_initial_input_features]
+        
+        # Set predictor_external_input_features with the actual network input names (with time suffix)
+        # This ensures the test loads the correct columns from the dataset (e.g., angular_control_-1, mu)
+        network_external_inputs = [inp for inp, stripped in zip(self.net_info.inputs, self.model_input_features) 
+                                   if stripped not in self.predictor_initial_input_features]
+        self.predictor_external_input_features = np.array(network_external_inputs)
+        
+        # Build indices
+        self.predictor_initial_input_indices = {x: np.where(self.predictor_initial_input_features == x)[0][0] for x in self.predictor_initial_input_features}
+        self.predictor_external_input_indices = {x: i for i, x in enumerate(self.predictor_external_input_features)}
+        self.predictor_output_indices = {x: np.where(self.predictor_output_features == x)[0][0] for x in self.predictor_output_features} 
         
         if self.net_info.normalize:
             self.normalization_info = get_norm_info_for_net(self.net_info)
@@ -161,12 +180,20 @@ class predictor_autoregressive_neural(template_predictor):
         else:
             self.normalization_info = None
 
+        # model_external_input_indices maps from predictor_external_input_features to model input order
+        # Since we now use network's actual input names, indices are simple: 0, 1, 2, ...
         self.model_external_input_indices = self.lib.to_tensor(
-            [self.predictor_external_input_indices.get(key) for key in self.model_external_input_features], dtype=self.lib.int64)
+            list(range(len(self.model_external_input_features))), dtype=self.lib.int64)
         self.model_initial_input_indices = self.lib.to_tensor(
             [self.predictor_initial_input_indices.get(key) for key in self.model_initial_input_features], dtype=self.lib.int64)
 
         if self.differential_network:
+            # Strip D_ prefix and time suffixes to get state variable names
+            import re
+            outputs_names = [re.sub(r'_-?\d+$', '', x[2:] if x[:2] == 'D_' else x) for x in self.net_info.outputs]
+            # Use network's output state names as state_variables (not global STATE_VARIABLES)
+            # This ensures correct mapping for networks with fewer outputs than full state
+            network_state_variables = np.array(outputs_names)
             self.dmah: Optional[differential_model_autoregression_helper] = \
                 differential_model_autoregression_helper(
                     inputs=self.net_info.inputs,
@@ -174,11 +201,8 @@ class predictor_autoregressive_neural(template_predictor):
                     normalization_info=self.normalization_info,
                     dt=self.dt,
                     lib=self.lib,
-                    state_variables=STATE_VARIABLES,
+                    state_variables=network_state_variables,
                 )
-            # Strip D_ prefix and time suffixes for denormalization lookup
-            import re
-            outputs_names = [re.sub(r'_-?\d+$', '', x[2:] if x[:2] == 'D_' else x) for x in self.net_info.outputs]
         else:
             self.dmah: Optional[differential_model_autoregression_helper] = None
             outputs_names = self.net_info.outputs
