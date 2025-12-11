@@ -116,9 +116,15 @@ class predictor_data_integrator(template_predictor):
         self.derivative_features = np.array(derivative_features)
         self.num_derivatives = len(derivative_features)
         
-        # Derive output features by stripping D_ prefix
+        # Derive output features by stripping D_ prefix and time suffix
+        # E.g., 'D_pose_x_-1' -> 'pose_x'
+        import re
         if output_features is None:
-            output_features = [f[2:] if f.startswith('D_') else f for f in derivative_features]
+            output_features = []
+            for f in derivative_features:
+                out = f[2:] if f.startswith('D_') else f  # Strip 'D_' prefix
+                out = re.sub(r'_-?\d+$', '', out)  # Strip time suffix
+                output_features.append(out)
         self.output_feature_names = np.array(output_features)
         
         # State features for initial input (typically same as outputs)
@@ -310,12 +316,22 @@ class predictor_data_integrator_flexible(predictor_data_integrator):
             outputs = training_config.get('outputs', [])
             
             # Filter to only D_ features
-            derivative_features = [f for f in outputs if f.startswith('D_')]
+            all_derivatives = [f for f in outputs if f.startswith('D_')]
             
-            # For Brunton testing, we need the integrated state features (D_* with prefix stripped)
-            # as our initial state. The Brunton test will extract these columns from the dataset.
+            # For Data Integrator backward testing, use REGULAR D_* columns (not _-1 shifted)
+            # because the indexing in get_prediction.py handles time alignment.
+            # Strip any time suffix (_-1, _1) to get base derivative names.
+            import re
+            derivative_features = []
+            for f in all_derivatives:
+                base = re.sub(r'_-?\d+$', '', f)  # D_pose_x_-1 -> D_pose_x
+                if base not in derivative_features:
+                    derivative_features.append(base)
+            
+            # Derive state features by stripping D_ prefix
+            # E.g., 'D_pose_x' -> 'pose_x'
             if derivative_features:
-                state_features = [f[2:] for f in derivative_features]  # Strip D_ prefix
+                state_features = [f[2:] for f in derivative_features]  # Strip 'D_' prefix
             
             if not derivative_features:
                 print(f"[DataIntegrator] Warning: No D_* features in config outputs. Using defaults.")
