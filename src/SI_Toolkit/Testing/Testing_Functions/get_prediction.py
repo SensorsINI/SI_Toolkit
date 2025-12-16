@@ -220,12 +220,30 @@ def calculate_back2front_predictions(
         need_reorder = True
         # Build mapping: forward_idx -> backward_idx
         feature_mapping = []
+        
+        # Create normalized backward feature names (strip _-1 suffix if present)
+        backward_features_normalized = []
+        for feat in backward_predictor_features:
+            feat_str = str(feat)
+            if feat_str.endswith('_-1'):
+                backward_features_normalized.append(feat_str[:-3])  # Remove '_-1'
+            else:
+                backward_features_normalized.append(feat_str)
+        backward_features_normalized = np.array(backward_features_normalized)
+        
         for fwd_feat in forward_features:
+            fwd_feat_str = str(fwd_feat)
             try:
-                bwd_idx = np.where(backward_predictor_features == fwd_feat)[0][0]
+                # First try exact match
+                matches = np.where(backward_predictor_features == fwd_feat)[0]
+                if len(matches) > 0:
+                    bwd_idx = matches[0]
+                else:
+                    # Try matching with normalized names (without _-1 suffix)
+                    bwd_idx = np.where(backward_features_normalized == fwd_feat_str)[0][0]
                 feature_mapping.append(bwd_idx)
             except IndexError:
-                raise ValueError(f"Forward predictor feature '{fwd_feat}' not found in backward predictor features")
+                raise ValueError(f"Forward predictor feature '{fwd_feat}' not found in backward predictor features: {list(backward_predictor_features)}")
         feature_mapping = np.array(feature_mapping)
     
     # Determine loop range

@@ -306,10 +306,13 @@ def get_net(a,
         time_series_length = a.wash_out_len + a.post_wash_out_len
     # endregion
 
+    # Check if this is a custom module (starts with "Custom-") - always treat as new network
+    is_custom_module = a.net_name.startswith('Custom-')
+    
     last_part_of_net_name = a.net_name.split('-')[-1]
     net_name_is_a_full_name = all(c in "0123456789" for c in last_part_of_net_name)
 
-    if net_name_is_a_full_name or a.net_name == 'last':
+    if not is_custom_module and (net_name_is_a_full_name or a.net_name == 'last'):
         net, net_info = load_pretrained_network(a, time_series_length, batch_size, stateful, remove_redundant_dimensions)
     else:
         net, net_info = load_new_network(a, time_series_length, batch_size, stateful, remove_redundant_dimensions)

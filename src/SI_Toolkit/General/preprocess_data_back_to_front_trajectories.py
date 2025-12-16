@@ -260,6 +260,7 @@ def back_to_front_trajectories(
         test_len=test_len_calc,
         max_batch_size=max_batch_size,
         forward_predictor_created=forward_predictor_created,
+        backward_predictor_features=np.array(predictor.predictor.predictor_external_input_features),
     )
     
     # Extract forward output for max horizon
@@ -270,6 +271,16 @@ def back_to_front_trajectories(
     # Extract forward feature names (backward_features already extracted before augmentation)
     forward_features = forward_predictor.predictor.predictor_output_features
     # control_features already extracted above for parameter randomization
+    
+    # Rename control features for forward convention (strip _-1 suffix if present)
+    # The controls will be in forward alignment: control at row i produces state at row i+1
+    control_features_forward = []
+    for feat in control_features:
+        feat_str = str(feat)
+        if feat_str.endswith('_-1'):
+            control_features_forward.append(feat_str[:-3])  # Remove '_-1' suffix
+        else:
+            control_features_forward.append(feat_str)
     
     # Build output dataframe
     if verbose:
@@ -303,12 +314,13 @@ def back_to_front_trajectories(
         # we need to add one more control for alignment. Take it from the dataset.
         if num_forward_steps == predictor_horizon + 1:
             # Need one more control - take the control that belongs to the seed state directly from the dataset
-            extra_control = dataset.loc[seed_idx, control_features].to_numpy(dtype=float)[np.newaxis, :]
+            # Use control_features_forward (without _-1 suffix) since that's what the original dataset has
+            extra_control = dataset.loc[seed_idx, control_features_forward].to_numpy(dtype=float)[np.newaxis, :]
             
             # If parameter was randomized, apply the same random value to the extra control
             if random_param_values is not None:
                 param_idx = None
-                for idx, feat in enumerate(control_features):
+                for idx, feat in enumerate(control_features_forward):
                     if feat == randomize_param:
                         param_idx = idx
                         break
@@ -352,7 +364,7 @@ def back_to_front_trajectories(
         # Row 29: state x(T-1), control q(T-1) → produces x(T) in Row 30
         # Row 30: state x(T) [seed], control q(T) - no next state in this trajectory
         
-        control_df = pd.DataFrame(control_traj_forward, columns=control_features)
+        control_df = pd.DataFrame(control_traj_forward, columns=control_features_forward)
         for col in control_df.columns:
             forward_df[col] = control_df[col].values
         
@@ -438,12 +450,12 @@ def back_to_front_trajectories(
     
     # Reorder columns: metadata first, then states, then controls
     metadata_cols = [
-        'experiment_index', 'seed_absolute_time', 'time', 'phase', 'time_step'
+        'experiment_index', 'seed_absolute_time', 'time', 'original_time', 'phase', 'time_step'
     ]
     if compute_error_score:
         metadata_cols.append('trajectory_error_score')
     state_cols = [col for col in forward_features if col in combined_df.columns]
-    control_cols = [col for col in control_features if col in combined_df.columns]
+    control_cols = [col for col in control_features_forward if col in combined_df.columns]
     
     # Arrange: metadata | states | controls
     combined_df = combined_df[metadata_cols + state_cols + control_cols]
