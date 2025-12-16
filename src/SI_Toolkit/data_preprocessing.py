@@ -27,6 +27,60 @@ from SI_Toolkit.General.preprocess_data_add_control_along_trajectories import ad
 from SI_Toolkit.General.preprocess_data_back_to_front_trajectories import back_to_front_trajectories
 
 
+def _regenerate_time_column(df, dt=None):
+    """
+    Regenerate the 'time' column to ensure consistent dt after row removal.
+    
+    This is critical for Brunton test which computes dt from time differences.
+    After add_shifted_columns removes rows, the time column has gaps that cause
+    incorrect dt calculation.
+    
+    The time column is regenerated as simple sequential time (0, dt, 2*dt, ...)
+    regardless of experiment_index. This ensures consistent dt throughout.
+    
+    Args:
+        df: DataFrame with 'time' column to regenerate
+        dt: Time step. If None, inferred from existing time differences (using median).
+    
+    Returns:
+        DataFrame with regenerated 'time' column
+    """
+    if 'time' not in df.columns:
+        return df
+    
+    df = df.copy()
+    
+    # Try to infer dt from existing time differences WITHIN trajectories
+    # (excluding jumps at experiment_index boundaries)
+    if dt is None:
+        time_diffs = df['time'].diff()
+        
+        # Create mask for within-trajectory rows (experiment_index doesn't change)
+        if 'experiment_index' in df.columns:
+            same_trajectory = df['experiment_index'].diff().fillna(0) == 0
+            within_traj_diffs = time_diffs[same_trajectory].iloc[1:]
+        else:
+            within_traj_diffs = time_diffs.iloc[1:]
+        
+        # Use median of positive within-trajectory differences
+        positive_diffs = within_traj_diffs[within_traj_diffs > 0]
+        if len(positive_diffs) > 0:
+            dt = positive_diffs.median()
+        
+        if dt is None or dt <= 0:
+            raise ValueError(
+                "Could not infer dt from time column. "
+                "The time column has no valid positive differences within trajectories. "
+                "Please provide dt explicitly or ensure the time column has proper values."
+            )
+    
+    # Regenerate time column as simple sequential time
+    # This ensures consistent dt throughout, regardless of experiment_index
+    df['time'] = np.arange(len(df)) * dt
+    
+    return df
+
+
 def split_by_column(df, column_name):
     """
     Split a DataFrame by a specified column if it exists.
@@ -346,6 +400,11 @@ def append_derivatives(df, variables_for_derivative, derivative_algorithm, df_na
         elif verbose and set(append_derivatives.no_time_axis_in_files) == set(append_derivatives.all_processed_files):
             print('No time axis provided. Calculated increments dx for all the files.')
 
+    # Regenerate time column after derivative computation removed edge rows
+    # This ensures proper dt calculation in downstream tests
+    if 'time' in df.columns:
+        dfs_processed = _regenerate_time_column(dfs_processed)
+
     return dfs_processed
 
 
@@ -386,7 +445,12 @@ def add_shifted_columns(df, variables_to_shift, indices_by_which_to_shift, **kwa
     # Trim asymmetrically: drop 'neg_max' from the head, 'pos_max' from the tail.
     start = neg_max
     end = len(df) - pos_max
-    df_processed = df.iloc[start:end]
+    df_processed = df.iloc[start:end].copy()
+    
+    # Regenerate time column to ensure proper dt calculation after row removal
+    # This is critical for Brunton test which computes dt from time differences
+    if 'time' in df_processed.columns:
+        df_processed = _regenerate_time_column(df_processed)
 
     return df_processed
 
