@@ -263,18 +263,70 @@ def load_data(list_of_paths_to_datafiles=None, verbose=True):
 # This function returns the saving interval of datafile
 # Used to ensure that datafiles used for training save data with the same frequency
 def get_sampling_interval_from_datafile(df, path_to_datafile):
-    preceding_text = '# Saving: '
+    """
+    Get the sampling interval (dt) from a datafile.
+    
+    Tries multiple methods:
+    1. Look for '# Saving: X s' header comment
+    2. Look for '# Timestep: X s' header comment
+    3. Look for '# dataset_sampling_dt: X' header comment
+    4. Compute from time column differences (using MEDIAN to handle trajectory boundaries)
+    5. Default to 0.02
+    """
     dt_save = None
-    with open(path_to_datafile, 'r') as cmt_file:  # open file
-        for line in cmt_file:  # read each line
-            if line[0:len(preceding_text)] == preceding_text:
-                dt_save = float(line[len(preceding_text):-2])
-                return dt_save
-    if dt_save is None and 'time' in df.columns:
-        dt_save = np.mean(np.diff(df['time']))
-        return dt_save
-    return 0.02
-    raise ValueError('No information about sampling interval found in the datafile. \n')
+    
+    # Try to find dt from file header comments
+    search_patterns = [
+        ('# Saving: ', ' s'),
+        ('# Timestep: ', ' s'),
+        ('# dataset_sampling_dt: ', ''),
+    ]
+    
+    try:
+        with open(path_to_datafile, 'r') as cmt_file:
+            for line in cmt_file:
+                for prefix, suffix in search_patterns:
+                    if line.startswith(prefix):
+                        try:
+                            # Extract the numeric value
+                            value_str = line[len(prefix):].strip()
+                            if suffix and value_str.endswith(suffix):
+                                value_str = value_str[:-len(suffix)]
+                            dt_save = float(value_str)
+                            return dt_save
+                        except (ValueError, IndexError):
+                            continue
+                # Stop reading after we pass the header section
+                if not line.startswith('#'):
+                    break
+    except Exception:
+        pass
+    
+    # If no header info, compute from time column using MEDIAN
+    # Only consider time differences WITHIN trajectories (same experiment_index)
+    if dt_save is None and 'time' in df.columns and len(df) > 1:
+        time_vals = df['time'].values
+        time_diffs = np.diff(time_vals)
+        
+        # Create mask for within-trajectory rows (experiment_index doesn't change)
+        if 'experiment_index' in df.columns:
+            exp_vals = df['experiment_index'].values
+            same_trajectory = np.diff(exp_vals) == 0
+            within_traj_diffs = time_diffs[same_trajectory]
+        else:
+            within_traj_diffs = time_diffs
+        
+        # Filter to positive differences only
+        positive_diffs = within_traj_diffs[within_traj_diffs > 0]
+        if len(positive_diffs) > 0:
+            dt_save = np.median(positive_diffs)
+            return dt_save
+    
+    raise ValueError(
+        f"Could not determine sampling interval from datafile: {path_to_datafile}\n"
+        "No '# Saving:', '# Timestep:', or '# dataset_sampling_dt:' header found, "
+        "and could not infer dt from time column."
+    )
 
 
 # This function returns the saving interval of datafile
