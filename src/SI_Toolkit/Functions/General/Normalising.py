@@ -127,9 +127,23 @@ def get_scaling_function_for_output_of_differential_network(
 
     import re
     strip_suffix = lambda name: re.sub(r'_-?\d+$', '', name)
-    network_outputs = [strip_suffix(x) for x in network_outputs]
-    DIFF_NET_STATE_VARIABLES = [(x[2:] if x[:2] == 'D_' else x) for x in network_outputs]  # Outputs without D_ -> to make possible comparison with inputs
-    denormalizing_derivatives = lib.to_tensor(normalization_info[network_outputs].values, dtype=lib.float32)
+    
+    # For derivative denormalization, use the ORIGINAL network output names (with time suffix like _-1)
+    # This ensures we use the correct statistics (e.g., D_angular_vel_z_-1, not D_angular_vel_z)
+    # which may have different mean/std values for backward vs forward derivatives
+    network_outputs_for_denorm = list(network_outputs)  # Keep original names with suffixes
+    
+    # For state variable names, strip both D_ prefix and time suffix
+    network_outputs_stripped = [strip_suffix(x) for x in network_outputs]
+    DIFF_NET_STATE_VARIABLES = [(x[2:] if x[:2] == 'D_' else x) for x in network_outputs_stripped]
+    
+    # Check if original names exist in normalization_info, otherwise fall back to stripped names
+    if all(col in normalization_info.columns for col in network_outputs_for_denorm):
+        denormalizing_derivatives = lib.to_tensor(normalization_info[network_outputs_for_denorm].values, dtype=lib.float32)
+    else:
+        # Fallback for older datasets that don't have _-1 suffixed columns
+        denormalizing_derivatives = lib.to_tensor(normalization_info[network_outputs_stripped].values, dtype=lib.float32)
+    
     normalizing_variables = lib.to_tensor(normalization_info[DIFF_NET_STATE_VARIABLES].values, dtype=lib.float32)
 
     # # Augmentation matrix allows network not to include some derivatives - probably now not useful and in a false place
