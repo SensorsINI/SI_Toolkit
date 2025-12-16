@@ -331,10 +331,9 @@ def back_to_front_trajectories(
         num_forward_steps = len(forward_traj)
         forward_df['phase'] = [f'forward_{i}' for i in range(num_forward_steps)]
         forward_df['time_step'] = np.arange(num_forward_steps)
-        # Time starts from furthest backward point and goes forward
+        # Original time starts from furthest backward point and goes forward
         # Row 0 is at time T-H, Row H is at time T (the seed time)
-        # Named 'time' (not 'absolute_time') for compatibility with append_derivatives
-        forward_df['time'] = (
+        forward_df['original_time'] = (
             time_axis[seed_idx] - predictor_horizon * abs(dt) 
             + np.arange(num_forward_steps) * abs(dt)
         )
@@ -422,6 +421,9 @@ def back_to_front_trajectories(
     
     # Combine all trajectories
     combined_df = pd.concat(all_trajectories, ignore_index=True)
+    
+    # Add global time axis: 0 to total_rows * dt (ignoring experiment_index)
+    combined_df['time'] = np.arange(len(combined_df)) * abs(dt)
     
     # Add trajectory error score column (same value for all rows in each trajectory)
     if compute_error_score:
