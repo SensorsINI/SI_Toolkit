@@ -35,12 +35,18 @@ class predictor_backward_optimizer(template_predictor):
         variable_parameters=None,
         disable_individual_compilation=False,
         mode=None,
+        model_name=None,
+        path_to_model=None,
         **kwargs
     ):
         super().__init__(batch_size=batch_size)
         self.dt = dt
         self.prediction_mode = mode  # autoregressive_backward etc.
         self.lib = NumpyLibrary()
+        
+        # Store model configuration for neural predictor
+        self._model_name = model_name
+        self._path_to_model = path_to_model
         
         # Get the forged history mode from Settings
         from utilities.Settings import Settings
@@ -58,19 +64,35 @@ class predictor_backward_optimizer(template_predictor):
         
         if self.forged_history_mode in ("network", "hybrid"):
             # Initialize neural network predictor for network/hybrid modes
-            self._init_neural_predictor(batch_size, dt, mode, disable_individual_compilation)
+            self._init_neural_predictor(batch_size, dt, mode, disable_individual_compilation, model_name, path_to_model)
         
         # Store for diagnostics
         self._last_converged = True
 
-    def _init_neural_predictor(self, batch_size, dt, mode, disable_individual_compilation):
-        """Initialize the neural network predictor for network mode."""
+    def _init_neural_predictor(self, batch_size, dt, mode, disable_individual_compilation, model_name=None, path_to_model=None):
+        """Initialize the neural network predictor for network mode.
+        
+        Args:
+            batch_size: Batch size for the predictor
+            dt: Time step
+            mode: Prediction mode
+            disable_individual_compilation: Whether to disable individual compilation
+            model_name: Name of the neural network model (from config_predictors.yml or kwargs)
+            path_to_model: Path to the model directory (from config_predictors.yml or kwargs)
+        """
         from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
         
-        # Use the same model as configured in config_predictors.yml
-        # Default to the backward prediction model
-        model_name = "Dense-9IN-32H1-32H2-8OUT-1"
-        path_to_model = "SI_Toolkit_ASF/Experiments/Experiments_19_11_2025/Models"
+        # Require model_name and path_to_model from config - no silent fallbacks
+        if model_name is None:
+            raise ValueError(
+                "model_name is required for backward_optimizer predictor in 'network' or 'hybrid' mode. "
+                "Please set 'model_name' in config_predictors.yml under backward_optimizer_default."
+            )
+        if path_to_model is None:
+            raise ValueError(
+                "path_to_model is required for backward_optimizer predictor in 'network' or 'hybrid' mode. "
+                "Please set 'path_to_model' in config_predictors.yml under backward_optimizer_default."
+            )
         
         self._neural_predictor = predictor_autoregressive_neural(
             model_name=model_name,

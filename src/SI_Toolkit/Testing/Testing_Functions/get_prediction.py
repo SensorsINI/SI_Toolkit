@@ -4,6 +4,13 @@ from SI_Toolkit.Predictors.predictor_wrapper import PredictorWrapper
 import numpy as np
 from tqdm import trange
 
+# State augmentation for backward-to-forward predictions
+try:
+    from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import augment_states_numpy
+    HAS_AUGMENTATION = True
+except ImportError:
+    HAS_AUGMENTATION = False
+
 
 def predict_with_fixed_batch_size(
         predictor: PredictorWrapper,
@@ -162,6 +169,7 @@ def calculate_back2front_predictions(
         param_name: Optional[str] = None,
         param_value: Optional[float] = None,
         backward_predictor_features: Optional[np.ndarray] = None,
+        backward_output_features: Optional[np.ndarray] = None,
 ) -> Dict[int, np.ndarray]:
     """
     Calculate forward predictions from backward trajectory outputs.
@@ -181,6 +189,7 @@ def calculate_back2front_predictions(
         param_name: Name of parameter being swept (e.g., 'mu')
         param_value: Value of parameter for this sweep iteration
         backward_predictor_features: External input features of backward predictor (for reordering if needed)
+        backward_output_features: Output features of backward predictor (for state augmentation)
         
     Returns:
         Dictionary mapping horizon_idx to forward prediction arrays
@@ -246,6 +255,39 @@ def calculate_back2front_predictions(
                 raise ValueError(f"Forward predictor feature '{fwd_feat}' not found in backward predictor features: {list(backward_predictor_features)}")
         feature_mapping = np.array(feature_mapping)
     
+    # Augment backward output states if needed (e.g., 8-state NN output -> 10-state ODE input)
+    # Check if forward predictor expects more state features than backward output provides
+    backward_state_features = backward_output.shape[-1]
+    forward_initial_features = forward_predictor.predictor.predictor_initial_input_features
+    forward_state_count = len(forward_initial_features) if forward_initial_features is not None else backward_state_features
+    
+    backward_output_augmented = backward_output
+    if HAS_AUGMENTATION and forward_state_count > backward_state_features and backward_output_features is not None:
+        # Need to augment backward output to match forward predictor's expected state dimension
+        try:
+            # Normalize backward output feature names (strip D_ prefix and _-1 suffix for differential networks)
+            normalized_input_features = []
+            for feat in backward_output_features:
+                feat_str = str(feat)
+                # Strip D_ prefix (differential output)
+                if feat_str.startswith('D_'):
+                    feat_str = feat_str[2:]
+                # Strip _-1 suffix (backward time shift)
+                if feat_str.endswith('_-1'):
+                    feat_str = feat_str[:-3]
+                normalized_input_features.append(feat_str)
+            
+            backward_output_augmented, _ = augment_states_numpy(
+                states=backward_output,
+                input_features=normalized_input_features,
+                target_features=list(forward_initial_features),
+                verbose=False
+            )
+        except Exception as e:
+            # If augmentation fails, continue with original output
+            print(f"Warning: State augmentation failed ({e}), using backward output as-is")
+            backward_output_augmented = backward_output
+    
     # Determine loop range
     start_horizon = predictor_horizon
     if forward_from_all_horizons:
@@ -264,8 +306,8 @@ def calculate_back2front_predictions(
         iterator = trange(start_horizon, stop_horizon, -1, desc=desc_text)
     
     for horizon_idx in iterator:
-        # State at this horizon
-        forward_initial_state = backward_output[:, horizon_idx, :]
+        # State at this horizon (use augmented output if available)
+        forward_initial_state = backward_output_augmented[:, horizon_idx, :]
         
         # External inputs for forward prediction from this horizon
         # For backward prediction at horizon_idx, we went horizon_idx steps back in time
@@ -411,6 +453,7 @@ def get_prediction(
             param_name=param_name,
             param_value=param_value,
             backward_predictor_features=predictor.predictor.predictor_external_input_features,
+            backward_output_features=predictor.predictor.predictor_output_features,
         )
         
         # Package results
