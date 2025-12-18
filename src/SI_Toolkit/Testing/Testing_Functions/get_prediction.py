@@ -350,6 +350,7 @@ def get_prediction(
         forward_from_all_horizons: bool = False,
         param_name: Optional[str] = None,
         param_value: Optional[float] = None,
+        test_stride: int = 1,
         **kwargs,
 ):
     if routine == "simple evaluation":
@@ -359,15 +360,19 @@ def get_prediction(
     else:
         predictor_horizon = test_max_horizon
 
-    test_len = dataset.shape[0]-test_max_horizon  # Overwrites the config which might be string ('max') with a value computed at preprocessing
+    test_len_full = dataset.shape[0]-test_max_horizon  # Full test length before stride
 
     # For backward trajectory networks, use negative dt
     backward_mode = 'backward' in routine
     dt = -abs(dt) if backward_mode else abs(dt)
 
     if backward_mode:
-        test_len = test_len - 1  # Accounts for dataset shift as control input is in an earlier row
+        test_len_full = test_len_full - 1  # Accounts for dataset shift as control input is in an earlier row
 
+    # Apply stride to reduce number of trajectories
+    test_stride = max(1, int(test_stride))
+    test_len = (test_len_full + test_stride - 1) // test_stride  # Ceiling division
+    
     stateful_components = ['RNN', 'GRU', 'LSTM']
     if predictor.predictor_type == 'neural' and any(stateful_component in predictor.model_name for stateful_component in stateful_components):
         mode = 'sequential'
@@ -398,6 +403,15 @@ def get_prediction(
         routine=routine,
         test_max_horizon=test_max_horizon,
     )
+
+    # Apply stride to reduce computation (only use every n-th trajectory)
+    stride_indices = None
+    if test_stride > 1:
+        stride_indices = np.arange(0, test_len_full, test_stride)
+        predictor_initial_input = predictor_initial_input[::test_stride]
+        predictor_external_input_array = predictor_external_input_array[::test_stride]
+        # Update test_len to match actual data after stride
+        test_len = predictor_initial_input.shape[0]
 
     # Override parameter value in external inputs if specified (for parameter sweep)
     if param_name is not None and param_value is not None:
@@ -432,9 +446,8 @@ def get_prediction(
     # if 'autoregressive' in routine:
     #     output = output[:, 1:, :]  # Remove initial state
 
-    prediction = [output, predictor.predictor.predictor_output_features, dt_predictions]
-
-    ## Calculate forward prediction
+    ## Calculate forward prediction (before NaN expansion)
+    forward_prediction = None
     if backward_mode and forward_predictor:
         if not isinstance(forward_predictor, PredictorWrapper):
             raise TypeError("forward_predictor must be an instance of PredictorWrapper.")
@@ -456,15 +469,40 @@ def get_prediction(
             backward_output_features=predictor.predictor.predictor_output_features,
         )
         
-        # Package results
+        # Package forward results (will be expanded below if strided)
         if forward_from_all_horizons:
             forward_prediction = [forward_outputs_dict, forward_predictor.predictor.predictor_output_features, abs(dt), True]
         else:
-            # Backward compatibility: return single array instead of dict
             forward_prediction = [forward_outputs_dict[predictor_horizon], forward_predictor.predictor.predictor_output_features, abs(dt), False]
+
+    # Expand strided predictions to full size with NaN padding (for GUI compatibility)
+    if stride_indices is not None and test_stride > 1:
+        # Create full-size output filled with NaN
+        full_output = np.full((test_len_full, output.shape[1], output.shape[2]), np.nan, dtype=output.dtype)
+        # Place computed values at their original indices
+        full_output[stride_indices[:len(output)]] = output
+        output = full_output
         
-        prediction.append(forward_prediction)
-    else:
-        prediction.append(None)
+        # Also expand forward predictions if they exist
+        if forward_prediction is not None:
+            if forward_from_all_horizons:
+                # forward_outputs_dict is a dict of horizon -> array
+                expanded_dict = {}
+                for h, arr in forward_outputs_dict.items():
+                    full_fwd = np.full((test_len_full, arr.shape[1], arr.shape[2]), np.nan, dtype=arr.dtype)
+                    full_fwd[stride_indices[:len(arr)]] = arr
+                    expanded_dict[h] = full_fwd
+                forward_prediction[0] = expanded_dict
+            else:
+                # Single array
+                arr = forward_prediction[0]
+                full_fwd = np.full((test_len_full, arr.shape[1], arr.shape[2]), np.nan, dtype=arr.dtype)
+                full_fwd[stride_indices[:len(arr)]] = arr
+                forward_prediction[0] = full_fwd
+        
+        print(f"[Brunton] Expanded strided predictions: {len(stride_indices)} computed -> {test_len_full} total (with NaN padding)")
+
+    prediction = [output, predictor.predictor.predictor_output_features, dt_predictions]
+    prediction.append(forward_prediction)
 
     return prediction
