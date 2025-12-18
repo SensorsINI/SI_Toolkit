@@ -292,49 +292,104 @@ def calculate_back2front_predictions(
     start_horizon = predictor_horizon
     if forward_from_all_horizons:
         stop_horizon = 0
-        desc_text = f"Forward from all horizons ({predictor_horizon} to 1)"
-        use_progress_bar = True
+        horizons_to_compute = list(range(start_horizon, stop_horizon, -1))
     else:
         stop_horizon = predictor_horizon - 1
-        desc_text = "Forward from max horizon"
-        use_progress_bar = False  # Don't show progress bar for single iteration
+        horizons_to_compute = [predictor_horizon]
     
-    # Calculate forward trajectories
-    forward_outputs_dict = {}
-    iterator = range(start_horizon, stop_horizon, -1)
-    if use_progress_bar:
-        iterator = trange(start_horizon, stop_horizon, -1, desc=desc_text)
+    num_horizons = len(horizons_to_compute)
     
-    for horizon_idx in iterator:
-        # State at this horizon (use augmented output if available)
-        forward_initial_state = backward_output_augmented[:, horizon_idx, :]
+    # BATCH OPTIMIZATION: Process all horizons in a single forward pass
+    # Stack all initial states and pad control sequences to max horizon
+    if num_horizons > 1 and max_batch_size is None:
+        print(f"[Brunton] Batching forward predictions for {num_horizons} horizons...")
         
-        # External inputs for forward prediction from this horizon
-        # For backward prediction at horizon_idx, we went horizon_idx steps back in time
-        # To reconstruct forward, we need to go those same horizon_idx steps forward
-        # Take the first horizon_idx control inputs and flip them to go forward
-        # With horizon_idx controls, autoregressive predictor produces horizon_idx+1 states (initial + predictions)
-        forward_external_input_slice = predictor_external_input_array[:, :horizon_idx, :]
-        forward_external_input_slice = np.flip(forward_external_input_slice, axis=1)
+        # Prepare batched inputs
+        # Stack initial states: [test_len * num_horizons, state_dim]
+        all_initial_states = []
+        all_controls = []
         
-        # Reorder features if backward and forward predictors have different feature orderings
+        max_h = max(horizons_to_compute)
+        control_dim = predictor_external_input_array.shape[-1]
         if need_reorder and feature_mapping is not None:
-            forward_external_input_slice = forward_external_input_slice[:, :, feature_mapping]
+            control_dim = len(feature_mapping)
         
-        # Use fixed batch size with padding/chunking if max_batch_size is provided
-        if max_batch_size is not None and configured_batch_size != test_len:
-            forward_output = predict_with_fixed_batch_size(
-                predictor=forward_predictor,
-                initial_input=forward_initial_state,
-                external_input=forward_external_input_slice,
-                fixed_batch_size=configured_batch_size,
-                actual_test_len=test_len,
-            )
-        else:
-            # Exact batch size match (used in Brunton test)
-            forward_output = forward_predictor.predict(forward_initial_state, forward_external_input_slice)
+        for horizon_idx in horizons_to_compute:
+            # Initial state at this horizon
+            initial_state = backward_output_augmented[:, horizon_idx, :]
+            all_initial_states.append(initial_state)
+            
+            # Control sequence (padded to max horizon)
+            controls = predictor_external_input_array[:, :horizon_idx, :]
+            controls = np.flip(controls, axis=1)
+            if need_reorder and feature_mapping is not None:
+                controls = controls[:, :, feature_mapping]
+            
+            # Pad to max horizon length
+            if horizon_idx < max_h:
+                pad_len = max_h - horizon_idx
+                padding = np.zeros((test_len, pad_len, control_dim), dtype=controls.dtype)
+                controls = np.concatenate([controls, padding], axis=1)
+            
+            all_controls.append(controls)
         
-        forward_outputs_dict[horizon_idx] = forward_output
+        # Stack into mega-batch: [test_len * num_horizons, ...]
+        batched_initial = np.concatenate(all_initial_states, axis=0)  # [test_len*num_horizons, state_dim]
+        batched_controls = np.concatenate(all_controls, axis=0)  # [test_len*num_horizons, max_h, control_dim]
+        
+        # Configure predictor for mega-batch (reconfigure if needed)
+        mega_batch_size = test_len * num_horizons
+        forward_predictor.configure_with_compilation(
+            batch_size=mega_batch_size, 
+            dt=abs(dt), 
+            mode=routine.replace('_backward', ''), 
+            hls=hls
+        )
+        
+        # Single forward pass for all horizons
+        batched_output = forward_predictor.predict(batched_initial, batched_controls)
+        # batched_output: [test_len*num_horizons, max_h+1, state_dim]
+        
+        # Unpack results for each horizon
+        forward_outputs_dict = {}
+        for i, horizon_idx in enumerate(horizons_to_compute):
+            start_idx = i * test_len
+            end_idx = (i + 1) * test_len
+            # Truncate output to actual horizon length (+1 for initial state)
+            forward_outputs_dict[horizon_idx] = batched_output[start_idx:end_idx, :horizon_idx+1, :]
+        
+    else:
+        # Sequential processing (original behavior for single horizon or with max_batch_size)
+        forward_outputs_dict = {}
+        desc_text = f"Forward from all horizons ({predictor_horizon} to 1)" if num_horizons > 1 else "Forward from max horizon"
+        iterator = trange(len(horizons_to_compute), desc=desc_text) if num_horizons > 1 else range(len(horizons_to_compute))
+        
+        for i in iterator:
+            horizon_idx = horizons_to_compute[i]
+            # State at this horizon (use augmented output if available)
+            forward_initial_state = backward_output_augmented[:, horizon_idx, :]
+            
+            # External inputs for forward prediction from this horizon
+            forward_external_input_slice = predictor_external_input_array[:, :horizon_idx, :]
+            forward_external_input_slice = np.flip(forward_external_input_slice, axis=1)
+            
+            # Reorder features if backward and forward predictors have different feature orderings
+            if need_reorder and feature_mapping is not None:
+                forward_external_input_slice = forward_external_input_slice[:, :, feature_mapping]
+            
+            # Use fixed batch size with padding/chunking if max_batch_size is provided
+            if max_batch_size is not None and configured_batch_size != test_len:
+                forward_output = predict_with_fixed_batch_size(
+                    predictor=forward_predictor,
+                    initial_input=forward_initial_state,
+                    external_input=forward_external_input_slice,
+                    fixed_batch_size=configured_batch_size,
+                    actual_test_len=test_len,
+                )
+            else:
+                forward_output = forward_predictor.predict(forward_initial_state, forward_external_input_slice)
+            
+            forward_outputs_dict[horizon_idx] = forward_output
     
     return forward_outputs_dict
 
