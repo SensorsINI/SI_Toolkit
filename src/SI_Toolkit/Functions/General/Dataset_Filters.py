@@ -2,6 +2,10 @@ from tqdm import tqdm
 
 
 def filter_datasets(dfs, args):
+    # Skip filtering entirely if no filters are defined
+    if not hasattr(args, 'filters') or not isinstance(args.filters, list) or len(args.filters) == 0:
+        return dfs
+    
     data_filter = DataFilter(args)
     dfs_filtered = []
     for df in tqdm(dfs, desc="Applying filters"):
