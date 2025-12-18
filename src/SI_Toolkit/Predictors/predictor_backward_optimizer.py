@@ -66,6 +66,14 @@ class predictor_backward_optimizer(template_predictor):
             # Initialize neural network predictor for network/hybrid modes
             self._init_neural_predictor(batch_size, dt, mode, disable_individual_compilation, model_name, path_to_model)
         
+        if self.forged_history_mode == "optimizer":
+            # Set feature info for optimizer-only mode
+            # Optimizer uses full 10-state vector and 3 control inputs (but only uses 2 internally)
+            from utilities.state_utilities import STATE_VARIABLES
+            self.predictor_initial_input_features = np.array(STATE_VARIABLES)
+            self.predictor_external_input_features = np.array(['angular_control', 'mu', 'translational_control'])
+            self.predictor_output_features = np.array(STATE_VARIABLES)
+        
         # Store for diagnostics
         self._last_converged = True
 
@@ -131,6 +139,42 @@ class predictor_backward_optimizer(template_predictor):
             # Fallback: take first 2
             return Q[..., :2]
 
+    def _extract_mu(self, Q: np.ndarray) -> float:
+        """
+        Extract the mu (friction) value from control inputs.
+        
+        Args:
+            Q: Control array [horizon, control_dim] or [batch, horizon, control_dim]
+            
+        Returns:
+            Mean mu value across the trajectory (assumes mu is constant or nearly so)
+        """
+        control_dim = Q.shape[-1]
+        if control_dim < 3:
+            # No mu in controls, return None to use default
+            return None
+        
+        # mu is at index 1: [angular_control, mu, translational_control]
+        MU_INDEX = 1
+        if Q.ndim == 2:
+            mu_values = Q[:, MU_INDEX]
+        else:
+            mu_values = Q[:, :, MU_INDEX]
+        
+        # Use mean mu value (should be constant for a single trajectory)
+        return float(np.mean(mu_values))
+
+    def _update_optimizer_mu(self, mu: float):
+        """
+        Update the optimizer's friction coefficient.
+        
+        Args:
+            mu: Friction coefficient value
+        """
+        if mu is not None and self._backward_predictor is not None:
+            # Update the car model's friction in the refiner
+            self._backward_predictor.refiner.refiner.car_model.change_friction_coefficient(mu)
+
     def predict(self, initial_state: np.ndarray, Q: np.ndarray) -> np.ndarray:
         """
         Predict backward trajectory.
@@ -177,6 +221,11 @@ class predictor_backward_optimizer(template_predictor):
         
         # Extract the 2 controls the optimizer uses
         Q_optimizer = self._extract_optimizer_controls(Q)
+        
+        # Extract and update mu from control inputs (if available)
+        mu = self._extract_mu(Q)
+        if mu is not None:
+            self._update_optimizer_mu(mu)
             
         batch_size = initial_state.shape[0]
         horizon = Q_optimizer.shape[1]
@@ -255,6 +304,11 @@ class predictor_backward_optimizer(template_predictor):
         
         # Extract the 2 controls the optimizer uses
         Q_optimizer = self._extract_optimizer_controls(Q)
+        
+        # Extract and update mu from control inputs (if available)
+        mu = self._extract_mu(Q)
+        if mu is not None:
+            self._update_optimizer_mu(mu)
         
         # Track convergence
         num_converged = 0
