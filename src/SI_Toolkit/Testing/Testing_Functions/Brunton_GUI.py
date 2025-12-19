@@ -1067,6 +1067,66 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
             c=cmap((float(i-1) / max_horizon)*0.8+0.2),
             marker='.', linestyle = '')
 
+        # Forward reconstruction in show-all mode:
+        # In show-all, render the reconstructed segment (from "back" to "front") aligned in time.
+        #
+        # For a given current-time sample at t_cur and chosen backward horizon H:
+        # - backward predictor provides x(t_cur + H*dt_predictions) (dt_predictions < 0)
+        # - forward predictor rolls that state forward for H steps (dt = |dt_predictions|)
+        # - the forward output at index k corresponds to time: t_cur + (H-k)*dt_predictions
+        #   (k=0 is oldest; k=H is reconstructed "current" point)
+        if (show_forward_reconstruction and dt_predictions < 0
+                and forward_prediction is not None and len(forward_prediction) >= 3):
+
+            # Handle both old format (3 elements) and new format (4 elements)
+            if len(forward_prediction) >= 4:
+                forward_data, forward_features, forward_dt, from_all_horizons = forward_prediction
+            else:
+                forward_data, forward_features, forward_dt = forward_prediction
+                from_all_horizons = False
+
+            if forward_data is not None and forward_features is not None and forward_dt != 0.0:
+                if feature_to_display in forward_features:
+                    forward_feature_idx, = np.where(forward_features == feature_to_display)
+                    forward_feature_idx = int(forward_feature_idx)
+
+                    # Pick the forward reconstruction corresponding to the currently selected horizon if available.
+                    # If forward recon was only computed for max_horizon, fall back to that.
+                    forward_array = None
+                    forward_h_used = None
+                    if isinstance(forward_data, dict) and from_all_horizons:
+                        if horizon in forward_data and forward_data[horizon] is not None:
+                            forward_array = forward_data[horizon]
+                            forward_h_used = horizon
+                        elif max_horizon in forward_data and forward_data[max_horizon] is not None:
+                            forward_array = forward_data[max_horizon]
+                            forward_h_used = max_horizon
+                    else:
+                        forward_array = forward_data
+                        forward_h_used = max_horizon
+
+                    if forward_array is not None:
+                        # In backward-mode show-all plots, "current times" correspond to this slice:
+                        current_times = time_axis[max_horizon + 1:]
+
+                        # Guard against minor length mismatches (e.g., due to preprocessing/stride padding).
+                        n = min(current_times.shape[0], forward_array.shape[0])
+                        current_times = current_times[:n]
+                        forward_array = forward_array[:n]
+
+                        # Plot the reconstructed segment as sparse "x" markers (similar density to the prediction dots).
+                        # forward_array has length forward_h_used+1 along axis=1 (includes initial at k=0).
+                        num_steps = forward_array.shape[1]
+                        for k in range(num_steps):
+                            t_k = current_times + (forward_h_used - k) * dt_predictions
+                            y_k = forward_array[:, k, forward_feature_idx].squeeze()
+                            axs.plot(t_k,
+                                     y_k,
+                                     linestyle='--',
+                                     marker='x',
+                                     color='tab:orange',
+                                     label=('Forward recon.' if k == num_steps - 1 else None))
+
     axs.set_ylim(y_lim)
     plt.show()
 
