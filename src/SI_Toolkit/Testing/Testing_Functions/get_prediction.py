@@ -340,24 +340,6 @@ def calculate_back2front_predictions(
             # If augmentation fails, continue with original output
             print(f"Warning: State augmentation failed ({e}), using backward output as-is")
             backward_output_augmented = backward_output
-    
-    # Precompute indices for deterministic reconstruction of linear_vel_y (used by Pacejka dynamics).
-    idx_vx = None
-    idx_beta = None
-    idx_vy = None
-    if forward_initial_features is not None:
-        try:
-            idx_vx = list(forward_initial_features).index('linear_vel_x')
-        except ValueError:
-            idx_vx = None
-        try:
-            idx_beta = list(forward_initial_features).index('slip_angle')
-        except ValueError:
-            idx_beta = None
-        try:
-            idx_vy = list(forward_initial_features).index('linear_vel_y')
-        except ValueError:
-            idx_vy = None
 
     # Determine loop range
     start_horizon = predictor_horizon
@@ -386,15 +368,8 @@ def calculate_back2front_predictions(
             control_dim = len(feature_mapping)
         
         for horizon_idx in horizons_to_compute:
-            # Initial state at this horizon
+            # Initial state at this horizon (already augmented with linear_vel_y computed from slip_angle * v_x)
             initial_state = backward_output_augmented[:, horizon_idx, :].copy()
-
-            # Deterministically reconstruct linear_vel_y from slip_angle and linear_vel_x.
-            # This matters: Pacejka uses v_y directly (affects alpha_f/alpha_r and thus yaw dynamics).
-            if idx_vy is not None and idx_beta is not None and idx_vx is not None:
-                v_x = initial_state[:, idx_vx]
-                v_x_safe = np.where(np.abs(v_x) < 1.0e-3, 1.0e-3, v_x)
-                initial_state[:, idx_vy] = np.tan(initial_state[:, idx_beta]) * v_x_safe
             all_initial_states.append(initial_state)
             
             # Control sequence (padded to max horizon)
@@ -444,14 +419,8 @@ def calculate_back2front_predictions(
         
         for i in iterator:
             horizon_idx = horizons_to_compute[i]
-            # State at this horizon (use augmented output if available)
+            # State at this horizon (already augmented with linear_vel_y computed from slip_angle * v_x)
             forward_initial_state = backward_output_augmented[:, horizon_idx, :].copy()
-
-            # Deterministically reconstruct linear_vel_y from slip_angle and linear_vel_x.
-            if idx_vy is not None and idx_beta is not None and idx_vx is not None:
-                v_x = forward_initial_state[:, idx_vx]
-                v_x_safe = np.where(np.abs(v_x) < 1.0e-3, 1.0e-3, v_x)
-                forward_initial_state[:, idx_vy] = np.tan(forward_initial_state[:, idx_beta]) * v_x_safe
             
             # External inputs for forward prediction from this horizon
             forward_external_input_slice = predictor_external_input_array[:, :horizon_idx, :]
