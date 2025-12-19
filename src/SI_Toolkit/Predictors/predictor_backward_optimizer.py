@@ -61,12 +61,17 @@ class predictor_backward_optimizer(template_predictor):
             # Use the new FastBackwardOptimizer
             from utilities.FastBackwardOptimizer import FastBackwardPredictor
             mu = getattr(Settings, "FRICTION_FOR_CONTROLLER", None)
+            
+            # Configurable parameters for trading speed vs precision
+            # Can be set via Settings.HYBRID_MAX_ITER_PER_STEP and Settings.HYBRID_TOL
+            self._max_iter_per_step = getattr(Settings, "HYBRID_MAX_ITER_PER_STEP", 10)
+            self._optimizer_tol = getattr(Settings, "HYBRID_TOL", 1e-8)
+            
             self._fast_optimizer = FastBackwardPredictor(
                 dt=abs(dt) if dt else 0.01,
                 mu=mu,
-                max_iter_per_step=30,
-                tol=1e-5,
-                method='L-BFGS-B',
+                max_iter_per_step=self._max_iter_per_step,
+                tol=self._optimizer_tol,
                 verbose=False,
             )
         
@@ -330,13 +335,17 @@ class predictor_backward_optimizer(template_predictor):
             for h in range(horizon):
                 u = controls_b[horizon - 1 - h]
                 nn_guess = nn_traj_oldest_first[horizon - 1 - h]
-                x_refined, converged = self._fast_optimizer.optimizer.single_step_backward(
-                    x, u, x_init=nn_guess, max_iter=10
+                x_refined, converged, step_stats = self._fast_optimizer.optimizer.single_step_backward(
+                    x, u, x_init=nn_guess, 
+                    max_iter=self._max_iter_per_step,
+                    tol=self._optimizer_tol
                 )
                 if converged:
                     all_stats['n_refined'] += 1
                 else:
                     all_stats['n_failed'] += 1
+                all_stats['total_iters'] = all_stats.get('total_iters', 0) + step_stats['niter']
+                all_stats['max_cost'] = max(all_stats.get('max_cost', 0), step_stats['cost'])
                 past_states[horizon - 1 - h] = x_refined
                 x = x_refined
             
