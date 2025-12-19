@@ -1,6 +1,6 @@
 # predictor_backward_optimizer.py
 #
-# Wraps the BackwardPredictor for use in Brunton tests.
+# Backward predictor for Brunton tests.
 # Supports multiple modes: network, optimizer, hybrid.
 
 import numpy as np
@@ -15,18 +15,19 @@ class predictor_backward_optimizer(template_predictor):
     
     Supports three modes based on Settings.FORGED_HISTORY_MODE:
     - 'network': Use neural network only (same as B:Dense-..., no optimization)
-    - 'optimizer': Use optimizer-based BackwardPredictor (optimization only)
-    - 'hybrid': Use network as initial guess, then optimize (future)
+    - 'optimizer': Use FastBackwardOptimizer (sequential L-BFGS, very fast and accurate)
+    - 'hybrid': Use network as initial guess, then refine with optimizer
     
-    Note: The optimizer only uses 2 control inputs (angular_control, translational_control).
-    If the input controls have more features (e.g., including mu), only the first 2 are used.
+    Note: The optimizer uses 2 control inputs (angular_control, translational_control).
+    If the input controls have more features (e.g., including mu), the mu is extracted
+    and used for the friction coefficient.
     """
     supported_computation_libraries = (NumpyLibrary, TensorFlowLibrary)
 
-    # The optimizer only uses these 2 control inputs (indices 0 and 2 in standard ordering)
-    # Standard ordering: [angular_control, mu, translational_control]
-    # We need indices 0 (angular_control) and 2 (translational_control)
-    OPTIMIZER_CONTROL_INDICES = [0, 2]  # angular_control, translational_control
+    # Control indices: [angular_control, mu, translational_control]
+    ANGULAR_CONTROL_IDX = 0
+    MU_IDX = 1
+    TRANSLATIONAL_CONTROL_IDX = 2
 
     def __init__(
         self,
@@ -53,14 +54,21 @@ class predictor_backward_optimizer(template_predictor):
         self.forged_history_mode = getattr(Settings, "FORGED_HISTORY_MODE", "optimizer")
         
         # Initialize predictors based on mode
-        self._backward_predictor = None
+        self._fast_optimizer = None
         self._neural_predictor = None
         
         if self.forged_history_mode in ("optimizer", "hybrid"):
-            # Lazy import to avoid TF import unless needed
-            from utilities.BackwardPredictor import BackwardPredictor
-            self._backward_predictor = BackwardPredictor()
-            self._backward_predictor.configure(batch_size=batch_size, dt=abs(dt) if dt else None)
+            # Use the new FastBackwardOptimizer
+            from utilities.FastBackwardOptimizer import FastBackwardPredictor
+            mu = getattr(Settings, "FRICTION_FOR_CONTROLLER", None)
+            self._fast_optimizer = FastBackwardPredictor(
+                dt=abs(dt) if dt else 0.01,
+                mu=mu,
+                max_iter_per_step=30,
+                tol=1e-5,
+                method='L-BFGS-B',
+                verbose=False,
+            )
         
         if self.forged_history_mode in ("network", "hybrid"):
             # Initialize neural network predictor for network/hybrid modes
@@ -68,7 +76,7 @@ class predictor_backward_optimizer(template_predictor):
         
         if self.forged_history_mode == "optimizer":
             # Set feature info for optimizer-only mode
-            # Optimizer uses full 10-state vector and 3 control inputs (but only uses 2 internally)
+            # Optimizer uses full 10-state vector and 3 control inputs
             from utilities.state_utilities import STATE_VARIABLES
             self.predictor_initial_input_features = np.array(STATE_VARIABLES)
             self.predictor_external_input_features = np.array(['angular_control', 'mu', 'translational_control'])
@@ -76,21 +84,12 @@ class predictor_backward_optimizer(template_predictor):
         
         # Store for diagnostics
         self._last_converged = True
+        self._last_stats = {}
 
     def _init_neural_predictor(self, batch_size, dt, mode, disable_individual_compilation, model_name=None, path_to_model=None):
-        """Initialize the neural network predictor for network mode.
-        
-        Args:
-            batch_size: Batch size for the predictor
-            dt: Time step
-            mode: Prediction mode
-            disable_individual_compilation: Whether to disable individual compilation
-            model_name: Name of the neural network model (from config_predictors.yml or kwargs)
-            path_to_model: Path to the model directory (from config_predictors.yml or kwargs)
-        """
+        """Initialize the neural network predictor for network mode."""
         from SI_Toolkit.Predictors.predictor_autoregressive_neural import predictor_autoregressive_neural
         
-        # Require model_name and path_to_model from config - no silent fallbacks
         if model_name is None:
             raise ValueError(
                 "model_name is required for backward_optimizer predictor in 'network' or 'hybrid' mode. "
@@ -117,63 +116,34 @@ class predictor_backward_optimizer(template_predictor):
         self.predictor_output_features = self._neural_predictor.predictor_output_features
         self.lib = self._neural_predictor.lib
 
-    def _extract_optimizer_controls(self, Q: np.ndarray) -> np.ndarray:
+    def _extract_controls_and_mu(self, Q: np.ndarray):
         """
-        Extract the 2 control inputs that the optimizer uses from the full control array.
+        Extract control inputs and mu from the control array.
         
         Args:
             Q: Control array [..., control_dim] where control_dim >= 2
             
         Returns:
-            Controls array [..., 2] with only angular_control and translational_control
+            controls: [angular_control, translational_control] array
+            mu: Mean friction coefficient (or None if not in controls)
         """
         control_dim = Q.shape[-1]
+        
         if control_dim == 2:
-            # Already correct dimension
-            return Q
+            # Already [angular_control, translational_control]
+            return Q, None
         elif control_dim == 3:
-            # Standard case: [angular_control, mu, translational_control]
-            # Extract indices 0 and 2
-            return Q[..., self.OPTIMIZER_CONTROL_INDICES]
+            # [angular_control, mu, translational_control]
+            controls = np.stack([
+                Q[..., self.ANGULAR_CONTROL_IDX],
+                Q[..., self.TRANSLATIONAL_CONTROL_IDX]
+            ], axis=-1)
+            mu = float(np.mean(Q[..., self.MU_IDX]))
+            return controls, mu
         else:
-            # Fallback: take first 2
-            return Q[..., :2]
-
-    def _extract_mu(self, Q: np.ndarray) -> float:
-        """
-        Extract the mu (friction) value from control inputs.
-        
-        Args:
-            Q: Control array [horizon, control_dim] or [batch, horizon, control_dim]
-            
-        Returns:
-            Mean mu value across the trajectory (assumes mu is constant or nearly so)
-        """
-        control_dim = Q.shape[-1]
-        if control_dim < 3:
-            # No mu in controls, return None to use default
-            return None
-        
-        # mu is at index 1: [angular_control, mu, translational_control]
-        MU_INDEX = 1
-        if Q.ndim == 2:
-            mu_values = Q[:, MU_INDEX]
-        else:
-            mu_values = Q[:, :, MU_INDEX]
-        
-        # Use mean mu value (should be constant for a single trajectory)
-        return float(np.mean(mu_values))
-
-    def _update_optimizer_mu(self, mu: float):
-        """
-        Update the optimizer's friction coefficient.
-        
-        Args:
-            mu: Friction coefficient value
-        """
-        if mu is not None and self._backward_predictor is not None:
-            # Update the car model's friction in the refiner
-            self._backward_predictor.refiner.refiner.car_model.change_friction_coefficient(mu)
+            # Fallback: take first and last as angular and translational
+            controls = np.stack([Q[..., 0], Q[..., -1]], axis=-1)
+            return controls, None
 
     def predict(self, initial_state: np.ndarray, Q: np.ndarray) -> np.ndarray:
         """
@@ -187,102 +157,24 @@ class predictor_backward_optimizer(template_predictor):
             Backward states [batch_size, horizon+1, state_dim], including initial state
         """
         if self.forged_history_mode == "network":
-            # Use neural network directly (same as B:Dense-...)
             return self._predict_network(initial_state, Q)
         elif self.forged_history_mode == "optimizer":
-            # Use optimizer-based backward predictor
             return self._predict_optimizer(initial_state, Q)
         elif self.forged_history_mode == "hybrid":
-            # Use neural network as initial guess, then refine with optimizer
             return self._predict_hybrid(initial_state, Q)
         else:
             raise ValueError(f"Unknown forged_history_mode: {self.forged_history_mode}")
 
     def _predict_network(self, initial_state: np.ndarray, Q: np.ndarray) -> np.ndarray:
-        """Predict using neural network only (same as B:Dense-...)."""
+        """Predict using neural network only."""
         if self._neural_predictor is None:
             raise RuntimeError("Neural predictor not initialized. Set FORGED_HISTORY_MODE='network'")
         return self._neural_predictor.predict(initial_state, Q)
 
     def _predict_optimizer(self, initial_state: np.ndarray, Q: np.ndarray) -> np.ndarray:
-        """Predict using optimizer-based backward predictor (sequential, not batch)."""
-        if self._backward_predictor is None:
-            raise RuntimeError("Backward predictor not initialized. Set FORGED_HISTORY_MODE='optimizer'")
-        
-        # Handle dimensions
-        if initial_state.ndim == 1:
-            initial_state = initial_state[None, :]
-            squeeze_batch = True
-        else:
-            squeeze_batch = False
-            
-        if Q.ndim == 2:
-            Q = Q[None, :, :]
-        
-        # Extract the 2 controls the optimizer uses
-        Q_optimizer = self._extract_optimizer_controls(Q)
-        
-        # Extract and update mu from control inputs (if available)
-        mu = self._extract_mu(Q)
-        if mu is not None:
-            self._update_optimizer_mu(mu)
-            
-        batch_size = initial_state.shape[0]
-        horizon = Q_optimizer.shape[1]
-        state_dim = initial_state.shape[1]
-        
-        # Track convergence statistics
-        num_converged = 0
-        num_failed = 0
-        
-        # Process each trajectory sequentially (optimizer doesn't support batch)
-        outputs = []
-        iterator = trange(batch_size, desc="BP optimizer", leave=False) if batch_size > 1 else range(batch_size)
-        
-        for b in iterator:
-            state_b = initial_state[b]
-            controls_b = Q_optimizer[b]  # [horizon, 2]
-            
-            # Run optimizer-based backward prediction
-            past_states = self._backward_predictor.predict(state_b, controls_b)
-            
-            if past_states is None:
-                # Prediction failed - return NaN trajectory
-                self._last_converged = False
-                num_failed += 1
-                past_states = np.full((horizon, state_dim), np.nan, dtype=np.float32)
-            else:
-                self._last_converged = True
-                num_converged += 1
-            
-            # Prepend initial state to match neural predictor output format
-            # Output: [initial_state, past_states...] = [horizon+1, state_dim]
-            trajectory = np.concatenate([state_b[None, :], past_states], axis=0)
-            outputs.append(trajectory)
-        
-        # Print summary if there were failures
-        if num_failed > 0:
-            print(f"[BP optimizer] Converged: {num_converged}/{batch_size}, Failed: {num_failed}")
-        
-        output = np.stack(outputs, axis=0)  # [batch_size, horizon+1, state_dim]
-        
-        if squeeze_batch:
-            output = output[0]
-            
-        return output
-
-    def _predict_hybrid(self, initial_state: np.ndarray, Q: np.ndarray) -> np.ndarray:
-        """
-        Predict using neural network as initial guess, then refine with optimizer.
-        
-        This combines the best of both worlds:
-        - Neural network provides a fast initial trajectory estimate
-        - Optimizer refines it to satisfy physics constraints
-        """
-        if self._neural_predictor is None:
-            raise RuntimeError("Neural predictor not initialized for hybrid mode")
-        if self._backward_predictor is None:
-            raise RuntimeError("Backward predictor not initialized for hybrid mode")
+        """Predict using FastBackwardOptimizer (sequential L-BFGS)."""
+        if self._fast_optimizer is None:
+            raise RuntimeError("Fast optimizer not initialized. Set FORGED_HISTORY_MODE='optimizer'")
         
         # Handle dimensions
         if initial_state.ndim == 1:
@@ -298,56 +190,125 @@ class predictor_backward_optimizer(template_predictor):
         horizon = Q.shape[1]
         state_dim = initial_state.shape[1]
         
-        # Step 1: Get neural network prediction (uses full controls including mu)
-        neural_output = self._neural_predictor.predict(initial_state, Q)
-        # neural_output: [batch, horizon+1, state_dim] - includes initial state at index 0
+        # Extract controls and mu
+        controls, mu = self._extract_controls_and_mu(Q)
         
-        # Extract the 2 controls the optimizer uses
-        Q_optimizer = self._extract_optimizer_controls(Q)
-        
-        # Extract and update mu from control inputs (if available)
-        mu = self._extract_mu(Q)
+        # Update mu if extracted
         if mu is not None:
-            self._update_optimizer_mu(mu)
-        
-        # Track convergence
-        num_converged = 0
-        num_failed = 0
+            self._fast_optimizer.optimizer.set_mu(mu)
         
         # Process each trajectory
         outputs = []
-        iterator = trange(batch_size, desc="BP hybrid", leave=False) if batch_size > 1 else range(batch_size)
+        all_converged = True
+        
+        iterator = trange(batch_size, desc="BP optimizer", leave=False) if batch_size > 10 else range(batch_size)
         
         for b in iterator:
             state_b = initial_state[b]
-            controls_b = Q_optimizer[b]  # [horizon, 2]
+            # Controls from prepare_predictor_inputs are [newest, ..., oldest]
+            # But optimizer expects [oldest, ..., newest], so reverse them
+            controls_b = controls[b, ::-1, :]  # [horizon, 2] reversed
             
-            # Extract neural prediction for this batch (exclude initial state)
-            # neural_output[b] is [horizon+1, state_dim] with initial state at [0]
-            neural_traj_b = neural_output[b, 1:, :]  # [horizon, state_dim] oldest→newest past states
-            
-            # Run optimizer with neural prediction as initial guess
-            past_states = self._backward_predictor.predict(state_b, controls_b, X_init=neural_traj_b)
+            # Run fast optimizer
+            past_states = self._fast_optimizer.predict(state_b, controls_b)
             
             if past_states is None:
-                # Refinement failed - fall back to neural prediction
                 self._last_converged = False
-                num_failed += 1
-                # Use neural prediction as fallback
-                past_states = neural_traj_b
+                all_converged = False
+                past_states = np.full((horizon, state_dim), np.nan, dtype=np.float32)
             else:
                 self._last_converged = True
-                num_converged += 1
             
-            # Prepend initial state to match output format
-            trajectory = np.concatenate([state_b[None, :], past_states], axis=0)
+            # Prepend initial state: [initial_state, past_states...]
+            # past_states is [horizon, state_dim] oldest to newest
+            # Output should be [horizon+1, state_dim] with initial_state at [0] and oldest past at [-1]
+            trajectory = np.concatenate([state_b[None, :], past_states[::-1, :]], axis=0)
             outputs.append(trajectory)
         
-        # Print summary
-        if batch_size > 1:
-            print(f"[BP hybrid] Refined: {num_converged}/{batch_size}, Fallback to neural: {num_failed}")
+        self._last_stats = self._fast_optimizer.last_stats
+        if not all_converged and batch_size > 1:
+            n_failed = batch_size - sum(1 for o in outputs if not np.any(np.isnan(o)))
+            print(f"[BP optimizer] {n_failed}/{batch_size} trajectories failed")
         
         output = np.stack(outputs, axis=0)  # [batch_size, horizon+1, state_dim]
+        
+        if squeeze_batch:
+            output = output[0]
+            
+        return output
+
+    def _predict_hybrid(self, initial_state: np.ndarray, Q: np.ndarray) -> np.ndarray:
+        """
+        Predict using neural network as initial guess, then refine with optimizer.
+        """
+        if self._neural_predictor is None:
+            raise RuntimeError("Neural predictor not initialized for hybrid mode")
+        if self._fast_optimizer is None:
+            raise RuntimeError("Fast optimizer not initialized for hybrid mode")
+        
+        # Handle dimensions
+        if initial_state.ndim == 1:
+            initial_state = initial_state[None, :]
+            squeeze_batch = True
+        else:
+            squeeze_batch = False
+            
+        if Q.ndim == 2:
+            Q = Q[None, :, :]
+        
+        batch_size = initial_state.shape[0]
+        state_dim = initial_state.shape[1]
+        
+        # Step 1: Get neural network prediction
+        neural_output = self._neural_predictor.predict(initial_state, Q)
+        # neural_output: [batch, horizon+1, nn_state_dim]
+        
+        # Extract controls and mu for optimizer
+        controls, mu = self._extract_controls_and_mu(Q)
+        if mu is not None:
+            self._fast_optimizer.optimizer.set_mu(mu)
+        
+        # Get state augmenter to convert NN output to full state
+        from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import StateAugmenter
+        nn_features = list(self._neural_predictor.predictor_output_features)
+        from utilities.state_utilities import STATE_VARIABLES
+        augmenter = StateAugmenter(nn_features, STATE_VARIABLES)
+        
+        outputs = []
+        iterator = trange(batch_size, desc="BP hybrid", leave=False) if batch_size > 10 else range(batch_size)
+        
+        for b in iterator:
+            state_b = initial_state[b]
+            # Controls from prepare_predictor_inputs are [newest, ..., oldest]
+            # But optimizer expects [oldest, ..., newest], so reverse them
+            controls_b = controls[b, ::-1, :]
+            
+            # Get NN trajectory (exclude initial state)
+            nn_traj_b = neural_output[b, 1:, :]  # [horizon, nn_state_dim]
+            
+            # Augment to full state if needed
+            if nn_traj_b.shape[-1] != state_dim:
+                nn_traj_b_aug = augmenter.augment_to_target_order(
+                    nn_traj_b[None, :, :], STATE_VARIABLES, verbose=False
+                )[0]  # [horizon, state_dim]
+            else:
+                nn_traj_b_aug = nn_traj_b
+            
+            # Reverse to get oldest→newest order for optimizer
+            nn_traj_oldest_first = nn_traj_b_aug[::-1, :]
+            
+            # Run optimizer with NN as initial guess
+            past_states = self._fast_optimizer.predict(state_b, controls_b, X_init=nn_traj_oldest_first)
+            
+            if past_states is None:
+                # Fall back to neural prediction
+                past_states = nn_traj_oldest_first
+            
+            # Build output trajectory
+            trajectory = np.concatenate([state_b[None, :], past_states[::-1, :]], axis=0)
+            outputs.append(trajectory)
+        
+        output = np.stack(outputs, axis=0)
         
         if squeeze_batch:
             output = output[0]
@@ -359,31 +320,19 @@ class predictor_backward_optimizer(template_predictor):
         return self.predict(initial_state, Q)
 
     def update_internal_state(self, Q0=None, s=None):
-        """Update internal state (feeds history buffers)."""
-        if s is not None and Q0 is not None:
-            # Flatten control if needed
-            if Q0.ndim > 2:
-                Q0 = Q0[:, 0, :]  # Take first timestep
-            for b in range(s.shape[0] if s.ndim > 1 else 1):
-                state_b = s[b] if s.ndim > 1 else s
-                ctrl_b = Q0[b] if Q0.ndim > 1 else Q0
-                self._backward_predictor.update(ctrl_b, state_b)
+        """Update internal state (not used for this predictor)."""
+        pass
 
     def reset(self):
         """Reset internal state."""
-        self._backward_predictor.previous_control_inputs = []
-        self._backward_predictor.previous_measured_states = []
-        self._backward_predictor.counter = 0
-        self._backward_predictor._warmed_once = False
+        pass
 
     @property
     def converged(self) -> bool:
         """Whether the last prediction converged."""
         return self._last_converged
-
-
-
-
-
-
-
+    
+    @property
+    def last_stats(self) -> dict:
+        """Statistics from last prediction."""
+        return self._last_stats
