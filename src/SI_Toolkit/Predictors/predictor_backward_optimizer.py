@@ -185,7 +185,7 @@ class predictor_backward_optimizer(template_predictor):
             
         if Q.ndim == 2:
             Q = Q[None, :, :]
-        
+            
         batch_size = initial_state.shape[0]
         horizon = Q.shape[1]
         state_dim = initial_state.shape[1]
@@ -239,7 +239,14 @@ class predictor_backward_optimizer(template_predictor):
 
     def _predict_hybrid(self, initial_state: np.ndarray, Q: np.ndarray) -> np.ndarray:
         """
-        Predict using neural network as initial guess, then refine with optimizer.
+        Predict using NN trajectory + per-step optimizer refinement.
+        
+        Approach:
+        1. Run NN for full trajectory (efficient batch call)
+        2. For each step: use NN's prediction as initial guess for optimizer
+        3. Each step is refined to satisfy dynamics exactly
+        
+        This combines NN's speed with optimizer's dynamical consistency.
         """
         if self._neural_predictor is None:
             raise RuntimeError("Neural predictor not initialized for hybrid mode")
@@ -258,8 +265,9 @@ class predictor_backward_optimizer(template_predictor):
         
         batch_size = initial_state.shape[0]
         state_dim = initial_state.shape[1]
+        horizon = Q.shape[1]
         
-        # Step 1: Get neural network prediction
+        # Step 1: Get full NN trajectory prediction (efficient batch call)
         neural_output = self._neural_predictor.predict(initial_state, Q)
         # neural_output: [batch, horizon+1, nn_state_dim]
         
@@ -272,47 +280,73 @@ class predictor_backward_optimizer(template_predictor):
         from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import StateAugmenter
         nn_features = list(self._neural_predictor.predictor_output_features)
         from utilities.state_utilities import STATE_VARIABLES
-        augmenter = StateAugmenter(nn_features, STATE_VARIABLES)
+        augmenter = StateAugmenter(nn_features, lib=None, target_features=STATE_VARIABLES,
+                                    strip_derivative_prefix=True)
+        
+        # Also need to augment anchor states (initial_state) to 10 dimensions
+        # The input state may be 8-dim from NN or 10-dim from ODE predictor
+        if state_dim != len(STATE_VARIABLES):
+            # Need separate augmenter for the initial state (not derivative outputs)
+            from SI_Toolkit_ASF.ToolkitCustomization.predictors_customization import augment_states_numpy
+            initial_state_aug, _ = augment_states_numpy(
+                initial_state[:, None, :], 
+                list(self._neural_predictor.predictor_initial_input_features),
+                STATE_VARIABLES,
+                verbose=False
+            )
+            initial_state_aug = initial_state_aug[:, 0, :]  # [batch, 10]
+        else:
+            initial_state_aug = initial_state
         
         outputs = []
+        all_stats = {'n_refined': 0, 'n_failed': 0}
         iterator = trange(batch_size, desc="BP hybrid", leave=False) if batch_size > 10 else range(batch_size)
         
         for b in iterator:
-            state_b = initial_state[b]
+            state_b = initial_state_aug[b]  # Use augmented state [10]
             # Controls from prepare_predictor_inputs are [newest, ..., oldest]
             # But optimizer expects [oldest, ..., newest], so reverse them
             controls_b = controls[b, ::-1, :]
             
             # Get NN trajectory (exclude initial state)
-            nn_traj_b = neural_output[b, 1:, :]  # [horizon, nn_state_dim]
+            nn_traj_b = neural_output[b, 1:, :]  # [horizon, nn_state_dim], newest→oldest
             
-            # Augment to full state if needed
-            if nn_traj_b.shape[-1] != state_dim:
-                nn_traj_b_aug = augmenter.augment_to_target_order(
-                    nn_traj_b[None, :, :], STATE_VARIABLES, verbose=False
-                )[0]  # [horizon, state_dim]
-            else:
-                nn_traj_b_aug = nn_traj_b
+            # Augment to full 10-state vector
+            # augment_to_target_order returns (augmented, features) tuple
+            nn_traj_b_aug, _ = augmenter.augment_to_target_order(
+                nn_traj_b[None, :, :], verbose=False
+            )
+            nn_traj_b_aug = nn_traj_b_aug[0]  # [horizon, 10]
             
             # Reverse to get oldest→newest order for optimizer
-            nn_traj_oldest_first = nn_traj_b_aug[::-1, :]
+            nn_traj_oldest_first = nn_traj_b_aug[::-1, :]  # [horizon, state_dim]
             
-            # Run optimizer with NN as initial guess
-            past_states = self._fast_optimizer.predict(state_b, controls_b, X_init=nn_traj_oldest_first)
+            # Step 2: Per-step refinement using NN predictions as initial guesses
+            full_state_dim = len(STATE_VARIABLES)
+            past_states = np.zeros((horizon, full_state_dim), dtype=np.float32)
+            x = state_b.copy()  # Already augmented to 10-dim
             
-            if past_states is None:
-                # Fall back to neural prediction
-                past_states = nn_traj_oldest_first
+            # Step-by-step refinement using NN predictions as initial guesses
+            for h in range(horizon):
+                u = controls_b[horizon - 1 - h]
+                nn_guess = nn_traj_oldest_first[horizon - 1 - h]
+                x_refined, converged = self._fast_optimizer.optimizer.single_step_backward(
+                    x, u, x_init=nn_guess, max_iter=10
+                )
+                if converged:
+                    all_stats['n_refined'] += 1
+                else:
+                    all_stats['n_failed'] += 1
+                past_states[horizon - 1 - h] = x_refined
+                x = x_refined
             
-            # Build output trajectory
             trajectory = np.concatenate([state_b[None, :], past_states[::-1, :]], axis=0)
             outputs.append(trajectory)
         
+        self._last_stats = all_stats
         output = np.stack(outputs, axis=0)
-        
         if squeeze_batch:
             output = output[0]
-            
         return output
 
     def predict_core(self, initial_state, Q):
@@ -331,7 +365,7 @@ class predictor_backward_optimizer(template_predictor):
     def converged(self) -> bool:
         """Whether the last prediction converged."""
         return self._last_converged
-    
+
     @property
     def last_stats(self) -> dict:
         """Statistics from last prediction."""
