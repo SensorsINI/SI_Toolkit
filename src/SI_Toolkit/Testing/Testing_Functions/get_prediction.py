@@ -154,6 +154,59 @@ def prepare_predictor_inputs(
     return predictor_initial_input, predictor_external_input_array
 
 
+def _build_external_input_array_from_dataset(
+        dataset,
+        external_input_features,
+        predictor_horizon: int,
+        backward_mode: bool,
+        routine: str = None,
+        test_max_horizon: int = None,
+) -> np.ndarray:
+    """
+    Build external input tensor [test_len, predictor_horizon+1, control_dim] directly from dataset columns.
+
+    This mirrors the external-input part of prepare_predictor_inputs(), but does NOT touch initial inputs.
+    It is used when backward and forward predictors have different external-input feature sets
+    (e.g., backward DI uses D_* derivatives, forward ODE uses angular_control/translational_control).
+    """
+    try:
+        predictor_external_input = dataset[external_input_features].to_numpy()
+    except KeyError as e:
+        # Provide a more actionable error than bare KeyError
+        requested = list(external_input_features)
+        available = list(getattr(dataset, "columns", []))
+        raise KeyError(
+            f"External input features {requested} not found in dataset columns. "
+            f"Missing: {[f for f in requested if f not in available]}"
+        ) from e
+
+    if backward_mode:
+        predictor_external_input = predictor_external_input[:-1]  # Shift by one for backward mode
+
+    predictor_external_input_len = len(predictor_external_input)
+
+    if backward_mode:
+        predictor_external_input_array = [
+            predictor_external_input[..., predictor_horizon - i: predictor_external_input_len - i, :]
+            for i in range(predictor_horizon + 1)
+        ]
+    else:
+        predictor_external_input_array = [
+            predictor_external_input[..., i: predictor_external_input_len - predictor_horizon + i, :]
+            for i in range(predictor_horizon + 1)
+        ]
+
+    predictor_external_input_array = np.stack(predictor_external_input_array, axis=1)
+
+    # Handle simple evaluation mode
+    if routine == "simple evaluation":
+        predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input) - test_max_horizon, ...]
+    else:
+        predictor_external_input_array = predictor_external_input_array[:len(predictor_external_input), ...]
+
+    return predictor_external_input_array
+
+
 def calculate_back2front_predictions(
         backward_output: np.ndarray,
         predictor_external_input_array: np.ndarray,
@@ -288,6 +341,24 @@ def calculate_back2front_predictions(
             print(f"Warning: State augmentation failed ({e}), using backward output as-is")
             backward_output_augmented = backward_output
     
+    # Precompute indices for deterministic reconstruction of linear_vel_y (used by Pacejka dynamics).
+    idx_vx = None
+    idx_beta = None
+    idx_vy = None
+    if forward_initial_features is not None:
+        try:
+            idx_vx = list(forward_initial_features).index('linear_vel_x')
+        except ValueError:
+            idx_vx = None
+        try:
+            idx_beta = list(forward_initial_features).index('slip_angle')
+        except ValueError:
+            idx_beta = None
+        try:
+            idx_vy = list(forward_initial_features).index('linear_vel_y')
+        except ValueError:
+            idx_vy = None
+
     # Determine loop range
     start_horizon = predictor_horizon
     if forward_from_all_horizons:
@@ -316,7 +387,14 @@ def calculate_back2front_predictions(
         
         for horizon_idx in horizons_to_compute:
             # Initial state at this horizon
-            initial_state = backward_output_augmented[:, horizon_idx, :]
+            initial_state = backward_output_augmented[:, horizon_idx, :].copy()
+
+            # Deterministically reconstruct linear_vel_y from slip_angle and linear_vel_x.
+            # This matters: Pacejka uses v_y directly (affects alpha_f/alpha_r and thus yaw dynamics).
+            if idx_vy is not None and idx_beta is not None and idx_vx is not None:
+                v_x = initial_state[:, idx_vx]
+                v_x_safe = np.where(np.abs(v_x) < 1.0e-3, 1.0e-3, v_x)
+                initial_state[:, idx_vy] = np.tan(initial_state[:, idx_beta]) * v_x_safe
             all_initial_states.append(initial_state)
             
             # Control sequence (padded to max horizon)
@@ -367,7 +445,13 @@ def calculate_back2front_predictions(
         for i in iterator:
             horizon_idx = horizons_to_compute[i]
             # State at this horizon (use augmented output if available)
-            forward_initial_state = backward_output_augmented[:, horizon_idx, :]
+            forward_initial_state = backward_output_augmented[:, horizon_idx, :].copy()
+
+            # Deterministically reconstruct linear_vel_y from slip_angle and linear_vel_x.
+            if idx_vy is not None and idx_beta is not None and idx_vx is not None:
+                v_x = forward_initial_state[:, idx_vx]
+                v_x_safe = np.where(np.abs(v_x) < 1.0e-3, 1.0e-3, v_x)
+                forward_initial_state[:, idx_vy] = np.tan(forward_initial_state[:, idx_beta]) * v_x_safe
             
             # External inputs for forward prediction from this horizon
             forward_external_input_slice = predictor_external_input_array[:, :horizon_idx, :]
@@ -507,10 +591,73 @@ def get_prediction(
         if not isinstance(forward_predictor, PredictorWrapper):
             raise TypeError("forward_predictor must be an instance of PredictorWrapper.")
 
+        # Ensure forward_predictor.predictor exists before we query its feature lists.
+        # (PredictorWrapper builds .predictor only during configure/configure_with_compilation.)
+        if getattr(forward_predictor, "predictor", None) is None:
+            forward_predictor.configure_with_compilation(
+                batch_size=test_len,
+                dt=abs(dt),
+                mode=routine.replace('_backward', ''),
+                hls=hls,
+            )
+            forward_predictor._configured_batch_size = test_len
+
+        # If backward and forward predictors use different external-input feature sets (e.g., DI uses D_* derivatives
+        # but ODE expects angular_control/translational_control), the default reuse+reorder logic will fail.
+        # In that case, build the forward external input tensor directly from dataset columns.
+        backward_ext_features = np.array(predictor.predictor.predictor_external_input_features)
+        forward_ext_features = np.array(forward_predictor.predictor.predictor_external_input_features)
+
+        external_input_for_forward = predictor_external_input_array
+        backward_features_for_mapping = backward_ext_features
+
+        if not np.array_equal(backward_ext_features, forward_ext_features):
+            # Determine if forward features can be mapped from backward features; if not, fall back to dataset controls.
+            backward_features_normalized = []
+            for feat in backward_ext_features:
+                feat_str = str(feat)
+                backward_features_normalized.append(feat_str[:-3] if feat_str.endswith('_-1') else feat_str)
+            backward_features_normalized = np.array(backward_features_normalized)
+
+            missing_forward = []
+            for fwd_feat in forward_ext_features:
+                fwd_feat_str = str(fwd_feat)
+                if (len(np.where(backward_ext_features == fwd_feat)[0]) == 0 and
+                        len(np.where(backward_features_normalized == fwd_feat_str)[0]) == 0):
+                    missing_forward.append(fwd_feat_str)
+
+            if len(missing_forward) > 0:
+                # Build external inputs for forward predictor directly from dataset.
+                # Important: keep backward_mode=True so the control alignment matches calculate_back2front_predictions().
+                external_input_for_forward = _build_external_input_array_from_dataset(
+                    dataset=dataset,
+                    external_input_features=list(forward_ext_features),
+                    predictor_horizon=predictor_horizon,
+                    backward_mode=True,
+                    routine=routine,
+                    test_max_horizon=test_max_horizon,
+                )
+
+                # Apply stride if Brunton is configured to evaluate every n-th trajectory
+                if test_stride > 1:
+                    external_input_for_forward = external_input_for_forward[::test_stride]
+
+                # Apply parameter override for sweep, if the parameter exists in forward external inputs.
+                if param_name is not None and param_value is not None:
+                    try:
+                        param_idx_fwd = list(forward_ext_features).index(param_name)
+                        external_input_for_forward[:, :, param_idx_fwd] = param_value
+                    except ValueError:
+                        # param_name not part of forward external features – ignore
+                        pass
+
+                # Tell calculate_back2front_predictions() that external_input_for_forward is already in forward feature order
+                backward_features_for_mapping = forward_ext_features
+
         # Use refactored function to calculate forward predictions
         forward_outputs_dict = calculate_back2front_predictions(
             backward_output=output,
-            predictor_external_input_array=predictor_external_input_array,
+            predictor_external_input_array=external_input_for_forward,
             forward_predictor=forward_predictor,
             predictor_horizon=predictor_horizon,
             dt=dt,
@@ -520,7 +667,7 @@ def get_prediction(
             test_len=test_len,
             param_name=param_name,
             param_value=param_value,
-            backward_predictor_features=predictor.predictor.predictor_external_input_features,
+            backward_predictor_features=backward_features_for_mapping,
             backward_output_features=predictor.predictor.predictor_output_features,
         )
         
