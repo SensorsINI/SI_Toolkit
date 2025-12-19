@@ -126,16 +126,24 @@ def prepare_predictor_inputs(
                        )
         raise KeyError(f'{e}' + " See terminal output for more information.")
     
-    if backward_mode:
+    # Check if external inputs are already time-shifted (e.g., angular_control_-1)
+    # If so, don't apply additional [:-1] shift to avoid double-shifting
+    external_features = predictor.predictor.predictor_external_input_features
+    features_already_shifted = any(str(f).endswith('_-1') for f in external_features)
+    
+    if backward_mode and not features_already_shifted:
         predictor_external_input = predictor_external_input[:-1]  # Shift by one for backward mode
     
     predictor_external_input_len = len(predictor_external_input)
     
     # Build external input array for all horizons
     if backward_mode:
-        # Backward: for each test point k at dataset index (predictor_horizon+k), we need [u(t-1), u(t-2), ..., u(t-pred_hor)]
+        # Backward: for each test point k at dataset index (predictor_horizon+1+k), we need [u(t-1), u(t-2), ..., u(t-pred_hor)]
+        # If features are already shifted (e.g., angular_control_-1[t] = angular_control[t-1]),
+        # we need to offset by +1 since we didn't apply [:-1] shift
+        offset = 1 if features_already_shifted else 0
         predictor_external_input_array = [
-            predictor_external_input[..., predictor_horizon-i:predictor_external_input_len-i, :] 
+            predictor_external_input[..., predictor_horizon+offset-i:predictor_external_input_len-i, :] 
             for i in range(predictor_horizon+1)
         ]
     else:
@@ -180,14 +188,20 @@ def _build_external_input_array_from_dataset(
             f"Missing: {[f for f in requested if f not in available]}"
         ) from e
 
-    if backward_mode:
+    # Check if external inputs are already time-shifted (e.g., angular_control_-1)
+    # If so, don't apply additional [:-1] shift to avoid double-shifting
+    features_already_shifted = any(str(f).endswith('_-1') for f in external_input_features)
+
+    if backward_mode and not features_already_shifted:
         predictor_external_input = predictor_external_input[:-1]  # Shift by one for backward mode
 
     predictor_external_input_len = len(predictor_external_input)
 
     if backward_mode:
+        # If features are already shifted (e.g., angular_control_-1), offset indexing by +1
+        offset = 1 if features_already_shifted else 0
         predictor_external_input_array = [
-            predictor_external_input[..., predictor_horizon - i: predictor_external_input_len - i, :]
+            predictor_external_input[..., predictor_horizon + offset - i: predictor_external_input_len - i, :]
             for i in range(predictor_horizon + 1)
         ]
     else:
