@@ -90,6 +90,11 @@ class predictor_backward_optimizer(template_predictor):
         # Store for diagnostics
         self._last_converged = True
         self._last_stats = {}
+        
+        # Reference trajectory for mu sensitivity study
+        # This is the backward trajectory computed at true mu, used to guide other mu
+        self._reference_trajectory = None
+        self._last_backward_output = None
 
     def _init_neural_predictor(self, batch_size, dt, mode, disable_individual_compilation, model_name=None, path_to_model=None):
         """Initialize the neural network predictor for network mode."""
@@ -120,6 +125,23 @@ class predictor_backward_optimizer(template_predictor):
         self.predictor_external_input_features = self._neural_predictor.predictor_external_input_features
         self.predictor_output_features = self._neural_predictor.predictor_output_features
         self.lib = self._neural_predictor.lib
+
+    def set_reference_trajectory(self, reference: np.ndarray):
+        """
+        Set reference trajectory for mu sensitivity study.
+        
+        When computing backward trajectories for different mu values,
+        this reference (from true mu) guides the optimizer to find
+        trajectories close to the true one.
+        
+        Args:
+            reference: Backward trajectory [batch, horizon+1, state_dim] or [horizon+1, state_dim]
+        """
+        self._reference_trajectory = np.asarray(reference, dtype=np.float32)
+    
+    def clear_reference_trajectory(self):
+        """Clear the reference trajectory."""
+        self._reference_trajectory = None
 
     def _extract_controls_and_mu(self, Q: np.ndarray):
         """
@@ -192,7 +214,10 @@ class predictor_backward_optimizer(template_predictor):
             Q = Q[None, :, :]
             
         batch_size = initial_state.shape[0]
-        horizon = Q.shape[1]
+        # Q has shape [batch, horizon+1, controls] where axis 1 includes anchor
+        # For backward prediction, we need horizon controls (not including anchor)
+        horizon_plus_one = Q.shape[1]
+        horizon = horizon_plus_one - 1  # Actual prediction horizon
         state_dim = initial_state.shape[1]
         
         # Extract controls and mu
@@ -202,6 +227,13 @@ class predictor_backward_optimizer(template_predictor):
         if mu is not None:
             self._fast_optimizer.optimizer.set_mu(mu)
         
+        # Get optimizer options from Settings
+        from utilities.Settings import Settings
+        use_continuation = getattr(Settings, 'OPTIMIZER_USE_CONTINUATION', False)
+        continuation_stages = getattr(Settings, 'OPTIMIZER_CONTINUATION_STAGES', 5)
+        spread_anchor_error = getattr(Settings, 'OPTIMIZER_SPREAD_ANCHOR_ERROR', False)
+        use_gt_reference = getattr(Settings, 'OPTIMIZER_USE_GT_REFERENCE', False)
+        
         # Process each trajectory
         outputs = []
         all_converged = True
@@ -210,12 +242,35 @@ class predictor_backward_optimizer(template_predictor):
         
         for b in iterator:
             state_b = initial_state[b]
-            # Controls from prepare_predictor_inputs are [newest, ..., oldest]
-            # But optimizer expects [oldest, ..., newest], so reverse them
-            controls_b = controls[b, ::-1, :]  # [horizon, 2] reversed
+            # Controls from prepare_predictor_inputs have shape [horizon+1, 2] where first is anchor (not needed)
+            # Take only the past horizon controls [1:] and reverse to get [oldest, ..., newest]
+            controls_b = controls[b, 1:, :][::-1, :]  # [horizon, 2] skip anchor, reversed
             
-            # Run fast optimizer
-            past_states = self._fast_optimizer.predict(state_b, controls_b)
+            # Get reference trajectory for this sample if available
+            traj_ref_b = None
+            if use_gt_reference and self._reference_trajectory is not None:
+                if self._reference_trajectory.ndim == 3:
+                    # [batch, horizon+1, state_dim] -> extract [horizon+1, state_dim] for sample b
+                    if b < self._reference_trajectory.shape[0]:
+                        # Reference is [batch, horizon+1, state_dim], output order: [newest, ..., oldest]
+                        # Optimizer expects traj_ref as [oldest, ..., newest] excluding anchor
+                        ref_traj = self._reference_trajectory[b]  # [horizon+1, state_dim]
+                        # ref_traj[0] is anchor (newest), ref_traj[-1] is oldest
+                        # For optimizer, we need [oldest, oldest+1, ..., newest-1] (H points)
+                        traj_ref_b = ref_traj[1:, :][::-1, :]  # [horizon, state_dim] oldest to newest
+                elif self._reference_trajectory.ndim == 2:
+                    # [horizon+1, state_dim] - single trajectory
+                    ref_traj = self._reference_trajectory
+                    traj_ref_b = ref_traj[1:, :][::-1, :]
+            
+            # Run fast optimizer with options
+            past_states = self._fast_optimizer.predict(
+                state_b, controls_b,
+                traj_ref=traj_ref_b,
+                continuation=use_continuation,
+                continuation_stages=continuation_stages,
+                spread_anchor_error=spread_anchor_error,
+            )
             
             if past_states is None:
                 self._last_converged = False
@@ -236,6 +291,9 @@ class predictor_backward_optimizer(template_predictor):
             print(f"[BP optimizer] {n_failed}/{batch_size} trajectories failed")
         
         output = np.stack(outputs, axis=0)  # [batch_size, horizon+1, state_dim]
+        
+        # Store for potential use as reference for other mu values
+        self._last_backward_output = output.copy()
         
         if squeeze_batch:
             output = output[0]

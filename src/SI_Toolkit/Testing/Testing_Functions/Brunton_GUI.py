@@ -519,7 +519,7 @@ class MainWindow(QMainWindow):
         else:
             pred_array = first_pred[0]
         
-        self.max_horizon = pred_array.shape[-2] - 1 - 1  # Contains seed state hance -1; Predicts one additional step hence -1 - but the last prediction does not have control input paired with it.
+        self.max_horizon = pred_array.shape[-2] - 1  # shape[-2] = horizon+1 (includes seed state), so -1 gives the actual prediction horizon
         self.horizon = int(np.ceil(self.max_horizon / 2))
 
         if hasattr(self, 'sl_h'):

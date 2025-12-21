@@ -12,6 +12,64 @@ except ImportError:
     HAS_AUGMENTATION = False
 
 
+def _build_gt_reference_trajectories(
+        dataset,
+        output_features: np.ndarray,
+        predictor_horizon: int,
+        test_len_full: int,
+        test_stride: int = 1,
+) -> Optional[np.ndarray]:
+    """
+    Build ground truth backward trajectories from the dataset.
+    
+    For each anchor point k (at dataset index predictor_horizon + k),
+    the GT backward trajectory is the sequence of states:
+    [x(k), x(k-1), ..., x(k-H)] where H = predictor_horizon
+    
+    This matches the output format of backward predictors.
+    
+    Args:
+        dataset: DataFrame with state features
+        output_features: Names of output features
+        predictor_horizon: Maximum backward horizon
+        test_len_full: Number of trajectories (before stride)
+        test_stride: Stride for selecting trajectories
+        
+    Returns:
+        gt_trajectories: [test_len, horizon+1, features] array
+                        where trajectories[k, 0, :] is anchor state
+                        and trajectories[k, h, :] is state at t-h
+    """
+    from utilities.Settings import Settings
+    
+    # Only build GT reference if optimizer mode with GT reference enabled
+    use_gt_reference = getattr(Settings, 'OPTIMIZER_USE_GT_REFERENCE', False)
+    if not use_gt_reference:
+        return None
+    
+    # Check if output features exist in dataset
+    output_feature_list = list(output_features)
+    for feat in output_feature_list:
+        if feat not in dataset.columns:
+            return None  # Can't build GT reference
+    
+    # Build GT trajectories
+    num_trajectories = (test_len_full + test_stride - 1) // test_stride
+    gt_trajectories = np.zeros((num_trajectories, predictor_horizon + 1, len(output_feature_list)), dtype=np.float32)
+    
+    for i, traj_idx in enumerate(range(0, test_len_full, test_stride)):
+        # Anchor is at dataset index (predictor_horizon + traj_idx)
+        anchor_idx = predictor_horizon + traj_idx
+        
+        for h in range(predictor_horizon + 1):
+            # h=0 is anchor, h=1 is t-1, etc.
+            data_idx = anchor_idx - h
+            for j, feat in enumerate(output_feature_list):
+                gt_trajectories[i, h, j] = dataset[feat].iloc[data_idx]
+    
+    return gt_trajectories
+
+
 def predict_with_fixed_batch_size(
         predictor: PredictorWrapper,
         initial_input: np.ndarray,
@@ -106,7 +164,11 @@ def prepare_predictor_inputs(
     
     if predictor_initial_input is not None:
         if backward_mode:
-            predictor_initial_input = predictor_initial_input[predictor_horizon + 1:, :]
+            # For backward mode, anchor for trajectory k is at dataset index (predictor_horizon + k)
+            # The last valid anchor is at dataset[-2] because we need control at dataset[-1] for that trajectory
+            # So we use [predictor_horizon:-1] to get anchors at indices [H, H+1, ..., N-2] where N=dataset_len
+            # This gives test_len_full = N - H - 1 trajectories, matching the external input array
+            predictor_initial_input = predictor_initial_input[predictor_horizon:-1, :]
         else:
             predictor_initial_input = predictor_initial_input[:predictor_initial_input_len-predictor_horizon, :]
     
@@ -548,6 +610,18 @@ def get_prediction(
             predictor_external_input_array[:, :, param_idx] = param_value
         else:
             print(f"Warning: param_name '{param_name}' not found in external features: {external_features}")
+
+    # For backward optimizer, build and set GT reference trajectories
+    if backward_mode and hasattr(predictor, 'predictor') and hasattr(predictor.predictor, 'set_reference_trajectory'):
+        gt_ref = _build_gt_reference_trajectories(
+            dataset=dataset,
+            output_features=predictor.predictor.predictor_output_features,
+            predictor_horizon=predictor_horizon,
+            test_len_full=test_len_full + 1,  # Add 1 back since we subtracted earlier
+            test_stride=test_stride,
+        )
+        if gt_ref is not None:
+            predictor.predictor.set_reference_trajectory(gt_ref)
 
     if mode == 'batch':
         output = predictor.predict(predictor_initial_input, predictor_external_input_array)
