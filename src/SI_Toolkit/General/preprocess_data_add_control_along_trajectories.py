@@ -83,6 +83,14 @@ def add_control_along_trajectories(
     # Process random sampling features
     df, environment_attributes_dict = process_random_sampling(df, environment_attributes_dict)
 
+    # Process regular grid evaluation features (e.g. mu_regular_grid_0.3_1.1_0.05)
+    # This generates multiple controller outputs per row (one per grid point).
+    environment_attributes_dict, regular_grid_specs, names_of_variables_to_save = process_regular_grid(
+        df=df,
+        environment_attributes_dict=environment_attributes_dict,
+        output_variable_names=names_of_variables_to_save,
+    )
+
     df_original = df.copy()
     df = df_modifier(df)
 
@@ -94,7 +102,21 @@ def add_control_along_trajectories(
                                                                                          environment_attributes_dict,
                                                                                          names_of_variables_to_save)
 
-    initial_environment_attributes = {key: df[value].iloc[0] for key, value in environment_attributes_dict.items()}
+    if regular_grid_specs and (integration_features or differentiation_features):
+        raise ValueError("Cannot use regular_grid features together with integrate/differentiate features.")
+
+    # Build initial environment attributes:
+    # - for normal (column-based) attributes use df[value].iloc[0]
+    # - for regular_grid specs, seed with the first grid value
+    initial_environment_attributes = {}
+    for key, value in environment_attributes_dict.items():
+        if value in df.columns:
+            initial_environment_attributes[key] = df[value].iloc[0]
+        else:
+            initial_environment_attributes[key] = np.nan
+    for spec in regular_grid_specs:
+        initial_environment_attributes[spec["controller_key"]] = float(spec["grid_values"][0])
+
     controller_instance = controller_creator(controller_config, initial_environment_attributes)
 
     Q_sequence = []
@@ -114,7 +136,10 @@ def add_control_along_trajectories(
         for idx, row in df.iterrows():
             s = row[state_components]
             time_step = row['time']
-            environment_attributes = {key: row[value] for key, value in environment_attributes_dict.items()}
+            environment_attributes = {}
+            for key, value in environment_attributes_dict.items():
+                if value in row.index:
+                    environment_attributes[key] = row[value]
 
             if integration_features and differentiation_features:
                 raise ValueError("Cannot integrate and differentiate at the same time.")
@@ -144,11 +169,33 @@ def add_control_along_trajectories(
 
 
             else:
-                Q = np.atleast_1d(controller_instance.step(
-                    s=s,
-                    time=time_step,
-                    updated_attributes=environment_attributes,
-                ))
+                if regular_grid_specs:
+                    if len(regular_grid_specs) != 1:
+                        raise ValueError(
+                            f"Only one regular_grid feature is supported at a time, got {len(regular_grid_specs)}."
+                        )
+                    spec = regular_grid_specs[0]
+                    grid_key = spec["controller_key"]
+                    grid_values = spec["grid_values"]
+
+                    outputs = []
+                    for gv in grid_values:
+                        updated_attributes = dict(environment_attributes)
+                        updated_attributes[grid_key] = float(gv)
+                        out = np.atleast_1d(controller_instance.step(
+                            s=s,
+                            time=time_step,
+                            updated_attributes=updated_attributes,
+                        ))
+                        outputs.append(out)
+
+                    Q = np.concatenate(outputs, axis=0)
+                else:
+                    Q = np.atleast_1d(controller_instance.step(
+                        s=s,
+                        time=time_step,
+                        updated_attributes=environment_attributes,
+                    ))
             Q_sequence.append(Q)
 
             # Update progress bar
@@ -230,6 +277,83 @@ def process_random_sampling(df, environment_attributes_dict):
             environment_attributes_dict[key] = new_feature_name
 
     return df, environment_attributes_dict
+
+
+def _format_grid_value_for_column(value: float) -> str:
+    """
+    Format a float into a stable column suffix, e.g. 0.3 -> '0p3', 1.1 -> '1p1'.
+    """
+    s = f"{float(value):.6f}".rstrip('0').rstrip('.')
+    return s.replace('.', 'p').replace('-', 'm')
+
+
+def process_regular_grid(df, environment_attributes_dict, output_variable_names):
+    """
+    Process regular grid specs in environment_attributes_dict.
+
+    Example:
+        environment_attributes_dict["mu"] = "mu_regular_grid_0.3_1.1_0.5"
+
+    Behavior:
+    - Does NOT add new columns to df.
+    - Returns:
+        - updated environment_attributes_dict (grid spec value replaced with the base feature name)
+        - regular_grid_specs: list of dicts with controller_key, feature, grid_values
+        - updated output_variable_names (expanded with suffixes for each grid value)
+    """
+    pattern = re.compile(r'^(.+)_regular_grid_([-+]?\d*\.?\d+)_([-+]?\d*\.?\d+)_([-+]?\d*\.?\d+)_?$')
+    regular_grid_specs = []
+
+    for key, value in list(environment_attributes_dict.items()):
+        match = pattern.match(value)
+        if not match:
+            continue
+
+        feature = match.group(1)
+        try:
+            vmin = float(match.group(2))
+            vmax = float(match.group(3))
+            step = float(match.group(4))
+        except ValueError:
+            raise ValueError(f"Invalid regular_grid spec: {value}")
+        if step <= 0:
+            raise ValueError(f"regular_grid step must be positive in spec: {value}")
+        if vmax < vmin:
+            raise ValueError(f"regular_grid max must be >= min in spec: {value}")
+
+        # Include upper bound if it lands on the grid; epsilon helps floating precision.
+        grid_values = np.arange(vmin, vmax + step / 10, step, dtype=float)
+        if grid_values.size == 0:
+            raise ValueError(f"regular_grid produced empty grid for spec: {value}")
+
+        regular_grid_specs.append(
+            {
+                "controller_key": key,  # name used by controller, e.g. 'mu'
+                "feature": feature,      # base feature name, e.g. 'mu'
+                "grid_values": grid_values,
+            }
+        )
+
+        # Replace the spec with the base feature name (may or may not exist as a df column).
+        environment_attributes_dict[key] = feature
+
+    if regular_grid_specs:
+        # Expand output names: one set of outputs per grid value.
+        if len(regular_grid_specs) != 1:
+            raise ValueError(
+                f"Only one regular_grid feature is supported at a time, got {len(regular_grid_specs)}."
+            )
+
+        spec = regular_grid_specs[0]
+        feature = spec["feature"]
+        expanded = []
+        for gv in spec["grid_values"]:
+            gv_suffix = _format_grid_value_for_column(gv)
+            for base in output_variable_names:
+                expanded.append(f"{base}_{feature}_{gv_suffix}")
+        output_variable_names = expanded
+
+    return environment_attributes_dict, regular_grid_specs, output_variable_names
 
 
 def get_integration_features(df, environment_attributes_dict):
