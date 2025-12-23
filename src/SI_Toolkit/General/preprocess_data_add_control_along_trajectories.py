@@ -79,6 +79,10 @@ def add_control_along_trajectories(
     else:
         names_of_variables_to_save = controller_output_variable_name
 
+    # Keep a copy of the "base" output names (before regular_grid expands them).
+    # For regular_grid we expect the controller output dimension to match this base list length.
+    base_output_names_pre_grid = list(names_of_variables_to_save)
+
 
     # Process random sampling features
     df, environment_attributes_dict = process_random_sampling(df, environment_attributes_dict)
@@ -120,31 +124,48 @@ def add_control_along_trajectories(
     controller_instance = controller_creator(controller_config, initial_environment_attributes)
 
     Q_sequence = []
+    state_components = controller_config['state_components']
+    # Optional evaluation order for regular_grid:
+    # - by_row (legacy): for each row, evaluate all grid values
+    # - by_grid: for each grid value, run through the whole trajectory (better for stateful controllers / MPC warm-start)
+    regular_grid_eval_order = str(kwargs.get('regular_grid_eval_order', 'by_row')).lower()
+    regular_grid_reset_between_values = bool(kwargs.get('regular_grid_reset_between_values', True))
+
+    if regular_grid_specs and regular_grid_eval_order not in ('by_row', 'by_grid'):
+        raise ValueError(
+            f"Invalid regular_grid_eval_order='{regular_grid_eval_order}'. "
+            f"Supported: 'by_row' or 'by_grid'."
+        )
+
+    bar_total = len(df)
+    if regular_grid_specs and regular_grid_eval_order == 'by_grid':
+        # We do len(df) controller steps per grid value.
+        bar_total = len(df) * len(regular_grid_specs[0]["grid_values"])
+
     bar = tqdm(
-        total=len(df),
+        total=bar_total,
         desc='Processing Sequence',
         leave=True,
         bar_format='{desc}: {n}/{total} [{elapsed}<{remaining}, {rate_fmt}]',
         dynamic_ncols=True
     )
-    state_components = controller_config['state_components']
     try:
         # Reset or reinitialize the controller if necessary
         if hasattr(controller_instance, 'reset'):
             controller_instance.reset()
 
-        for idx, row in df.iterrows():
-            s = row[state_components]
-            time_step = row['time']
-            environment_attributes = {}
-            for key, value in environment_attributes_dict.items():
-                if value in row.index:
-                    environment_attributes[key] = row[value]
+        if integration_features and differentiation_features:
+            raise ValueError("Cannot integrate and differentiate at the same time.")
 
-            if integration_features and differentiation_features:
-                raise ValueError("Cannot integrate and differentiate at the same time.")
-
-            if integration_features:
+        if integration_features:
+            # Integration always runs by_row (one result per row).
+            for idx, row in df.iterrows():
+                s = row[state_components]
+                time_step = row['time']
+                environment_attributes = {
+                    key: row[value] for key, value in environment_attributes_dict.items()
+                    if value in row.index
+                }
                 Q = integration(
                     controller=controller_instance,
                     s=s,
@@ -155,51 +176,121 @@ def add_control_along_trajectories(
                     method=integration_method,
                     num_evals=integration_num_evals,
                 )
-            elif differentiation_features:
+                Q_sequence.append(Q)
+                bar.update(1)
+
+        elif differentiation_features:
+            # Differentiation always runs by_row (one result per row).
+            for idx, row in df.iterrows():
+                s = row[state_components]
+                time_step = row['time']
+                environment_attributes = {
+                    key: row[value] for key, value in environment_attributes_dict.items()
+                    if value in row.index
+                }
                 jacobian, control = differentiation(
-                        controller=controller_instance,
-                        s=s,
-                        time=time_step,
-                        environment_attributes=environment_attributes,
-                        differentiation_features=differentiation_features,
-                    )
+                    controller=controller_instance,
+                    s=s,
+                    time=time_step,
+                    environment_attributes=environment_attributes,
+                    differentiation_features=differentiation_features,
+                )
                 jacobian_flat = jacobian.flatten()
                 control_flat = control.flatten()
                 Q = np.concatenate((jacobian_flat, control_flat))
+                Q_sequence.append(Q)
+                bar.update(1)
 
+        else:
+            if regular_grid_specs:
+                if len(regular_grid_specs) != 1:
+                    raise ValueError(
+                        f"Only one regular_grid feature is supported at a time, got {len(regular_grid_specs)}."
+                    )
+                spec = regular_grid_specs[0]
+                grid_key = spec["controller_key"]
+                grid_values = spec["grid_values"]
+
+                base_output_dim = len(base_output_names_pre_grid)
+                # Preallocate output matrix for regular_grid:
+                # shape = (num_rows, base_output_dim * num_grid_values)
+                Q_mat = np.zeros((len(df), base_output_dim * len(grid_values)), dtype=float)
+
+                if regular_grid_eval_order == 'by_row':
+                    for ridx, row in enumerate(df.itertuples(index=False)):
+                        # Use df columns by name (slower), but keep logic close to legacy path.
+                        row_s = getattr(row, state_components)
+                        row_t = getattr(row, 'time')
+                        environment_attributes = {}
+                        for key, value in environment_attributes_dict.items():
+                            if hasattr(row, value):
+                                environment_attributes[key] = getattr(row, value)
+
+                        outputs = []
+                        for gv in grid_values:
+                            updated_attributes = dict(environment_attributes)
+                            updated_attributes[grid_key] = float(gv)
+                            out = np.atleast_1d(controller_instance.step(
+                                s=row_s,
+                                time=row_t,
+                                updated_attributes=updated_attributes,
+                            )).astype(float)
+                            outputs.append(out)
+                        Q_row = np.concatenate(outputs, axis=0)
+                        Q_mat[ridx, :] = Q_row
+                        Q_sequence.append(Q_row)
+                        bar.update(1)
+
+                else:  # by_grid
+                    # Run entire trajectory per grid value, then fill the corresponding block of columns.
+                    for g_i, gv in enumerate(grid_values):
+                        if regular_grid_reset_between_values and hasattr(controller_instance, 'reset'):
+                            controller_instance.reset()
+
+                        col_start = g_i * base_output_dim
+                        col_end = (g_i + 1) * base_output_dim
+
+                        for ridx, row in enumerate(df.itertuples(index=False)):
+                            row_s = getattr(row, state_components)
+                            row_t = getattr(row, 'time')
+                            environment_attributes = {}
+                            for key, value in environment_attributes_dict.items():
+                                if hasattr(row, value):
+                                    environment_attributes[key] = getattr(row, value)
+                            environment_attributes[grid_key] = float(gv)
+
+                            out = np.atleast_1d(controller_instance.step(
+                                s=row_s,
+                                time=row_t,
+                                updated_attributes=environment_attributes,
+                            )).astype(float)
+
+                            if out.shape[0] != base_output_dim:
+                                raise ValueError(
+                                    f"Controller output dimension mismatch for regular_grid. "
+                                    f"Expected {base_output_dim} (from controller_output_variable_name), got {out.shape[0]}."
+                                )
+                            Q_mat[ridx, col_start:col_end] = out
+                            bar.update(1)
+
+                    Q_sequence = Q_mat  # override list accumulation; we already built the full matrix
 
             else:
-                if regular_grid_specs:
-                    if len(regular_grid_specs) != 1:
-                        raise ValueError(
-                            f"Only one regular_grid feature is supported at a time, got {len(regular_grid_specs)}."
-                        )
-                    spec = regular_grid_specs[0]
-                    grid_key = spec["controller_key"]
-                    grid_values = spec["grid_values"]
+                for idx, row in df.iterrows():
+                    s = row[state_components]
+                    time_step = row['time']
+                    environment_attributes = {}
+                    for key, value in environment_attributes_dict.items():
+                        if value in row.index:
+                            environment_attributes[key] = row[value]
 
-                    outputs = []
-                    for gv in grid_values:
-                        updated_attributes = dict(environment_attributes)
-                        updated_attributes[grid_key] = float(gv)
-                        out = np.atleast_1d(controller_instance.step(
-                            s=s,
-                            time=time_step,
-                            updated_attributes=updated_attributes,
-                        ))
-                        outputs.append(out)
-
-                    Q = np.concatenate(outputs, axis=0)
-                else:
                     Q = np.atleast_1d(controller_instance.step(
                         s=s,
                         time=time_step,
                         updated_attributes=environment_attributes,
                     ))
-            Q_sequence.append(Q)
-
-            # Update progress bar
-            bar.update(1)
+                    Q_sequence.append(Q)
+                    bar.update(1)
 
     except Exception as e:
         print(f"Error in processing sequence: {e}")
