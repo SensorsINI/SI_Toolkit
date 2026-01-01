@@ -10,7 +10,10 @@ from scipy.stats import qmc
 from math import ceil
 
 from scipy.signal import savgol_filter
-import numdifftools as nd
+try:
+    import numdifftools as nd  # optional; only needed for differentiation features
+except ModuleNotFoundError:
+    nd = None
 from typing import Any, Dict, List, Tuple
 import warnings
 from copy import deepcopy
@@ -645,6 +648,11 @@ def differentiation(
         - jacobian: A (output_dim, num_features) array of derivatives.
         - central_outputs: A (output_dim, num_features) array of controller outputs at the central points.
     """
+    if method == 'nd' and nd is None:
+        raise ModuleNotFoundError(
+            "Differentiation method 'nd' requires 'numdifftools', but it is not installed in this environment. "
+            "Install it (e.g. `pip install numdifftools`) or use method='savgol'."
+        )
 
     # Set default parameters based on method
     if method == 'savgol':
