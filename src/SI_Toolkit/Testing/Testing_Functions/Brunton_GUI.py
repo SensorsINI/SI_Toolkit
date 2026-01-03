@@ -863,7 +863,11 @@ class MainWindow(QMainWindow):
             predictions = predictions[:, 1:self.horizon+1]
 
             if labels_shift != 0:
-                ground_truth = self.ground_truth_for_error_calculation_show_all(ground_truth, self.horizon, labels_shift, self.max_horizon)
+                # Pass actual prediction count to ensure ground_truth has matching length
+                num_predictions = predictions.shape[0]
+                ground_truth = self.ground_truth_for_error_calculation_show_all(
+                    ground_truth, self.horizon, labels_shift, self.max_horizon, num_predictions
+                )
 
         else:
             if labels_shift == 0:
@@ -890,7 +894,18 @@ class MainWindow(QMainWindow):
     def ground_truth_for_error_calculation_show_all(ground_truth,
                                                     horizon,
                                                     labels_shift,
-                                                    alignment_horizon):
+                                                    alignment_horizon,
+                                                    num_predictions=None):
+        """
+        Extract ground truth slices for error calculation in show-all mode.
+        
+        Args:
+            ground_truth: 1D array of ground truth values
+            horizon: Number of prediction steps to extract
+            labels_shift: Time step direction (+1 for forward, -1 for backward)
+            alignment_horizon: Maximum horizon (used for fallback calculation)
+            num_predictions: Actual number of predictions (if provided, ensures exact match)
+        """
         if labels_shift == 0:
             raise ValueError("Show-all ground truth extraction expects non-zero labels_shift.")
 
@@ -901,6 +916,7 @@ class MainWindow(QMainWindow):
                 horizon,
                 -labels_shift,
                 alignment_horizon,
+                num_predictions,
             )
             return reversed_gt[::-1]
 
@@ -909,7 +925,11 @@ class MainWindow(QMainWindow):
             gt_slices_partial = []
             for j in range(labels_shift):
                 start_idx = i * labels_shift + j
-                stop_idx = ground_truth.shape[0] - (alignment_horizon - i) * labels_shift + j
+                # Use num_predictions if provided, otherwise fall back to old formula
+                if num_predictions is not None:
+                    stop_idx = start_idx + num_predictions * labels_shift
+                else:
+                    stop_idx = ground_truth.shape[0] - (alignment_horizon - i) * labels_shift + j
                 gt_slices_partial.append(ground_truth[start_idx:stop_idx:labels_shift])
             if gt_slices_partial:
                 gt_slices_partial = np.dstack(gt_slices_partial).flatten()
