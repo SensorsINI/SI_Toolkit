@@ -849,9 +849,31 @@ class MainWindow(QMainWindow):
 
             error = np.sqrt(error ** 2 + error_2 ** 2)
 
-        self.MSE_along_horizon = np.mean(error ** 2)
-        self.MSE_at_horizon = np.mean(error[..., -1] ** 2)
-        self.max_error = np.max(np.abs(error))
+        # Ensure error is a float array (can be object array from shape mismatch)
+        try:
+            error = np.asarray(error, dtype=np.float64)
+        except (ValueError, TypeError):
+            # Cannot convert to float - no valid error values
+            self.MSE_along_horizon = 0.0
+            self.MSE_at_horizon = 0.0
+            self.sqrt_MSE_along_horizon = 0.0
+            self.sqrt_MSE_at_horizon = 0.0
+            self.max_error = 0.0
+            return
+        
+        # Check if there are any valid (non-NaN) values
+        if error.size == 0 or np.all(np.isnan(error)):
+            # Empty or all NaN - no valid error values
+            self.MSE_along_horizon = 0.0
+            self.MSE_at_horizon = 0.0
+            self.sqrt_MSE_along_horizon = 0.0
+            self.sqrt_MSE_at_horizon = 0.0
+            self.max_error = 0.0
+            return
+        
+        self.MSE_along_horizon = np.nanmean(error ** 2)
+        self.MSE_at_horizon = np.nanmean(error[..., -1] ** 2)
+        self.max_error = np.nanmax(np.abs(error))
 
         # Compute the square root of the calculated MSE to get the final error metric.
         self.sqrt_MSE_at_horizon = np.sqrt(self.MSE_at_horizon)
@@ -1070,14 +1092,35 @@ def brunton_widget(features, ground_truth, predictions_array, time_axis, axs=Non
                                  label='Forward recon.')
 
     else:
+        # Compute expected time axis length for show-all mode
+        if dt_predictions > 0:
+            time_axis_for_show_all = time_axis[:-max_horizon]
+        else:
+            time_axis_for_show_all = time_axis[max_horizon + 1:]
+        
+        # Handle potential size mismatch between predictions and time_axis
+        # This can happen due to floating-point issues in time_axis generation or off-by-one in indexing
+        num_predictions = predictions_array.shape[0]
+        num_time_points = len(time_axis_for_show_all)
+        
+        if num_predictions != num_time_points:
+            # Use the minimum to avoid index errors
+            min_len = min(num_predictions, num_time_points)
+            predictions_array_trimmed = predictions_array[:min_len, :, :]
+            if dt_predictions > 0:
+                time_axis_for_show_all = time_axis[:min_len] + 0  # Forward: starts at 0
+            else:
+                time_axis_for_show_all = time_axis[max_horizon + 1:max_horizon + 1 + min_len]
+        else:
+            predictions_array_trimmed = predictions_array
 
         for i in range(1, horizon+1):
 
-            prediction_to_plot.append(predictions_array[:, i, feature_idx].squeeze())
+            prediction_to_plot.append(predictions_array_trimmed[:, i, feature_idx].squeeze())
             if dt_predictions > 0:
-                time_axis_to_plot = time_axis[:-max_horizon]+i*dt_predictions
+                time_axis_to_plot = time_axis_for_show_all + i * dt_predictions
             else:
-                time_axis_to_plot = time_axis[max_horizon + 1:] + i * dt_predictions
+                time_axis_to_plot = time_axis_for_show_all + i * dt_predictions
             
             if downsample:
                 if (i % 2) == 0:
