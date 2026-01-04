@@ -1,4 +1,4 @@
 # pyproject.toml file specified at the root of the directory
 [build-system]
-requires = ["setuptools>=64.0.0"]   # PEP 508 specifications.
+requires = ["setuptools>=64.0.0"]   # PEP 508 specifications. Updated to support PEP 660 (editable installs)
 build-backend = "setuptools.build_meta"
