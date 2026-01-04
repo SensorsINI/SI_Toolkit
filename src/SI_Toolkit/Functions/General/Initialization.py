@@ -26,7 +26,42 @@ def set_seed(args):
     rnd.seed(seed)
     np.random.seed(seed)
     if args.library == 'TF':
+        # Set up CUDA library paths before importing TensorFlow
+        import os
+        import platform
+
+        # Only set up CUDA library paths on Linux (where CUDA is typically used)
+        if platform.system() == 'Linux':
+            conda_prefix = os.environ.get('CONDA_PREFIX')
+            if conda_prefix:
+                lib_path = os.path.join(conda_prefix, 'lib')
+                system_lib_path = '/usr/lib/x86_64-linux-gnu'
+                current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+                new_ld_path = f"{lib_path}:{system_lib_path}"
+                if current_ld_path:
+                    new_ld_path = f"{new_ld_path}:{current_ld_path}"
+                os.environ['LD_LIBRARY_PATH'] = new_ld_path
+
         import tensorflow as tf
+
+        # Configure GPU settings BEFORE any operations that might initialize GPU
+        # Only on Linux/Unix systems where CUDA GPUs are typically available
+        if platform.system() in ('Linux', 'Unix'):
+            try:
+                gpus = tf.config.list_physical_devices('GPU')
+                if gpus:
+                    try:
+                        # Enable memory growth to avoid allocating all GPU memory at once
+                        for gpu in gpus:
+                            tf.config.experimental.set_memory_growth(gpu, True)
+                    except RuntimeError:
+                        # GPU already initialized, that's okay - skip configuration
+                        pass
+            except Exception:
+                # If GPU detection fails for any reason, continue without GPU
+                # This handles cases where CUDA libraries are missing or incompatible
+                pass
+
         tf.random.set_seed(seed)
     else:  # Pytorch
         pass

@@ -2,6 +2,22 @@ import os.path
 import time
 import timeit
 import shutil
+import platform
+
+# CRITICAL: Set up CUDA library paths BEFORE any TensorFlow imports
+# This must happen before any module that imports TensorFlow is loaded
+# Only on Linux where CUDA is typically used
+if platform.system() == 'Linux':
+    conda_prefix = os.environ.get('CONDA_PREFIX')
+    if conda_prefix:
+        lib_path = os.path.join(conda_prefix, 'lib')
+        system_lib_path = '/usr/lib/x86_64-linux-gnu'
+        current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+        # Add conda lib and system CUDA lib paths
+        new_ld_path = f"{lib_path}:{system_lib_path}"
+        if current_ld_path:
+            new_ld_path = f"{new_ld_path}:{current_ld_path}"
+        os.environ['LD_LIBRARY_PATH'] = new_ld_path
 
 try:
     import nni

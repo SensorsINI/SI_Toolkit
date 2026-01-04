@@ -2,6 +2,19 @@ import os
 import sys
 import numpy as np
 
+# Set up CUDA library paths before importing TensorFlow
+# This ensures TensorFlow can find CUDA libraries in the conda environment
+conda_prefix = os.environ.get('CONDA_PREFIX')
+if conda_prefix:
+    lib_path = os.path.join(conda_prefix, 'lib')
+    system_lib_path = '/usr/lib/x86_64-linux-gnu'
+    current_ld_path = os.environ.get('LD_LIBRARY_PATH', '')
+    # Add conda lib and system CUDA lib paths
+    new_ld_path = f"{lib_path}:{system_lib_path}"
+    if current_ld_path:
+        new_ld_path = f"{new_ld_path}:{current_ld_path}"
+    os.environ['LD_LIBRARY_PATH'] = new_ld_path
+
 from SI_Toolkit.Functions.TF.Network import plot_weights_distribution, get_activation_statistics
 
 from tensorflow import keras
@@ -21,6 +34,25 @@ from SI_Toolkit.Functions.TF.Dataset import Dataset
 from SI_Toolkit.Functions.TF.Loss import LossMeanResidual
 
 import tensorflow as tf
+
+# Check and report GPU status (configuration already done in set_seed)
+gpus = tf.config.list_physical_devices('GPU')
+if gpus:
+    print(f'✅ Found {len(gpus)} GPU(s). GPU will be used for training.')
+    for i, gpu in enumerate(gpus):
+        print(f'  GPU {i}: {gpu.name}')
+        try:
+            details = tf.config.experimental.get_device_details(gpu)
+            if details:
+                print(f'    Details: {details}')
+        except:
+            pass
+else:
+    print('⚠️  No GPU devices found. Training will use CPU.')
+    print('   This may be due to:')
+    print('   1. GPU not accessible in this session')
+    print('   2. NVIDIA driver not loaded')
+    print('   3. CUDA libraries not found')
 
 _CKPT_SUFFIX = ".weights.h5"
 
