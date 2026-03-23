@@ -9,7 +9,6 @@ from SI_Toolkit.Predictors.autoregression import autoregression_loop, check_dime
 
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = "1"  # Restrict printing messages from TF
 
-
 class model_interface:
     def __init__(self, single_step_predictor, num_control_inputs):
         self.model = single_step_predictor

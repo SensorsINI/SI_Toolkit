@@ -275,7 +275,10 @@ class NumpyLibrary(ComputationLibrary):
         self.tanh = np.tanh
         self.exp = np.exp
         self.reciprocal = np.reciprocal
-        self.squeeze = np.squeeze
+        self.squeeze = lambda array, axis=None: (
+            np.squeeze(array) if axis is None else
+            (np.squeeze(array, axis=axis) if array.shape[axis] == 1 else array)
+        )
         self.unsqueeze = np.expand_dims
         self.stack = np.stack
         self.cast = lambda x, t: x.astype(t)

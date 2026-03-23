@@ -1,10 +1,3 @@
-# dataset_tf.py
-# Copyright (c) 2025 ...
-# -----------------------------------------------------------------------------
-# A fully ‑vectorised tf.data implementation that mirrors the semantics of the
-# legacy Keras Sequence‑based loader found in DatasetTemplate.
-# -----------------------------------------------------------------------------
-
 from __future__ import annotations  # Python ≥3.11 – allows list | None type‑hints
 
 import hashlib
@@ -100,6 +93,9 @@ class Dataset(DatasetTemplate):
         """
         full_len = self.exp_len + self.shift_labels  # == frame_length
         n_in, n_out = len(self.inputs), len(self.outputs)
+
+        x = tf.cast(x, tf.float32)
+        y = tf.cast(y, tf.float32)
 
         combined = tf.concat([x, y], axis=1)                    # «T, n_in + n_out»
 
