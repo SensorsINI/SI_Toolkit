@@ -1,6 +1,7 @@
 import sys
 import os
 import re
+import shutil
 
 
 class DualOutput:
@@ -48,30 +49,75 @@ class DualOutput:
         This is used if special_print_function is set to True.
         """
         if self.special_print_function:
-            ESC = '\033['
-            CLEAR_LINE = ESC + 'K'  # Clear the entire line after the cursor
-
-            # Clear the lines with temporary messages
-            for _ in range(self.counter_temporary_messages):
-                self.terminal.write(ESC + '1A' + CLEAR_LINE)  # Move cursor up and clear the line
+            if self.buffer:
+                self.clear_temporary_messages()
+                printed_buffer = self.print_buffered_messages()
+                if printed_buffer:
+                    self.terminal.write('\n')
+                self.print_temporary_messages()
+            else:
+                self.overwrite_temporary_messages()
             self.terminal.flush()
 
-            # Print accumulated messages to the terminal
-            for message in self.buffer:
-                self.terminal.write(message)
-            self.buffer.clear()  # Clear the buffer after printing
-            self.terminal.flush()
+    def clear_temporary_messages(self):
+        ESC = '\033['
+        CLEAR_LINE = ESC + '2K'  # Clear the entire line
 
-            # Get new counter value
-            # Print temporary messages to the terminal
-            self.counter_temporary_messages = 0
-            for message in self.buffer_temporary:
-                newline_count = message.count('\n')
-                self.counter_temporary_messages += newline_count
-                self.terminal.write(message)
-            self.buffer_temporary.clear()
+        for _ in range(self.counter_temporary_messages):
+            self.terminal.write('\r' + ESC + '1A' + CLEAR_LINE)
 
-            self.terminal.flush()
+        self.counter_temporary_messages = 0
+
+    def print_buffered_messages(self):
+        buffered_text = ''.join(self.buffer)
+        self.buffer.clear()
+
+        if not buffered_text:
+            return False
+
+        self.terminal.write(buffered_text)
+        if not buffered_text.endswith('\n'):
+            self.terminal.write('\n')
+
+        return True
+
+    def print_temporary_messages(self):
+        self.counter_temporary_messages = 0
+        for message in self.buffer_temporary:
+            self.counter_temporary_messages += count_terminal_rows(message)
+            self.terminal.write(message)
+        self.buffer_temporary.clear()
+
+    def overwrite_temporary_messages(self):
+        old_rows = self.counter_temporary_messages
+        new_rows = sum(count_terminal_rows(message) for message in self.buffer_temporary)
+
+        if old_rows:
+            self.terminal.write(f'\033[{old_rows}A')
+
+        for message in self.buffer_temporary:
+            self.terminal.write(message)
+        self.buffer_temporary.clear()
+
+        extra_rows = old_rows - new_rows
+        if extra_rows > 0:
+            for _ in range(extra_rows):
+                self.terminal.write('\r\033[2K\n')
+            self.terminal.write(f'\033[{extra_rows}A')
+
+        self.counter_temporary_messages = new_rows
+
+
+def count_terminal_rows(text):
+    terminal_width = shutil.get_terminal_size(fallback=(120, 24)).columns
+    visible_text = strip_escape_sequences(text).replace('\r', '')
+    rows = 0
+
+    for line in visible_text.splitlines():
+        rows += max(1, (len(line) + terminal_width - 1) // terminal_width)
+
+    return rows
+
 
 def strip_escape_sequences(text):
     # Regular expression to match ANSI escape sequences
