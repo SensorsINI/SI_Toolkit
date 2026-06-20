@@ -39,6 +39,39 @@ def ensure_weights_h5_suffix(path):
         return path.with_suffix('.weights.h5')
     return path
 
+def _load_weights_from_h5_by_order(net, h5_path):
+    import h5py
+
+    with h5py.File(h5_path, 'r') as h5_file:
+        if '_layer_checkpoint_dependencies' not in h5_file:
+            raise ValueError("H5 file does not contain Keras layer checkpoint dependencies")
+
+        arrays = []
+        layers_group = h5_file['_layer_checkpoint_dependencies']
+        for layer_name in layers_group:
+            vars_group = layers_group[layer_name].get('vars')
+            if vars_group is None:
+                continue
+
+            for var_name in sorted(vars_group.keys(), key=lambda name: int(name) if name.isdigit() else name):
+                arrays.append(np.array(vars_group[var_name]))
+
+    expected_weights = net.weights
+    if len(arrays) != len(expected_weights):
+        raise ValueError(
+            f"H5 fallback found {len(arrays)} arrays but model expects {len(expected_weights)} weights"
+        )
+
+    mismatched_shapes = [
+        (weight.name, tuple(weight.shape), array.shape)
+        for weight, array in zip(expected_weights, arrays)
+        if tuple(weight.shape) != array.shape
+    ]
+    if mismatched_shapes:
+        raise ValueError(f"H5 fallback shape mismatch: {mismatched_shapes}")
+
+    net.set_weights(arrays)
+
 def load_pretrained_net_weights(net, ckpt_path, verbose=True):
     """
     A function loading parameters (weights and biases) from a previous training to a net RNN instance.
@@ -58,7 +91,15 @@ def load_pretrained_net_weights(net, ckpt_path, verbose=True):
         if verbose:
             print(f"Attempting to load weights from existing H5 file: {h5_path}")
 
-        net.load_weights(str(h5_path))
+        try:
+            net.load_weights(str(h5_path))
+        except ValueError as error:
+            if verbose:
+                print(
+                    "Standard H5 weight loading failed; trying layer-order fallback "
+                    f"for legacy Keras names. Original error: {error}"
+                )
+            _load_weights_from_h5_by_order(net, h5_path)
         if verbose:
             print("Successfully loaded weights from H5.")
 
