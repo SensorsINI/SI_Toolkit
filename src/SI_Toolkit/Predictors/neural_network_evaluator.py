@@ -188,7 +188,7 @@ class neural_network_evaluator:
         if not lib_path.exists():
             cmd = [
                 'gcc', '-O3', '-fPIC', '-shared',
-                'network.c',
+                'network.c', 'network_parameters.c',
                 '-lm', '-o', lib_name
             ]
             # Windows: assume mingw‑w64 in PATH; otherwise adapt accordingly.
