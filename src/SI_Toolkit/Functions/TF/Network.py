@@ -39,6 +39,37 @@ def ensure_weights_h5_suffix(path):
         return path.with_suffix('.weights.h5')
     return path
 
+def _collect_h5_var_arrays(group):
+    """Keras 2.14 checkpoints nest LSTM weights at layer/cell/vars, Dense at layer/vars."""
+    arrays = []
+    if 'vars' in group:
+        vars_group = group['vars']
+        arrays.extend(
+            np.array(vars_group[var_name])
+            for var_name in sorted(
+                vars_group.keys(),
+                key=lambda name: int(name) if name.isdigit() else name,
+            )
+        )
+    for key in group:
+        if key == 'vars':
+            continue
+        child = group[key]
+        if hasattr(child, 'keys'):
+            arrays.extend(_collect_h5_var_arrays(child))
+    return arrays
+
+
+def _h5_layer_sort_key(name):
+    if name.startswith('lstm'):
+        parts = name.split('_')
+        index = int(parts[1]) if len(parts) > 1 and parts[1].isdigit() else 1
+        return (0, index)
+    if name.startswith('dense'):
+        return (1, 0)
+    return (2, name)
+
+
 def _load_weights_from_h5_by_order(net, h5_path):
     import h5py
 
@@ -48,13 +79,8 @@ def _load_weights_from_h5_by_order(net, h5_path):
 
         arrays = []
         layers_group = h5_file['_layer_checkpoint_dependencies']
-        for layer_name in layers_group:
-            vars_group = layers_group[layer_name].get('vars')
-            if vars_group is None:
-                continue
-
-            for var_name in sorted(vars_group.keys(), key=lambda name: int(name) if name.isdigit() else name):
-                arrays.append(np.array(vars_group[var_name]))
+        for layer_name in sorted(layers_group.keys(), key=_h5_layer_sort_key):
+            arrays.extend(_collect_h5_var_arrays(layers_group[layer_name]))
 
     expected_weights = net.weights
     if len(arrays) != len(expected_weights):
